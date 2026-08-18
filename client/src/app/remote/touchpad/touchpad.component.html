@@ -1,0 +1,34 @@
+<section class="touchpad-card" aria-label="Touchpad">
+  <div
+    class="touchpad-surface"
+    role="application"
+    aria-label="Touchpad Flaeche"
+    (pointerdown)="pointerDown($event)"
+    (pointermove)="pointerMove($event)"
+    (pointerup)="pointerUp($event)"
+    (pointercancel)="pointerCancel($event)"
+    (lostpointercapture)="lostPointerCapture($event)"
+    (contextmenu)="preventContextMenu($event)"
+  >
+    <span>Touchpad</span>
+  </div>
+
+  <div class="touchpad-buttons" aria-label="Maustasten">
+    <button
+      class="touchpad-button"
+      type="button"
+      aria-label="Linksklick"
+      (click)="clickMouseButton('left')"
+    >
+      Linksklick
+    </button>
+    <button
+      class="touchpad-button"
+      type="button"
+      aria-label="Rechtsklick"
+      (click)="clickMouseButton('right')"
+    >
+      Rechtsklick
+    </button>
+  </div>
+</section>

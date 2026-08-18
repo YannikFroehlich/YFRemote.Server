@@ -1,0 +1,85 @@
+:host {
+  display: block;
+  min-height: 0;
+}
+
+.touchpad-card {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-rows: minmax(260px, 1fr) 68px;
+  overflow: hidden;
+  border: 1px solid #3b3328;
+  border-radius: 8px;
+  background: #171410;
+}
+
+.touchpad-surface {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  border-bottom: 1px solid #3b3328;
+  background:
+    linear-gradient(135deg, rgba(113, 215, 196, 0.12), transparent 42%),
+    #1f1b15;
+  color: #7d7469;
+  cursor: crosshair;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.touchpad-surface span {
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.touchpad-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.touchpad-button {
+  min-height: 68px;
+  border: 0;
+  border-right: 1px solid #3b3328;
+  background: #211d17;
+  color: #f5eadb;
+  font-weight: 900;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.touchpad-button:last-child {
+  border-right: 0;
+}
+
+.touchpad-button:active {
+  transform: translateY(1px);
+  background: #2b251b;
+}
+
+.touchpad-button:focus-visible,
+.touchpad-surface:focus-visible {
+  outline: 3px solid rgba(113, 215, 196, 0.42);
+  outline-offset: -3px;
+}
+
+@media (max-height: 650px) {
+  .touchpad-card {
+    grid-template-rows: minmax(220px, 1fr) 64px;
+  }
+
+  .touchpad-surface {
+    min-height: 220px;
+  }
+
+  .touchpad-button {
+    min-height: 64px;
+  }
+}

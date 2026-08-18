@@ -1,0 +1,91 @@
+<div class="settings-layer">
+  <button
+    class="settings-scrim"
+    type="button"
+    aria-label="Schliessen"
+    (click)="close()"
+  ></button>
+
+  <section
+    class="settings-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="settings-title"
+  >
+    <header class="settings-dialog__header">
+      <div>
+        <p class="eyebrow">Server</p>
+        <h2 id="settings-title">Einstellungen</h2>
+      </div>
+      <button class="round-button" type="button" aria-label="Schliessen" (click)="close()">
+        <span aria-hidden="true">x</span>
+      </button>
+    </header>
+
+    <p class="settings-dialog__status">Status: {{ status() }}</p>
+
+    <form class="settings-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <label class="field" for="server-host">
+        <span>Host/IP</span>
+        <input
+          id="server-host"
+          type="text"
+          formControlName="host"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          inputmode="url"
+        />
+        @if (hasFieldError('host')) {
+          <small>Nur Hostname oder IPv4 ohne Protokoll/Pfad.</small>
+        }
+      </label>
+
+      <label class="field" for="server-port">
+        <span>Port</span>
+        <input
+          id="server-port"
+          type="number"
+          formControlName="port"
+          min="1"
+          max="65535"
+          step="1"
+          inputmode="numeric"
+        />
+        @if (hasFieldError('port')) {
+          <small>Port muss zwischen 1 und 65535 liegen.</small>
+        }
+      </label>
+
+      <label class="field" for="mouse-sensitivity">
+        <span>Mausgeschwindigkeit</span>
+        <div class="range-row">
+          <small>Langsam</small>
+          <input
+            id="mouse-sensitivity"
+            type="range"
+            formControlName="mouseSensitivity"
+            [min]="mouseSensitivityMin"
+            [max]="mouseSensitivityMax"
+            [step]="mouseSensitivityStep"
+          />
+          <small>Schnell</small>
+        </div>
+        <output>{{ sensitivityLabel() }}</output>
+        @if (hasFieldError('mouseSensitivity')) {
+          <small>
+            Wert muss zwischen {{ mouseSensitivityMin.toFixed(1) }} und
+            {{ mouseSensitivityMax.toFixed(1) }} liegen.
+          </small>
+        }
+      </label>
+
+      <footer class="settings-actions">
+        <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
+        <button class="primary-button" type="submit" [disabled]="form.invalid">
+          Speichern
+        </button>
+      </footer>
+    </form>
+  </section>
+</div>

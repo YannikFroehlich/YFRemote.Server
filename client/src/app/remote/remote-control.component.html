@@ -1,0 +1,172 @@
+<main class="remote-shell">
+  <section class="remote-panel" aria-label="YFRemote Remote">
+    <header class="remote-header">
+      <div class="brand-block">
+        <p class="eyebrow">YFRemote</p>
+        <h1>{{ activeViewLabel() }}</h1>
+      </div>
+
+      <div class="top-controls">
+        <span
+          class="status-pill"
+          [class.status-pill--connected]="status() === 'connected'"
+          [class.status-pill--connecting]="status() === 'connecting'"
+          [class.status-pill--disconnected]="status() === 'disconnected'"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="status-dot" aria-hidden="true"></span>
+          {{ statusLabel(status()) }}
+        </span>
+
+        <button
+          class="round-button"
+          type="button"
+          aria-label="Einstellungen"
+          title="Einstellungen"
+          (click)="openSettings()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path [attr.d]="iconPaths.settings"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="server-strip">
+      <span>{{ config().host }}:{{ config().port }}</span>
+      <div class="server-strip__actions">
+        <button
+          class="round-button round-button--small"
+          type="button"
+          aria-label="Neu verbinden"
+          title="Neu verbinden"
+          (click)="reconnect()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path [attr.d]="iconPaths.refresh"></path>
+          </svg>
+        </button>
+        <button
+          class="round-button round-button--small"
+          type="button"
+          aria-label="Trennen"
+          title="Trennen"
+          (click)="disconnect()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path [attr.d]="iconPaths.disconnect"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    @if (lastError(); as errorMessage) {
+      <p class="toast" role="status" aria-live="polite">{{ errorMessage }}</p>
+    }
+
+    <div class="view-tabs" role="tablist" aria-label="Ansicht">
+      <button
+        class="view-tab"
+        [class.view-tab--active]="activeView() === 'remote'"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="activeView() === 'remote'"
+        (click)="selectView('remote')"
+      >
+        Remote
+      </button>
+      <button
+        class="view-tab"
+        [class.view-tab--active]="activeView() === 'touchpad'"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="activeView() === 'touchpad'"
+        (click)="selectView('touchpad')"
+      >
+        Touchpad
+      </button>
+    </div>
+
+    @if (activeView() === 'remote') {
+      <section class="remote-controls" aria-label="Navigation">
+        <div class="dpad" aria-label="Richtung und OK">
+          @for (button of dPadActions; track button.id) {
+            <button
+              class="control-button control-button--primary"
+              type="button"
+              [style.grid-area]="button.gridArea"
+              [attr.aria-label]="button.ariaLabel"
+              [attr.title]="button.ariaLabel"
+              (click)="sendAction(button)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths[button.icon]"></path>
+              </svg>
+              @if (button.id === 'ok') {
+                <span>{{ button.label }}</span>
+              }
+            </button>
+          }
+        </div>
+
+        <div class="system-actions" aria-label="System">
+          @for (button of systemActions; track button.id) {
+            <button
+              class="control-button"
+              type="button"
+              [attr.aria-label]="button.ariaLabel"
+              [attr.title]="button.ariaLabel"
+              (click)="sendAction(button)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths[button.icon]"></path>
+              </svg>
+              <span>{{ button.label }}</span>
+            </button>
+          }
+        </div>
+      </section>
+
+      <section class="action-grid" aria-label="Browser">
+        @for (button of browserActions; track button.id) {
+          <button
+            class="control-button control-button--wide"
+            type="button"
+            [attr.aria-label]="button.ariaLabel"
+            [attr.title]="button.ariaLabel"
+            (click)="sendAction(button)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths[button.icon]"></path>
+            </svg>
+            <span>{{ button.label }}</span>
+          </button>
+        }
+      </section>
+
+      <section class="media-grid" aria-label="Medien">
+        @for (button of mediaActions; track button.id) {
+          <button
+            class="control-button control-button--media"
+            type="button"
+            disabled
+            [attr.aria-label]="button.ariaLabel"
+            [attr.title]="button.unavailableText"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths[button.icon]"></path>
+            </svg>
+            <span>{{ button.label }}</span>
+          </button>
+        }
+      </section>
+    } @else {
+      <app-touchpad />
+    }
+  </section>
+
+  @if (settingsOpen()) {
+    <app-settings-dialog (closed)="closeSettings()" />
+  }
+</main>

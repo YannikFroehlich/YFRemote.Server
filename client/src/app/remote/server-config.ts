@@ -8,11 +8,6 @@ export const MOUSE_SENSITIVITY_MIN = 0.5;
 export const MOUSE_SENSITIVITY_MAX = 4;
 export const MOUSE_SENSITIVITY_STEP = 0.25;
 
-export const DEFAULT_SERVER_CONFIG: ServerConfig = {
-  host: 'localhost',
-  port: 5050,
-};
-
 const IPV4_SEGMENT_PATTERN =
   '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])';
 const IPV4_PATTERN = new RegExp(
@@ -38,6 +33,11 @@ export function isValidHost(host: string): boolean {
 
   return IPV4_PATTERN.test(normalizedHost) || HOSTNAME_PATTERN.test(normalizedHost);
 }
+
+export const DEFAULT_SERVER_CONFIG: ServerConfig = {
+  host: getDefaultServerHost(),
+  port: 5050,
+};
 
 export function isValidPort(port: number): boolean {
   return Number.isInteger(port) && port >= 1 && port <= 65535;
@@ -141,4 +141,13 @@ function isServerConfigLike(value: unknown): value is ServerConfig {
 
   const candidate = value as Partial<ServerConfig>;
   return typeof candidate.host === 'string' && typeof candidate.port === 'number';
+}
+
+function getDefaultServerHost(): string {
+  try {
+    const pageHost = globalThis.location?.hostname;
+    return pageHost && isValidHost(pageHost) ? pageHost : 'localhost';
+  } catch {
+    return 'localhost';
+  }
 }

@@ -80,7 +80,7 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(app).toBeTruthy();
-    expect(compiled.querySelector('h1')?.textContent?.trim()).toBe('Remote');
+    expect(compiled.querySelector('.brand-name')?.textContent?.trim()).toBe('Remote');
     expect(compiled.textContent).toContain('localhost:5050');
   });
 
@@ -117,7 +117,7 @@ describe('App', () => {
     queryButtonByText(compiled, 'Touchpad').click();
     fixture.detectChanges();
 
-    expect(compiled.querySelector('h1')?.textContent?.trim()).toBe('Touchpad');
+    expect(queryButtonByText(compiled, 'Touchpad').getAttribute('aria-selected')).toBe('true');
 
     queryButton(compiled, 'Rechtsklick').click();
 

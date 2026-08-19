@@ -1,11 +1,42 @@
 # YFRemote.Server
 
-YFRemote.Server ist der erste MVP eines lokalen Windows-Servers fuer Tastatur- und Mausaktionen im Netzwerk. Er laeuft aktuell als Konsolenanwendung, stellt einen Health-Endpunkt bereit und nimmt JSON-Actions per WebSocket entgegen.
+YFRemote.Server ist die Windows-Tray-Anwendung fuer YFRemote. Sie stellt den gebauten Angular-Client, einen Health-Endpunkt und den WebSocket fuer Tastatur- und Mausaktionen im lokalen Netzwerk bereit.
 
-## Start
+## Installation
+
+Ein GitHub Release enthaelt `YFRemote-win-Setup.exe`. Nach der Installation startet YFRemote ohne Konsolenfenster und bleibt im Infobereich der Windows-Taskleiste aktiv.
+
+Das Tray-Menue bietet:
+
+- installierte Version und Serverstatus
+- die Adresse fuer andere Geraete im lokalen Netzwerk
+- Oeffnen des Clients im Browser
+- Kopieren der Geraeteadresse
+- manuelle Updatesuche beziehungsweise Installation eines gefundenen Updates
+- Beenden des Servers
+
+Beim Start und danach alle sechs Stunden wird automatisch nach einem stabilen GitHub Release gesucht. Ein Update wird erst nach einem Klick im Tray-Menue heruntergeladen und installiert. Anschliessend startet YFRemote automatisch neu.
+
+## Entwicklung
 
 ```powershell
 dotnet run
+```
+
+Auch der Entwicklungsstart verwendet das Tray. Die Updatefunktion ist dabei deaktiviert, weil Velopack-Updates nur aus einer installierten Version heraus angewendet werden koennen.
+
+Der Angular-Client wird fuer einen lokalen kombinierten Build zuerst im Client-Repository gebaut und danach nach `wwwroot` kopiert:
+
+```powershell
+cd ..\..\client\YFRemote.Client
+npm ci
+npm test -- --watch=false
+npm run build
+
+cd ..\..\server\YFRemote.Server
+New-Item -ItemType Directory -Path wwwroot -Force
+Copy-Item ..\..\client\YFRemote.Client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
+dotnet publish -c Release -r win-x64 --self-contained true -o publish
 ```
 
 Standardbindung:
@@ -30,6 +61,26 @@ Per Kommandozeile kann der Port ueberschrieben werden:
 ```powershell
 dotnet run -- Server:Port=5060
 ```
+
+## Releases und Versionen
+
+Der Workflow `.github/workflows/release.yml` wird durch einen Tag wie `v1.1.0` gestartet. Er:
+
+1. checkt Server und Client aus,
+2. testet und baut den Angular-Client,
+3. integriert den Client in den Server,
+4. veroeffentlicht den Server als selbststaendige Windows-x64-Anwendung,
+5. erstellt Installer, Voll- und Delta-Updatepakete mit Velopack,
+6. veroeffentlicht alle Dateien als GitHub Release.
+
+Ein Release wird so angestossen:
+
+```powershell
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+Der Tag wird zur angezeigten und installierten Programmversion. Das Server-Repository muss fuer tokenfreie Updateabfragen oeffentlich erreichbar sein. Ist das Client-Repository privat, braucht das Server-Repository fuer den Workflow zusaetzlich ein Actions-Secret namens `CLIENT_REPOSITORY_TOKEN`, das Lesezugriff auf `YFRemote.Client` besitzt.
 
 ## Endpunkte
 

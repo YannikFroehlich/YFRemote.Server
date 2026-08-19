@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Velopack;
 using YFRemote.Server.Configuration;
+using YFRemote.Server.Services;
 using YFRemote.Server.Updates;
 
 namespace YFRemote.Server.Tray;
@@ -56,6 +57,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
         updateItem.Enabled = updateService.CanUpdate;
         updateItem.Click += async (_, _) => await HandleUpdateClickAsync();
 
+        var startWithWindowsItem = new ToolStripMenuItem("Mit Windows starten")
+        {
+            CheckOnClick = true,
+            Checked = WindowsStartupService.IsEnabled(),
+            Enabled = WindowsStartupService.IsAvailable
+        };
+        startWithWindowsItem.Click += (_, _) =>
+            HandleStartWithWindowsClick(startWithWindowsItem);
+
         var exitItem = new ToolStripMenuItem("Beenden");
         exitItem.Click += (_, _) => ExitApplication();
 
@@ -70,6 +80,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             copyAddressItem,
             new ToolStripSeparator(),
             updateItem,
+            new ToolStripSeparator(),
+            startWithWindowsItem,
             new ToolStripSeparator(),
             exitItem
         ]);
@@ -277,6 +289,25 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"Die Adresse konnte nicht kopiert werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private static void HandleStartWithWindowsClick(ToolStripMenuItem menuItem)
+    {
+        var requestedState = menuItem.Checked;
+
+        try
+        {
+            WindowsStartupService.SetEnabled(requestedState);
+        }
+        catch (Exception exception)
+        {
+            menuItem.Checked = !requestedState;
+            MessageBox.Show(
+                $"Die Autostart-Einstellung konnte nicht gespeichert werden.\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);

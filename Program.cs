@@ -14,7 +14,19 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        VelopackApp.Build().Run();
+        VelopackApp.Build()
+            .OnBeforeUninstallFastCallback(_ =>
+            {
+                try
+                {
+                    WindowsStartupService.SetEnabled(false);
+                }
+                catch
+                {
+                    // Eine fehlgeschlagene Bereinigung darf die Deinstallation nicht blockieren.
+                }
+            })
+            .Run();
 
         using var singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out var isFirstInstance);
 

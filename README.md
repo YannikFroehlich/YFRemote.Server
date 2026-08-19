@@ -66,6 +66,8 @@ ist, auf den Pfeil für ausgeblendete Symbole klicken.
 - Rechtsklick: Status, Version, Geräteadresse und weitere Aktionen anzeigen
 - `Im Browser öffnen`: Oberfläche auf dem Windows-PC öffnen
 - `Geräteadresse kopieren`: Adresse für Smartphone oder Tablet kopieren
+- `Mit Windows starten`: automatischen Start für den aktuellen Windows-Benutzer
+  ein- oder ausschalten
 - `Beenden`: Server und Tray-Anwendung vollständig schließen
 
 Die lokale Oberfläche ist normalerweise unter folgender Adresse erreichbar:

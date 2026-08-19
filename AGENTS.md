@@ -41,12 +41,18 @@ The tray menu shows:
 - open in browser;
 - copy device address;
 - check for, download, and install updates;
+- enable or disable startup with Windows for the current user;
 - exit.
 
 Double-clicking the tray icon opens the local web UI. The app performs an update
 check shortly after startup and then every six hours. When an update is available,
 the menu item changes to `Neue Version vX.Y.Z verfügbar - installieren`. Installing
 an update downloads it, exits the current process, applies it, and restarts the app.
+
+The startup checkbox writes the stable installed launcher to
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. It is disabled for
+development builds, because they do not have an installed Velopack launcher. The
+entry is removed by the Velopack uninstall hook.
 
 The tray icon is loaded from the deployed `wwwroot/favicon.ico`. The canonical
 source is `YFRemote.Client/public/favicon.ico`, which contains the existing YF

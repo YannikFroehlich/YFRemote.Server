@@ -94,6 +94,8 @@ jobs:
           --packTitle YFRemote
           --packAuthors YannikFroehlich
           --icon client/public/favicon.ico
+          --msi
+          --instLocation Either
           --shortcuts StartMenuRoot
 
       - name: GitHub Release veroeffentlichen

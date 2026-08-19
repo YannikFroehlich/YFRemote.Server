@@ -46,7 +46,7 @@ export const D_PAD_ACTIONS: readonly RemoteButtonConfig[] = [
 export const BROWSER_ACTIONS: readonly RemoteButtonConfig[] = [
   {
     id: 'previous-tab',
-    label: 'Tab zurueck',
+    label: 'Tab zurück',
     ariaLabel: 'Vorheriger Tab',
     icon: 'previous-tab',
     action: { type: 'hotkey', keys: ['CTRL', 'SHIFT', 'TAB'] },
@@ -54,14 +54,14 @@ export const BROWSER_ACTIONS: readonly RemoteButtonConfig[] = [
   {
     id: 'next-tab',
     label: 'Tab weiter',
-    ariaLabel: 'Naechster Tab',
+    ariaLabel: 'Nächster Tab',
     icon: 'next-tab',
     action: { type: 'hotkey', keys: ['CTRL', 'TAB'] },
   },
   {
     id: 'close-tab',
-    label: 'Tab schliessen',
-    ariaLabel: 'Tab schliessen',
+    label: 'Tab schließen',
+    ariaLabel: 'Tab schließen',
     icon: 'close-tab',
     action: { type: 'hotkey', keys: ['CTRL', 'W'] },
   },
@@ -77,8 +77,8 @@ export const BROWSER_ACTIONS: readonly RemoteButtonConfig[] = [
 export const SYSTEM_ACTIONS: readonly RemoteButtonConfig[] = [
   {
     id: 'back',
-    label: 'Zurueck',
-    ariaLabel: 'Zurueck',
+    label: 'Zurück',
+    ariaLabel: 'Zurück',
     icon: 'back',
     action: { type: 'key', keys: ['ESC'] },
   },
@@ -98,7 +98,7 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
     ariaLabel: 'Play Pause',
     icon: 'play-pause',
     disabled: true,
-    unavailableText: 'Noch nicht verfuegbar',
+    unavailableText: 'Noch nicht verfügbar',
   },
   {
     id: 'volume-down',
@@ -106,7 +106,7 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
     ariaLabel: 'Leiser',
     icon: 'volume-minus',
     disabled: true,
-    unavailableText: 'Noch nicht verfuegbar',
+    unavailableText: 'Noch nicht verfügbar',
   },
   {
     id: 'volume-up',
@@ -114,7 +114,7 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
     ariaLabel: 'Lauter',
     icon: 'volume-plus',
     disabled: true,
-    unavailableText: 'Noch nicht verfuegbar',
+    unavailableText: 'Noch nicht verfügbar',
   },
   {
     id: 'mute',
@@ -122,6 +122,6 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
     ariaLabel: 'Stumm',
     icon: 'volume-mute',
     disabled: true,
-    unavailableText: 'Noch nicht verfuegbar',
+    unavailableText: 'Noch nicht verfügbar',
   },
 ];

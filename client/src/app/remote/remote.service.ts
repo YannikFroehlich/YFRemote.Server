@@ -103,7 +103,7 @@ export class RemoteService implements OnDestroy {
     const normalizedConfig = normalizeServerConfig(config);
 
     if (normalizedConfig === null) {
-      this.showError('Serveradresse oder Port ist ungueltig.');
+      this.showError('Serveradresse oder Port ist ungültig.');
       return false;
     }
 
@@ -118,7 +118,7 @@ export class RemoteService implements OnDestroy {
     const normalizedSensitivity = normalizeMouseSensitivity(sensitivity);
 
     if (normalizedSensitivity === null) {
-      this.showError('Mausgeschwindigkeit ist ungueltig.');
+      this.showError('Mausgeschwindigkeit ist ungültig.');
       return false;
     }
 
@@ -213,7 +213,7 @@ export class RemoteService implements OnDestroy {
     const response = this.parseResponse(rawMessage);
 
     if (response === null) {
-      this.showError('Ungueltige Serverantwort.');
+      this.showError('Ungültige Serverantwort.');
       console.warn('YFRemote: invalid server response', rawMessage);
       return;
     }

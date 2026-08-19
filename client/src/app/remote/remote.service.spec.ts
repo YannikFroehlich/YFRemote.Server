@@ -196,7 +196,7 @@ describe('RemoteService', () => {
 
     sockets[0].receive('kein json');
 
-    expect(remote.lastError()).toBe('Ungueltige Serverantwort.');
+    expect(remote.lastError()).toBe('Ungültige Serverantwort.');
     expect(warnSpy).toHaveBeenCalledWith('YFRemote: invalid server response', 'kein json');
 
     sockets[0].receive('{"success":true}');

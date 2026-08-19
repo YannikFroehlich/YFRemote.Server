@@ -91,7 +91,7 @@ describe('App', () => {
     sockets[0].open();
     fixture.detectChanges();
 
-    queryButton(compiled, 'Naechster Tab').click();
+    queryButton(compiled, 'Nächster Tab').click();
 
     expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","TAB"]}']);
     expect(compiled.querySelector('.status-pill')?.textContent).toContain('Verbunden');

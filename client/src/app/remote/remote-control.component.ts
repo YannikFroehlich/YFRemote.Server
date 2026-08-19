@@ -60,10 +60,6 @@ export class RemoteControlComponent {
     this.activeView.set(view);
   }
 
-  protected activeViewLabel(): string {
-    return this.activeView() === 'remote' ? 'Remote' : 'Touchpad';
-  }
-
   protected statusLabel(status: ConnectionStatus): string {
     switch (status) {
       case 'connected':

@@ -58,6 +58,20 @@ export const BROWSER_ACTIONS: readonly RemoteButtonConfig[] = [
     icon: 'next-tab',
     action: { type: 'hotkey', keys: ['CTRL', 'TAB'] },
   },
+  {
+    id: 'close-tab',
+    label: 'Tab schliessen',
+    ariaLabel: 'Tab schliessen',
+    icon: 'close-tab',
+    action: { type: 'hotkey', keys: ['CTRL', 'W'] },
+  },
+  {
+    id: 'restore-tab',
+    label: 'Tab wiederherstellen',
+    ariaLabel: 'Geschlossenen Tab wiederherstellen',
+    icon: 'restore-tab',
+    action: { type: 'hotkey', keys: ['CTRL', 'SHIFT', 'T'] },
+  },
 ];
 
 export const SYSTEM_ACTIONS: readonly RemoteButtonConfig[] = [

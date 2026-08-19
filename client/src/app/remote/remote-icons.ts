@@ -9,6 +9,10 @@ export const REMOTE_ICON_PATHS: Readonly<Record<RemoteIcon, string>> = {
   back: 'M9 6 4 11l5 5v-3h6.1c1.8 0 3.4 1.2 3.9 2.9l.2.8 1.9-1.1-.1-.5c-.8-2.4-3.1-4.1-5.9-4.1H9V6Z',
   'next-tab': 'M13 5 21 12l-8 7v-5H3v-4h10V5Z',
   'previous-tab': 'M11 5 3 12l8 7v-5h10v-4H11V5Z',
+  'close-tab':
+    'M7 5.6 5.6 7l4.9 5-4.9 5 1.4 1.4 5-4.9 5 4.9 1.4-1.4-4.9-5 4.9-5-1.4-1.4-5 4.9-5-4.9Z',
+  'restore-tab':
+    'M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8Z',
   fullscreen: 'M5 5h6v2H7v4H5V5Zm12 2h-4V5h6v6h-2V7ZM7 13v4h4v2H5v-6h2Zm12 0v6h-6v-2h4v-4h2Z',
   'play-pause': 'M5 4 14 12 5 20V4Zm11 1h3v14h-3V5Z',
   'volume-plus': 'M4 9v6h4l5 4V5L8 9H4Zm12-1h2v3h3v2h-3v3h-2v-3h-3v-2h3V8Z',

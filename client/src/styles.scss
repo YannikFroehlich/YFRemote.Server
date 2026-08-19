@@ -20,6 +20,7 @@ body {
 body {
   min-height: 100dvh;
   background:
+    radial-gradient(circle at 12% 0%, rgba(63, 208, 239, 0.1), transparent 30%),
     linear-gradient(150deg, rgba(22, 65, 62, 0.36), transparent 34%),
     linear-gradient(210deg, rgba(112, 74, 29, 0.28), transparent 42%),
     #090807;
@@ -52,16 +53,32 @@ button {
 }
 
 .remote-panel {
+  position: relative;
   display: flex;
   width: min(100%, 480px);
   min-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #2f2920;
-  border-radius: 8px;
-  background: rgba(17, 16, 14, 0.94);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+  border: 1px solid #332c22;
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, rgba(113, 215, 196, 0.05), transparent 30%),
+    linear-gradient(rgba(24, 22, 18, 0.96), rgba(15, 14, 11, 0.97));
+  box-shadow:
+    0 26px 80px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  backdrop-filter: blur(6px);
+}
+
+.remote-panel::before {
+  position: absolute;
+  top: 0;
+  right: 14px;
+  left: 14px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(95, 225, 255, 0.55), transparent);
+  content: "";
 }
 
 .remote-header,
@@ -77,6 +94,34 @@ button {
 .brand-block,
 .settings-dialog__header div {
   min-width: 0;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(63, 208, 239, 0.32));
+}
+
+.brand-name {
+  overflow: hidden;
+  background: linear-gradient(135deg, #fdfefe 0%, #bfe9f4 45%, #5be1ff 100%);
+  background-clip: text;
+  color: transparent;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-background-clip: text;
 }
 
 .eyebrow {
@@ -119,10 +164,11 @@ h2 {
   padding: 0 10px;
   border: 1px solid #403526;
   border-radius: 8px;
-  background: #1d1913;
+  background: linear-gradient(180deg, #221e17, #1a1712);
   color: #dacfc0;
   font-size: 0.82rem;
   font-weight: 800;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
 .status-dot {
@@ -131,6 +177,7 @@ h2 {
   border-radius: 999px;
   background: #ef7d52;
   box-shadow: 0 0 0 3px rgba(239, 125, 82, 0.14);
+  transition: background 160ms ease, box-shadow 160ms ease;
 }
 
 .status-pill--connected .status-dot {
@@ -148,9 +195,10 @@ h2 {
   padding: 8px 10px;
   border: 1px solid #332c23;
   border-radius: 8px;
-  background: #15130f;
+  background: linear-gradient(180deg, #17140f, #121009);
   color: #bfb4a3;
   font-size: 0.86rem;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
 }
 
 .round-button {
@@ -160,9 +208,10 @@ h2 {
   place-items: center;
   border: 1px solid #43392b;
   border-radius: 8px;
-  background: #242018;
+  background: linear-gradient(165deg, #2a251c, #201c15);
   color: #f8f2e8;
   cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 90ms ease;
 }
 
 .round-button--small {
@@ -200,24 +249,27 @@ h2 {
   gap: 4px;
   padding: 4px;
   border: 1px solid #332c23;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #15130f;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset;
 }
 
 .view-tab {
   min-height: 56px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: #bfb4a3;
   font-weight: 900;
   cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, box-shadow 140ms ease;
   touch-action: manipulation;
 }
 
 .view-tab--active {
-  background: #71d7c4;
+  background: linear-gradient(150deg, #83e6d4, #5ec9b6);
   color: #06110f;
+  box-shadow: 0 6px 16px rgba(113, 215, 196, 0.28);
 }
 
 app-touchpad {
@@ -273,17 +325,19 @@ app-touchpad {
   padding: 8px 6px;
   border: 1px solid #40372d;
   border-radius: 8px;
-  background: #221e18;
+  background: linear-gradient(165deg, #29241b, #1e1a14);
   color: #f5eadb;
   cursor: pointer;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
   transition:
     transform 90ms ease,
     border-color 120ms ease,
-    background 120ms ease;
+    background 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .control-button--primary {
-  background: #262016;
+  background: linear-gradient(165deg, #2c2519, #201a10);
   color: #ffe4bd;
 }
 
@@ -307,6 +361,7 @@ app-touchpad {
 .control-button:hover,
 .round-button:hover {
   border-color: #6dd8c2;
+  box-shadow: 0 0 0 3px rgba(113, 215, 196, 0.1);
 }
 
 .control-button:focus-visible,
@@ -347,9 +402,11 @@ input:focus-visible {
   width: min(100%, 420px);
   padding: 16px;
   border: 1px solid #3d3327;
-  border-radius: 8px;
-  background: #14120f;
-  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.54);
+  border-radius: 12px;
+  background: linear-gradient(165deg, #17140f, #110f0c);
+  box-shadow:
+    0 22px 80px rgba(0, 0, 0, 0.54),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
 }
 
 .settings-dialog__status {
@@ -421,8 +478,10 @@ input:focus-visible {
 
 .primary-button {
   border: 1px solid #83e1cf;
-  background: #71d7c4;
+  background: linear-gradient(150deg, #83e6d4, #5ec9b6);
   color: #06110f;
+  box-shadow: 0 8px 20px rgba(113, 215, 196, 0.22);
+  transition: transform 90ms ease, box-shadow 120ms ease;
 }
 
 .primary-button:disabled {

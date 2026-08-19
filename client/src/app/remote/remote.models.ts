@@ -54,6 +54,8 @@ export type RemoteIcon =
   | 'back'
   | 'next-tab'
   | 'previous-tab'
+  | 'close-tab'
+  | 'restore-tab'
   | 'fullscreen'
   | 'play-pause'
   | 'volume-plus'

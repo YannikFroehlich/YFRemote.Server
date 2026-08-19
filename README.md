@@ -1,51 +1,210 @@
-# YFRemote.Server
+# YFRemote
 
-YFRemote.Server ist die Windows-Tray-Anwendung fuer YFRemote. Sie stellt den gebauten Angular-Client, einen Health-Endpunkt und den WebSocket fuer Tastatur- und Mausaktionen im lokalen Netzwerk bereit.
+YFRemote verwandelt ein Smartphone, Tablet oder einen zweiten Computer in eine
+Fernbedienung für einen Windows-PC. Die Anwendung läuft unauffällig im Infobereich
+der Taskleiste und stellt die Bedienoberfläche im lokalen Netzwerk über den Browser
+bereit.
 
-## Installation
+## Für Nutzer
 
-Ein GitHub Release enthaelt `YFRemote-win-Setup.exe`. Nach der Installation startet YFRemote ohne Konsolenfenster und bleibt im Infobereich der Windows-Taskleiste aktiv.
+### Voraussetzungen
 
-Das Tray-Menue bietet:
+- Windows 10 oder Windows 11 (64 Bit)
+- ein aktueller Webbrowser
+- für die Fernsteuerung von einem anderen Gerät: beide Geräte im selben lokalen
+  Netzwerk beziehungsweise WLAN
 
-- installierte Version und Serverstatus
-- die Adresse fuer andere Geraete im lokalen Netzwerk
-- Oeffnen des Clients im Browser
-- Kopieren der Geraeteadresse
-- manuelle Updatesuche beziehungsweise Installation eines gefundenen Updates
-- Beenden des Servers
+Node.js, Angular und das .NET SDK werden **nicht** benötigt. Der Angular-Client ist
+bereits fertig gebaut und im Installer enthalten. Auch die benötigte .NET-Laufzeit
+wird mitgeliefert.
 
-Beim Start und danach alle sechs Stunden wird automatisch nach einem stabilen GitHub Release gesucht. Ein Update wird erst nach einem Klick im Tray-Menue heruntergeladen und installiert. Anschliessend startet YFRemote automatisch neu.
+### Herunterladen
 
-## Entwicklung
+Alle fertigen Downloads befinden sich im
+[aktuellen GitHub Release](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest).
+
+Es gibt zwei Installer:
+
+| Datei                                                                                                                          | Verwendung                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [`YFRemote-win-Setup.exe`](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest/download/YFRemote-win-Setup.exe) | Schnelle Installation für den aktuellen Benutzer ohne Einrichtungsassistenten      |
+| [`YFRemote-win.msi`](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest/download/YFRemote-win.msi)             | Windows-Installationsassistent mit Auswahl von Installationsbereich und Zielordner |
+
+Für eine normale Installation reicht `YFRemote-win-Setup.exe`. Wer den
+Installationsort auswählen oder YFRemote systemweit installieren möchte, verwendet
+`YFRemote-win.msi`.
+
+### Installieren
+
+1. Den gewünschten Installer aus dem aktuellen Release herunterladen.
+2. Die heruntergeladene Datei öffnen.
+3. Beim MSI bei Bedarf Installationsart und Zielordner auswählen.
+4. Die Installation abschließen. YFRemote startet anschließend und erscheint unten
+   rechts im Infobereich der Windows-Taskleiste.
+
+Die Builds sind derzeit nicht mit einem kostenpflichtigen Code-Signing-Zertifikat
+signiert. Windows kann deshalb `Unbekannter Herausgeber` oder eine
+Microsoft-Defender-SmartScreen-Warnung anzeigen. Fahre nur fort, wenn die Datei aus
+dem oben verlinkten offiziellen GitHub-Release stammt.
+
+Standardpfade:
+
+- One-Click-Setup: `%LOCALAPPDATA%\YFRemote`
+- systemweite MSI-Installation: `C:\Program Files\YFRemote`
+- tatsächliche Programmdatei: `<Installationsordner>\current\YFRemote.Server.exe`
+
+Der Ordner `current` wird bei Updates automatisch ausgetauscht und sollte nicht
+manuell verändert werden.
+
+### Auf dem Windows-PC verwenden
+
+YFRemote öffnet kein Terminalfenster. Nach dem Start läuft das Programm als
+Tray-Symbol im Infobereich der Taskleiste. Falls das Symbol nicht sofort sichtbar
+ist, auf den Pfeil für ausgeblendete Symbole klicken.
+
+- Doppelklick auf das Tray-Symbol: Bedienoberfläche im Browser öffnen
+- Rechtsklick: Status, Version, Geräteadresse und weitere Aktionen anzeigen
+- `Im Browser öffnen`: Oberfläche auf dem Windows-PC öffnen
+- `Geräteadresse kopieren`: Adresse für Smartphone oder Tablet kopieren
+- `Beenden`: Server und Tray-Anwendung vollständig schließen
+
+Die lokale Oberfläche ist normalerweise unter folgender Adresse erreichbar:
+
+```text
+http://localhost:5050
+```
+
+YFRemote funktioniert nur, solange das Tray-Programm läuft.
+
+### Mit Smartphone, Tablet oder anderem Computer verbinden
+
+1. Sicherstellen, dass beide Geräte im selben WLAN beziehungsweise lokalen Netzwerk
+   sind.
+2. Auf dem Windows-PC mit der rechten Maustaste auf das YFRemote-Tray-Symbol klicken.
+3. `Geräteadresse kopieren` auswählen.
+4. Die angezeigte Adresse auf dem anderen Gerät im Browser öffnen, zum Beispiel:
+
+```text
+http://192.168.1.25:5050
+```
+
+Auf einem anderen Gerät darf nicht `localhost` verwendet werden, weil sich
+`localhost` dort auf das andere Gerät selbst bezieht.
+
+Beim ersten Start kann Windows nach einer Firewall-Freigabe fragen. Für den Zugriff
+aus dem Heimnetz muss YFRemote für **private Netzwerke** zugelassen werden.
+
+### Bedienung
+
+Die Browseroberfläche bietet unter anderem:
+
+- Navigationstasten und OK/Enter
+- Zurück und Vollbild
+- vorherigen, nächsten, geschlossenen oder wiederhergestellten Browser-Tab
+- ein Touchpad mit Links- und Rechtsklick
+- einstellbare Mausgeschwindigkeit
+
+Einige Medientasten sind in der aktuellen Version noch deaktiviert und entsprechend
+gekennzeichnet.
+
+### Updates
+
+YFRemote prüft kurz nach dem Start und danach alle sechs Stunden auf neue stabile
+Versionen. Wenn ein Update verfügbar ist, steht im Tray-Menü beispielsweise:
+
+```text
+Neue Version v1.0.3 verfügbar - installieren
+```
+
+Nach einem Klick wird das Update heruntergeladen, YFRemote beendet, aktualisiert und
+automatisch neu gestartet. Das funktioniert sowohl für EXE- als auch für
+MSI-Installationen. Der gewählte Installationsordner bleibt erhalten.
+
+### Deinstallieren
+
+YFRemote kann über Windows deinstalliert werden:
+
+```text
+Einstellungen > Apps > Installierte Apps > YFRemote > Deinstallieren
+```
+
+### Fehlerbehebung
+
+**Das Tray-Symbol fehlt**
+
+- Im Bereich der ausgeblendeten Taskleistensymbole nachsehen.
+- YFRemote über das Startmenü erneut starten.
+- Es kann immer nur eine YFRemote-Instanz gleichzeitig laufen.
+
+**Die Seite öffnet sich auf dem Smartphone nicht**
+
+- Prüfen, ob beide Geräte im selben Netzwerk sind.
+- Die Geräteadresse aus dem Tray verwenden, nicht `localhost`.
+- In der Windows-Firewall den Zugriff für private Netzwerke erlauben.
+- Prüfen, ob ein Gast-WLAN die Kommunikation zwischen Geräten blockiert.
+
+**Port 5050 ist bereits belegt**
+
+- Andere laufende YFRemote-Instanzen oder Anwendungen auf Port `5050` beenden.
+- Entwickler können den Port in `appsettings.json` ändern.
+
+**YFRemote startet nicht**
+
+Startfehler werden hier protokolliert:
+
+```text
+%LOCALAPPDATA%\YFRemote\Logs\startup-error.log
+```
+
+## Sicherheit
+
+YFRemote besitzt derzeit keine Benutzeranmeldung und keine Gerätefreigabe. Jeder,
+der die Serveradresse im lokalen Netzwerk erreicht, kann Steuerbefehle senden.
+Verwende YFRemote deshalb nur in einem vertrauenswürdigen privaten Netzwerk und
+gib Port `5050` nicht im Router für das Internet frei.
+
+## Für Entwickler
+
+YFRemote besteht aus zwei öffentlichen Repositories:
+
+- [`YFRemote.Client`](https://github.com/YannikFroehlich/YFRemote.Client): Angular-Oberfläche
+- [`YFRemote.Server`](https://github.com/YannikFroehlich/YFRemote.Server): .NET-Server, Tray-App, Installer und Updates
+
+### Entwicklungsumgebung
+
+- Node.js 24 und npm
+- .NET SDK 10
+- Windows für Tray-App und Eingabesimulation
+
+Server starten:
 
 ```powershell
+dotnet restore
 dotnet run
 ```
 
-Auch der Entwicklungsstart verwendet das Tray. Die Updatefunktion ist dabei deaktiviert, weil Velopack-Updates nur aus einer installierten Version heraus angewendet werden koennen.
+Der Entwicklungsstart verwendet ebenfalls das Tray. Velopack-Updates sind dabei
+deaktiviert, weil sie nur aus einer installierten Version angewendet werden können.
 
-Der Angular-Client wird fuer einen lokalen kombinierten Build zuerst im Client-Repository gebaut und danach nach `wwwroot` kopiert:
+Client testen und bauen:
 
 ```powershell
 cd ..\..\client\YFRemote.Client
 npm ci
 npm test -- --watch=false
 npm run build
+```
 
+Client in den Server integrieren und Windows-Build erstellen:
+
+```powershell
 cd ..\..\server\YFRemote.Server
-New-Item -ItemType Directory -Path wwwroot -Force
+New-Item -ItemType Directory -Path wwwroot -Force | Out-Null
 Copy-Item ..\..\client\YFRemote.Client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
 dotnet publish -c Release -r win-x64 --self-contained true -o publish
 ```
 
-Standardbindung:
-
-```text
-http://0.0.0.0:5050
-```
-
-Host und Port stehen in `appsettings.json`:
+Die Standardbindung steht in `appsettings.json`:
 
 ```json
 {
@@ -56,120 +215,45 @@ Host und Port stehen in `appsettings.json`:
 }
 ```
 
-Per Kommandozeile kann der Port ueberschrieben werden:
+Ein anderer Port kann beim Entwicklungsstart so gesetzt werden:
 
 ```powershell
 dotnet run -- Server:Port=5060
 ```
 
-## Releases und Versionen
-
-Der Workflow `.github/workflows/release.yml` wird durch einen Tag wie `v1.1.0` gestartet. Er:
-
-1. checkt Server und Client aus,
-2. testet und baut den Angular-Client,
-3. integriert den Client in den Server,
-4. veroeffentlicht den Server als selbststaendige Windows-x64-Anwendung,
-5. erstellt Installer, Voll- und Delta-Updatepakete mit Velopack,
-6. veroeffentlicht alle Dateien als GitHub Release.
-
-Ein Release wird so angestossen:
-
-```powershell
-git tag v1.1.0
-git push origin v1.1.0
-```
-
-Der Tag wird zur angezeigten und installierten Programmversion. Das Server-Repository muss fuer tokenfreie Updateabfragen oeffentlich erreichbar sein. Ist das Client-Repository privat, braucht das Server-Repository fuer den Workflow zusaetzlich ein Actions-Secret namens `CLIENT_REPOSITORY_TOKEN`, das Lesezugriff auf `YFRemote.Client` besitzt.
-
-## Endpunkte
-
-Health:
+### Endpunkte
 
 ```text
 GET http://localhost:5050/health
-```
-
-Antwort:
-
-```json
-{"status":"ok","service":"YFRemote.Server"}
-```
-
-WebSocket:
-
-```text
 ws://localhost:5050/ws
 ```
 
-Von anderen Geraeten im lokalen Netzwerk wird statt `localhost` die IP-Adresse des Windows-PCs verwendet.
-
-## Actions
-
-Einzelne Taste:
+Beispielaktionen:
 
 ```json
-{"type":"key","keys":["SPACE"]}
-```
-
-Hotkey:
-
-```json
-{"type":"hotkey","keys":["CTRL","TAB"]}
-```
-
-Weitere Beispiele:
-
-```json
-{"type":"hotkey","keys":["CTRL","SHIFT","TAB"]}
-{"type":"key","keys":["F11"]}
 {"type":"key","keys":["ENTER"]}
-```
-
-Relative Mausbewegung:
-
-```json
+{"type":"hotkey","keys":["CTRL","TAB"]}
 {"type":"mouseMove","deltaX":50,"deltaY":0}
-```
-
-`deltaX` bewegt die Maus nach rechts/links, `deltaY` nach unten/oben. Erlaubter Bereich pro Nachricht: `-5000` bis `5000`.
-
-Mausklick:
-
-```json
 {"type":"mouseClick","button":"left"}
-{"type":"mouseClick","button":"right"}
-```
-
-Scrollen:
-
-```json
-{"type":"mouseScroll","delta":120}
 {"type":"mouseScroll","delta":-120}
 ```
 
-Positives `delta` scrollt nach oben, negatives nach unten. Erlaubter Bereich pro Nachricht: `-1200` bis `1200`.
+Die Tastatur- und Mausaktionen werden über `SendInput` aus `user32.dll` an die
+interaktive Windows-Sitzung gesendet. Windows kann Eingaben in höher privilegierte
+Programme blockieren, wenn YFRemote selbst nicht mit denselben Rechten läuft.
 
-Erfolg:
+### Releases
 
-```json
-{"success":true}
+Ein Tag im Server-Repository startet den GitHub-Actions-Workflow:
+
+```powershell
+git tag -a v1.0.3 -m "YFRemote v1.0.3"
+git push origin v1.0.3
 ```
 
-Fehler:
+Der Workflow testet und baut den aktuellen Client, integriert ihn in den Server und
+veröffentlicht EXE, MSI, portable ZIP-Datei sowie Velopack-Voll- und Delta-Pakete im
+Server-Repository. Bei reinen Client-Änderungen muss der Client zuerst nach `master`
+gemergt und erst danach der neue Server-Tag erstellt werden.
 
-```json
-{"success":false,"error":"Unsupported key: TEST"}
-```
-
-Unterstuetzte Keys: `CTRL`, `SHIFT`, `ALT`, `WIN`, `ENTER`, `ESC`, `TAB`, `SPACE`, `BACKSPACE`, `DELETE`, `UP`, `DOWN`, `LEFT`, `RIGHT`, `F1` bis `F12`, `A` bis `Z`, `0` bis `9`.
-
-## Testseite
-
-Die Datei `test/websocket-test.html` kann direkt im Browser geoeffnet werden. Sie enthaelt Buttons fuer `CTRL+TAB`, `CTRL+SHIFT+TAB`, `SPACE`, `F11`, `ENTER`, Mausbewegungen, Links-/Rechtsklick und Scrollen sowie Status-, Sent- und Response-Ausgaben.
-
-## Windows Input
-
-Die Tastatur- und Mausaktionen werden ueber `SendInput` aus `user32.dll` gesendet. Das funktioniert in einer interaktiven Windows-Sitzung und wirkt auf das aktuell fokussierte Fenster beziehungsweise den aktuellen Mauszeiger. Windows kann Eingaben in hoeher privilegierte Anwendungen blockieren, zum Beispiel wenn der Server nicht als Administrator laeuft, das Zielprogramm aber schon.
-
-Dieser MVP hat absichtlich keine Authentifizierung und ist fuer ein vertrauenswuerdiges lokales Netzwerk gedacht. Je nach Windows-Firewall muss Port `5050` fuer eingehende Verbindungen erlaubt werden.
+Weitere verbindliche Projekt- und Release-Hinweise stehen in [`AGENTS.md`](AGENTS.md).

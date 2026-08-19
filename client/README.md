@@ -1,59 +1,70 @@
-# YFRemoteClient
+# YFRemote Client
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.13.
+Dies ist die Angular-Bedienoberfläche von YFRemote. Sie wird beim Release fertig
+gebaut und direkt in die Windows-Serveranwendung integriert.
 
-## Development server
+## YFRemote installieren und verwenden
 
-To start a local development server, run:
+Endnutzer müssen dieses Repository nicht herunterladen und benötigen weder Node.js
+noch Angular. Die fertige Anwendung inklusive Client befindet sich im
+[`YFRemote.Server`-Release](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest).
 
-```bash
-ng serve
+Direkte Downloads:
+
+- [`YFRemote-win-Setup.exe`](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest/download/YFRemote-win-Setup.exe) – schnelle One-Click-Installation
+- [`YFRemote-win.msi`](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest/download/YFRemote-win.msi) – Installationsassistent mit auswählbarem Installationsort
+
+Die vollständige Anleitung für Installation, Tray-Menü, Verbindung per Smartphone,
+Updates und Fehlerbehebung steht im
+[`YFRemote.Server`-README](https://github.com/YannikFroehlich/YFRemote.Server#readme).
+
+## Entwicklung
+
+### Voraussetzungen
+
+- Node.js 24
+- npm
+- ein laufender `YFRemote.Server` auf Port `5050`, wenn die Fernsteuerung getestet
+  werden soll
+
+Abhängigkeiten installieren:
+
+```powershell
+npm ci
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Entwicklungsserver starten:
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
+```powershell
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Die Oberfläche ist anschließend unter
+[`http://localhost:4200`](http://localhost:4200) erreichbar. Der Client verbindet
+sich standardmäßig über WebSocket mit Port `5050` auf demselben Host, von dem die
+Seite geladen wurde. In den Einstellungen kann eine andere Serveradresse eingetragen
+werden.
 
-```bash
-ng generate --help
+### Tests
+
+```powershell
+npm test -- --watch=false
 ```
 
-## Building
+### Produktions-Build
 
-To build the project run:
-
-```bash
-ng build
+```powershell
+npm run build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Die fertigen Dateien liegen danach unter:
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
+```text
+dist/YFRemote.Client/browser
 ```
 
-## Running end-to-end tests
+Beim offiziellen Release kopiert der Workflow des Server-Repositories diese Dateien
+automatisch nach `YFRemote.Server/wwwroot`. Installierbare Releases werden deshalb
+ausschließlich im Server-Repository veröffentlicht.
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Weitere Projekt- und Release-Hinweise stehen in [`AGENTS.md`](AGENTS.md).

@@ -1,0 +1,108 @@
+name: Release YFRemote
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Server auschecken
+        uses: actions/checkout@v6
+        with:
+          path: server
+
+      - name: Client auschecken
+        uses: actions/checkout@v6
+        with:
+          repository: YannikFroehlich/YFRemote.Client
+          path: client
+          token: ${{ secrets.CLIENT_REPOSITORY_TOKEN || github.token }}
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: .NET einrichten
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Version aus Tag lesen
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Ungueltige Release-Version: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Client testen und bauen
+        shell: pwsh
+        working-directory: client
+        run: |
+          npm ci
+          npm test -- --watch=false
+          npm run build
+
+      - name: Client in Server integrieren
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path server/wwwroot -Force | Out-Null
+          Copy-Item -Path client/dist/YFRemote.Client/browser/* -Destination server/wwwroot -Recurse -Force
+
+      - name: Server veroeffentlichen
+        shell: pwsh
+        run: >-
+          dotnet publish server/YFRemote.Server.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output publish
+          -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Velopack installieren
+        shell: pwsh
+        run: dotnet tool install --global vpk --version 1.2.0
+
+      - name: Vorherigen Release fuer Delta-Update laden
+        continue-on-error: true
+        shell: pwsh
+        run: >-
+          vpk download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Installer und Updatepakete erstellen
+        shell: pwsh
+        run: >-
+          vpk pack
+          --packId YFRemote
+          --packVersion ${{ steps.version.outputs.version }}
+          --packDir publish
+          --mainExe YFRemote.Server.exe
+          --packTitle YFRemote
+          --packAuthors YannikFroehlich
+          --icon client/public/favicon.ico
+          --shortcuts StartMenuRoot
+
+      - name: GitHub Release veroeffentlichen
+        shell: pwsh
+        run: >-
+          vpk upload github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token "${{ secrets.GITHUB_TOKEN }}"
+          --publish
+          --releaseName "YFRemote v${{ steps.version.outputs.version }}"
+          --tag "${{ github.ref_name }}"
+          --targetCommitish "${{ github.sha }}"

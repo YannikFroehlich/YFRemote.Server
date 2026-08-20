@@ -95,7 +95,7 @@
     <h1>YFRemote WebSocket Test</h1>
 
     <label for="wsUrl">WebSocket URL</label>
-    <input id="wsUrl" value="ws://localhost:5050/ws" autocomplete="off">
+    <input id="wsUrl" autocomplete="off">
 
     <div class="toolbar">
       <button id="connect">Connect</button>
@@ -142,6 +142,10 @@
     const responseOutput = document.querySelector("#response");
 
     let socket;
+
+    // Muss von der eigenen Origin des Servers stammen (nicht file://), da /ws den
+    // Origin-Header prueft. Wird deshalb dynamisch aus location.host abgeleitet.
+    urlInput.value = `ws://${location.host}/ws`;
 
     function setConnected(connected) {
       connectButton.textContent = connected ? "Disconnect" : "Connect";

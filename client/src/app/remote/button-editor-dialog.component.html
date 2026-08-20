@@ -1,0 +1,96 @@
+<div class="settings-layer">
+  <button
+    class="settings-scrim"
+    type="button"
+    aria-label="Schließen"
+    (click)="close()"
+  ></button>
+
+  <section
+    class="settings-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="button-editor-title"
+  >
+    <header class="settings-dialog__header">
+      <div>
+        <p class="eyebrow">{{ isEditing() ? 'Bearbeiten' : 'Neu' }}</p>
+        <h2 id="button-editor-title">Eigener Button</h2>
+      </div>
+      <button class="round-button" type="button" aria-label="Schließen" (click)="close()">
+        <span aria-hidden="true">x</span>
+      </button>
+    </header>
+
+    <form class="settings-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <label class="field" for="button-label">
+        <span>Beschriftung</span>
+        <input
+          id="button-label"
+          type="text"
+          formControlName="label"
+          [attr.maxlength]="maxLabelLength"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        @if (hasLabelError()) {
+          <small>Beschriftung erforderlich (max. {{ maxLabelLength }} Zeichen).</small>
+        }
+      </label>
+
+      <div class="field">
+        <span>Symbol</span>
+        <div class="icon-picker">
+          @for (icon of icons; track icon) {
+            <button
+              class="icon-picker__option"
+              type="button"
+              [class.icon-picker__option--active]="form.controls.icon.value === icon"
+              [attr.aria-pressed]="form.controls.icon.value === icon"
+              [attr.aria-label]="'Symbol: ' + icon"
+              (click)="form.controls.icon.setValue(icon)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths[icon]"></path>
+              </svg>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Taste(n)</span>
+        <div class="key-picker">
+          @for (group of keyGroups; track group.label) {
+            <div class="key-group">
+              <p class="key-group__label">{{ group.label }}</p>
+              <div class="key-group__keys">
+                @for (key of group.keys; track key) {
+                  <button
+                    class="key-chip"
+                    type="button"
+                    [class.key-chip--active]="isKeySelected(key)"
+                    [disabled]="isKeyDisabled(key)"
+                    [attr.aria-pressed]="isKeySelected(key)"
+                    (click)="toggleKey(key)"
+                  >
+                    {{ key }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <output class="key-picker__summary">{{ actionLabel() }}</output>
+      </div>
+
+      <footer class="settings-actions">
+        @if (isEditing()) {
+          <button class="secondary-button" type="button" (click)="delete()">Löschen</button>
+        }
+        <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
+        <button class="primary-button" type="submit" [disabled]="!canSave()">Speichern</button>
+      </footer>
+    </form>
+  </section>
+</div>

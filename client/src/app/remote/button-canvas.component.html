@@ -1,0 +1,62 @@
+<div
+  class="layout-canvas"
+  [class.layout-canvas--editing]="editMode()"
+  [style.--cols]="columns"
+  [style.--row-h.px]="rowHeight"
+  [style.--gap.px]="gap"
+  [style.--rows]="layout.visibleRows()"
+  role="group"
+  aria-label="Tastenfeld"
+  #canvas
+>
+  @if (editMode() && layout.snapToGrid()) {
+    <div class="layout-grid" aria-hidden="true"></div>
+  }
+
+  @for (item of renderItems(); track item.placement.id) {
+    <div
+      class="layout-slot"
+      [class.layout-slot--dragging]="draggingId() === item.placement.id"
+      [style.--col]="item.placement.col"
+      [style.--row]="item.placement.row"
+      [style.--w]="item.placement.colSpan"
+      [style.--h]="item.placement.rowSpan"
+      [attr.data-button-id]="item.placement.id"
+      (pointerdown)="slotPointerDown($event, item)"
+      (pointermove)="slotPointerMove($event)"
+      (pointerup)="slotPointerUp($event, item)"
+      (pointercancel)="slotPointerCancel($event)"
+      (lostpointercapture)="slotPointerCancel($event)"
+    >
+      <button
+        class="control-button"
+        type="button"
+        [disabled]="!editMode() && item.button.disabled === true"
+        [attr.aria-disabled]="item.button.disabled === true || null"
+        [attr.aria-label]="item.button.ariaLabel"
+        [attr.title]="item.button.unavailableText ?? item.button.ariaLabel"
+        (click)="activate(item)"
+        (keydown)="slotKeydown($event, item)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths[item.button.icon]"></path>
+        </svg>
+        @if (labelVisible(item.button)) {
+          <span>{{ item.button.label }}</span>
+        }
+      </button>
+
+      @if (editMode()) {
+        <button
+          class="slot-remove"
+          type="button"
+          [attr.aria-label]="'Entfernen: ' + item.button.label"
+          (click)="remove(item)"
+          (pointerdown)="$event.stopPropagation()"
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+      }
+    </div>
+  }
+</div>

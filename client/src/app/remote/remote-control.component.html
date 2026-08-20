@@ -19,6 +19,21 @@
           {{ statusLabel(status()) }}
         </span>
 
+        @if (activeView() === 'remote') {
+          <button
+            class="round-button"
+            [class.round-button--active]="editMode()"
+            type="button"
+            aria-label="Layout bearbeiten"
+            title="Layout bearbeiten"
+            (click)="toggleEditMode()"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths.edit"></path>
+            </svg>
+          </button>
+        }
+
         <button
           class="round-button"
           type="button"
@@ -89,35 +104,45 @@
     </div>
 
     @if (activeView() === 'remote') {
-      <section class="remote-controls" aria-label="Navigation">
-        <div class="dpad" aria-label="Richtung und OK">
-          @for (button of dPadActions; track button.id) {
-            <button
-              class="control-button control-button--primary"
-              type="button"
-              [style.grid-area]="button.gridArea"
-              [attr.aria-label]="button.ariaLabel"
-              [attr.title]="button.ariaLabel"
-              (click)="sendAction(button)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path [attr.d]="iconPaths[button.icon]"></path>
-              </svg>
-              @if (button.id === 'ok') {
-                <span>{{ button.label }}</span>
-              }
+      @if (editMode()) {
+        <div class="layout-toolbar" role="toolbar" aria-label="Layout bearbeiten">
+          <button class="primary-button" type="button" (click)="toggleEditMode()">Fertig</button>
+          <button class="secondary-button" type="button" (click)="openButtonEditor(null)">
+            Hinzufügen
+          </button>
+          <button
+            class="snap-switch"
+            type="button"
+            role="switch"
+            [attr.aria-checked]="layout.snapToGrid()"
+            (click)="toggleSnapToGrid()"
+          >
+            Raster
+          </button>
+          @if (resetPending()) {
+            <span class="layout-toolbar__confirm">
+              Wirklich zurücksetzen?
+              <button class="secondary-button" type="button" (click)="confirmReset()">Ja</button>
+              <button class="secondary-button" type="button" (click)="cancelReset()">Nein</button>
+            </span>
+          } @else {
+            <button class="secondary-button" type="button" (click)="requestReset()">
+              Zurücksetzen
             </button>
           }
         </div>
+      }
 
-        <div class="system-actions" aria-label="System">
-          @for (button of systemActions; track button.id) {
+      <app-button-canvas [editMode]="editMode()" (editButton)="onEditButtonRequested($event)" />
+
+      @if (editMode() && layout.hiddenButtons().length > 0) {
+        <div class="layout-tray" aria-label="Ausgeblendete Buttons">
+          @for (button of layout.hiddenButtons(); track button.id) {
             <button
-              class="control-button"
+              class="layout-chip"
               type="button"
-              [attr.aria-label]="button.ariaLabel"
-              [attr.title]="button.ariaLabel"
-              (click)="sendAction(button)"
+              [attr.aria-label]="'Wiederherstellen: ' + button.label"
+              (click)="restoreButton(button.id)"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path [attr.d]="iconPaths[button.icon]"></path>
@@ -126,41 +151,7 @@
             </button>
           }
         </div>
-      </section>
-
-      <section class="action-grid" aria-label="Browser">
-        @for (button of browserActions; track button.id) {
-          <button
-            class="control-button control-button--wide"
-            type="button"
-            [attr.aria-label]="button.ariaLabel"
-            [attr.title]="button.ariaLabel"
-            (click)="sendAction(button)"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path [attr.d]="iconPaths[button.icon]"></path>
-            </svg>
-            <span>{{ button.label }}</span>
-          </button>
-        }
-      </section>
-
-      <section class="media-grid" aria-label="Medien">
-        @for (button of mediaActions; track button.id) {
-          <button
-            class="control-button control-button--media"
-            type="button"
-            disabled
-            [attr.aria-label]="button.ariaLabel"
-            [attr.title]="button.unavailableText"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path [attr.d]="iconPaths[button.icon]"></path>
-            </svg>
-            <span>{{ button.label }}</span>
-          </button>
-        }
-      </section>
+      }
     } @else {
       <app-touchpad />
     }
@@ -168,5 +159,9 @@
 
   @if (settingsOpen()) {
     <app-settings-dialog (closed)="closeSettings()" />
+  }
+
+  @if (editorOpen()) {
+    <app-button-editor-dialog [targetId]="editorTargetId()" (closed)="closeButtonEditor()" />
   }
 </main>

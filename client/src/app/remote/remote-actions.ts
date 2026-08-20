@@ -1,3 +1,4 @@
+import type { ButtonPlacement } from './button-layout';
 import { RemoteButtonConfig } from './remote.models';
 
 export const D_PAD_ACTIONS: readonly RemoteButtonConfig[] = [
@@ -6,23 +7,22 @@ export const D_PAD_ACTIONS: readonly RemoteButtonConfig[] = [
     label: 'Hoch',
     ariaLabel: 'Nach oben',
     icon: 'arrow-up',
-    gridArea: 'up',
     action: { type: 'key', keys: ['UP'] },
+    showLabel: false,
   },
   {
     id: 'left',
     label: 'Links',
     ariaLabel: 'Nach links',
     icon: 'arrow-left',
-    gridArea: 'left',
     action: { type: 'key', keys: ['LEFT'] },
+    showLabel: false,
   },
   {
     id: 'ok',
     label: 'OK',
     ariaLabel: 'OK',
     icon: 'check',
-    gridArea: 'ok',
     action: { type: 'key', keys: ['ENTER'] },
   },
   {
@@ -30,16 +30,16 @@ export const D_PAD_ACTIONS: readonly RemoteButtonConfig[] = [
     label: 'Rechts',
     ariaLabel: 'Nach rechts',
     icon: 'arrow-right',
-    gridArea: 'right',
     action: { type: 'key', keys: ['RIGHT'] },
+    showLabel: false,
   },
   {
     id: 'down',
     label: 'Runter',
     ariaLabel: 'Nach unten',
     icon: 'arrow-down',
-    gridArea: 'down',
     action: { type: 'key', keys: ['DOWN'] },
+    showLabel: false,
   },
 ];
 
@@ -124,4 +124,31 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
     disabled: true,
     unavailableText: 'Noch nicht verfügbar',
   },
+];
+
+/** Alle eingebauten Buttons, flach, für Id-Auflösung im Layout. */
+export const BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
+  ...D_PAD_ACTIONS,
+  ...SYSTEM_ACTIONS,
+  ...BROWSER_ACTIONS,
+  ...MEDIA_ACTIONS,
+];
+
+/** Bildet das bisherige feste Layout in Zellen-Koordinaten nach (12 Spalten). */
+export const DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
+  { id: 'up', col: 3, row: 0, colSpan: 3, rowSpan: 2 },
+  { id: 'left', col: 0, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'ok', col: 3, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'right', col: 6, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'down', col: 3, row: 4, colSpan: 3, rowSpan: 2 },
+  { id: 'back', col: 9, row: 0, colSpan: 3, rowSpan: 3 },
+  { id: 'fullscreen', col: 9, row: 3, colSpan: 3, rowSpan: 3 },
+  { id: 'previous-tab', col: 0, row: 6, colSpan: 6, rowSpan: 2 },
+  { id: 'next-tab', col: 6, row: 6, colSpan: 6, rowSpan: 2 },
+  { id: 'close-tab', col: 0, row: 8, colSpan: 6, rowSpan: 2 },
+  { id: 'restore-tab', col: 6, row: 8, colSpan: 6, rowSpan: 2 },
+  { id: 'play-pause', col: 0, row: 10, colSpan: 3, rowSpan: 2 },
+  { id: 'volume-down', col: 3, row: 10, colSpan: 3, rowSpan: 2 },
+  { id: 'volume-up', col: 6, row: 10, colSpan: 3, rowSpan: 2 },
+  { id: 'mute', col: 9, row: 10, colSpan: 3, rowSpan: 2 },
 ];

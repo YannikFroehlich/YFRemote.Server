@@ -6,6 +6,7 @@ import {
   REMOTE_WEBSOCKET_FACTORY,
   RemoteSocket,
 } from './remote/remote.service';
+import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
 import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_CONFIG_STORAGE_KEY } from './remote/server-config';
 
 class MemoryStorage implements Storage {
@@ -163,6 +164,82 @@ describe('App', () => {
     expect(sockets[0].closed).toBe(true);
     expect(sockets[1].url).toBe('ws://192.168.1.20:5050/ws');
   });
+
+  it('creates a custom hotkey button through the editor and sends it exactly once done', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    sockets[0].open();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Layout bearbeiten').click();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Hinzufügen').click();
+    fixture.detectChanges();
+
+    const labelInput = queryInput(compiled, '#button-label');
+    labelInput.value = 'Speichern';
+    labelInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    keyChip(compiled, 'CTRL').click();
+    keyChip(compiled, 'S').click();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Speichern').click();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Layout bearbeiten').click();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Speichern').click();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","S"]}']);
+  });
+
+  it('hides a built-in button and persists the change across a reload', async () => {
+    const { fixture, storage } = await setupApp();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    queryButton(compiled, 'Layout bearbeiten').click();
+    fixture.detectChanges();
+
+    const muteSlot = queryButton(compiled, 'Stumm').closest('.layout-slot');
+    const removeButton = muteSlot?.querySelector<HTMLButtonElement>('.slot-remove');
+
+    expect(removeButton).not.toBeNull();
+    removeButton?.click();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('button[aria-label="Stumm"]')).toBeNull();
+
+    const persisted = JSON.parse(storage.getItem(BUTTON_LAYOUT_STORAGE_KEY) ?? '{}');
+    expect(persisted.hiddenBuiltInIds).toEqual(['mute']);
+  });
+
+  it('falls back to the default layout when stored data is malformed', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem(BUTTON_LAYOUT_STORAGE_KEY, '{not valid json');
+
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        { provide: REMOTE_STORAGE, useValue: storage },
+        { provide: REMOTE_AUTO_CONNECT, useValue: false },
+        {
+          provide: REMOTE_WEBSOCKET_FACTORY,
+          useValue: (url: string) => new MockRemoteSocket(url),
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(App);
+    expect(() => fixture.detectChanges()).not.toThrow();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(queryButton(compiled, 'Nächster Tab')).not.toBeNull();
+  });
 });
 
 async function setupApp(options: { readonly autoConnect?: boolean } = {}): Promise<AppHarness> {
@@ -216,6 +293,18 @@ function queryButtonByText(root: HTMLElement, text: string): HTMLButtonElement {
   }
 
   return button;
+}
+
+function keyChip(root: HTMLElement, key: string): HTMLButtonElement {
+  const chip = Array.from(root.querySelectorAll<HTMLButtonElement>('.key-chip')).find(
+    (candidate) => candidate.textContent?.trim() === key,
+  );
+
+  if (chip === undefined) {
+    throw new Error(`Key chip not found: ${key}`);
+  }
+
+  return chip;
 }
 
 function queryInput(root: HTMLElement, selector: string): HTMLInputElement {

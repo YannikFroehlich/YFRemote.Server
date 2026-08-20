@@ -1,0 +1,87 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.layout-canvas {
+  position: relative;
+  height: calc(var(--rows) * var(--row-h));
+}
+
+.layout-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      rgba(113, 215, 196, 0.18) 0 1px,
+      transparent 1px calc(100% / var(--cols))
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(113, 215, 196, 0.18) 0 1px,
+      transparent 1px var(--row-h)
+    );
+}
+
+.layout-slot {
+  position: absolute;
+  box-sizing: border-box;
+  left: calc(var(--col) / var(--cols) * 100%);
+  top: calc(var(--row) * var(--row-h));
+  width: calc(var(--w) / var(--cols) * 100%);
+  height: calc(var(--h) * var(--row-h));
+  padding: calc(var(--gap) / 2);
+}
+
+.layout-slot > .control-button {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.layout-canvas--editing .layout-slot {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
+.layout-slot--dragging {
+  z-index: 2;
+  cursor: grabbing;
+  opacity: 0.92;
+}
+
+.layout-slot--dragging > .control-button {
+  border-color: #6dd8c2;
+  box-shadow: 0 0 0 3px rgba(113, 215, 196, 0.16);
+}
+
+.slot-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 3;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid #40372d;
+  border-radius: 999px;
+  background: #2b211a;
+  color: #ffb4a8;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.slot-remove:hover,
+.slot-remove:focus-visible {
+  border-color: #ff8f7a;
+  outline: none;
+}

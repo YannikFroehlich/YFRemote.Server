@@ -1,7 +1,5 @@
-export type RemoteActionType = 'key' | 'hotkey';
-
 export interface KeyboardAction {
-  readonly type: RemoteActionType;
+  readonly type: 'key' | 'hotkey';
   readonly keys: readonly string[];
 }
 
@@ -63,7 +61,11 @@ export type RemoteIcon =
   | 'volume-mute'
   | 'settings'
   | 'refresh'
-  | 'disconnect';
+  | 'disconnect'
+  | 'key'
+  | 'star'
+  | 'plus'
+  | 'edit';
 
 export interface RemoteButtonConfig {
   readonly id: string;
@@ -73,5 +75,6 @@ export interface RemoteButtonConfig {
   readonly action?: RemoteAction;
   readonly disabled?: boolean;
   readonly unavailableText?: string;
-  readonly gridArea?: string;
+  /** Blendet die Textbeschriftung neben dem Symbol aus (z. B. die D-Pad-Pfeile). Default: true. */
+  readonly showLabel?: boolean;
 }

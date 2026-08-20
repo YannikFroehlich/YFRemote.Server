@@ -246,16 +246,23 @@ Programme blockieren, wenn YFRemote selbst nicht mit denselben Rechten läuft.
 
 ### Releases
 
-Ein Tag im Server-Repository startet den GitHub-Actions-Workflow:
+Ein Merge nach `main` im Server-Repository löst automatisch ein Release aus: der
+Workflow `Auto Tag YFRemote` ermittelt aus den Commit-Messages (Conventional
+Commits, z. B. `fix:`, `feat:`, `feat!:`) die nächste sinnvolle Version und stößt
+darüber direkt den Release-Workflow an. Es ist also kein manuelles Taggen mehr
+nötig.
+
+Der Release-Workflow testet und baut den aktuellen Client, integriert ihn in den
+Server und veröffentlicht EXE, MSI, portable ZIP-Datei sowie Velopack-Voll- und
+Delta-Pakete im Server-Repository. Bei reinen Client-Änderungen (ohne neuen
+Server-Commit) muss der Client zuerst nach `master` gemergt und danach `Auto Tag
+YFRemote` manuell über "Run workflow" gestartet werden.
+
+Alternativ funktioniert weiterhin ein manuell gepushter Tag als Fallback:
 
 ```powershell
 git tag -a v1.0.3 -m "YFRemote v1.0.3"
 git push origin v1.0.3
 ```
-
-Der Workflow testet und baut den aktuellen Client, integriert ihn in den Server und
-veröffentlicht EXE, MSI, portable ZIP-Datei sowie Velopack-Voll- und Delta-Pakete im
-Server-Repository. Bei reinen Client-Änderungen muss der Client zuerst nach `master`
-gemergt und erst danach der neue Server-Tag erstellt werden.
 
 Weitere verbindliche Projekt- und Release-Hinweise stehen in [`AGENTS.md`](AGENTS.md).

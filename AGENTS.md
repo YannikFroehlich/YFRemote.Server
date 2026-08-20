@@ -117,11 +117,36 @@ For changes involving the packaged UI, also ensure the Client production output 
 copied into `wwwroot` or let the GitHub release workflow perform that integration.
 Test update behavior using an installed older version, not a development binary.
 
-## Release workflow
+## Release automation
 
-The release workflow is
-`YFRemote.Server/.github/workflows/release.yml`. It runs when a semantic-version tag
-matching `v*.*.*` is pushed to the Server repository.
+Merging to the Server's `main` branch triggers a release automatically. Nothing else is
+required for a Server-only or combined change.
+
+`YFRemote.Server/.github/workflows/auto-tag.yml` runs on every push to `main`. It:
+
+1. analyzes commits since the previous tag using Conventional Commits (`fix:` → patch,
+   `feat:` → minor, `feat!:` or a `BREAKING CHANGE:` footer → major; anything else falls
+   back to a patch bump, so every merge produces at least a patch release);
+2. computes the next `X.Y.Z` version without creating a tag itself (`dry_run: true`);
+3. invokes `release.yml` directly as a reusable workflow (`workflow_call`), passing that
+   version — the tag itself is created later by `vpk upload github --publish` inside
+   `release.yml`, not by `auto-tag.yml`.
+
+Use Conventional Commit prefixes in commit/PR titles so the version bump is meaningful.
+To skip a release entirely for a given merge (e.g. a docs-only change), include
+`[skip release]` in the merge commit message.
+
+`auto-tag.yml` also accepts a manual `workflow_dispatch` run with a chosen `bump` input
+(`patch`/`minor`/`major`). Use this for a **Client-only change**: since nothing changes in
+the Server repo, no push to `main` happens and the automation never fires on its own — run
+the workflow manually (GitHub → Actions → "Auto Tag YFRemote" → "Run workflow") after the
+Client change has been merged to `master`.
+
+`YFRemote.Server/.github/workflows/release.yml` does the actual build/pack/publish work. It
+runs either invoked by `auto-tag.yml` above, or directly when a semantic-version tag matching
+`v*.*.*` is pushed to the Server repository by hand — keep the manual tag-push path in mind
+as a fallback (e.g. for re-running a release, or environments where the automated workflow
+can't run).
 
 The workflow:
 
@@ -151,12 +176,23 @@ publication, increment the semantic version and create a new tag.
 
 A Client-only change still requires a new Server release because the compiled
 Client is embedded in the Server package. The Server source does not need a new
-commit.
+commit — but that also means `auto-tag.yml` never fires on its own for this case,
+since nothing gets pushed to the Server's `main`.
 
 1. Commit and merge the Client change into `YFRemote.Client/master`.
 2. Verify that GitHub shows the intended Client commit on `master`.
-3. Choose the next unused product version, for example `v1.0.2`.
-4. Create and push that tag in `YFRemote.Server` on the intended `main` commit:
+3. In `YFRemote.Server`, run `auto-tag.yml` manually: GitHub → Actions → "Auto Tag
+   YFRemote" → "Run workflow" on `main`, choosing the appropriate `bump` (usually
+   `patch`).
+4. Monitor the run until both the tagging job and the invoked `release.yml` succeed.
+5. Verify the public Server release and its assets.
+
+The order is important: merge the Client first, then run the workflow. It checks out
+the current Client default branch at run time; triggering it too early can package
+the previous Client version.
+
+Fallback if the automated workflow is unavailable: tag the intended Server `main`
+commit by hand and push the tag, which triggers `release.yml` directly.
 
 ```powershell
 cd D:\Dokumente\Programmieren\YFRemote\server\YFRemote.Server
@@ -166,23 +202,21 @@ git tag -a v1.0.2 -m "YFRemote v1.0.2"
 git push origin v1.0.2
 ```
 
-5. Monitor the `Release YFRemote` GitHub Actions workflow until it succeeds.
-6. Verify the public Server release and its assets.
-
-The order is important: merge the Client first, then push the Server tag. The
-workflow checks out the current Client default branch at workflow runtime; tagging
-too early can package the previous Client version.
-
 ## Releasing a Server or combined change
 
 1. Merge all required Client changes to `master`, if any.
-2. Merge the Server changes to `main`.
-3. Run/confirm the relevant Client and Server checks.
-4. Tag the intended Server `main` commit with the next unused `vX.Y.Z` version.
-5. Push the tag, monitor the release workflow, and verify all assets.
+2. Merge the Server changes to `main` — use Conventional Commit prefixes (`fix:`,
+   `feat:`, `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the automatic
+   version bump is meaningful.
+3. Run/confirm the relevant Client and Server checks before merging.
+4. `auto-tag.yml` fires automatically on the merge to `main`, computes the next
+   version, and invokes `release.yml`. No manual tagging step is needed.
+5. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify
+   all assets.
 
 The latest known release when this file was created was `v1.0.1`. Do not assume
-that remains current: query Server releases and tags before choosing a new version.
+that remains current: query Server releases and tags before assuming what the next
+automatic version will be.
 
 ## GitHub CLI notes
 

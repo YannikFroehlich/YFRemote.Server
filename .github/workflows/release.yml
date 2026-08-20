@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_call:
+    inputs:
+      version:
+        description: "Zu veroeffentlichende Version ohne fuehrendes v, z. B. 1.2.3"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -37,11 +43,14 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Version aus Tag lesen
+      - name: Version ermitteln
         id: version
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $version = "${{ inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "${{ github.ref_name }}" -replace '^v', ''
+          }
           if ($version -notmatch '^\d+\.\d+\.\d+$') {
             throw "Ungueltige Release-Version: $version"
           }
@@ -106,5 +115,5 @@ jobs:
           --token "${{ secrets.GITHUB_TOKEN }}"
           --publish
           --releaseName "YFRemote v${{ steps.version.outputs.version }}"
-          --tag "${{ github.ref_name }}"
+          --tag "v${{ steps.version.outputs.version }}"
           --targetCommitish "${{ github.sha }}"

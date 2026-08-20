@@ -2,13 +2,14 @@ import { Component, inject, signal } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
+import { KeyboardPadComponent } from './keyboard-pad.component';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ConnectionStatus } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SettingsDialogComponent } from './settings-dialog.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 
-type RemoteView = 'remote' | 'touchpad';
+type RemoteView = 'remote' | 'touchpad' | 'keyboard';
 
 @Component({
   selector: 'app-remote-control',
@@ -17,6 +18,7 @@ type RemoteView = 'remote' | 'touchpad';
     TouchpadComponent,
     ButtonCanvasComponent,
     ButtonEditorDialogComponent,
+    KeyboardPadComponent,
   ],
   templateUrl: './remote-control.component.html',
 })

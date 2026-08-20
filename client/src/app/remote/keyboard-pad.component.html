@@ -1,0 +1,27 @@
+<div class="field">
+  <span>Tastatur</span>
+  <div class="key-picker">
+    @for (group of keyGroups; track group.label) {
+      <div class="key-group">
+        <p class="key-group__label">{{ group.label }}</p>
+        <div class="key-group__keys">
+          @for (key of group.keys; track key) {
+            <button
+              class="key-chip"
+              type="button"
+              [class.key-chip--active]="isKeyActive(key)"
+              [disabled]="isKeyDisabled(key)"
+              [attr.aria-pressed]="isKeyActive(key)"
+              (click)="onKeyTap(key)"
+            >
+              {{ key }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+  </div>
+  <output class="key-picker__summary">{{ summary() }}</output>
+</div>
+
+<button class="secondary-button" type="button" (click)="clearArmed()">Zurücksetzen</button>

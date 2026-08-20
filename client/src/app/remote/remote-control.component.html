@@ -101,6 +101,16 @@
       >
         Touchpad
       </button>
+      <button
+        class="view-tab"
+        [class.view-tab--active]="activeView() === 'keyboard'"
+        type="button"
+        role="tab"
+        [attr.aria-selected]="activeView() === 'keyboard'"
+        (click)="selectView('keyboard')"
+      >
+        Tastatur
+      </button>
     </div>
 
     @if (activeView() === 'remote') {
@@ -152,8 +162,10 @@
           }
         </div>
       }
-    } @else {
+    } @else if (activeView() === 'touchpad') {
       <app-touchpad />
+    } @else {
+      <app-keyboard-pad />
     }
   </section>
 

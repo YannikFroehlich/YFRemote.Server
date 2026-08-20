@@ -125,6 +125,25 @@ describe('App', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"right"}']);
   });
 
+  it('switches to the keyboard tab and sends a hotkey through the existing socket', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    sockets[0].open();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Tastatur').click();
+    fixture.detectChanges();
+
+    expect(queryButtonByText(compiled, 'Tastatur').getAttribute('aria-selected')).toBe('true');
+
+    keyChip(compiled, 'CTRL').click();
+    fixture.detectChanges();
+    keyChip(compiled, 'S').click();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","S"]}']);
+  });
+
   it('validates settings and persists a new endpoint', async () => {
     const { fixture, sockets, storage } = await setupApp({ autoConnect: true });
     const compiled = fixture.nativeElement as HTMLElement;

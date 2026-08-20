@@ -1,3 +1,4 @@
+using Microsoft.Extensions.FileProviders;
 using Velopack;
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Models;
@@ -121,6 +122,7 @@ internal static class Program
 
         app.UseDefaultFiles();
         app.UseStaticFiles();
+        UseTestToolIfPresent(app);
         app.UseWebSockets(new WebSocketOptions
         {
             KeepAliveInterval = TimeSpan.FromSeconds(30)
@@ -134,6 +136,17 @@ internal static class Program
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 await context.Response.WriteAsync("WebSocket connection required.");
+                return;
+            }
+
+            if (!IsAllowedOrigin(context.Request))
+            {
+                app.Logger.LogWarning(
+                    "Rejected WebSocket handshake with disallowed Origin '{Origin}' from {RemoteAddress}.",
+                    context.Request.Headers.Origin.ToString(),
+                    context.Connection.RemoteIpAddress);
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
                 return;
             }
 
@@ -153,6 +166,38 @@ internal static class Program
         app.Logger.LogInformation("YFRemote.Server starting on {Url}", serverOptions.Url);
 
         return app;
+    }
+
+    // Existiert nur im Repo-Checkout, nie in einer installierten Build: liefert den manuellen
+    // Smoke-Test ueber eine echte HTTP-Origin aus, damit die Origin-Pruefung von /ws ihn nicht
+    // ablehnt (bei file:// haette der Browser keinen passenden Origin-Header).
+    private static void UseTestToolIfPresent(WebApplication app)
+    {
+        var testDirectory = Path.Combine(Directory.GetCurrentDirectory(), "test");
+        if (!Directory.Exists(testDirectory))
+        {
+            return;
+        }
+
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new PhysicalFileProvider(testDirectory),
+            RequestPath = "/test"
+        });
+    }
+
+    // WebSocket-Handshakes unterliegen nicht der Same-Origin-Policy des Browsers, daher muss der
+    // Origin-Header hier selbst geprueft werden, um Steuerbefehle von fremden Webseiten zu verhindern.
+    private static bool IsAllowedOrigin(HttpRequest request)
+    {
+        var origin = request.Headers.Origin.ToString();
+        if (string.IsNullOrEmpty(origin))
+        {
+            return false;
+        }
+
+        var expectedOrigin = $"{request.Scheme}://{request.Host}";
+        return string.Equals(origin, expectedOrigin, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void StopAndDisposeApplication(WebApplication app)

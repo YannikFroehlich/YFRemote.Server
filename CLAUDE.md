@@ -40,8 +40,11 @@ dotnet run -- Server:Port=5060                # override port for a dev run
 ```
 
 There is no automated test project in this repo (`test/websocket-test.html` is a manual
-browser-based smoke test, opened directly in a browser against a running server — not run via
-`dotnet test`). There is no lint step beyond `dotnet build` warnings.
+browser-based smoke test — not run via `dotnet test`). During a `dotnet run` dev session the
+server serves this file itself at `http://<host>:<port>/test/websocket-test.html` (only when the
+`test/` directory exists next to the working directory, so never in an installed build); open it
+that way rather than via `file://`, since `/ws` rejects handshakes whose `Origin` header doesn't
+match the server's own origin. There is no lint step beyond `dotnet build` warnings.
 
 To exercise a full client+server integration locally:
 

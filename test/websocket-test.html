@@ -94,6 +94,13 @@
   <main>
     <h1>YFRemote WebSocket Test</h1>
 
+    <label for="pin">Pairing-PIN (im Tray-Menü sichtbar)</label>
+    <input id="pin" autocomplete="off" inputmode="numeric" maxlength="6" placeholder="123456">
+
+    <div class="toolbar">
+      <button id="pair">Pair</button>
+    </div>
+
     <label for="wsUrl">WebSocket URL</label>
     <input id="wsUrl" autocomplete="off">
 
@@ -139,6 +146,8 @@
   </main>
 
   <script>
+    const pinInput = document.querySelector("#pin");
+    const pairButton = document.querySelector("#pair");
     const urlInput = document.querySelector("#wsUrl");
     const connectButton = document.querySelector("#connect");
     const commandButtons = [...document.querySelectorAll("button[data-payload]")];
@@ -150,9 +159,36 @@
 
     let socket;
 
-    // Muss von der eigenen Origin des Servers stammen (nicht file://), da /ws den
-    // Origin-Header prueft. Wird deshalb dynamisch aus location.host abgeleitet.
+    // Muss von der eigenen Origin des Servers stammen (nicht file://), da /ws und
+    // /pair den Origin-Header pruefen. Wird deshalb dynamisch aus location.host
+    // abgeleitet.
     urlInput.value = `ws://${location.host}/ws`;
+
+    pairButton.addEventListener("click", async () => {
+      const pin = pinInput.value.trim();
+      pairButton.disabled = true;
+
+      try {
+        const response = await fetch(`${location.origin}/pair`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin, deviceName: "WebSocket Test Tool" }),
+        });
+        const result = await response.json();
+
+        if (!result.success) {
+          setStatus(`pairing failed: ${result.error ?? "unbekannter Fehler"}`);
+          return;
+        }
+
+        urlInput.value = `ws://${location.host}/ws?token=${encodeURIComponent(result.token)}`;
+        setStatus("paired");
+      } catch (error) {
+        setStatus(`pairing failed: ${error}`);
+      } finally {
+        pairButton.disabled = false;
+      }
+    });
 
     function setConnected(connected) {
       connectButton.textContent = connected ? "Disconnect" : "Connect";

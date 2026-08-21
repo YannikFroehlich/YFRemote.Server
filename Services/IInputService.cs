@@ -6,6 +6,8 @@ public interface IInputService
 
     void PressHotkey(IReadOnlyList<string> keys);
 
+    void TypeText(string text);
+
     void KeyDown(string key);
 
     void KeyUp(string key);

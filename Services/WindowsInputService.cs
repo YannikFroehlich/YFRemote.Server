@@ -129,6 +129,20 @@ public sealed class WindowsInputService(WindowsInputSender inputSender) : IInput
         }
     }
 
+    public void TypeText(string text)
+    {
+        // Zeichen statt Tasten senden (KEYEVENTF_UNICODE): deckt Satzzeichen, Umlaute und
+        // Groß-/Kleinschreibung ab, die die VirtualKeys-Allowlist oben nicht abbilden kann.
+        inputSender.ExecuteSynchronized(() =>
+        {
+            foreach (var character in text)
+            {
+                inputSender.SendUnicodeInput(character, keyUp: false);
+                inputSender.SendUnicodeInput(character, keyUp: true);
+            }
+        });
+    }
+
     public void KeyDown(string key)
     {
         inputSender.ExecuteSynchronized(() => SendKeyDown(ResolveKey(key)));

@@ -6,6 +6,8 @@ public sealed record RemoteActionRequest
 
     public IReadOnlyList<string>? Keys { get; init; }
 
+    public string? Text { get; init; }
+
     public int? DeltaX { get; init; }
 
     public int? DeltaY { get; init; }

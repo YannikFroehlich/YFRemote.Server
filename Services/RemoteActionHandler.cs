@@ -11,6 +11,7 @@ public sealed class RemoteActionHandler(
     private const int MaxMouseMoveDelta = 5000;
     private const int MinMouseScrollDelta = -1200;
     private const int MaxMouseScrollDelta = 1200;
+    private const int MaxTextLength = 500;
 
     public RemoteActionResponse Handle(RemoteActionRequest? request)
     {
@@ -28,6 +29,7 @@ public sealed class RemoteActionHandler(
             {
                 "key" => HandleKey(keys),
                 "hotkey" => HandleHotkey(keys),
+                "text" => HandleText(request),
                 "mousemove" => HandleMouseMove(request),
                 "mouseclick" => HandleMouseClick(request),
                 "mousescroll" => HandleMouseScroll(request),
@@ -75,6 +77,29 @@ public sealed class RemoteActionHandler(
         logger.LogDebug("Executing hotkey action: {Keys}", string.Join("+", keys));
         inputService.PressHotkey(keys);
         logger.LogDebug("Hotkey action succeeded: {Keys}", string.Join("+", keys));
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleText(RemoteActionRequest request)
+    {
+        var text = request.Text;
+
+        if (string.IsNullOrEmpty(text))
+        {
+            return Fail("Action 'text' requires text.");
+        }
+
+        if (text.Length > MaxTextLength)
+        {
+            return Fail($"text must be at most {MaxTextLength} characters.");
+        }
+
+        // Nur die Länge loggen, nicht den Inhalt: der Text kann beliebige, ggf. sensible
+        // Nutzereingaben enthalten.
+        logger.LogDebug("Executing text action with {Length} characters.", text.Length);
+        inputService.TypeText(text);
+        logger.LogDebug("Text action succeeded.");
 
         return RemoteActionResponse.Ok();
     }

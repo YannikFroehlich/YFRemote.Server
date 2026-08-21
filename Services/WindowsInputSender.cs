@@ -36,6 +36,26 @@ public sealed class WindowsInputSender
         SendSingle(input, $"keyboard virtual key 0x{virtualKey:X2}");
     }
 
+    public void SendUnicodeInput(char character, bool keyUp)
+    {
+        var input = new Input
+        {
+            Type = InputKeyboard,
+            Data = new InputUnion
+            {
+                Keyboard = new KeyboardInput
+                {
+                    VirtualKey = 0,
+                    ScanCode = character,
+                    Flags = WindowsInputFlags.KeyEventUnicode
+                        | (keyUp ? WindowsInputFlags.KeyEventKeyUp : 0)
+                }
+            }
+        };
+
+        SendSingle(input, $"unicode character U+{(int)character:X4}");
+    }
+
     public void SendMouseInput(int dx, int dy, int mouseData, uint flags)
     {
         var input = new Input
@@ -135,6 +155,7 @@ public sealed class WindowsInputSender
 internal static class WindowsInputFlags
 {
     public const uint KeyEventKeyUp = 0x0002;
+    public const uint KeyEventUnicode = 0x0004;
 
     public const uint MouseEventMove = 0x0001;
     public const uint MouseEventLeftDown = 0x0002;

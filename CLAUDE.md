@@ -83,11 +83,11 @@ crashing silently.
 
 **Action pipeline.** `YFRemoteWebSocketHandler` owns the socket loop: reads a length-capped
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
-`RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `mouseMove`,
-`mouseClick`, `mouseScroll`) into `IInputService` / `IMouseService`, validates ranges/argument
-shape per action, and always returns a `RemoteActionResponse` (never throws through to the
-socket — exceptions become `Success:false` responses). One handler instance serially processes
-one client's messages, but multiple clients can connect concurrently.
+`RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
+`mouseMove`, `mouseClick`, `mouseScroll`) into `IInputService` / `IMouseService`, validates
+ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
+through to the socket — exceptions become `Success:false` responses). One handler instance
+serially processes one client's messages, but multiple clients can connect concurrently.
 
 **Input simulation.** `WindowsInputService`/`WindowsMouseService` translate high-level actions
 into raw Win32 `SendInput` calls via the shared `WindowsInputSender`, which serializes all

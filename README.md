@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/YannikFroehlich/YFRemote.Client/master/public/favicon.ico" alt="YFRemote-Logo" width="180">
+</p>
+
 # YFRemote
 
 YFRemote verwandelt ein Smartphone, Tablet oder einen zweiten Computer in eine

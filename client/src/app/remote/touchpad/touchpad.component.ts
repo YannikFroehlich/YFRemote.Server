@@ -106,6 +106,19 @@ export class TouchpadComponent implements OnDestroy {
     this.sendAction({ type: 'mouseClick', button });
   }
 
+  protected submitText(event: Event, input: HTMLInputElement): void {
+    event.preventDefault();
+
+    const text = input.value;
+
+    if (text.length === 0) {
+      return;
+    }
+
+    this.sendAction({ type: 'text', text });
+    input.value = '';
+  }
+
   ngOnDestroy(): void {
     this.resetPointers();
   }

@@ -148,6 +148,32 @@ describe('TouchpadComponent', () => {
 
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"right"}']);
   });
+
+  it('sends typed text and clears the input', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const root = fixture.nativeElement as HTMLElement;
+    const textInput = root.querySelector<HTMLInputElement>('.touchpad-text__input');
+    const form = root.querySelector<HTMLFormElement>('.touchpad-text');
+
+    expect(textInput).not.toBeNull();
+    expect(form).not.toBeNull();
+
+    textInput!.value = 'Hallo Welt!';
+    form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"text","text":"Hallo Welt!"}']);
+    expect(textInput!.value).toBe('');
+  });
+
+  it('does not send anything when submitting an empty text field', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const root = fixture.nativeElement as HTMLElement;
+    const form = root.querySelector<HTMLFormElement>('.touchpad-text');
+
+    form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(sockets[0].sentMessages).toEqual([]);
+  });
 });
 
 async function setupTouchpad(options: { readonly sensitivity?: number } = {}): Promise<TouchpadHarness> {

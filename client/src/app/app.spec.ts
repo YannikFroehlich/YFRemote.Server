@@ -144,6 +144,27 @@ describe('App', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","S"]}']);
   });
 
+  it('switches to touchpad and sends typed text through the existing socket', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    sockets[0].open();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Touchpad').click();
+    fixture.detectChanges();
+
+    const textInput = compiled.querySelector<HTMLInputElement>('.touchpad-text__input');
+    const form = compiled.querySelector<HTMLFormElement>('.touchpad-text');
+
+    expect(textInput).not.toBeNull();
+
+    textInput!.value = 'Guten Tag';
+    form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"text","text":"Guten Tag"}']);
+  });
+
   it('validates settings and persists a new endpoint', async () => {
     const { fixture, sockets, storage } = await setupApp({ autoConnect: true });
     const compiled = fixture.nativeElement as HTMLElement;

@@ -7,7 +7,7 @@
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-rows: minmax(260px, 1fr) 68px;
+  grid-template-rows: minmax(260px, 1fr) 68px 64px;
   overflow: hidden;
   border: 1px solid #3b3328;
   border-radius: 8px;
@@ -70,9 +70,33 @@
   outline-offset: -3px;
 }
 
+.touchpad-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-top: 1px solid #3b3328;
+  background: #171410;
+}
+
+.touchpad-text__input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #40372d;
+  border-radius: 8px;
+  background: #201c16;
+  color: #fff7eb;
+}
+
+.touchpad-text__send {
+  min-height: 44px;
+  padding: 0 16px;
+}
+
 @media (max-height: 650px) {
   .touchpad-card {
-    grid-template-rows: minmax(220px, 1fr) 64px;
+    grid-template-rows: minmax(220px, 1fr) 64px 56px;
   }
 
   .touchpad-surface {
@@ -81,5 +105,10 @@
 
   .touchpad-button {
     min-height: 64px;
+  }
+
+  .touchpad-text__input,
+  .touchpad-text__send {
+    min-height: 38px;
   }
 }

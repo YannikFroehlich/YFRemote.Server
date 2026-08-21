@@ -19,11 +19,17 @@ export interface MouseScrollAction {
   readonly delta: number;
 }
 
+export interface TextAction {
+  readonly type: 'text';
+  readonly text: string;
+}
+
 export type RemoteAction =
   | KeyboardAction
   | MouseMoveAction
   | MouseClickAction
-  | MouseScrollAction;
+  | MouseScrollAction
+  | TextAction;
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 

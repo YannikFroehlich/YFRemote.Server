@@ -104,7 +104,11 @@ describe('ButtonLayoutService', () => {
   it('adds a custom button with a deterministic id and no leaked "type" duplication', () => {
     const { service, storage } = setupService();
 
-    const added = service.addCustomButton({ label: 'Speichern', icon: 'key', keys: ['CTRL', 'S'] });
+    const added = service.addCustomButton({
+      label: 'Speichern',
+      icon: 'key',
+      steps: [{ action: { type: 'hotkey', keys: ['CTRL', 'S'] }, delayMs: 0 }],
+    });
 
     expect(added).toBe(true);
     expect(service.visibleButtons().some((item) => item.placement.id === 'custom:test1')).toBe(
@@ -113,14 +117,19 @@ describe('ButtonLayoutService', () => {
 
     const persisted = JSON.parse(storage.getItem(BUTTON_LAYOUT_STORAGE_KEY) ?? '{}');
     expect(persisted.customButtons).toEqual([
-      { id: 'custom:test1', label: 'Speichern', icon: 'key', action: { type: 'hotkey', keys: ['CTRL', 'S'] } },
+      {
+        id: 'custom:test1',
+        label: 'Speichern',
+        icon: 'key',
+        steps: [{ action: { type: 'hotkey', keys: ['CTRL', 'S'] }, delayMs: 0 }],
+      },
     ]);
   });
 
   it('rejects an invalid custom button draft without persisting anything', () => {
     const { service, storage } = setupService();
 
-    const added = service.addCustomButton({ label: 'Ungueltig', icon: null, keys: [] });
+    const added = service.addCustomButton({ label: 'Ungueltig', icon: null, steps: [] });
 
     expect(added).toBe(false);
     expect(storage.getItem(BUTTON_LAYOUT_STORAGE_KEY)).toBeNull();
@@ -129,7 +138,11 @@ describe('ButtonLayoutService', () => {
   it('deletes a custom button and its placement together', () => {
     const { service } = setupService();
 
-    service.addCustomButton({ label: 'Speichern', icon: 'key', keys: ['CTRL', 'S'] });
+    service.addCustomButton({
+      label: 'Speichern',
+      icon: 'key',
+      steps: [{ action: { type: 'hotkey', keys: ['CTRL', 'S'] }, delayMs: 0 }],
+    });
     service.deleteCustomButton('custom:test1');
 
     expect(service.visibleButtons().some((item) => item.placement.id === 'custom:test1')).toBe(
@@ -142,7 +155,11 @@ describe('ButtonLayoutService', () => {
     const { service } = setupService();
 
     service.hideButton('mute');
-    service.addCustomButton({ label: 'Speichern', icon: 'key', keys: ['CTRL', 'S'] });
+    service.addCustomButton({
+      label: 'Speichern',
+      icon: 'key',
+      steps: [{ action: { type: 'hotkey', keys: ['CTRL', 'S'] }, delayMs: 0 }],
+    });
     service.resetLayout();
 
     expect(service.hiddenButtons()).toEqual([]);

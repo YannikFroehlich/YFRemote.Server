@@ -54,7 +54,14 @@
           (click)="remove(item)"
           (pointerdown)="$event.stopPropagation()"
         >
-          <span aria-hidden="true">&times;</span>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+            <path
+              d="M6 6L18 18M18 6L6 18"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
+          </svg>
         </button>
       }
     </div>

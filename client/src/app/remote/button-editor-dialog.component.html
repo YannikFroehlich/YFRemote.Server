@@ -14,8 +14,10 @@
   >
     <header class="settings-dialog__header">
       <div>
-        <p class="eyebrow">{{ isEditing() ? 'Bearbeiten' : 'Neu' }}</p>
-        <h2 id="button-editor-title">Eigener Button</h2>
+        <p class="eyebrow">
+          {{ isReadOnly() ? 'Eingebaut' : isEditing() ? 'Bearbeiten' : 'Neu' }}
+        </p>
+        <h2 id="button-editor-title">{{ isReadOnly() ? 'Button-Details' : 'Eigener Button' }}</h2>
       </div>
       <button class="round-button" type="button" aria-label="Schließen" (click)="close()">
         <span aria-hidden="true">x</span>
@@ -23,73 +25,219 @@
     </header>
 
     <form class="settings-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <label class="field" for="button-label">
-        <span>Beschriftung</span>
-        <input
-          id="button-label"
-          type="text"
-          formControlName="label"
-          [attr.maxlength]="maxLabelLength"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        @if (hasLabelError()) {
-          <small>Beschriftung erforderlich (max. {{ maxLabelLength }} Zeichen).</small>
-        }
-      </label>
-
-      <div class="field">
-        <span>Symbol</span>
-        <div class="icon-picker">
-          @for (icon of icons; track icon) {
-            <button
-              class="icon-picker__option"
-              type="button"
-              [class.icon-picker__option--active]="form.controls.icon.value === icon"
-              [attr.aria-pressed]="form.controls.icon.value === icon"
-              [attr.aria-label]="'Symbol: ' + icon"
-              (click)="form.controls.icon.setValue(icon)"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path [attr.d]="iconPaths[icon]"></path>
-              </svg>
-            </button>
+      <div class="settings-form__scroll">
+        <label class="field" for="button-label">
+          <span>Beschriftung</span>
+          <input
+            id="button-label"
+            type="text"
+            formControlName="label"
+            [attr.maxlength]="maxLabelLength"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          @if (hasLabelError()) {
+            <small>Beschriftung erforderlich (max. {{ maxLabelLength }} Zeichen).</small>
           }
-        </div>
-      </div>
+        </label>
 
-      <div class="field">
-        <span>Taste(n)</span>
-        <div class="key-picker">
-          @for (group of keyGroups; track group.label) {
-            <div class="key-group">
-              <p class="key-group__label">{{ group.label }}</p>
-              <div class="key-group__keys">
-                @for (key of group.keys; track key) {
-                  <button
-                    class="key-chip"
-                    type="button"
-                    [class.key-chip--active]="isKeySelected(key)"
-                    [disabled]="isKeyDisabled(key)"
-                    [attr.aria-pressed]="isKeySelected(key)"
-                    (click)="toggleKey(key)"
-                  >
-                    {{ key }}
-                  </button>
-                }
+        <div class="field">
+          <span>Symbol</span>
+          <div class="icon-picker">
+            @for (icon of icons; track icon) {
+              <button
+                class="icon-picker__option"
+                type="button"
+                [class.icon-picker__option--active]="form.controls.icon.value === icon"
+                [attr.aria-pressed]="form.controls.icon.value === icon"
+                [attr.aria-label]="'Symbol: ' + icon"
+                [disabled]="isReadOnly()"
+                (click)="form.controls.icon.setValue(icon)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path [attr.d]="iconPaths[icon]"></path>
+                </svg>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="field">
+          <span>Schritte</span>
+
+          @if (steps().length > 0) {
+            <ol class="macro-steps">
+              @for (step of steps(); track $index) {
+                <li class="macro-step">
+                  <span class="macro-step__index">{{ $index + 1 }}.</span>
+                  <span class="macro-step__summary">
+                    @if (step.delayMs > 0) {
+                      <span class="macro-step__delay">+{{ step.delayMs }}ms</span>
+                    }
+                    {{ describeStep(step.action) }}
+                  </span>
+                  @if (!isReadOnly()) {
+                    <span class="macro-step__actions">
+                      <button
+                        type="button"
+                        aria-label="Schritt nach oben"
+                        [disabled]="$index === 0"
+                        (click)="moveStep($index, -1)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Schritt nach unten"
+                        [disabled]="$index === steps().length - 1"
+                        (click)="moveStep($index, 1)"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Schritt entfernen"
+                        (click)="removeStep($index)"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  }
+                </li>
+              }
+            </ol>
+          } @else {
+            <p class="macro-steps__empty">Noch keine Schritte hinzugefügt.</p>
+          }
+
+          @if (!isReadOnly()) {
+            <div class="macro-step-builder">
+              <div class="step-type-tabs" role="tablist" aria-label="Schritttyp">
+                <button
+                  type="button"
+                  class="view-tab"
+                  role="tab"
+                  [class.view-tab--active]="stepType() === 'keys'"
+                  [attr.aria-selected]="stepType() === 'keys'"
+                  (click)="setStepType('keys')"
+                >
+                  Tasten
+                </button>
+                <button
+                  type="button"
+                  class="view-tab"
+                  role="tab"
+                  [class.view-tab--active]="stepType() === 'text'"
+                  [attr.aria-selected]="stepType() === 'text'"
+                  (click)="setStepType('text')"
+                >
+                  Text
+                </button>
+                <button
+                  type="button"
+                  class="view-tab"
+                  role="tab"
+                  [class.view-tab--active]="stepType() === 'mouseClick'"
+                  [attr.aria-selected]="stepType() === 'mouseClick'"
+                  (click)="setStepType('mouseClick')"
+                >
+                  Klick
+                </button>
               </div>
+
+              @if (stepType() === 'keys') {
+                <div class="key-picker">
+                  @for (group of keyGroups; track group.label) {
+                    <div class="key-group">
+                      <p class="key-group__label">{{ group.label }}</p>
+                      <div class="key-group__keys">
+                        @for (key of group.keys; track key) {
+                          <button
+                            class="key-chip"
+                            type="button"
+                            [class.key-chip--active]="isPendingKeySelected(key)"
+                            [disabled]="isPendingKeyDisabled(key)"
+                            [attr.aria-pressed]="isPendingKeySelected(key)"
+                            (click)="togglePendingKey(key)"
+                          >
+                            {{ key }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else if (stepType() === 'text') {
+                <input
+                  class="macro-text-input"
+                  type="text"
+                  [value]="pendingText()"
+                  (input)="onPendingTextInput($event)"
+                  placeholder="Text eingeben…"
+                  autocomplete="off"
+                />
+              } @else {
+                <div class="mouse-click-picker">
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    [class.key-chip--active]="pendingMouseButton() === 'left'"
+                    [attr.aria-pressed]="pendingMouseButton() === 'left'"
+                    (click)="pendingMouseButton.set('left')"
+                  >
+                    Links
+                  </button>
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    [class.key-chip--active]="pendingMouseButton() === 'right'"
+                    [attr.aria-pressed]="pendingMouseButton() === 'right'"
+                    (click)="pendingMouseButton.set('right')"
+                  >
+                    Rechts
+                  </button>
+                </div>
+              }
+
+              <label class="field">
+                <span>Verzögerung vor diesem Schritt (ms)</span>
+                <input
+                  type="number"
+                  min="0"
+                  [attr.max]="maxDelayMs"
+                  step="50"
+                  [value]="pendingDelayMs()"
+                  (input)="onPendingDelayInput($event)"
+                />
+              </label>
+
+              <button
+                type="button"
+                class="secondary-button"
+                [disabled]="!canAddStep()"
+                (click)="addStep()"
+              >
+                Schritt hinzufügen
+              </button>
             </div>
+
+            @if (steps().length === 0) {
+              <small>Füge mindestens einen Schritt hinzu.</small>
+            }
           }
         </div>
-        <output class="key-picker__summary">{{ actionLabel() }}</output>
       </div>
 
       <footer class="settings-actions">
-        @if (isEditing()) {
-          <button class="secondary-button" type="button" (click)="delete()">Löschen</button>
+        @if (isReadOnly()) {
+          <button class="secondary-button" type="button" (click)="close()">Schließen</button>
+        } @else {
+          @if (isEditing()) {
+            <button class="secondary-button" type="button" (click)="delete()">Löschen</button>
+          }
+          <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
+          <button class="primary-button" type="submit" [disabled]="!canSave()">Speichern</button>
         }
-        <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
-        <button class="primary-button" type="submit" [disabled]="!canSave()">Speichern</button>
       </footer>
     </form>
   </section>

@@ -1,7 +1,7 @@
 import { BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
 import { REMOTE_ICONS } from './remote-icons';
 import { keysToAction } from './keyboard-keys';
-import { KeyboardAction, RemoteButtonConfig, RemoteIcon } from './remote.models';
+import { MacroStep, RemoteAction, RemoteButtonConfig, RemoteIcon } from './remote.models';
 
 export const BUTTON_LAYOUT_STORAGE_KEY = 'yfremote.buttonLayout';
 export const BUTTON_LAYOUT_VERSION = 1;
@@ -15,6 +15,9 @@ export const LAYOUT_MAX_ROWS = 60;
 export const CUSTOM_BUTTON_ID_PREFIX = 'custom:';
 export const MAX_CUSTOM_BUTTONS = 40;
 export const MAX_LABEL_LENGTH = 14;
+export const MAX_MACRO_STEPS = 10;
+export const MAX_MACRO_DELAY_MS = 5000;
+export const MAX_MACRO_TEXT_LENGTH = 500;
 
 export interface ButtonPlacement {
   readonly id: string;
@@ -28,7 +31,7 @@ export interface CustomButtonDefinition {
   readonly id: string;
   readonly label: string;
   readonly icon: RemoteIcon | null;
-  readonly action: KeyboardAction;
+  readonly steps: readonly MacroStep[];
 }
 
 export interface ButtonLayout {
@@ -64,8 +67,18 @@ export function customButtonToConfig(definition: CustomButtonDefinition): Remote
     label: definition.label,
     ariaLabel: definition.label,
     icon: definition.icon ?? 'key',
-    action: definition.action,
+    steps: definition.steps,
   };
+}
+
+/** Liefert die auszuführenden Schritte für einen Button, egal ob er ein einfaches `action`
+ *  (eingebaute Buttons) oder eine mehrschrittige `steps`-Kette (Custom-Buttons) trägt. */
+export function resolveButtonSteps(button: RemoteButtonConfig): readonly MacroStep[] {
+  if (button.steps !== undefined) {
+    return button.steps;
+  }
+
+  return button.action === undefined ? [] : [{ action: button.action, delayMs: 0 }];
 }
 
 export function clampPlacement(
@@ -153,15 +166,93 @@ export function normalizeCustomButtonDefinition(
 
   const icon = isRemoteIcon(value.icon) ? value.icon : null;
 
-  const rawKeys = Array.isArray(value.action?.keys) ? (value.action?.keys as unknown[]) : [];
+  // `steps` ist das aktuelle Format; ältere gespeicherte Buttons haben stattdessen ein
+  // einzelnes `action.keys` (vor Einführung von Aktionsketten) und werden hier in einen
+  // Ein-Schritt-Ablauf migriert.
+  const steps = normalizeMacroSteps(value.steps) ?? legacyStepsFromAction(value.action);
+
+  if (steps === null) {
+    return null;
+  }
+
+  return { id: value.id, label, icon, steps };
+}
+
+function legacyStepsFromAction(
+  action: { readonly keys?: unknown } | undefined,
+): readonly MacroStep[] | null {
+  const rawKeys = Array.isArray(action?.keys) ? (action?.keys as unknown[]) : [];
   const keys = rawKeys.filter((entry): entry is string => typeof entry === 'string');
-  const action = keysToAction(keys);
+  const keyboardAction = keysToAction(keys);
+
+  return keyboardAction === null ? null : [{ action: keyboardAction, delayMs: 0 }];
+}
+
+export function normalizeMacroSteps(candidate: unknown): readonly MacroStep[] | null {
+  if (!Array.isArray(candidate)) {
+    return null;
+  }
+
+  const steps = candidate
+    .map((entry) => normalizeMacroStep(entry))
+    .filter((step): step is MacroStep => step !== null)
+    .slice(0, MAX_MACRO_STEPS);
+
+  return steps.length === 0 ? null : steps;
+}
+
+export function normalizeMacroStep(candidate: unknown): MacroStep | null {
+  if (typeof candidate !== 'object' || candidate === null) {
+    return null;
+  }
+
+  const value = candidate as { readonly action?: unknown; readonly delayMs?: unknown };
+  const action = normalizeRemoteAction(value.action);
 
   if (action === null) {
     return null;
   }
 
-  return { id: value.id, label, icon, action };
+  const delayMs =
+    typeof value.delayMs === 'number' && Number.isFinite(value.delayMs)
+      ? Math.min(Math.max(Math.round(value.delayMs), 0), MAX_MACRO_DELAY_MS)
+      : 0;
+
+  return { action, delayMs };
+}
+
+function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
+  if (typeof candidate !== 'object' || candidate === null) {
+    return null;
+  }
+
+  const value = candidate as { readonly type?: unknown };
+
+  switch (value.type) {
+    case 'key':
+    case 'hotkey': {
+      const rawKeys = (candidate as { readonly keys?: unknown }).keys;
+      const keys = Array.isArray(rawKeys)
+        ? rawKeys.filter((entry): entry is string => typeof entry === 'string')
+        : [];
+      return keysToAction(keys);
+    }
+
+    case 'text': {
+      const text = (candidate as { readonly text?: unknown }).text;
+      return typeof text === 'string' && text.length > 0 && text.length <= MAX_MACRO_TEXT_LENGTH
+        ? { type: 'text', text }
+        : null;
+    }
+
+    case 'mouseClick': {
+      const button = (candidate as { readonly button?: unknown }).button;
+      return button === 'left' || button === 'right' ? { type: 'mouseClick', button } : null;
+    }
+
+    default:
+      return null;
+  }
 }
 
 /**

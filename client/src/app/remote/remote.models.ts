@@ -31,6 +31,12 @@ export type RemoteAction =
   | MouseScrollAction
   | TextAction;
 
+/** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
+export interface MacroStep {
+  readonly action: RemoteAction;
+  readonly delayMs: number;
+}
+
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 export interface ServerConfig {
@@ -79,6 +85,8 @@ export interface RemoteButtonConfig {
   readonly ariaLabel: string;
   readonly icon: RemoteIcon;
   readonly action?: RemoteAction;
+  /** Mehrschrittige Aktionskette; nimmt Vorrang vor `action`, wenn gesetzt. */
+  readonly steps?: readonly MacroStep[];
   readonly disabled?: boolean;
   readonly unavailableText?: string;
   /** Blendet die Textbeschriftung neben dem Symbol aus (z. B. die D-Pad-Pfeile). Default: true. */

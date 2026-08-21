@@ -5,10 +5,12 @@ import {
   DEFAULT_BUTTON_LAYOUT,
   findFreeSlot,
   LAYOUT_COLUMNS,
+  MAX_MACRO_STEPS,
   normalizeCustomButtonDefinition,
   overlaps,
   parseStoredButtonLayout,
   resolveButtonLayout,
+  resolveButtonSteps,
   snapPlacement,
 } from './button-layout';
 import { BUILT_IN_BUTTONS } from './remote-actions';
@@ -219,7 +221,7 @@ describe('button-layout', () => {
   });
 
   describe('normalizeCustomButtonDefinition', () => {
-    it('accepts a valid candidate', () => {
+    it('accepts a valid candidate using the legacy single-action format', () => {
       const result = normalizeCustomButtonDefinition({
         id: 'custom:1',
         label: 'Speichern',
@@ -231,8 +233,91 @@ describe('button-layout', () => {
         id: 'custom:1',
         label: 'Speichern',
         icon: 'key',
-        action: { type: 'hotkey', keys: ['CTRL', 'S'] },
+        steps: [{ action: { type: 'hotkey', keys: ['CTRL', 'S'] }, delayMs: 0 }],
       });
+    });
+
+    it('accepts a valid candidate using the multi-step macro format', () => {
+      const result = normalizeCustomButtonDefinition({
+        id: 'custom:1',
+        label: 'Makro',
+        icon: 'key',
+        steps: [
+          { action: { type: 'hotkey', keys: ['WIN'] }, delayMs: 0 },
+          { action: { type: 'text', text: 'notepad' }, delayMs: 300.6 },
+          { action: { type: 'key', keys: ['ENTER'] }, delayMs: -5 },
+        ],
+      });
+
+      expect(result).toEqual({
+        id: 'custom:1',
+        label: 'Makro',
+        icon: 'key',
+        steps: [
+          { action: { type: 'key', keys: ['WIN'] }, delayMs: 0 },
+          { action: { type: 'text', text: 'notepad' }, delayMs: 301 },
+          { action: { type: 'key', keys: ['ENTER'] }, delayMs: 0 },
+        ],
+      });
+    });
+
+    it('accepts a mouseClick step', () => {
+      const result = normalizeCustomButtonDefinition({
+        id: 'custom:1',
+        label: 'Klick',
+        icon: 'key',
+        steps: [{ action: { type: 'mouseClick', button: 'right' }, delayMs: 0 }],
+      });
+
+      expect(result).toEqual({
+        id: 'custom:1',
+        label: 'Klick',
+        icon: 'key',
+        steps: [{ action: { type: 'mouseClick', button: 'right' }, delayMs: 0 }],
+      });
+    });
+
+    it('drops invalid steps but keeps the valid ones', () => {
+      const result = normalizeCustomButtonDefinition({
+        id: 'custom:1',
+        label: 'Gemischt',
+        icon: 'key',
+        steps: [
+          { action: { type: 'key', keys: ['A'] }, delayMs: 0 },
+          { action: { type: 'key', keys: ['HOME'] }, delayMs: 0 },
+          { action: { type: 'mouseClick', button: 'up' }, delayMs: 0 },
+          'not an object',
+        ],
+      });
+
+      expect(result?.steps).toEqual([{ action: { type: 'key', keys: ['A'] }, delayMs: 0 }]);
+    });
+
+    it('rejects an empty steps array, falling back to no legacy action', () => {
+      expect(
+        normalizeCustomButtonDefinition({
+          id: 'custom:1',
+          label: 'Leer',
+          icon: 'key',
+          steps: [],
+        }),
+      ).toBeNull();
+    });
+
+    it('caps the number of steps at MAX_MACRO_STEPS', () => {
+      const steps = Array.from({ length: 20 }, () => ({
+        action: { type: 'key', keys: ['A'] },
+        delayMs: 0,
+      }));
+
+      const result = normalizeCustomButtonDefinition({
+        id: 'custom:1',
+        label: 'Viele',
+        icon: 'key',
+        steps,
+      });
+
+      expect(result?.steps).toHaveLength(MAX_MACRO_STEPS);
     });
 
     it('rejects a candidate whose id is not a custom id', () => {
@@ -283,6 +368,38 @@ describe('button-layout', () => {
       const resolved = resolveButtonLayout(stored, builtIns);
       expect(resolved.placements).toHaveLength(1);
       expect(resolved.placements[0]).toMatchObject({ col: 0, row: 0 });
+    });
+  });
+
+  describe('resolveButtonSteps', () => {
+    it('wraps a single-action button (built-ins) into a one-step sequence', () => {
+      expect(
+        resolveButtonSteps({
+          id: 'x',
+          label: 'X',
+          ariaLabel: 'X',
+          icon: 'key',
+          action: { type: 'key', keys: ['ENTER'] },
+        }),
+      ).toEqual([{ action: { type: 'key', keys: ['ENTER'] }, delayMs: 0 }]);
+    });
+
+    it('prefers steps over a plain action when both are present', () => {
+      const steps = [{ action: { type: 'key' as const, keys: ['A'] }, delayMs: 0 }];
+      expect(
+        resolveButtonSteps({
+          id: 'x',
+          label: 'X',
+          ariaLabel: 'X',
+          icon: 'key',
+          action: { type: 'key', keys: ['ENTER'] },
+          steps,
+        }),
+      ).toBe(steps);
+    });
+
+    it('returns an empty sequence for a button with neither action nor steps', () => {
+      expect(resolveButtonSteps({ id: 'x', label: 'X', ariaLabel: 'X', icon: 'key' })).toEqual([]);
     });
   });
 });

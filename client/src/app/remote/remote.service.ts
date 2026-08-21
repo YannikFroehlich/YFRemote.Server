@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   ConnectionStatus,
+  MacroStep,
   RemoteAction,
   RemoteResponse,
   ServerConfig,
@@ -125,6 +126,20 @@ export class RemoteService implements OnDestroy {
     this.mouseSensitivitySignal.set(normalizedSensitivity);
     this.persistMouseSensitivity(normalizedSensitivity);
     return true;
+  }
+
+  /** Führt eine Aktionskette sequenziell aus und wartet dabei die jeweils konfigurierte
+   *  Verzögerung ab. Bricht ab, sobald ein Schritt fehlschlägt (z. B. keine Verbindung). */
+  async runSteps(steps: readonly MacroStep[]): Promise<void> {
+    for (const step of steps) {
+      if (step.delayMs > 0) {
+        await sleep(step.delayMs);
+      }
+
+      if (!this.sendAction(step.action)) {
+        return;
+      }
+    }
   }
 
   sendAction(action: RemoteAction): boolean {
@@ -342,6 +357,10 @@ export class RemoteService implements OnDestroy {
       ? error.message
       : 'Unbekannter Fehler';
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function getBrowserStorage(): Storage | null {

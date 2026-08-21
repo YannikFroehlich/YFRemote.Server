@@ -10,7 +10,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { ButtonLayoutService } from './button-layout.service';
-import { labelVisibleFor, LAYOUT_COLUMNS, LAYOUT_GAP_PX, LAYOUT_ROW_HEIGHT_PX, PlacedButton } from './button-layout';
+import {
+  labelVisibleFor,
+  LAYOUT_COLUMNS,
+  LAYOUT_GAP_PX,
+  LAYOUT_ROW_HEIGHT_PX,
+  PlacedButton,
+  resolveButtonSteps,
+} from './button-layout';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { RemoteButtonConfig } from './remote.models';
 import { RemoteService } from './remote.service';
@@ -79,11 +86,17 @@ export class ButtonCanvasComponent implements OnDestroy {
   }
 
   protected activate(item: PlacedButton): void {
-    if (this.editMode() || item.button.disabled === true || item.button.action === undefined) {
+    if (this.editMode() || item.button.disabled === true) {
       return;
     }
 
-    this.remote.sendAction(item.button.action);
+    const steps = resolveButtonSteps(item.button);
+
+    if (steps.length === 0) {
+      return;
+    }
+
+    void this.remote.runSteps(steps);
   }
 
   protected remove(item: PlacedButton): void {

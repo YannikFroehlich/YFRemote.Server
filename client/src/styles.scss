@@ -91,6 +91,11 @@ button {
   gap: 12px;
 }
 
+.settings-dialog__header,
+.settings-actions {
+  flex: none;
+}
+
 .brand-block,
 .settings-dialog__header div {
   min-width: 0;
@@ -362,6 +367,9 @@ input:focus-visible {
 .settings-dialog {
   position: relative;
   width: min(100%, 420px);
+  max-height: calc(100vh - 36px);
+  display: flex;
+  flex-direction: column;
   padding: 16px;
   border: 1px solid #3d3327;
   border-radius: 12px;
@@ -369,18 +377,34 @@ input:focus-visible {
   box-shadow:
     0 22px 80px rgba(0, 0, 0, 0.54),
     0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  overflow: hidden;
 }
 
 .settings-dialog__status {
+  flex: none;
   margin-top: 10px;
   color: #bfb4a3;
   font-size: 0.86rem;
 }
 
 .settings-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+  gap: 14px;
+}
+
+/* Scrollt unabhängig von Kopf- und Fußzeile, damit z. B. der Speichern-Button in
+   settings-actions immer sichtbar bleibt, auch wenn die Felder nicht mehr in den
+   verfügbaren Platz passen (z. B. der Schritte-Baukasten im Button-Editor). */
+.settings-form__scroll {
   display: grid;
   gap: 14px;
-  margin-top: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .field {
@@ -618,6 +642,107 @@ input:focus-visible {
   color: #71d7c4;
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.macro-steps {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.macro-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #40372d;
+  border-radius: 8px;
+  background: #201c16;
+}
+
+.macro-step__index {
+  color: #8f8578;
+  font-weight: 900;
+}
+
+.macro-step__summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #f8f2e8;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.macro-step__delay {
+  margin-right: 6px;
+  color: #71d7c4;
+  font-weight: 800;
+}
+
+.macro-step__actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.macro-step__actions button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #40372d;
+  border-radius: 6px;
+  background: #171410;
+  color: #f8f2e8;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.macro-step__actions button:disabled {
+  color: #5c554b;
+  cursor: not-allowed;
+}
+
+.macro-steps__empty {
+  color: #8f8578;
+  font-size: 0.86rem;
+}
+
+.macro-step-builder {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #332c23;
+  border-radius: 10px;
+  background: #15130f;
+}
+
+.step-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #332c23;
+  border-radius: 10px;
+  background: #15130f;
+}
+
+.macro-text-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #40372d;
+  border-radius: 8px;
+  background: #201c16;
+  color: #fff7eb;
+}
+
+.mouse-click-picker {
+  display: flex;
+  gap: 8px;
 }
 
 @media (max-width: 380px) {

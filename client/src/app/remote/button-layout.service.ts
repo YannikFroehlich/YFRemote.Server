@@ -18,7 +18,7 @@ import {
   snapPlacement,
 } from './button-layout';
 import { BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
-import { RemoteButtonConfig, RemoteIcon } from './remote.models';
+import { MacroStep, RemoteButtonConfig, RemoteIcon } from './remote.models';
 import { REMOTE_STORAGE } from './remote.service';
 
 export const BUTTON_ID_FACTORY = new InjectionToken<() => string>('BUTTON_ID_FACTORY', {
@@ -30,7 +30,7 @@ export const BUTTON_ID_FACTORY = new InjectionToken<() => string>('BUTTON_ID_FAC
 export interface CustomButtonDraft {
   readonly label: string;
   readonly icon: RemoteIcon | null;
-  readonly keys: readonly string[];
+  readonly steps: readonly MacroStep[];
 }
 
 const DEFAULT_CUSTOM_SPAN = { colSpan: 3, rowSpan: 2 } as const;
@@ -59,6 +59,11 @@ export class ButtonLayoutService {
 
     return map;
   });
+
+  /** Liefert einen Button (eingebaut oder eigen) unabhängig von seiner Herkunft. */
+  getButton(id: string): RemoteButtonConfig | undefined {
+    return this.buttonsById().get(id);
+  }
 
   /** Sortiert nach (row, col), damit DOM-Reihenfolge = Lesereihenfolge = Tab-Reihenfolge. */
   readonly visibleButtons = computed<readonly PlacedButton[]>(() => {
@@ -152,7 +157,7 @@ export class ButtonLayoutService {
       id: this.nextId(),
       label: draft.label,
       icon: draft.icon,
-      action: { keys: draft.keys },
+      steps: draft.steps,
     });
 
     if (definition === null) {
@@ -187,7 +192,7 @@ export class ButtonLayoutService {
       id,
       label: draft.label,
       icon: draft.icon,
-      action: { keys: draft.keys },
+      steps: draft.steps,
     });
 
     if (definition === null) {

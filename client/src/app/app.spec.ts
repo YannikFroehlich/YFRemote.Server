@@ -227,6 +227,9 @@ describe('App', () => {
     keyChip(compiled, 'S').click();
     fixture.detectChanges();
 
+    queryButtonByText(compiled, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
     queryButtonByText(compiled, 'Speichern').click();
     fixture.detectChanges();
 
@@ -236,6 +239,53 @@ describe('App', () => {
     queryButton(compiled, 'Speichern').click();
 
     expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","S"]}']);
+  });
+
+  it('creates a two-step macro button through the editor and runs both steps in order', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    sockets[0].open();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Layout bearbeiten').click();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Hinzufügen').click();
+    fixture.detectChanges();
+
+    const labelInput = queryInput(compiled, '#button-label');
+    labelInput.value = 'Makro';
+    labelInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    keyChip(compiled, 'WIN').click();
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Text').click();
+    fixture.detectChanges();
+    const textInput = compiled.querySelector<HTMLInputElement>('.macro-text-input');
+    if (textInput === null) throw new Error('text input not found');
+    textInput.value = 'notepad';
+    textInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Speichern').click();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Layout bearbeiten').click();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Makro').click();
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"key","keys":["WIN"]}',
+      '{"type":"text","text":"notepad"}',
+    ]);
   });
 
   it('hides a built-in button and persists the change across a reload', async () => {

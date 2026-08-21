@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Velopack;
 using YFRemote.Server.Configuration;
+using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 using YFRemote.Server.Updates;
 
@@ -11,9 +12,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
 
     private readonly UpdateService updateService = new();
+    private readonly PairingService pairingService;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem updateItem;
+    private readonly ToolStripMenuItem pinItem;
+    private readonly ToolStripMenuItem pairedDevicesItem;
     private readonly System.Windows.Forms.Timer initialUpdateTimer;
     private readonly System.Windows.Forms.Timer periodicUpdateTimer;
     private readonly Control uiDispatcher = new();
@@ -27,6 +31,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     public TrayApplicationContext(WebApplication app)
     {
         var serverOptions = app.Services.GetRequiredService<ServerOptions>();
+        pairingService = app.Services.GetRequiredService<PairingService>();
         localAddress = NetworkAddressService.GetLocalAddress(serverOptions.Port);
         deviceAddress = NetworkAddressService.GetDeviceAddress(serverOptions.Port);
 
@@ -49,6 +54,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var copyAddressItem = new ToolStripMenuItem("Geräteadresse kopieren");
         copyAddressItem.Click += (_, _) => CopyDeviceAddress();
+
+        pinItem = new ToolStripMenuItem(FormatPinText(pairingService.GetCurrentPin()))
+        {
+            Enabled = false
+        };
+
+        var copyPinItem = new ToolStripMenuItem("PIN kopieren");
+        copyPinItem.Click += (_, _) => CopyPin();
+
+        var regeneratePinItem = new ToolStripMenuItem("PIN neu erzeugen");
+        regeneratePinItem.Click += (_, _) => RegeneratePin();
+
+        pairedDevicesItem = new ToolStripMenuItem("Gekoppelte Geräte");
 
         updateItem = new ToolStripMenuItem(
             updateService.CanUpdate
@@ -79,12 +97,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
             openItem,
             copyAddressItem,
             new ToolStripSeparator(),
+            pinItem,
+            copyPinItem,
+            regeneratePinItem,
+            pairedDevicesItem,
+            new ToolStripSeparator(),
             updateItem,
             new ToolStripSeparator(),
             startWithWindowsItem,
             new ToolStripSeparator(),
             exitItem
         ]);
+        contextMenu.Opening += (_, _) => RefreshPairingMenu();
+        RefreshPairingMenu();
 
         trayIcon = LoadTrayIcon();
         notifyIcon = new NotifyIcon
@@ -294,6 +319,80 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 MessageBoxIcon.Error);
         }
     }
+
+    private void RefreshPairingMenu()
+    {
+        pinItem.Text = FormatPinText(pairingService.GetCurrentPin());
+
+        var pairedDevices = pairingService.GetPairedDevices();
+        pairedDevicesItem.Text = $"Gekoppelte Geräte ({pairedDevices.Count})";
+        pairedDevicesItem.DropDownItems.Clear();
+
+        if (pairedDevices.Count == 0)
+        {
+            pairedDevicesItem.DropDownItems.Add(new ToolStripMenuItem("Keine gekoppelten Geräte")
+            {
+                Enabled = false
+            });
+            return;
+        }
+
+        foreach (var device in pairedDevices.OrderByDescending(device => device.LastSeenUtc))
+        {
+            var deviceItem = new ToolStripMenuItem(
+                $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})");
+            deviceItem.Click += (_, _) => HandleRemoveDeviceClick(device);
+            pairedDevicesItem.DropDownItems.Add(deviceItem);
+        }
+    }
+
+    private void HandleRemoveDeviceClick(PairedDeviceInfo device)
+    {
+        var answer = MessageBox.Show(
+            $"Gerät \"{device.Name}\" entkoppeln?\n\nEs kann sich danach nur mit einer neuen PIN erneut verbinden.",
+            "YFRemote",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (answer != DialogResult.Yes)
+        {
+            return;
+        }
+
+        pairingService.RemoveDevice(device.Id);
+        notifyIcon.ShowBalloonTip(3000, "Gerät entkoppelt", device.Name, ToolTipIcon.Info);
+    }
+
+    private void CopyPin()
+    {
+        try
+        {
+            var (pin, _) = pairingService.GetCurrentPin();
+            Clipboard.SetText(pin);
+            notifyIcon.ShowBalloonTip(3000, "PIN kopiert", pin, ToolTipIcon.Info);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(
+                $"Die PIN konnte nicht kopiert werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private void RegeneratePin()
+    {
+        var pin = pairingService.RegeneratePin();
+        pinItem.Text = FormatPinText(pin);
+        notifyIcon.ShowBalloonTip(4000, "Neue PIN erzeugt", pin.Pin, ToolTipIcon.Info);
+    }
+
+    private static string FormatPinText((string Pin, DateTimeOffset ExpiresAtUtc) pin) =>
+        $"PIN: {pin.Pin} (gültig bis {pin.ExpiresAtUtc.ToLocalTime():HH:mm})";
+
+    private static string FormatLastSeen(DateTimeOffset lastSeenUtc) =>
+        lastSeenUtc.ToLocalTime().ToString("dd.MM. HH:mm");
 
     private static void HandleStartWithWindowsClick(ToolStripMenuItem menuItem)
     {

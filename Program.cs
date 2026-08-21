@@ -1,4 +1,5 @@
 using Microsoft.Extensions.FileProviders;
+using System.Text.Json;
 using Velopack;
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Models;
@@ -117,6 +118,7 @@ internal static class Program
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
+        builder.Services.AddSingleton<PairingService>();
 
         var app = builder.Build();
 
@@ -150,11 +152,64 @@ internal static class Program
                 return;
             }
 
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+            var token = context.Request.Query["token"].ToString();
+            if (!pairingService.IsValidToken(token))
+            {
+                app.Logger.LogWarning(
+                    "Rejected WebSocket handshake with invalid pairing token from {RemoteAddress}.",
+                    context.Connection.RemoteIpAddress);
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsync("Pairing required.");
+                return;
+            }
+
             var handler = context.RequestServices.GetRequiredService<YFRemoteWebSocketHandler>();
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
             var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
             await handler.HandleAsync(socket, client, context.RequestAborted);
+        });
+
+        app.MapPost("/pair", async context =>
+        {
+            if (!IsAllowedOrigin(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
+                return;
+            }
+
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+
+            PairRequest? request;
+            try
+            {
+                request = await context.Request.ReadFromJsonAsync<PairRequest>(context.RequestAborted);
+            }
+            catch (JsonException)
+            {
+                await context.Response.WriteAsJsonAsync(PairResponse.Fail("Invalid JSON."), context.RequestAborted);
+                return;
+            }
+
+            var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            await context.Response.WriteAsJsonAsync(
+                pairingService.TryPair(request, clientIp),
+                context.RequestAborted);
+        });
+
+        // Keine Origin-Pruefung: Browser senden bei einem Same-Origin-GET-fetch() ueblicherweise
+        // keinen Origin-Header (anders als bei POST oder beim WebSocket-Handshake), und dieser
+        // Endpoint liefert ohnehin nur ein Ja/Nein zu einem Token, das der Aufrufer bereits kennen
+        // muss - ohne den kryptografisch zufaelligen Token laesst sich hieraus nichts gewinnen.
+        app.MapGet("/pair/status", async context =>
+        {
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+            var token = context.Request.Query["token"].ToString();
+            await context.Response.WriteAsJsonAsync(
+                new PairStatusResponse(pairingService.IsValidToken(token)),
+                context.RequestAborted);
         });
 
         var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");

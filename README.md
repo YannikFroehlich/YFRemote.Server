@@ -16,10 +16,13 @@ Alle fertigen Downloads befinden sich im
 
 ## Sicherheit
 
-YFRemote besitzt derzeit keine Benutzeranmeldung und keine Gerätefreigabe. Jeder,
-der die Serveradresse im lokalen Netzwerk erreicht, kann Steuerbefehle senden.
-Verwende YFRemote deshalb nur in einem vertrauenswürdigen privaten Netzwerk und
-gib Port `5050` nicht im Router für das Internet frei. Details siehe
+Ein Gerät muss sich einmalig über eine PIN koppeln, bevor es Steuerbefehle senden
+kann. Die aktuelle PIN wird im Tray-Menü von YFRemote angezeigt (dort auch als
+Kopie verfügbar und über "PIN neu erzeugen" austauschbar). Nach dem Koppeln
+erhält das Gerät ein dauerhaftes Token; im Tray-Menü lassen sich gekoppelte
+Geräte einsehen und einzeln wieder entfernen. Verwende YFRemote trotzdem nur in
+einem vertrauenswürdigen privaten Netzwerk und gib Port `5050` nicht im Router
+für das Internet frei. Details siehe
 [Sicherheit](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) im Wiki.
 
 ## Für Entwickler

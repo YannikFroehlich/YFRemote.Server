@@ -77,7 +77,11 @@ crashing silently.
 
 **Web layer.** Minimal-API endpoints registered in `Program.BuildApplication`:
 - `GET /health` → `HealthResponse`.
-- `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`.
+- `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
+  an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
+- `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
+- `GET /pair/status` → lets a client check whether a previously-issued token is still valid
+  without opening a WebSocket (`PairingService.IsValidToken`).
 - Static files from `wwwroot` (the externally-built Angular client) with SPA fallback to
   `index.html` if present.
 
@@ -100,20 +104,30 @@ are a fixed allowlist in `WindowsInputService.VirtualKeys`; anything else throws
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
 `NotifyIcon` context menu (version, status, device address, open-in-browser, copy-address,
-update check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
+PIN display/copy/regenerate, a "Gekoppelte Geräte" submenu for revoking devices, update
+check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
 check ~1.5s after launch, then every 6 hours) via `UpdateService` (thin wrapper over Velopack's
 `UpdateManager`, pointed at public GitHub Releases of this repo). `CanUpdate` is
 `UpdateManager.IsInstalled` — a `dotnet run` dev build is never "installed" and update UI stays
-disabled for it. `WindowsStartupService` writes/reads the per-user
+disabled for it. The PIN text and the paired-devices submenu are refreshed on the
+`ContextMenuStrip.Opening` event rather than a polling `Timer`, since nothing needs to be
+current while the menu is closed. `WindowsStartupService` writes/reads the per-user
 `HKCU\...\CurrentVersion\Run` registry value and only offers autostart when running from an
 installed Velopack `current` directory (`GetLauncherPath` walks up to find the stable launcher
 stub next to it). `NetworkAddressService` picks the LAN-facing IPv4 address (preferring
 interfaces with a default gateway, skipping loopback/link-local) shown as the "device address"
 for connecting from another device on the network.
 
-**No auth.** There is currently no authentication/authorization on `/ws` or the action
-protocol — anyone who can reach the bound port can send input. This is a known, documented
-product constraint (see README "Sicherheit" section), not an oversight to silently patch.
+**Pairing.** `PairingService` (singleton) is the only gate in front of `/ws`, `/pair`, and
+`/pair/status`. It generates a 6-digit PIN (10-minute lifetime, shown in the tray, manually
+regenerable), exchanges a correct PIN for an opaque per-device token, and persists *hashed*
+(SHA-256) tokens plus a device name and timestamps to `%LOCALAPPDATA%\YFRemote\devices.json`
+(same base folder as `Logs\startup-error.log`, never inside the Velopack `current\` directory
+that gets replaced on update). Failed pairing attempts are rate-limited per client IP
+(5 attempts → 60s lockout), in-memory only. Removing a device in the tray only blocks *future*
+`/ws` connections — an already-open socket is not force-closed. This closes the previous
+"no auth" gap (see README "Sicherheit" section): reaching the bound port is no longer enough
+to send input, a device must first be paired.
 
 ## Conventions in this codebase
 

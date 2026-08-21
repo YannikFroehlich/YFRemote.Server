@@ -6,6 +6,7 @@ import {
   RemoteResponse,
   ServerConfig,
 } from './remote.models';
+import { PairingService } from './pairing.service';
 import {
   DEFAULT_SERVER_CONFIG,
   MOUSE_SENSITIVITY_STORAGE_KEY,
@@ -58,6 +59,7 @@ export class RemoteService implements OnDestroy {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly createSocket = inject(REMOTE_WEBSOCKET_FACTORY);
   private readonly autoConnect = inject(REMOTE_AUTO_CONNECT);
+  private readonly pairing = inject(PairingService);
 
   private readonly configSignal = signal<ServerConfig>(this.loadConfig());
   private readonly mouseSensitivitySignal = signal(this.loadMouseSensitivity());
@@ -221,7 +223,20 @@ export class RemoteService implements OnDestroy {
       this.socket = null;
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
+      this.recheckPairing();
     };
+  }
+
+  /** Ein serverseitig entkoppeltes Geraet verbindet sich sonst endlos mit einem
+   *  ungueltigen Token neu, ohne dass der Nutzer je wieder zur PIN-Eingabe kommt.
+   *  Ein Verbindungsabbruch ist daher der Anlass, das Token gegenzupruefen -
+   *  ein echter Netzwerkfehler loescht es dabei nicht (siehe PairingService.verify). */
+  private recheckPairing(): void {
+    if (this.manuallyDisconnected()) {
+      return;
+    }
+
+    void this.pairing.verify();
   }
 
   private handleResponse(rawMessage: string): void {
@@ -331,7 +346,9 @@ export class RemoteService implements OnDestroy {
   }
 
   private createSocketUrl(config: ServerConfig): string {
-    return `ws://${config.host}:${config.port}/ws`;
+    const baseUrl = `ws://${config.host}:${config.port}/ws`;
+    const token = this.pairing.token();
+    return token === null ? baseUrl : `${baseUrl}?token=${encodeURIComponent(token)}`;
   }
 
   private loadConfig(): ServerConfig {

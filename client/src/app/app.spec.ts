@@ -6,8 +6,14 @@ import {
   REMOTE_WEBSOCKET_FACTORY,
   RemoteSocket,
 } from './remote/remote.service';
+import { PAIRING_FETCH } from './remote/pairing.service';
+import { PAIRING_TOKEN_STORAGE_KEY } from './remote/pairing';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
 import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_CONFIG_STORAGE_KEY } from './remote/server-config';
+
+async function alwaysValidPairingFetch(): Promise<Response> {
+  return new Response(JSON.stringify({ valid: true }), { status: 200 });
+}
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -202,7 +208,7 @@ describe('App', () => {
     expect(storage.getItem(MOUSE_SENSITIVITY_STORAGE_KEY)).toBe('1.5');
     expect(sockets).toHaveLength(2);
     expect(sockets[0].closed).toBe(true);
-    expect(sockets[1].url).toBe('ws://192.168.1.20:5050/ws');
+    expect(sockets[1].url).toBe('ws://192.168.1.20:5050/ws?token=test-token');
   });
 
   it('creates a custom hotkey button through the editor and sends it exactly once done', async () => {
@@ -311,6 +317,7 @@ describe('App', () => {
   it('falls back to the default layout when stored data is malformed', async () => {
     const storage = new MemoryStorage();
     storage.setItem(BUTTON_LAYOUT_STORAGE_KEY, '{not valid json');
+    storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'test-token');
 
     await TestBed.configureTestingModule({
       imports: [App],
@@ -321,6 +328,7 @@ describe('App', () => {
           provide: REMOTE_WEBSOCKET_FACTORY,
           useValue: (url: string) => new MockRemoteSocket(url),
         },
+        { provide: PAIRING_FETCH, useValue: alwaysValidPairingFetch },
       ],
     }).compileComponents();
 
@@ -330,11 +338,84 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(queryButton(compiled, 'Nächster Tab')).not.toBeNull();
   });
+
+  it('shows the pairing gate when no device token is stored', async () => {
+    const { fixture } = await setupApp({ paired: false });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.querySelector('#pairing-pin')).not.toBeNull();
+    expect(compiled.querySelector('.status-pill')).toBeNull();
+  });
+
+  it('pairs successfully through the gate and reveals the remote control', async () => {
+    const fetchCalls: string[] = [];
+    const pairFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      fetchCalls.push(String(input));
+      return new Response(JSON.stringify({ success: true, token: 'fresh-token' }), {
+        status: 200,
+      });
+    };
+
+    const { fixture, storage } = await setupApp({ paired: false, pairingFetch: pairFetch });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const pinInput = queryInput(compiled, '#pairing-pin');
+    pinInput.value = '123456';
+    pinInput.dispatchEvent(new Event('input'));
+
+    const deviceNameInput = queryInput(compiled, '#pairing-device-name');
+    deviceNameInput.value = 'Test-Handy';
+    deviceNameInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    compiled.querySelector<HTMLFormElement>('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fetchCalls).toEqual(['http://localhost:5050/pair']);
+    expect(compiled.querySelector('#pairing-pin')).toBeNull();
+    expect(queryButton(compiled, 'Nächster Tab')).not.toBeNull();
+    expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBe('fresh-token');
+  });
+
+  it('shows an error and stays gated on a wrong PIN', async () => {
+    const pairFetch = async (): Promise<Response> =>
+      new Response(JSON.stringify({ success: false, error: 'PIN ungültig.' }), { status: 200 });
+
+    const { fixture } = await setupApp({ paired: false, pairingFetch: pairFetch });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const pinInput = queryInput(compiled, '#pairing-pin');
+    pinInput.value = '000000';
+    pinInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    compiled.querySelector<HTMLFormElement>('form')?.dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.toast')?.textContent).toContain('PIN ungültig.');
+    expect(compiled.querySelector('#pairing-pin')).not.toBeNull();
+  });
 });
 
-async function setupApp(options: { readonly autoConnect?: boolean } = {}): Promise<AppHarness> {
+interface SetupAppOptions {
+  readonly autoConnect?: boolean;
+  readonly paired?: boolean;
+  readonly pairingFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+
+async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
+
+  if (options.paired ?? true) {
+    storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'test-token');
+  }
 
   await TestBed.configureTestingModule({
     imports: [App],
@@ -349,6 +430,7 @@ async function setupApp(options: { readonly autoConnect?: boolean } = {}): Promi
           return socket;
         },
       },
+      { provide: PAIRING_FETCH, useValue: options.pairingFetch ?? alwaysValidPairingFetch },
     ],
   }).compileComponents();
 

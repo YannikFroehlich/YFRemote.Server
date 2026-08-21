@@ -6,6 +6,8 @@ import {
   RemoteService,
   RemoteSocket,
 } from './remote.service';
+import { PAIRING_FETCH, PairingService } from './pairing.service';
+import { PAIRING_TOKEN_STORAGE_KEY } from './pairing';
 import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_CONFIG_STORAGE_KEY } from './server-config';
 
 class MemoryStorage implements Storage {
@@ -90,7 +92,15 @@ interface RemoteServiceHarness {
 interface RemoteServiceSetup {
   readonly autoConnect?: boolean;
   readonly storedConfig?: string;
+  readonly storedPairingToken?: string;
 }
+
+/** `RemoteService`-Tests testen kein Pairing-HTTP-Verhalten; falls ein gespeichertes
+ *  Token `PairingService` beim Start zu einem Verify-Aufruf veranlasst, wird dessen
+ *  Fehlschlag von `PairingService.verify()` ohnehin abgefangen und ignoriert. */
+const unusedPairingFetch = async (): Promise<Response> => {
+  throw new Error('PAIRING_FETCH is not exercised by RemoteService tests.');
+};
 
 describe('RemoteService', () => {
   afterEach(() => {
@@ -132,12 +142,80 @@ describe('RemoteService', () => {
           provide: REMOTE_WEBSOCKET_FACTORY,
           useValue: (url: string) => new MockRemoteSocket(url),
         },
+        { provide: PAIRING_FETCH, useValue: unusedPairingFetch },
       ],
     });
 
     const remote = TestBed.inject(RemoteService);
 
     expect(remote.mouseSensitivity()).toBe(1.5);
+  });
+
+  it('appends the pairing token to the socket URL when one is stored', () => {
+    const { remote } = setupRemoteService({
+      storedPairingToken: 'abc 123',
+    });
+
+    expect(remote.socketUrl()).toBe('ws://localhost:5050/ws?token=abc%20123');
+  });
+
+  it('re-verifies pairing on a socket close and clears a token the server has revoked', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'revoked-token');
+    vi.useFakeTimers();
+
+    const sockets: MockRemoteSocket[] = [];
+    let verifyCallCount = 0;
+    const verifyFetch = async (): Promise<Response> => {
+      verifyCallCount += 1;
+      // Erster Aufruf: PairingServices eigener Start-Check, der noch erfolgreich
+      // ist. Erst der zweite Aufruf (ausgeloest durch den Socket-Close unten)
+      // simuliert die Ablehnung durch den Server.
+      return new Response(JSON.stringify({ valid: verifyCallCount === 1 }), { status: 200 });
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        RemoteService,
+        { provide: REMOTE_STORAGE, useValue: storage },
+        { provide: REMOTE_AUTO_CONNECT, useValue: false },
+        {
+          provide: REMOTE_WEBSOCKET_FACTORY,
+          useValue: (url: string) => {
+            const socket = new MockRemoteSocket(url);
+            sockets.push(socket);
+            return socket;
+          },
+        },
+        { provide: PAIRING_FETCH, useValue: verifyFetch },
+      ],
+    });
+
+    const remote = TestBed.inject(RemoteService);
+    const pairing = TestBed.inject(PairingService);
+
+    // Den Start-Check des Konstruktors abwarten, bevor wir den eigentlichen Fall
+    // (Ablehnung nach einem Verbindungsabbruch) provozieren.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pairing.isPaired()).toBe(true);
+    expect(remote.socketUrl()).toBe('ws://localhost:5050/ws?token=revoked-token');
+
+    // Ab hier auf die konkrete, vom Socket-Close ausgeloeste verify()-Promise warten,
+    // statt Microtask-Ticks zu erraten (Response.json() kann intern mehrere brauchen).
+    const verifySpy = vi.spyOn(pairing, 'verify');
+
+    remote.connect();
+    expect(sockets).toHaveLength(1);
+
+    sockets[0].closeFromServer();
+
+    expect(verifySpy).toHaveBeenCalledTimes(1);
+    await verifySpy.mock.results[0].value;
+
+    expect(pairing.isPaired()).toBe(false);
+    expect(pairing.token()).toBeNull();
   });
 
   it('auto-connects and tracks open state', () => {
@@ -303,6 +381,10 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
     storage.setItem(SERVER_CONFIG_STORAGE_KEY, options.storedConfig);
   }
 
+  if (options.storedPairingToken !== undefined) {
+    storage.setItem(PAIRING_TOKEN_STORAGE_KEY, options.storedPairingToken);
+  }
+
   TestBed.configureTestingModule({
     providers: [
       RemoteService,
@@ -316,6 +398,7 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
           return socket;
         },
       },
+      { provide: PAIRING_FETCH, useValue: unusedPairingFetch },
     ],
   });
 

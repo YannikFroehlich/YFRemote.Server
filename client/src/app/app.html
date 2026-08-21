@@ -1,1 +1,5 @@
-<app-remote-control />
+@if (pairing.isPaired()) {
+  <app-remote-control />
+} @else {
+  <app-pairing-gate />
+}

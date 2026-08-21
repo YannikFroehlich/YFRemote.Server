@@ -5,9 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 YFRemote.Client is a standalone Angular 21 web app that turns a browser (typically a phone) into
-a remote control for a PC. It connects over a WebSocket to a companion server process
-(`ws://{host}:{port}/ws`) and streams key presses, hotkeys, mouse moves/clicks/scrolls as JSON
-messages; the server replies with `{ success: true }` or `{ success: false, error?: string }`.
+a remote control for a PC. A device must first pair with the server via a one-time PIN (shown in
+the server's tray menu, exchanged for a device token over `POST /pair`); once paired, it connects
+over a WebSocket to a companion server process (`ws://{host}:{port}/ws?token=...`) and streams key
+presses, hotkeys, mouse moves/clicks/scrolls as JSON messages, and the server replies with
+`{ success: true }` or `{ success: false, error?: string }`.
 The server lives in a sibling repo (`../../server` relative to this one, currently empty/not yet
 started) — this repo only implements the client UI and protocol, it does not implement or mock a
 real server beyond tests.
@@ -37,7 +39,7 @@ directly with `bootstrapApplication` using [app.config.ts](src/app/app.config.ts
 components standalone (`imports: [...]` on the `@Component` decorator) and prefer signals over
 manual `ChangeDetectorRef` calls.
 
-**Everything meaningful lives under `src/app/remote/`.** The feature has five layers:
+**Everything meaningful lives under `src/app/remote/`.** The feature has six layers:
 
 1. **`remote.models.ts`** — shared types: `RemoteAction` (discriminated union of `key`/`hotkey`/
    `mouseMove`/`mouseClick`/`mouseScroll`), `ServerConfig`, `RemoteResponse`, `RemoteButtonConfig`,
@@ -54,6 +56,9 @@ manual `ChangeDetectorRef` calls.
      tests can inject fakes (see `RemoteSocket` interface and `MockRemoteSocket` in
      [remote.service.spec.ts](src/app/remote/remote.service.spec.ts)) instead of hitting a real
      socket/`localStorage`. Follow this pattern for any other browser API a service needs to own.
+   - `createSocketUrl` appends `?token=...` from `PairingService.token()` when a pairing token
+     exists — the server rejects a `/ws` handshake without one. `RemoteService` injects
+     `PairingService`, never the other way around (see below), so there is no DI cycle.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, and mouse sensitivity, plus the `localStorage` keys and Angular reactive-form
    `ValidatorFn`s built on top of the same predicates. `RemoteService` and
@@ -108,6 +113,23 @@ manual `ChangeDetectorRef` calls.
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an
      `output()` (`closed`) rather than owning any open/close state.
+6. **`pairing.ts`**/**`pairing.service.ts`** (`PairingService`) — the app is gated behind a
+   one-time PIN pairing step: a PIN shown in the server's tray menu is exchanged for a device
+   token via `POST /pair`. `PairingService` exposes `token`/`isPaired`/`lastError` signals and
+   `pair(pin, deviceName, remember)`/`verify()` methods. Same shape as `server-config.ts`
+   (`pairing.ts` holds pure validation helpers plus a `ValidatorFn`); reuses `RemoteService`'s
+   `REMOTE_STORAGE` token directly instead of owning a second one (same pattern as
+   `ButtonLayoutService`), and reads host/port straight from `server-config.ts` rather than
+   injecting `RemoteService`, to avoid a DI cycle (`RemoteService` injects `PairingService`, not
+   the reverse). Its HTTP calls go through a `PAIRING_FETCH` injection token (default
+   `globalThis.fetch`) — the same swap-every-browser-API convention as the WebSocket/storage
+   tokens above. "Gerät merken" (remember device) is a purely client-side choice: a remembered
+   token is written to `REMOTE_STORAGE` (`yfremote.pairingToken`); an un-remembered one lives only
+   in the signal and is gone after a reload. `verify()` clears a stored token only on an explicit
+   `{valid:false}` from `/pair/status`, never on a network error, so a brief connectivity blip
+   can't force re-pairing. `PairingGateComponent` (`pairing-gate.component.ts`, structured like
+   `SettingsDialogComponent`) renders in `app.html` instead of `RemoteControlComponent` while
+   `pairing.isPaired()` is false.
 
 **Styling** is mostly centralized in [src/styles.scss](src/styles.scss) (global classes like
 `.remote-panel`, `.control-button`, `.status-pill` used directly in templates); only

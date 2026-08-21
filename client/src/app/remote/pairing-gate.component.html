@@ -1,0 +1,71 @@
+<main class="remote-shell">
+  <section class="remote-panel" aria-label="YFRemote Kopplung">
+    <header class="remote-header">
+      <div class="brand-block brand-lockup">
+        <img class="brand-mark" src="/brand-mark.png" alt="YF" width="128" height="128" />
+        <span class="brand-name">Remote</span>
+      </div>
+    </header>
+
+    <p class="eyebrow">Kopplung erforderlich</p>
+    <h2>Gerät koppeln</h2>
+    <p>
+      Gib die PIN ein, die im YFRemote-Symbol im Infobereich der Taskleiste des Ziel-PCs
+      angezeigt wird.
+    </p>
+
+    @if (lastError(); as errorMessage) {
+      <p class="toast" role="status" aria-live="polite">{{ errorMessage }}</p>
+    }
+
+    <form class="settings-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="settings-form__scroll">
+        <label class="field" for="pairing-pin">
+          <span>PIN</span>
+          <input
+            id="pairing-pin"
+            type="text"
+            formControlName="pin"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            inputmode="numeric"
+            maxlength="6"
+          />
+          @if (hasFieldError('pin')) {
+            <small>PIN muss aus 6 Ziffern bestehen.</small>
+          }
+        </label>
+
+        <label class="field" for="pairing-device-name">
+          <span>Gerätename</span>
+          <input
+            id="pairing-device-name"
+            type="text"
+            formControlName="deviceName"
+            autocomplete="off"
+          />
+          @if (hasFieldError('deviceName')) {
+            <small>Gerätename darf nicht leer sein.</small>
+          }
+        </label>
+
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="remember()"
+          (click)="toggleRemember()"
+        >
+          Gerät merken
+        </button>
+      </div>
+
+      <footer class="settings-actions">
+        <button class="primary-button" type="submit" [disabled]="form.invalid || submitting()">
+          {{ submitting() ? 'Verbinde…' : 'Koppeln' }}
+        </button>
+      </footer>
+    </form>
+  </section>
+</main>

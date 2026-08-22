@@ -1,9 +1,12 @@
 <main class="remote-shell">
-  <section class="remote-panel" aria-label="YFRemote Remote">
+  <section class="remote-panel remote-panel--app" aria-label="YFRemote Remote">
     <header class="remote-header">
       <div class="brand-block brand-lockup">
         <img class="brand-mark" src="/brand-mark.png" alt="YF" width="128" height="128" />
-        <span class="brand-name">Remote</span>
+        <div class="brand-copy">
+          <span class="brand-name">Remote</span>
+          <span class="brand-subtitle">Control Center</span>
+        </div>
       </div>
 
       <div class="top-controls">
@@ -21,7 +24,7 @@
 
         @if (activeView() === 'remote') {
           <button
-            class="round-button"
+            class="round-button round-button--header"
             [class.round-button--active]="editMode()"
             type="button"
             aria-label="Layout bearbeiten"
@@ -35,7 +38,7 @@
         }
 
         <button
-          class="round-button"
+          class="round-button round-button--header"
           type="button"
           aria-label="Einstellungen"
           title="Einstellungen"
@@ -49,7 +52,10 @@
     </header>
 
     <div class="server-strip">
-      <span>{{ config().host }}:{{ config().port }}</span>
+      <div class="server-strip__identity">
+        <span class="server-strip__label">Aktiver Computer</span>
+        <strong>{{ config().host }}:{{ config().port }}</strong>
+      </div>
       <div class="server-strip__actions">
         <button
           class="round-button round-button--small"
@@ -89,7 +95,12 @@
         [attr.aria-selected]="activeView() === 'remote'"
         (click)="selectView('remote')"
       >
-        Remote
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5l1.5 2H8.5l1.5-2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v8h14V7H5Z"
+          />
+        </svg>
+        <span>Remote</span>
       </button>
       <button
         class="view-tab"
@@ -99,7 +110,12 @@
         [attr.aria-selected]="activeView() === 'touchpad'"
         (click)="selectView('touchpad')"
       >
-        Touchpad
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M7 2h10a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4Zm0 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H7Zm5 2a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z"
+          />
+        </svg>
+        <span>Touchpad</span>
       </button>
       <button
         class="view-tab"
@@ -109,64 +125,71 @@
         [attr.aria-selected]="activeView() === 'keyboard'"
         (click)="selectView('keyboard')"
       >
-        Tastatur
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h16V7H4Zm2 2h2v2H6V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9Zm4 0h1v2h-1V9ZM6 13h2v2H6v-2Zm4 0h8v2h-8v-2Z"
+          />
+        </svg>
+        <span>Tastatur</span>
       </button>
     </div>
 
-    @if (activeView() === 'remote') {
-      @if (editMode()) {
-        <div class="layout-toolbar" role="toolbar" aria-label="Layout bearbeiten">
-          <button class="primary-button" type="button" (click)="toggleEditMode()">Fertig</button>
-          <button class="secondary-button" type="button" (click)="openButtonEditor(null)">
-            Hinzufügen
-          </button>
-          <button
-            class="snap-switch"
-            type="button"
-            role="switch"
-            [attr.aria-checked]="layout.snapToGrid()"
-            (click)="toggleSnapToGrid()"
-          >
-            Raster
-          </button>
-          @if (resetPending()) {
-            <span class="layout-toolbar__confirm">
-              Wirklich zurücksetzen?
-              <button class="secondary-button" type="button" (click)="confirmReset()">Ja</button>
-              <button class="secondary-button" type="button" (click)="cancelReset()">Nein</button>
-            </span>
-          } @else {
-            <button class="secondary-button" type="button" (click)="requestReset()">
-              Zurücksetzen
+    <section class="view-content">
+      @if (activeView() === 'remote') {
+        @if (editMode()) {
+          <div class="layout-toolbar" role="toolbar" aria-label="Layout bearbeiten">
+            <button class="primary-button" type="button" (click)="toggleEditMode()">Fertig</button>
+            <button class="secondary-button" type="button" (click)="openButtonEditor(null)">
+              Hinzufügen
             </button>
-          }
-        </div>
-      }
-
-      <app-button-canvas [editMode]="editMode()" (editButton)="onEditButtonRequested($event)" />
-
-      @if (editMode() && layout.hiddenButtons().length > 0) {
-        <div class="layout-tray" aria-label="Ausgeblendete Buttons">
-          @for (button of layout.hiddenButtons(); track button.id) {
             <button
-              class="layout-chip"
+              class="snap-switch"
               type="button"
-              [attr.aria-label]="'Wiederherstellen: ' + button.label"
-              (click)="restoreButton(button.id)"
+              role="switch"
+              [attr.aria-checked]="layout.snapToGrid()"
+              (click)="toggleSnapToGrid()"
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path [attr.d]="iconPaths[button.icon]"></path>
-              </svg>
-              <span>{{ button.label }}</span>
+              Raster
             </button>
-          }
-        </div>
+            @if (resetPending()) {
+              <span class="layout-toolbar__confirm">
+                Wirklich zurücksetzen?
+                <button class="secondary-button" type="button" (click)="confirmReset()">Ja</button>
+                <button class="secondary-button" type="button" (click)="cancelReset()">Nein</button>
+              </span>
+            } @else {
+              <button class="secondary-button" type="button" (click)="requestReset()">
+                Zurücksetzen
+              </button>
+            }
+          </div>
+        }
+
+        <app-button-canvas [editMode]="editMode()" (editButton)="onEditButtonRequested($event)" />
+
+        @if (editMode() && layout.hiddenButtons().length > 0) {
+          <div class="layout-tray" aria-label="Ausgeblendete Buttons">
+            @for (button of layout.hiddenButtons(); track button.id) {
+              <button
+                class="layout-chip"
+                type="button"
+                [attr.aria-label]="'Wiederherstellen: ' + button.label"
+                (click)="restoreButton(button.id)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path [attr.d]="iconPaths[button.icon]"></path>
+                </svg>
+                <span>{{ button.label }}</span>
+              </button>
+            }
+          </div>
+        }
+      } @else if (activeView() === 'touchpad') {
+        <app-touchpad />
+      } @else {
+        <app-keyboard-pad />
       }
-    } @else if (activeView() === 'touchpad') {
-      <app-touchpad />
-    } @else {
-      <app-keyboard-pad />
-    }
+    </section>
   </section>
 
   @if (settingsOpen()) {

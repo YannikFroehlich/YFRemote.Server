@@ -1,26 +1,39 @@
 <main class="remote-shell">
-  <section class="remote-panel" aria-label="YFRemote Kopplung">
+  <section class="remote-panel remote-panel--pairing" aria-label="YFRemote Kopplung">
     <header class="remote-header">
       <div class="brand-block brand-lockup">
         <img class="brand-mark" src="/brand-mark.png" alt="YF" width="128" height="128" />
-        <span class="brand-name">Remote</span>
+        <div class="brand-copy">
+          <span class="brand-name">Remote</span>
+          <span class="brand-subtitle">Sicher verbinden</span>
+        </div>
       </div>
     </header>
 
-    <p class="eyebrow">Kopplung erforderlich</p>
-    <h2>Gerät koppeln</h2>
-    <p>
-      Gib die PIN ein, die im YFRemote-Symbol im Infobereich der Taskleiste des Ziel-PCs
-      angezeigt wird.
-    </p>
+    <div class="pairing-intro">
+      <div class="pairing-intro__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path
+            d="M12 2a5 5 0 0 1 5 5v2h1a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h1V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3Zm0 9a2 2 0 0 0-1 3.73V19h2v-2.27A2 2 0 0 0 12 13Z"
+          />
+        </svg>
+      </div>
+      <div>
+        <p class="eyebrow">Einmalige Kopplung</p>
+        <h1>Mit deinem PC verbinden</h1>
+        <p class="pairing-copy">
+          Gib die sechsstellige PIN aus dem YFRemote-Symbol im Infobereich des Ziel-PCs ein.
+        </p>
+      </div>
+    </div>
 
     @if (lastError(); as errorMessage) {
       <p class="toast" role="status" aria-live="polite">{{ errorMessage }}</p>
     }
 
-    <form class="settings-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <form class="settings-form pairing-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <div class="settings-form__scroll">
-        <label class="field" for="pairing-pin">
+        <label class="field field--pin" for="pairing-pin">
           <span>PIN</span>
           <input
             id="pairing-pin"
@@ -57,11 +70,12 @@
           [attr.aria-checked]="remember()"
           (click)="toggleRemember()"
         >
-          Gerät merken
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>Gerät auf diesem Browser merken</span>
         </button>
       </div>
 
-      <footer class="settings-actions">
+      <footer class="settings-actions pairing-actions">
         <button class="primary-button" type="submit" [disabled]="form.invalid || submitting()">
           {{ submitting() ? 'Verbinde…' : 'Koppeln' }}
         </button>

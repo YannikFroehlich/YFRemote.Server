@@ -1,13 +1,8 @@
 <div class="settings-layer">
-  <button
-    class="settings-scrim"
-    type="button"
-    aria-label="Schließen"
-    (click)="close()"
-  ></button>
+  <button class="settings-scrim" type="button" aria-label="Schließen" (click)="close()"></button>
 
   <section
-    class="settings-dialog"
+    class="settings-dialog settings-dialog--settings"
     role="dialog"
     aria-modal="true"
     aria-labelledby="settings-title"
@@ -17,7 +12,12 @@
         <p class="eyebrow">Server</p>
         <h2 id="settings-title">Einstellungen</h2>
       </div>
-      <button class="round-button" type="button" aria-label="Schließen" (click)="close()">
+      <button
+        class="round-button round-button--dialog"
+        type="button"
+        aria-label="Schließen"
+        (click)="close()"
+      >
         <span aria-hidden="true">x</span>
       </button>
     </header>
@@ -84,9 +84,7 @@
 
       <footer class="settings-actions">
         <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
-        <button class="primary-button" type="submit" [disabled]="form.invalid">
-          Speichern
-        </button>
+        <button class="primary-button" type="submit" [disabled]="form.invalid">Speichern</button>
       </footer>
     </form>
   </section>

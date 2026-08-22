@@ -1,4 +1,15 @@
 <section class="touchpad-card" aria-label="Touchpad">
+  <header class="touchpad-card__header">
+    <div>
+      <p class="eyebrow">Präzise Steuerung</p>
+      <h2>Touchpad</h2>
+    </div>
+    <div class="touchpad-hints" aria-label="Gestenhilfe">
+      <span>1 Finger · Bewegen</span>
+      <span>2 Finger · Scrollen</span>
+    </div>
+  </header>
+
   <div
     class="touchpad-surface"
     role="application"
@@ -10,7 +21,11 @@
     (lostpointercapture)="lostPointerCapture($event)"
     (contextmenu)="preventContextMenu($event)"
   >
-    <span>Touchpad</span>
+    <div class="touchpad-surface__center" aria-hidden="true">
+      <span class="touchpad-surface__gesture"></span>
+      <strong>Zum Steuern bewegen</strong>
+      <small>Tippen für Linksklick</small>
+    </div>
   </div>
 
   <div class="touchpad-buttons" aria-label="Maustasten">

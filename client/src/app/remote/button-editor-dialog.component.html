@@ -1,13 +1,8 @@
 <div class="settings-layer">
-  <button
-    class="settings-scrim"
-    type="button"
-    aria-label="Schließen"
-    (click)="close()"
-  ></button>
+  <button class="settings-scrim" type="button" aria-label="Schließen" (click)="close()"></button>
 
   <section
-    class="settings-dialog"
+    class="settings-dialog settings-dialog--editor"
     role="dialog"
     aria-modal="true"
     aria-labelledby="button-editor-title"
@@ -19,7 +14,12 @@
         </p>
         <h2 id="button-editor-title">{{ isReadOnly() ? 'Button-Details' : 'Eigener Button' }}</h2>
       </div>
-      <button class="round-button" type="button" aria-label="Schließen" (click)="close()">
+      <button
+        class="round-button round-button--dialog"
+        type="button"
+        aria-label="Schließen"
+        (click)="close()"
+      >
         <span aria-hidden="true">x</span>
       </button>
     </header>

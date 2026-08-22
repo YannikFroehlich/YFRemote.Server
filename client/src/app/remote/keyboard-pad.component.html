@@ -1,27 +1,39 @@
-<div class="field">
-  <span>Tastatur</span>
-  <div class="key-picker">
-    @for (group of keyGroups; track group.label) {
-      <div class="key-group">
-        <p class="key-group__label">{{ group.label }}</p>
-        <div class="key-group__keys">
-          @for (key of group.keys; track key) {
-            <button
-              class="key-chip"
-              type="button"
-              [class.key-chip--active]="isKeyActive(key)"
-              [disabled]="isKeyDisabled(key)"
-              [attr.aria-pressed]="isKeyActive(key)"
-              (click)="onKeyTap(key)"
-            >
-              {{ key }}
-            </button>
-          }
-        </div>
-      </div>
-    }
-  </div>
-  <output class="key-picker__summary">{{ summary() }}</output>
-</div>
+<section class="keyboard-card">
+  <header class="keyboard-card__header">
+    <div>
+      <p class="eyebrow">Direkte Eingabe</p>
+      <h2>Virtuelle Tastatur</h2>
+    </div>
+    <span class="keyboard-card__hint">Modifier auswählen, dann Taste senden</span>
+  </header>
 
-<button class="secondary-button" type="button" (click)="clearArmed()">Zurücksetzen</button>
+  <div class="field keyboard-card__body">
+    <span class="sr-only">Tastatur</span>
+    <div class="key-picker">
+      @for (group of keyGroups; track group.label) {
+        <div class="key-group">
+          <p class="key-group__label">{{ group.label }}</p>
+          <div class="key-group__keys">
+            @for (key of group.keys; track key) {
+              <button
+                class="key-chip"
+                type="button"
+                [class.key-chip--active]="isKeyActive(key)"
+                [disabled]="isKeyDisabled(key)"
+                [attr.aria-pressed]="isKeyActive(key)"
+                (click)="onKeyTap(key)"
+              >
+                {{ key }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+    <output class="key-picker__summary">{{ summary() }}</output>
+  </div>
+
+  <footer class="keyboard-card__footer">
+    <button class="secondary-button" type="button" (click)="clearArmed()">Zurücksetzen</button>
+  </footer>
+</section>

@@ -7,6 +7,7 @@
 .layout-canvas {
   position: relative;
   height: calc(var(--rows) * var(--row-h));
+  border-radius: 18px;
 }
 
 .layout-grid {
@@ -16,12 +17,12 @@
   background-image:
     repeating-linear-gradient(
       to right,
-      rgba(113, 215, 196, 0.18) 0 1px,
+      rgba(98, 227, 196, 0.14) 0 1px,
       transparent 1px calc(100% / var(--cols))
     ),
     repeating-linear-gradient(
       to bottom,
-      rgba(113, 215, 196, 0.18) 0 1px,
+      rgba(98, 227, 196, 0.14) 0 1px,
       transparent 1px var(--row-h)
     );
 }
@@ -58,24 +59,27 @@
 }
 
 .layout-slot--dragging > .control-button {
-  border-color: #6dd8c2;
-  box-shadow: 0 0 0 3px rgba(113, 215, 196, 0.16);
+  border-color: var(--line-strong);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.28),
+    0 0 0 3px rgba(98, 227, 196, 0.1);
 }
 
 .slot-remove {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 1px;
+  right: 1px;
   z-index: 3;
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   place-items: center;
-  border: 1px solid #40372d;
+  border: 1px solid rgba(255, 155, 135, 0.22);
   border-radius: 999px;
-  background: #2b211a;
-  color: #ffb4a8;
+  background: #271b1a;
+  color: var(--danger);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
   cursor: pointer;
 }
 
@@ -86,6 +90,7 @@
 
 .slot-remove:hover,
 .slot-remove:focus-visible {
-  border-color: #ff8f7a;
+  border-color: var(--danger);
+  background: #36201d;
   outline: none;
 }

@@ -2,6 +2,8 @@ namespace YFRemote.Server.Models;
 
 public sealed record RemoteActionRequest
 {
+    public string? RequestId { get; init; }
+
     public string? Type { get; init; }
 
     public IReadOnlyList<string>? Keys { get; init; }

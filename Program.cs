@@ -118,6 +118,8 @@ internal static class Program
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
+        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<PairingStorageOptions>();
         builder.Services.AddSingleton<PairingService>();
 
         var app = builder.Build();

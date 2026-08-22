@@ -359,8 +359,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        pairingService.RemoveDevice(device.Id);
-        notifyIcon.ShowBalloonTip(3000, "Gerät entkoppelt", device.Name, ToolTipIcon.Info);
+        if (pairingService.RemoveDevice(device.Id))
+        {
+            notifyIcon.ShowBalloonTip(3000, "Gerät entkoppelt", device.Name, ToolTipIcon.Info);
+            return;
+        }
+
+        MessageBox.Show(
+            "Das Gerät konnte nicht dauerhaft entkoppelt werden. Bitte erneut versuchen.",
+            "YFRemote",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
     }
 
     private void CopyPin()

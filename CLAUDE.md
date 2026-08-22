@@ -35,16 +35,19 @@ release-related; it is authoritative and more detailed than the summary above.
 ```powershell
 dotnet restore
 dotnet build --configuration Release
+dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
 dotnet run                                    # starts server + tray; Velopack updates disabled (not an installed build)
 dotnet run -- Server:Port=5060                # override port for a dev run
 ```
 
-There is no automated test project in this repo (`test/websocket-test.html` is a manual
-browser-based smoke test — not run via `dotnet test`). During a `dotnet run` dev session the
-server serves this file itself at `http://<host>:<port>/test/websocket-test.html` (only when the
-`test/` directory exists next to the working directory, so never in an installed build); open it
-that way rather than via `file://`, since `/ws` rejects handshakes whose `Origin` header doesn't
-match the server's own origin. There is no lint step beyond `dotnet build` warnings.
+Automated Server tests live in `tests/YFRemote.Server.Tests` and cover pairing persistence,
+backup recovery, write rollbacks, PIN lockout, and throttled last-seen writes. The release
+workflow runs them before publishing. `test/websocket-test.html` remains a separate manual
+browser-based smoke test. During a `dotnet run` dev session the server serves this file itself at
+`http://<host>:<port>/test/websocket-test.html` (only when the `test/` directory exists next to
+the working directory, so never in an installed build); open it that way rather than via
+`file://`, since `/ws` rejects handshakes whose `Origin` header doesn't match the server's own
+origin. There is no lint step beyond `dotnet build` warnings.
 
 To exercise a full client+server integration locally:
 
@@ -90,8 +93,10 @@ crashing silently.
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseScroll`) into `IInputService` / `IMouseService`, validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
-through to the socket — exceptions become `Success:false` responses). One handler instance
-serially processes one client's messages, but multiple clients can connect concurrently.
+through to the socket — exceptions become `Success:false` responses). An optional `requestId`
+from the action is echoed in that response so the Client can correlate macro steps with their
+server acknowledgements. One handler instance serially processes one client's messages, but
+multiple clients can connect concurrently.
 
 **Input simulation.** `WindowsInputService`/`WindowsMouseService` translate high-level actions
 into raw Win32 `SendInput` calls via the shared `WindowsInputSender`, which serializes all
@@ -123,7 +128,12 @@ for connecting from another device on the network.
 regenerable), exchanges a correct PIN for an opaque per-device token, and persists *hashed*
 (SHA-256) tokens plus a device name and timestamps to `%LOCALAPPDATA%\YFRemote\devices.json`
 (same base folder as `Logs\startup-error.log`, never inside the Velopack `current\` directory
-that gets replaced on update). Failed pairing attempts are rate-limited per client IP
+that gets replaced on update). Persistence uses a flushed temporary file plus atomic replacement;
+the previous valid state remains in `devices.json.bak` and is loaded when the primary file is
+damaged. Pairing only succeeds after that write, then immediately rotates the used PIN. Failed
+pairing and removal writes roll back their in-memory change. `LastSeenUtc` updates immediately in
+memory and is persisted on a five-minute throttle. Failed pairing attempts are rate-limited per
+client IP
 (5 attempts → 60s lockout), in-memory only. Removing a device in the tray only blocks *future*
 `/ws` connections — an already-open socket is not force-closed. This closes the previous
 "no auth" gap (see README "Sicherheit" section): reaching the bound port is no longer enough

@@ -22,11 +22,12 @@ Alle fertigen Downloads befinden sich im
 
 Ein Gerät muss sich einmalig über eine PIN koppeln, bevor es Steuerbefehle senden
 kann. Die aktuelle PIN wird im Tray-Menü von YFRemote angezeigt (dort auch als
-Kopie verfügbar und über "PIN neu erzeugen" austauschbar). Nach dem Koppeln
-erhält das Gerät ein dauerhaftes Token; im Tray-Menü lassen sich gekoppelte
-Geräte einsehen und einzeln wieder entfernen. Verwende YFRemote trotzdem nur in
-einem vertrauenswürdigen privaten Netzwerk und gib Port `5050` nicht im Router
-für das Internet frei. Details siehe
+Kopie verfügbar und über "PIN neu erzeugen" austauschbar). Nach einer erfolgreichen
+Kopplung wird automatisch eine neue PIN erzeugt. Das Gerät erhält erst dann ein
+dauerhaftes Token, wenn seine Kopplung sicher gespeichert wurde; im Tray-Menü
+lassen sich gekoppelte Geräte einsehen und einzeln wieder entfernen.
+Verwende YFRemote trotzdem nur in einem vertrauenswürdigen privaten Netzwerk und gib
+Port `5050` im Router nicht für das Internet frei. Details siehe
 [Sicherheit](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) im Wiki.
 
 ## Für Entwickler
@@ -40,6 +41,7 @@ Server starten:
 
 ```powershell
 dotnet restore
+dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
 dotnet run
 ```
 

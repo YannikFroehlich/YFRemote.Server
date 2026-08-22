@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { REMOTE_STORAGE } from './remote.service';
-import { parseStoredServerConfig, SERVER_CONFIG_STORAGE_KEY } from './server-config';
+import { getServerHttpBaseUrl, SERVER_LOCATION } from './server-config';
 import { PAIRING_TOKEN_STORAGE_KEY, parseStoredPairingToken } from './pairing';
 
 export const PAIRING_FETCH = new InjectionToken<typeof fetch>('PAIRING_FETCH', {
@@ -24,6 +24,7 @@ interface PairStatusResponseBody {
 export class PairingService {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly fetchFn = inject(PAIRING_FETCH);
+  private readonly serverLocation = inject(SERVER_LOCATION);
 
   private readonly tokenSignal = signal<string | null>(this.loadToken());
   private readonly errorSignal = signal<string | null>(null);
@@ -50,9 +51,7 @@ export class PairingService {
       });
       body = (await response.json()) as PairResponseBody;
     } catch (error) {
-      this.errorSignal.set(
-        `Verbindung zum Server fehlgeschlagen: ${this.getErrorMessage(error)}`,
-      );
+      this.errorSignal.set(`Verbindung zum Server fehlgeschlagen: ${this.getErrorMessage(error)}`);
       return false;
     }
 
@@ -106,10 +105,7 @@ export class PairingService {
   }
 
   private getHttpBaseUrl(): string {
-    const config = parseStoredServerConfig(
-      this.storage?.getItem(SERVER_CONFIG_STORAGE_KEY) ?? null,
-    );
-    return `http://${config.host}:${config.port}`;
+    return getServerHttpBaseUrl(this.serverLocation);
   }
 
   private getErrorMessage(error: unknown): string {

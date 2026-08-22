@@ -8,7 +8,7 @@ import {
 } from './remote.service';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import { PAIRING_TOKEN_STORAGE_KEY } from './pairing';
-import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_CONFIG_STORAGE_KEY } from './server-config';
+import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_LOCATION, ServerLocation } from './server-config';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -35,6 +35,26 @@ class MemoryStorage implements Storage {
 
   setItem(key: string, value: string): void {
     this.values.set(key, value);
+  }
+}
+
+class FakeServerLocation implements ServerLocation {
+  readonly assignments: string[] = [];
+  readonly protocol: string;
+  readonly hostname: string;
+  readonly port: string;
+  readonly origin: string;
+
+  constructor(url = 'http://localhost:5050/') {
+    const parsedUrl = new URL(url);
+    this.protocol = parsedUrl.protocol;
+    this.hostname = parsedUrl.hostname;
+    this.port = parsedUrl.port;
+    this.origin = parsedUrl.origin;
+  }
+
+  assign(url: string): void {
+    this.assignments.push(url);
   }
 }
 
@@ -87,12 +107,13 @@ interface RemoteServiceHarness {
   readonly remote: RemoteService;
   readonly sockets: MockRemoteSocket[];
   readonly storage: MemoryStorage;
+  readonly serverLocation: FakeServerLocation;
 }
 
 interface RemoteServiceSetup {
   readonly autoConnect?: boolean;
-  readonly storedConfig?: string;
   readonly storedPairingToken?: string;
+  readonly serverUrl?: string;
 }
 
 /** `RemoteService`-Tests testen kein Pairing-HTTP-Verhalten; falls ein gespeichertes
@@ -110,22 +131,17 @@ describe('RemoteService', () => {
     vi.restoreAllMocks();
   });
 
-  it('loads the default config when nothing valid is stored', () => {
-    const { remote } = setupRemoteService({
-      storedConfig: '{"host":"http://192.168.1.4","port":5050}',
-    });
-
+  it('derives the active config and socket URL from the page origin', () => {
+    const { remote } = setupRemoteService();
     expect(remote.config()).toEqual({ host: 'localhost', port: 5050 });
     expect(remote.socketUrl()).toBe('ws://localhost:5050/ws');
   });
 
-  it('loads a stored host and port', () => {
-    const { remote } = setupRemoteService({
-      storedConfig: '{"host":"192.168.1.44","port":5050}',
-    });
+  it('uses the page protocol and configured page port for secure sockets', () => {
+    const { remote } = setupRemoteService({ serverUrl: 'https://remote.example:7443/' });
 
-    expect(remote.config()).toEqual({ host: '192.168.1.44', port: 5050 });
-    expect(remote.socketUrl()).toBe('ws://192.168.1.44:5050/ws');
+    expect(remote.config()).toEqual({ host: 'remote.example', port: 7443 });
+    expect(remote.socketUrl()).toBe('wss://remote.example:7443/ws');
   });
 
   it('loads a stored mouse sensitivity', () => {
@@ -138,6 +154,7 @@ describe('RemoteService', () => {
         RemoteService,
         { provide: REMOTE_STORAGE, useValue: storage },
         { provide: REMOTE_AUTO_CONNECT, useValue: false },
+        { provide: SERVER_LOCATION, useValue: new FakeServerLocation() },
         {
           provide: REMOTE_WEBSOCKET_FACTORY,
           useValue: (url: string) => new MockRemoteSocket(url),
@@ -179,6 +196,7 @@ describe('RemoteService', () => {
         RemoteService,
         { provide: REMOTE_STORAGE, useValue: storage },
         { provide: REMOTE_AUTO_CONNECT, useValue: false },
+        { provide: SERVER_LOCATION, useValue: new FakeServerLocation() },
         {
           provide: REMOTE_WEBSOCKET_FACTORY,
           useValue: (url: string) => {
@@ -249,6 +267,63 @@ describe('RemoteService', () => {
       '{"type":"mouseClick","button":"right"}',
       '{"type":"mouseScroll","delta":-120}',
     ]);
+  });
+
+  it('waits for each correlated macro response and stops after a rejection', async () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    const macro = remote.runSteps([
+      { action: { type: 'key', keys: ['F5'] }, delayMs: 0 },
+      { action: { type: 'key', keys: ['F11'] }, delayMs: 0 },
+      { action: { type: 'key', keys: ['ESC'] }, delayMs: 0 },
+    ]);
+
+    expect(sockets[0].sentMessages).toHaveLength(1);
+    const firstRequest = JSON.parse(sockets[0].sentMessages[0]) as { requestId: string };
+
+    sockets[0].receive('{"requestId":"unrelated","success":true}');
+    await Promise.resolve();
+    expect(sockets[0].sentMessages).toHaveLength(1);
+
+    sockets[0].receive(JSON.stringify({ requestId: firstRequest.requestId, success: true }));
+    await Promise.resolve();
+    expect(sockets[0].sentMessages).toHaveLength(2);
+
+    const secondRequest = JSON.parse(sockets[0].sentMessages[1]) as { requestId: string };
+    sockets[0].receive(
+      JSON.stringify({
+        requestId: secondRequest.requestId,
+        success: false,
+        error: 'Taste nicht erlaubt',
+      }),
+    );
+    await macro;
+
+    expect(sockets[0].sentMessages).toHaveLength(2);
+    expect(remote.lastError()).toBe('Taste nicht erlaubt');
+  });
+
+  it('stops a macro when the server confirmation times out', async () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    const macro = remote.runSteps([
+      { action: { type: 'key', keys: ['F5'] }, delayMs: 0 },
+      { action: { type: 'key', keys: ['F11'] }, delayMs: 0 },
+    ]);
+
+    expect(sockets[0].sentMessages).toHaveLength(1);
+    vi.advanceTimersByTime(4999);
+    expect(sockets[0].sentMessages).toHaveLength(1);
+
+    vi.advanceTimersByTime(1);
+    await macro;
+
+    expect(sockets[0].sentMessages).toHaveLength(1);
+    expect(remote.lastError()).toBe('Keine Bestätigung vom Server erhalten.');
   });
 
   it('shows a short error instead of sending while disconnected', () => {
@@ -333,19 +408,29 @@ describe('RemoteService', () => {
     expect(sockets[0].closed).toBe(true);
   });
 
-  it('persists settings and reconnects with the new endpoint', () => {
-    const { remote, sockets, storage } = setupRemoteService();
+  it('navigates the page when switching to a different server', () => {
+    const { remote, sockets, serverLocation } = setupRemoteService();
 
     remote.connect();
 
     expect(remote.saveConfig({ host: '  laptop.local ', port: 5050 })).toBe(true);
 
-    expect(remote.config()).toEqual({ host: 'laptop.local', port: 5050 });
-    expect(storage.getItem(SERVER_CONFIG_STORAGE_KEY)).toBe(
-      '{"host":"laptop.local","port":5050}',
-    );
+    expect(remote.config()).toEqual({ host: 'localhost', port: 5050 });
+    expect(serverLocation.assignments).toEqual(['http://laptop.local:5050/']);
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0].closed).toBe(false);
+  });
+
+  it('reconnects in place when the active server address is unchanged', () => {
+    const { remote, sockets, serverLocation } = setupRemoteService();
+
+    remote.connect();
+
+    expect(remote.saveConfig({ host: '  localhost ', port: 5050 })).toBe(true);
+
+    expect(serverLocation.assignments).toEqual([]);
     expect(sockets[0].closed).toBe(true);
-    expect(sockets[1].url).toBe('ws://laptop.local:5050/ws');
+    expect(sockets[1].url).toBe('ws://localhost:5050/ws');
   });
 
   it('persists and rejects mouse sensitivity settings', () => {
@@ -361,12 +446,12 @@ describe('RemoteService', () => {
   });
 
   it('rejects invalid settings without changing the active config', () => {
-    const { remote, sockets, storage } = setupRemoteService();
+    const { remote, sockets, serverLocation } = setupRemoteService();
 
     expect(remote.saveConfig({ host: 'http://bad-host', port: 5050 })).toBe(false);
 
     expect(remote.config()).toEqual({ host: 'localhost', port: 5050 });
-    expect(storage.getItem(SERVER_CONFIG_STORAGE_KEY)).toBeNull();
+    expect(serverLocation.assignments).toEqual([]);
     expect(sockets).toHaveLength(0);
   });
 });
@@ -376,10 +461,7 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
 
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
-
-  if (options.storedConfig !== undefined) {
-    storage.setItem(SERVER_CONFIG_STORAGE_KEY, options.storedConfig);
-  }
+  const serverLocation = new FakeServerLocation(options.serverUrl);
 
   if (options.storedPairingToken !== undefined) {
     storage.setItem(PAIRING_TOKEN_STORAGE_KEY, options.storedPairingToken);
@@ -390,6 +472,7 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
       RemoteService,
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: REMOTE_AUTO_CONNECT, useValue: options.autoConnect ?? false },
+      { provide: SERVER_LOCATION, useValue: serverLocation },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {
@@ -406,5 +489,6 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
     remote: TestBed.inject(RemoteService),
     sockets,
     storage,
+    serverLocation,
   };
 }

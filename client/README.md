@@ -40,10 +40,16 @@ npm start
 ```
 
 Die Oberfläche ist anschließend unter
-[`http://localhost:4200`](http://localhost:4200) erreichbar. Der Client verbindet
-sich standardmäßig über WebSocket mit Port `5050` auf demselben Host, von dem die
-Seite geladen wurde. In den Einstellungen kann eine andere Serveradresse eingetragen
-werden.
+[`http://localhost:4200`](http://localhost:4200) erreichbar. Der Development-Server
+leitet Pairing-, Health- und WebSocket-Anfragen an den lokalen YFRemote-Server auf
+Port `5050` weiter.
+
+In Produktions-Builds verwendet der Client immer exakt die HTTP(S)-Origin, von der
+die Seite geladen wurde, und wählt passend dazu `ws://` oder `wss://`. Wird in den
+Einstellungen eine andere Serveradresse eingetragen, navigiert der Browser vollständig
+zu dieser Adresse, damit Pairing und Fernsteuerung weiterhin Same-Origin bleiben.
+Mehrschrittige Makros warten nach jeder Aktion auf die Bestätigung des Servers und
+brechen bei einer abgelehnten oder nicht bestätigten Aktion ab.
 
 ### Tests
 

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 YFRemote.Client is a standalone Angular 21 web app that turns a browser (typically a phone) into
 a remote control for a PC. A device must first pair with the server via a one-time PIN (shown in
 the server's tray menu, exchanged for a device token over `POST /pair`); once paired, it connects
-over a WebSocket to a companion server process (`ws://{host}:{port}/ws?token=...`) and streams key
+over a same-origin WebSocket to a companion server process (`ws(s)://<page-origin>/ws?token=...`) and streams key
 presses, hotkeys, mouse moves/clicks/scrolls as JSON messages, and the server replies with
 `{ success: true }` or `{ success: false, error?: string }`.
 The server lives in a sibling repo (`../../server` relative to this one, currently empty/not yet
@@ -47,12 +47,17 @@ manual `ChangeDetectorRef` calls.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and
    the only thing that talks to the WebSocket. Exposes readonly signals (`config`, `status`,
    `lastError`, `mouseSensitivity`, `manuallyDisconnected`) and imperative methods
-   (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/`sendAction`). Owns
-   reconnect-with-backoff logic (`RECONNECT_DELAYS_MS`) and transient-error display
-   (`ERROR_VISIBLE_MS`). It is injected everywhere else that needs connection state or wants to
-   send an action — components never touch `WebSocket` or `localStorage` directly.
-   - The socket, storage, and auto-connect-on-construct behavior are all swapped via
-     `InjectionToken`s (`REMOTE_WEBSOCKET_FACTORY`, `REMOTE_STORAGE`, `REMOTE_AUTO_CONNECT`) so
+   (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/`sendAction`/
+   `runSteps`). Owns reconnect-with-backoff logic (`RECONNECT_DELAYS_MS`) and transient-error
+   display (`ERROR_VISIBLE_MS`). Every step in a multi-step macro carries a connection-local
+   `requestId`; `runSteps` advances only after the matching successful server response and stops
+   on rejection, disconnect, or a five-second acknowledgement timeout. Single actions remain
+   fire-and-forget and use the compact existing message format. It is injected everywhere else
+   that needs connection state or wants to send an action — components never touch `WebSocket`
+   or `localStorage` directly.
+   - The socket, page location, storage, and auto-connect-on-construct behavior are all swapped via
+     `InjectionToken`s (`REMOTE_WEBSOCKET_FACTORY`, `SERVER_LOCATION`, `REMOTE_STORAGE`,
+     `REMOTE_AUTO_CONNECT`) so
      tests can inject fakes (see `RemoteSocket` interface and `MockRemoteSocket` in
      [remote.service.spec.ts](src/app/remote/remote.service.spec.ts)) instead of hitting a real
      socket/`localStorage`. Follow this pattern for any other browser API a service needs to own.
@@ -60,9 +65,10 @@ manual `ChangeDetectorRef` calls.
      exists — the server rejects a `/ws` handshake without one. `RemoteService` injects
      `PairingService`, never the other way around (see below), so there is no DI cycle.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
-   host, port, and mouse sensitivity, plus the `localStorage` keys and Angular reactive-form
-   `ValidatorFn`s built on top of the same predicates. `RemoteService` and
-   `SettingsDialogComponent` both import from here so validation logic never lives twice.
+   host, port, and mouse sensitivity, the injectable page location, same-origin HTTP/WebSocket URL
+   builders, the mouse-sensitivity `localStorage` key, and Angular reactive-form `ValidatorFn`s
+   built on top of the same predicates. `RemoteService`, `PairingService`, and
+   `SettingsDialogComponent` import from here so endpoint and validation logic never lives twice.
 4. **The button layout is a free-form, user-editable canvas**, layered on top of the static
    button definitions:
    - `remote-actions.ts` still defines the built-in buttons (`D_PAD_ACTIONS`, `BROWSER_ACTIONS`,
@@ -112,16 +118,18 @@ manual `ChangeDetectorRef` calls.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an
-     `output()` (`closed`) rather than owning any open/close state.
+     `output()` (`closed`) rather than owning any open/close state. Saving another host or port
+     performs a full-page navigation instead of attempting a cross-origin socket connection.
 6. **`pairing.ts`**/**`pairing.service.ts`** (`PairingService`) — the app is gated behind a
    one-time PIN pairing step: a PIN shown in the server's tray menu is exchanged for a device
    token via `POST /pair`. `PairingService` exposes `token`/`isPaired`/`lastError` signals and
    `pair(pin, deviceName, remember)`/`verify()` methods. Same shape as `server-config.ts`
    (`pairing.ts` holds pure validation helpers plus a `ValidatorFn`); reuses `RemoteService`'s
    `REMOTE_STORAGE` token directly instead of owning a second one (same pattern as
-   `ButtonLayoutService`), and reads host/port straight from `server-config.ts` rather than
-   injecting `RemoteService`, to avoid a DI cycle (`RemoteService` injects `PairingService`, not
-   the reverse). Its HTTP calls go through a `PAIRING_FETCH` injection token (default
+   `ButtonLayoutService`) and avoids injecting `RemoteService`, so there is no DI cycle
+   (`RemoteService` injects `PairingService`, not the reverse). It derives its HTTP endpoint
+   directly from the injected same-origin page location.
+   Its HTTP calls go through a `PAIRING_FETCH` injection token (default
    `globalThis.fetch`) — the same swap-every-browser-API convention as the WebSocket/storage
    tokens above. "Gerät merken" (remember device) is a purely client-side choice: a remembered
    token is written to `REMOTE_STORAGE` (`yfremote.pairingToken`); an un-remembered one lives only

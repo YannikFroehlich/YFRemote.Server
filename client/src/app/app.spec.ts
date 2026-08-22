@@ -9,7 +9,11 @@ import {
 import { PAIRING_FETCH } from './remote/pairing.service';
 import { PAIRING_TOKEN_STORAGE_KEY } from './remote/pairing';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
-import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_CONFIG_STORAGE_KEY } from './remote/server-config';
+import {
+  MOUSE_SENSITIVITY_STORAGE_KEY,
+  SERVER_LOCATION,
+  ServerLocation,
+} from './remote/server-config';
 
 async function alwaysValidPairingFetch(): Promise<Response> {
   return new Response(JSON.stringify({ valid: true }), { status: 200 });
@@ -43,6 +47,26 @@ class MemoryStorage implements Storage {
   }
 }
 
+class FakeServerLocation implements ServerLocation {
+  readonly assignments: string[] = [];
+  readonly protocol: string;
+  readonly hostname: string;
+  readonly port: string;
+  readonly origin: string;
+
+  constructor(url = 'http://localhost:5050/') {
+    const parsedUrl = new URL(url);
+    this.protocol = parsedUrl.protocol;
+    this.hostname = parsedUrl.hostname;
+    this.port = parsedUrl.port;
+    this.origin = parsedUrl.origin;
+  }
+
+  assign(url: string): void {
+    this.assignments.push(url);
+  }
+}
+
 class MockRemoteSocket implements RemoteSocket {
   readonly sentMessages: string[] = [];
 
@@ -60,6 +84,10 @@ class MockRemoteSocket implements RemoteSocket {
     this.onopen?.(new Event('open'));
   }
 
+  receive(message: string): void {
+    this.onmessage?.(new MessageEvent<string>('message', { data: message }));
+  }
+
   send(data: string): void {
     this.sentMessages.push(data);
   }
@@ -74,6 +102,7 @@ interface AppHarness {
   readonly fixture: ReturnType<typeof TestBed.createComponent<App>>;
   readonly sockets: MockRemoteSocket[];
   readonly storage: MemoryStorage;
+  readonly serverLocation: FakeServerLocation;
 }
 
 describe('App', () => {
@@ -171,8 +200,8 @@ describe('App', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"text","text":"Guten Tag"}']);
   });
 
-  it('validates settings and persists a new endpoint', async () => {
-    const { fixture, sockets, storage } = await setupApp({ autoConnect: true });
+  it('validates settings and navigates to a new server endpoint', async () => {
+    const { fixture, sockets, storage, serverLocation } = await setupApp({ autoConnect: true });
     const compiled = fixture.nativeElement as HTMLElement;
 
     queryButton(compiled, 'Einstellungen').click();
@@ -202,13 +231,10 @@ describe('App', () => {
     saveButton?.click();
     fixture.detectChanges();
 
-    expect(storage.getItem(SERVER_CONFIG_STORAGE_KEY)).toBe(
-      '{"host":"192.168.1.20","port":5050}',
-    );
     expect(storage.getItem(MOUSE_SENSITIVITY_STORAGE_KEY)).toBe('1.5');
-    expect(sockets).toHaveLength(2);
-    expect(sockets[0].closed).toBe(true);
-    expect(sockets[1].url).toBe('ws://192.168.1.20:5050/ws?token=test-token');
+    expect(serverLocation.assignments).toEqual(['http://192.168.1.20:5050/']);
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0].closed).toBe(false);
   });
 
   it('creates a custom hotkey button through the editor and sends it exactly once done', async () => {
@@ -288,10 +314,18 @@ describe('App', () => {
 
     queryButton(compiled, 'Makro').click();
 
+    expect(sockets[0].sentMessages).toEqual(['{"requestId":"1","type":"key","keys":["WIN"]}']);
+
+    sockets[0].receive('{"requestId":"1","success":true}');
+    await Promise.resolve();
+
     expect(sockets[0].sentMessages).toEqual([
-      '{"type":"key","keys":["WIN"]}',
-      '{"type":"text","text":"notepad"}',
+      '{"requestId":"1","type":"key","keys":["WIN"]}',
+      '{"requestId":"2","type":"text","text":"notepad"}',
     ]);
+
+    sockets[0].receive('{"requestId":"2","success":true}');
+    await Promise.resolve();
   });
 
   it('hides a built-in button and persists the change across a reload', async () => {
@@ -324,6 +358,7 @@ describe('App', () => {
       providers: [
         { provide: REMOTE_STORAGE, useValue: storage },
         { provide: REMOTE_AUTO_CONNECT, useValue: false },
+        { provide: SERVER_LOCATION, useValue: new FakeServerLocation() },
         {
           provide: REMOTE_WEBSOCKET_FACTORY,
           useValue: (url: string) => new MockRemoteSocket(url),
@@ -368,9 +403,9 @@ describe('App', () => {
     deviceNameInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    compiled.querySelector<HTMLFormElement>('form')?.dispatchEvent(
-      new Event('submit', { bubbles: true, cancelable: true }),
-    );
+    compiled
+      .querySelector<HTMLFormElement>('form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -392,9 +427,9 @@ describe('App', () => {
     pinInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    compiled.querySelector<HTMLFormElement>('form')?.dispatchEvent(
-      new Event('submit', { bubbles: true, cancelable: true }),
-    );
+    compiled
+      .querySelector<HTMLFormElement>('form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -407,11 +442,13 @@ interface SetupAppOptions {
   readonly autoConnect?: boolean;
   readonly paired?: boolean;
   readonly pairingFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  readonly serverUrl?: string;
 }
 
 async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
+  const serverLocation = new FakeServerLocation(options.serverUrl);
 
   if (options.paired ?? true) {
     storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'test-token');
@@ -422,6 +459,7 @@ async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
     providers: [
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: REMOTE_AUTO_CONNECT, useValue: options.autoConnect ?? false },
+      { provide: SERVER_LOCATION, useValue: serverLocation },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {
@@ -442,6 +480,7 @@ async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
     fixture,
     sockets,
     storage,
+    serverLocation,
   };
 }
 

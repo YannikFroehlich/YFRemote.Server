@@ -22,9 +22,16 @@ repository and include a production build of the Client.
 - The Angular Client is built as static files and copied into the Server's
   `wwwroot` directory during the release workflow.
 - The Server hosts the Client, the `/health` endpoint, and the `/ws` WebSocket.
+- Every step in a multi-step macro carries a `requestId` that the Server echoes in
+  its response. Macros wait for that exact acknowledgement before executing the
+  next step and stop on rejection, disconnect, or timeout. Single actions keep the
+  compact fire-and-forget message format.
 - The default server binding is `http://0.0.0.0:5050`.
-- The Client derives its default WebSocket host from the hostname of the page that
-  served it and falls back to `localhost`; the default port is `5050`.
+- The Client uses the exact HTTP(S) origin that served the page for pairing and
+  WebSocket connections, mapping `http` to `ws` and `https` to `wss`. Changing
+  host or port performs a full-page navigation to the new server so the connection
+  remains same-origin. The Angular development server proxies these paths to the
+  default local Server on port `5050`.
 - The Server targets `net10.0-windows`, uses Windows Forms, and has
   `OutputType=WinExe`, so a normal installed launch has no terminal window.
 - Only one Server instance may run at a time.

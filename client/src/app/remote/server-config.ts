@@ -1,15 +1,14 @@
+import { InjectionToken } from '@angular/core';
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { ServerConfig } from './remote.models';
 
-export const SERVER_CONFIG_STORAGE_KEY = 'yfremote.serverConfig';
 export const MOUSE_SENSITIVITY_STORAGE_KEY = 'yfremote.mouseSensitivity';
 export const DEFAULT_MOUSE_SENSITIVITY = 1;
 export const MOUSE_SENSITIVITY_MIN = 0.5;
 export const MOUSE_SENSITIVITY_MAX = 4;
 export const MOUSE_SENSITIVITY_STEP = 0.25;
 
-const IPV4_SEGMENT_PATTERN =
-  '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])';
+const IPV4_SEGMENT_PATTERN = '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])';
 const IPV4_PATTERN = new RegExp(
   `^${IPV4_SEGMENT_PATTERN}\\.${IPV4_SEGMENT_PATTERN}\\.${IPV4_SEGMENT_PATTERN}\\.${IPV4_SEGMENT_PATTERN}$`,
 );
@@ -34,10 +33,18 @@ export function isValidHost(host: string): boolean {
   return IPV4_PATTERN.test(normalizedHost) || HOSTNAME_PATTERN.test(normalizedHost);
 }
 
-export const DEFAULT_SERVER_CONFIG: ServerConfig = {
-  host: getDefaultServerHost(),
-  port: 5050,
-};
+export interface ServerLocation {
+  readonly protocol: string;
+  readonly hostname: string;
+  readonly port: string;
+  readonly origin: string;
+  assign(url: string): void;
+}
+
+export const SERVER_LOCATION = new InjectionToken<ServerLocation>('SERVER_LOCATION', {
+  providedIn: 'root',
+  factory: () => globalThis.location,
+});
 
 export function isValidPort(port: number): boolean {
   return Number.isInteger(port) && port >= 1 && port <= 65535;
@@ -92,22 +99,42 @@ export function parseStoredMouseSensitivity(rawValue: string | null): number {
   return normalizeMouseSensitivity(parsedValue) ?? DEFAULT_MOUSE_SENSITIVITY;
 }
 
-export function parseStoredServerConfig(rawValue: string | null): ServerConfig {
-  if (rawValue === null) {
-    return DEFAULT_SERVER_CONFIG;
-  }
+export function getServerConfigFromLocation(location: ServerLocation): ServerConfig {
+  const host = normalizeHost(location.hostname);
+  const port = parsePortValue(location.port) ?? defaultPortForProtocol(location.protocol);
 
+  return {
+    host: isValidHost(host) ? host : 'localhost',
+    port,
+  };
+}
+
+export function getServerHttpBaseUrl(location: ServerLocation): string {
   try {
-    const parsedValue: unknown = JSON.parse(rawValue);
-
-    if (!isServerConfigLike(parsedValue)) {
-      return DEFAULT_SERVER_CONFIG;
+    const origin = new URL(location.origin);
+    if (origin.protocol === 'http:' || origin.protocol === 'https:') {
+      return origin.origin;
     }
-
-    return normalizeServerConfig(parsedValue) ?? DEFAULT_SERVER_CONFIG;
   } catch {
-    return DEFAULT_SERVER_CONFIG;
+    // Bei ungewoehnlichen Test- oder Einbettungsumgebungen auf die Einzelwerte fallen.
   }
+
+  return buildServerOrigin(getServerConfigFromLocation(location), httpProtocol(location.protocol));
+}
+
+export function getServerWebSocketBaseUrl(location: ServerLocation): string {
+  const httpOrigin = new URL(getServerHttpBaseUrl(location));
+  const socketProtocol = httpOrigin.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${socketProtocol}//${httpOrigin.host}`;
+}
+
+export function getServerPageUrl(config: ServerConfig, location: ServerLocation): string {
+  const normalizedConfig = normalizeServerConfig(config);
+  if (normalizedConfig === null) {
+    throw new Error('Invalid server config.');
+  }
+
+  return `${buildServerOrigin(normalizedConfig, httpProtocol(location.protocol))}/`;
 }
 
 export const hostValidator: ValidatorFn = (
@@ -134,20 +161,16 @@ export const mouseSensitivityValidator: ValidatorFn = (
   return normalizeMouseSensitivity(value) === null ? { mouseSensitivity: true } : null;
 };
 
-function isServerConfigLike(value: unknown): value is ServerConfig {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-
-  const candidate = value as Partial<ServerConfig>;
-  return typeof candidate.host === 'string' && typeof candidate.port === 'number';
+function httpProtocol(protocol: string): 'http:' | 'https:' {
+  return protocol === 'https:' ? 'https:' : 'http:';
 }
 
-function getDefaultServerHost(): string {
-  try {
-    const pageHost = globalThis.location?.hostname;
-    return pageHost && isValidHost(pageHost) ? pageHost : 'localhost';
-  } catch {
-    return 'localhost';
-  }
+function defaultPortForProtocol(protocol: string): number {
+  return protocol === 'https:' ? 443 : 80;
+}
+
+function buildServerOrigin(config: ServerConfig, protocol: 'http:' | 'https:'): string {
+  const defaultPort = defaultPortForProtocol(protocol);
+  const port = config.port === defaultPort ? '' : `:${config.port}`;
+  return `${protocol}//${config.host}${port}`;
 }

@@ -60,8 +60,8 @@ export class SettingsDialogComponent {
       return;
     }
 
-    const configSaved = this.remote.saveConfig({ host, port });
     const mouseSensitivitySaved = this.remote.saveMouseSensitivity(mouseSensitivity);
+    const configSaved = mouseSensitivitySaved && this.remote.saveConfig({ host, port });
 
     if (configSaved && mouseSensitivitySaved) {
       this.closed.emit();

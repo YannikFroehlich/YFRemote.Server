@@ -25,11 +25,7 @@ export interface TextAction {
 }
 
 export type RemoteAction =
-  | KeyboardAction
-  | MouseMoveAction
-  | MouseClickAction
-  | MouseScrollAction
-  | TextAction;
+  KeyboardAction | MouseMoveAction | MouseClickAction | MouseScrollAction | TextAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {
@@ -45,10 +41,12 @@ export interface ServerConfig {
 }
 
 export interface RemoteSuccessResponse {
+  readonly requestId?: string;
   readonly success: true;
 }
 
 export interface RemoteErrorResponse {
+  readonly requestId?: string;
   readonly success: false;
   readonly error?: string;
 }

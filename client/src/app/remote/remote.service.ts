@@ -8,13 +8,14 @@ import {
 } from './remote.models';
 import { PairingService } from './pairing.service';
 import {
-  DEFAULT_SERVER_CONFIG,
+  getServerConfigFromLocation,
+  getServerPageUrl,
+  getServerWebSocketBaseUrl,
   MOUSE_SENSITIVITY_STORAGE_KEY,
   normalizeMouseSensitivity,
   normalizeServerConfig,
   parseStoredMouseSensitivity,
-  parseStoredServerConfig,
-  SERVER_CONFIG_STORAGE_KEY,
+  SERVER_LOCATION,
 } from './server-config';
 
 export interface RemoteSocket {
@@ -51,6 +52,12 @@ export const REMOTE_AUTO_CONNECT = new InjectionToken<boolean>('REMOTE_AUTO_CONN
 const SOCKET_OPEN = 1;
 const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
 const ERROR_VISIBLE_MS = 4200;
+const ACTION_CONFIRMATION_TIMEOUT_MS = 5000;
+
+interface PendingAction {
+  readonly resolve: (success: boolean) => void;
+  readonly timeout: ReturnType<typeof setTimeout>;
+}
 
 @Injectable({
   providedIn: 'root',
@@ -60,8 +67,11 @@ export class RemoteService implements OnDestroy {
   private readonly createSocket = inject(REMOTE_WEBSOCKET_FACTORY);
   private readonly autoConnect = inject(REMOTE_AUTO_CONNECT);
   private readonly pairing = inject(PairingService);
+  private readonly serverLocation = inject(SERVER_LOCATION);
 
-  private readonly configSignal = signal<ServerConfig>(this.loadConfig());
+  private readonly configSignal = signal<ServerConfig>(
+    getServerConfigFromLocation(this.serverLocation),
+  );
   private readonly mouseSensitivitySignal = signal(this.loadMouseSensitivity());
   private readonly statusSignal = signal<ConnectionStatus>('disconnected');
   private readonly lastErrorSignal = signal<string | null>(null);
@@ -71,13 +81,15 @@ export class RemoteService implements OnDestroy {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
+  private requestSequence = 0;
+  private readonly pendingActions = new Map<string, PendingAction>();
 
   readonly config = this.configSignal.asReadonly();
   readonly mouseSensitivity = this.mouseSensitivitySignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
-  readonly socketUrl = computed(() => this.createSocketUrl(this.configSignal()));
+  readonly socketUrl = computed(() => this.createSocketUrl());
 
   constructor() {
     if (this.autoConnect) {
@@ -110,11 +122,23 @@ export class RemoteService implements OnDestroy {
       return false;
     }
 
-    this.configSignal.set(normalizedConfig);
-    this.persistConfig(normalizedConfig);
-    this.reconnectAttempt = 0;
-    this.reconnect();
-    return true;
+    const activeConfig = this.configSignal();
+    if (
+      normalizedConfig.host === activeConfig.host &&
+      normalizedConfig.port === activeConfig.port
+    ) {
+      this.reconnectAttempt = 0;
+      this.reconnect();
+      return true;
+    }
+
+    try {
+      this.serverLocation.assign(getServerPageUrl(normalizedConfig, this.serverLocation));
+      return true;
+    } catch (error) {
+      this.showError(`Serverwechsel fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      return false;
+    }
   }
 
   saveMouseSensitivity(sensitivity: number): boolean {
@@ -130,28 +154,57 @@ export class RemoteService implements OnDestroy {
     return true;
   }
 
-  /** Führt eine Aktionskette sequenziell aus und wartet dabei die jeweils konfigurierte
-   *  Verzögerung ab. Bricht ab, sobald ein Schritt fehlschlägt (z. B. keine Verbindung). */
+  /** Führt eine Aktionskette sequenziell aus und wartet neben der konfigurierten
+   *  Verzögerung auch auf die Serverbestätigung jedes einzelnen Schritts. */
   async runSteps(steps: readonly MacroStep[]): Promise<void> {
+    const waitForServerConfirmation = steps.length > 1;
+
     for (const step of steps) {
       if (step.delayMs > 0) {
         await sleep(step.delayMs);
       }
 
-      if (!this.sendAction(step.action)) {
+      const succeeded = waitForServerConfirmation
+        ? await this.sendActionAndWait(step.action)
+        : this.sendAction(step.action);
+
+      if (!succeeded) {
         return;
       }
     }
   }
 
   sendAction(action: RemoteAction): boolean {
+    return this.sendActionRequest(action);
+  }
+
+  private sendActionAndWait(action: RemoteAction): Promise<boolean> {
+    const requestId = this.createRequestId();
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        if (this.settlePendingAction(requestId, false)) {
+          this.showError('Keine Bestätigung vom Server erhalten.');
+        }
+      }, ACTION_CONFIRMATION_TIMEOUT_MS);
+
+      this.pendingActions.set(requestId, { resolve, timeout });
+
+      if (!this.sendActionRequest(action, requestId)) {
+        this.settlePendingAction(requestId, false);
+      }
+    });
+  }
+
+  private sendActionRequest(action: RemoteAction, requestId?: string): boolean {
     if (this.socket === null || this.socket.readyState !== SOCKET_OPEN) {
       this.showError('Keine Verbindung zum Server.');
       return false;
     }
 
     try {
-      this.socket.send(JSON.stringify(action));
+      const message = requestId === undefined ? action : { requestId, ...action };
+      this.socket.send(JSON.stringify(message));
       return true;
     } catch (error) {
       this.showError(`Senden fehlgeschlagen: ${this.getErrorMessage(error)}`);
@@ -221,6 +274,7 @@ export class RemoteService implements OnDestroy {
       }
 
       this.socket = null;
+      this.failPendingActions('Verbindung zum Server wurde getrennt.');
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
       this.recheckPairing();
@@ -246,6 +300,10 @@ export class RemoteService implements OnDestroy {
       this.showError('Ungültige Serverantwort.');
       console.warn('YFRemote: invalid server response', rawMessage);
       return;
+    }
+
+    if (response.requestId !== undefined) {
+      this.settlePendingAction(response.requestId, response.success);
     }
 
     if (response.success) {
@@ -275,7 +333,15 @@ export class RemoteService implements OnDestroy {
       return false;
     }
 
-    const response = value as { readonly success?: unknown; readonly error?: unknown };
+    const response = value as {
+      readonly requestId?: unknown;
+      readonly success?: unknown;
+      readonly error?: unknown;
+    };
+
+    if (response.requestId !== undefined && typeof response.requestId !== 'string') {
+      return false;
+    }
 
     if (response.success === true) {
       return true;
@@ -307,6 +373,8 @@ export class RemoteService implements OnDestroy {
   }
 
   private closeActiveSocket(): void {
+    this.failPendingActions();
+
     if (this.socket === null) {
       return;
     }
@@ -318,6 +386,41 @@ export class RemoteService implements OnDestroy {
     socket.onerror = null;
     socket.onclose = null;
     socket.close();
+  }
+
+  private createRequestId(): string {
+    this.requestSequence += 1;
+    return String(this.requestSequence);
+  }
+
+  private settlePendingAction(requestId: string, success: boolean): boolean {
+    const pendingAction = this.pendingActions.get(requestId);
+    if (pendingAction === undefined) {
+      return false;
+    }
+
+    clearTimeout(pendingAction.timeout);
+    this.pendingActions.delete(requestId);
+    pendingAction.resolve(success);
+    return true;
+  }
+
+  private failPendingActions(error?: string): void {
+    if (this.pendingActions.size === 0) {
+      return;
+    }
+
+    const pendingActions = Array.from(this.pendingActions.values());
+    this.pendingActions.clear();
+
+    for (const pendingAction of pendingActions) {
+      clearTimeout(pendingAction.timeout);
+      pendingAction.resolve(false);
+    }
+
+    if (error !== undefined) {
+      this.showError(error);
+    }
   }
 
   private showError(message: string): void {
@@ -345,24 +448,16 @@ export class RemoteService implements OnDestroy {
     }
   }
 
-  private createSocketUrl(config: ServerConfig): string {
-    const baseUrl = `ws://${config.host}:${config.port}/ws`;
+  private createSocketUrl(): string {
+    const baseUrl = `${getServerWebSocketBaseUrl(this.serverLocation)}/ws`;
     const token = this.pairing.token();
     return token === null ? baseUrl : `${baseUrl}?token=${encodeURIComponent(token)}`;
-  }
-
-  private loadConfig(): ServerConfig {
-    return parseStoredServerConfig(this.storage?.getItem(SERVER_CONFIG_STORAGE_KEY) ?? null);
   }
 
   private loadMouseSensitivity(): number {
     return parseStoredMouseSensitivity(
       this.storage?.getItem(MOUSE_SENSITIVITY_STORAGE_KEY) ?? null,
     );
-  }
-
-  private persistConfig(config: ServerConfig): void {
-    this.storage?.setItem(SERVER_CONFIG_STORAGE_KEY, JSON.stringify(config));
   }
 
   private persistMouseSensitivity(sensitivity: number): void {

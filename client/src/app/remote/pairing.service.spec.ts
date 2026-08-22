@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import { PAIRING_TOKEN_STORAGE_KEY } from './pairing';
 import { REMOTE_STORAGE } from './remote.service';
-import { SERVER_CONFIG_STORAGE_KEY } from './server-config';
+import { SERVER_LOCATION, ServerLocation } from './server-config';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -30,6 +30,17 @@ class MemoryStorage implements Storage {
   setItem(key: string, value: string): void {
     this.values.set(key, value);
   }
+}
+
+function createServerLocation(url: string): ServerLocation {
+  const parsedUrl = new URL(url);
+  return {
+    protocol: parsedUrl.protocol,
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port,
+    origin: parsedUrl.origin,
+    assign: () => undefined,
+  };
 }
 
 class FakeFetch {
@@ -64,9 +75,10 @@ interface PairingServiceHarness {
   readonly fakeFetch: FakeFetch;
 }
 
-function setupPairingService(options: { storedToken?: string } = {}): PairingServiceHarness {
+function setupPairingService(
+  options: { storedToken?: string; serverUrl?: string } = {},
+): PairingServiceHarness {
   const storage = new MemoryStorage();
-  storage.setItem(SERVER_CONFIG_STORAGE_KEY, '{"host":"192.168.1.44","port":5050}');
 
   if (options.storedToken !== undefined) {
     storage.setItem(PAIRING_TOKEN_STORAGE_KEY, options.storedToken);
@@ -79,6 +91,10 @@ function setupPairingService(options: { storedToken?: string } = {}): PairingSer
       PairingService,
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: PAIRING_FETCH, useValue: fakeFetch.fetch },
+      {
+        provide: SERVER_LOCATION,
+        useValue: createServerLocation(options.serverUrl ?? 'http://192.168.1.44:5050/'),
+      },
     ],
   });
 
@@ -124,6 +140,17 @@ describe('PairingService', () => {
     expect(result).toBe(true);
     expect(pairing.token()).toBe('tok-456');
     expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it('uses the exact HTTPS page origin for pairing requests', async () => {
+    const { pairing, fakeFetch } = setupPairingService({
+      serverUrl: 'https://remote.example:7443/',
+    });
+    fakeFetch.queueJson({ success: true, token: 'secure-token' });
+
+    await pairing.pair('123456', 'Tablet', false);
+
+    expect(fakeFetch.calls[0].url).toBe('https://remote.example:7443/pair');
   });
 
   it('surfaces the server error and does not set a token on a wrong PIN', async () => {

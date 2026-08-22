@@ -64,6 +64,12 @@ jobs:
           npm test -- --watch=false
           npm run build
 
+      - name: Server testen
+        shell: pwsh
+        run: >-
+          dotnet test server/tests/YFRemote.Server.Tests/YFRemote.Server.Tests.csproj
+          --configuration Release
+
       - name: Client in Server integrieren
         shell: pwsh
         run: |

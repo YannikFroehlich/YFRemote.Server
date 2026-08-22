@@ -22,12 +22,23 @@ repository and include a production build of the Client.
 - The Angular Client is built as static files and copied into the Server's
   `wwwroot` directory during the release workflow.
 - The Server hosts the Client, the `/health` endpoint, and the `/ws` WebSocket.
+- WebSocket actions may include a `requestId`; every parsed action response echoes it
+  so the Client can wait for the exact server acknowledgement before advancing a macro.
 - The default server binding is `http://0.0.0.0:5050`.
-- The Client derives its default WebSocket host from the hostname of the page that
-  served it and falls back to `localhost`; the default port is `5050`.
+- The Client uses the exact HTTP(S) origin that served the page for pairing and
+  WebSocket connections, mapping `http` to `ws` and `https` to `wss`. Changing
+  host or port performs a full-page navigation to the new server so the connection
+  remains same-origin. The Angular development server proxies these paths to the
+  default local Server on port `5050`.
 - The Server targets `net10.0-windows`, uses Windows Forms, and has
   `OutputType=WinExe`, so a normal installed launch has no terminal window.
 - Only one Server instance may run at a time.
+- A successful pairing is acknowledged only after its hashed device token has been
+  atomically persisted to `%LOCALAPPDATA%\YFRemote\devices.json`; the previous valid
+  state is retained as `devices.json.bak`. The used PIN rotates immediately after a
+  successful write. Failed pairing or unpairing writes are rolled back in memory.
+- Device `LastSeenUtc` updates remain immediate in memory and are persisted at most
+  once every five minutes to avoid a disk write for every status check or connection.
 
 ## Tray application
 
@@ -110,6 +121,7 @@ Server:
 
 ```powershell
 dotnet restore
+dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
 dotnet build --configuration Release
 ```
 
@@ -152,7 +164,7 @@ The workflow:
 
 1. checks out the tagged Server commit;
 2. checks out the current default branch of `YFRemote.Client`;
-3. runs `npm ci`, Client tests, and the Client production build;
+3. runs `npm ci`, Client tests, the Client production build, and the Server tests;
 4. copies `client/dist/YFRemote.Client/browser/*` to `server/wwwroot`;
 5. publishes a self-contained `win-x64` Server build with the tag version;
 6. downloads the previous release when available so Velopack can create a delta;

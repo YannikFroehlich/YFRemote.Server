@@ -22,10 +22,11 @@ public sealed class RemoteActionHandler(
 
         var type = request.Type?.Trim().ToLowerInvariant();
         var keys = NormalizeKeys(request.Keys);
+        RemoteActionResponse response;
 
         try
         {
-            return type switch
+            response = type switch
             {
                 "key" => HandleKey(keys),
                 "hotkey" => HandleHotkey(keys),
@@ -39,13 +40,15 @@ public sealed class RemoteActionHandler(
         }
         catch (UnsupportedKeyException ex)
         {
-            return Fail(ex.Message);
+            response = Fail(ex.Message);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Action {ActionType} failed.", request.Type);
-            return Fail("Action failed.");
+            response = Fail("Action failed.");
         }
+
+        return response with { RequestId = request.RequestId };
     }
 
     private RemoteActionResponse HandleKey(IReadOnlyList<string> keys)

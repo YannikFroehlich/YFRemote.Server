@@ -1,6 +1,9 @@
 namespace YFRemote.Server.Models;
 
-public sealed record RemoteActionResponse(bool Success, string? Error = null)
+public sealed record RemoteActionResponse(
+    bool Success,
+    string? Error = null,
+    string? RequestId = null)
 {
     public static RemoteActionResponse Ok() => new(true);
 

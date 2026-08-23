@@ -4,10 +4,13 @@ import { PairingService } from './pairing.service';
 import {
   DEVICE_NAME_MAX_LENGTH,
   guessDeviceName,
+  getPairingPinFromHash,
   normalizeDeviceName,
   normalizePin,
+  PAIRING_HISTORY,
   pinValidator,
 } from './pairing';
+import { SERVER_LOCATION } from './server-config';
 
 @Component({
   selector: 'app-pairing-gate',
@@ -16,13 +19,16 @@ import {
 })
 export class PairingGateComponent {
   private readonly pairing = inject(PairingService);
+  private readonly serverLocation = inject(SERVER_LOCATION);
+  private readonly history = inject(PAIRING_HISTORY);
+  private readonly initialPin = getPairingPinFromHash(this.serverLocation.hash ?? '');
 
   protected readonly lastError = this.pairing.lastError;
   protected readonly remember = signal(true);
   protected readonly submitting = signal(false);
 
   protected readonly form = new FormGroup({
-    pin: new FormControl('', {
+    pin: new FormControl(this.initialPin, {
       nonNullable: true,
       validators: [Validators.required, pinValidator],
     }),
@@ -31,6 +37,13 @@ export class PairingGateComponent {
       validators: [Validators.required, Validators.maxLength(DEVICE_NAME_MAX_LENGTH)],
     }),
   });
+
+  constructor() {
+    if (this.initialPin.length > 0) {
+      const cleanUrl = `${this.serverLocation.pathname ?? '/'}${this.serverLocation.search ?? ''}`;
+      this.history.replaceState(null, '', cleanUrl);
+    }
+  }
 
   protected toggleRemember(): void {
     this.remember.update((value) => !value);

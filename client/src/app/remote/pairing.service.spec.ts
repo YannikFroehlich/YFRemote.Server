@@ -44,7 +44,7 @@ function createServerLocation(url: string): ServerLocation {
 }
 
 class FakeFetch {
-  readonly calls: { url: string }[] = [];
+  readonly calls: { url: string; init?: RequestInit }[] = [];
   private readonly queue: Array<() => Promise<Response>> = [];
 
   queueJson(body: unknown, status = 200): void {
@@ -57,8 +57,12 @@ class FakeFetch {
     });
   }
 
-  readonly fetch = async (input: RequestInfo | URL): Promise<Response> => {
-    this.calls.push({ url: String(input) });
+  queueStatus(status: number): void {
+    this.queue.push(async () => new Response(null, { status }));
+  }
+
+  readonly fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    this.calls.push({ url: String(input), init });
 
     const next = this.queue.shift();
     if (!next) {
@@ -195,5 +199,37 @@ describe('PairingService', () => {
     expect(result).toBe(true);
     expect(pairing.token()).toBe('good-token');
     expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBe('good-token');
+  });
+
+  it('revokes the current device with a bearer token and clears local pairing', async () => {
+    const { pairing, storage, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ success: true, token: 'tok-to-revoke' });
+    await pairing.pair('123456', 'Telefon', true);
+    fakeFetch.queueStatus(204);
+
+    const result = await pairing.unpair();
+
+    expect(result).toBe(true);
+    expect(pairing.isPaired()).toBe(false);
+    expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(fakeFetch.calls[1].url).toBe('http://192.168.1.44:5050/pair');
+    expect(fakeFetch.calls[1].init?.method).toBe('DELETE');
+    expect(new Headers(fakeFetch.calls[1].init?.headers).get('Authorization')).toBe(
+      'Bearer tok-to-revoke',
+    );
+  });
+
+  it('keeps local pairing when the server cannot persist the revocation', async () => {
+    const { pairing, storage, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ success: true, token: 'keep-token' });
+    await pairing.pair('123456', 'Telefon', true);
+    fakeFetch.queueJson({ error: 'Entkopplung konnte nicht dauerhaft gespeichert werden.' }, 500);
+
+    const result = await pairing.unpair();
+
+    expect(result).toBe(false);
+    expect(pairing.token()).toBe('keep-token');
+    expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBe('keep-token');
+    expect(pairing.lastError()).toContain('dauerhaft gespeichert');
   });
 });

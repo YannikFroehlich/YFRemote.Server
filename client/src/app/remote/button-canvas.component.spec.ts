@@ -177,14 +177,15 @@ describe('ButtonCanvasComponent', () => {
     expect(viewing.fixture.nativeElement.querySelector('.layout-grid')).toBeNull();
   });
 
-  it('makes a disabled media button enabled (draggable) in edit mode', async () => {
-    const edit = await setupCanvas(true);
-    expect(edit.button('Stumm').disabled).toBe(false);
-  });
-
-  it('keeps a disabled media button non-interactive in view mode', async () => {
+  it('keeps media buttons interactive in view mode', async () => {
     const view = await setupCanvas(false);
-    expect(view.button('Stumm').disabled).toBe(true);
+
+    view.button('Stumm').click();
+
+    expect(view.button('Stumm').disabled).toBe(false);
+    expect(view.sockets[0].sentMessages).toEqual([
+      '{"type":"key","keys":["VOLUME_MUTE"]}',
+    ]);
   });
 });
 

@@ -510,7 +510,8 @@ h2 {
 .key-chip:focus-visible,
 .layout-chip:focus-visible,
 .icon-picker__option:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(98, 227, 196, 0.28);
   outline-offset: 2px;
 }
@@ -596,6 +597,7 @@ input:focus-visible {
 }
 
 .field input,
+.field select,
 .macro-text-input {
   width: 100%;
   min-height: 50px;
@@ -612,11 +614,13 @@ input:focus-visible {
 }
 
 .field input:hover,
+.field select:hover,
 .macro-text-input:hover {
   border-color: rgba(224, 242, 245, 0.16);
 }
 
 .field input:focus,
+.field select:focus,
 .macro-text-input:focus {
   border-color: var(--line-strong);
   background: #0f181c;
@@ -688,6 +692,131 @@ input:focus-visible {
   border: 1px solid var(--line);
   background: var(--surface-raised);
   color: var(--text-soft);
+}
+
+.secondary-button:disabled,
+.danger-button:disabled,
+.text-danger-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.settings-section {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(8, 13, 16, 0.38);
+}
+
+.settings-section--danger {
+  border-color: rgba(255, 155, 135, 0.24);
+  background: var(--danger-soft);
+}
+
+.settings-section__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-section__heading h3 {
+  margin-top: 3px;
+  font-size: 1rem;
+}
+
+.settings-section__heading > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.profile-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.profile-create-row .secondary-button {
+  min-height: 50px;
+}
+
+.profile-actions,
+.confirm-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-actions .secondary-button,
+.confirm-row .secondary-button,
+.confirm-row .danger-button {
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.settings-hint {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.confirm-row {
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.danger-button {
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 155, 135, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 119, 94, 0.18);
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 760;
+}
+
+.text-danger-button {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.settings-message {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 155, 135, 0.22);
+  border-radius: 12px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.settings-message--success {
+  border-color: rgba(104, 222, 163, 0.24);
+  background: rgba(104, 222, 163, 0.1);
+  color: var(--success);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .layout-toolbar {
@@ -1122,6 +1251,15 @@ input:focus-visible {
     filter: brightness(1.04);
   }
 
+  .danger-button:not(:disabled):hover {
+    border-color: rgba(255, 155, 135, 0.78);
+    background: rgba(255, 119, 94, 0.26);
+  }
+
+  .text-danger-button:not(:disabled):hover {
+    color: #ffc0b3;
+  }
+
   .view-tab:not(.view-tab--active):hover {
     background: rgba(255, 255, 255, 0.035);
     color: var(--text-soft);
@@ -1263,6 +1401,14 @@ input:focus-visible {
   .settings-actions .secondary-button {
     flex: 1;
     padding: 0 11px;
+  }
+
+  .profile-create-row {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-create-row .secondary-button {
+    width: 100%;
   }
 }
 

@@ -7,8 +7,9 @@ import {
   RemoteSocket,
 } from './remote/remote.service';
 import { PAIRING_FETCH } from './remote/pairing.service';
-import { PAIRING_TOKEN_STORAGE_KEY } from './remote/pairing';
+import { PAIRING_HISTORY, PAIRING_TOKEN_STORAGE_KEY, PairingHistory } from './remote/pairing';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
+import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './remote/button-layout-profiles';
 import {
   MOUSE_SENSITIVITY_STORAGE_KEY,
   SERVER_LOCATION,
@@ -53,6 +54,9 @@ class FakeServerLocation implements ServerLocation {
   readonly hostname: string;
   readonly port: string;
   readonly origin: string;
+  readonly pathname: string;
+  readonly search: string;
+  readonly hash: string;
 
   constructor(url = 'http://localhost:5050/') {
     const parsedUrl = new URL(url);
@@ -60,10 +64,23 @@ class FakeServerLocation implements ServerLocation {
     this.hostname = parsedUrl.hostname;
     this.port = parsedUrl.port;
     this.origin = parsedUrl.origin;
+    this.pathname = parsedUrl.pathname;
+    this.search = parsedUrl.search;
+    this.hash = parsedUrl.hash;
   }
 
   assign(url: string): void {
     this.assignments.push(url);
+  }
+}
+
+class RecordingPairingHistory implements PairingHistory {
+  readonly replacements: string[] = [];
+
+  replaceState(_data: unknown, _unused: string, url?: string | URL | null): void {
+    if (url !== undefined && url !== null) {
+      this.replacements.push(String(url));
+    }
   }
 }
 
@@ -103,6 +120,7 @@ interface AppHarness {
   readonly sockets: MockRemoteSocket[];
   readonly storage: MemoryStorage;
   readonly serverLocation: FakeServerLocation;
+  readonly pairingHistory: RecordingPairingHistory;
 }
 
 describe('App', () => {
@@ -133,14 +151,24 @@ describe('App', () => {
     expect(compiled.querySelector('.status-pill')?.textContent).toContain('Verbunden');
   });
 
-  it('keeps media controls visible but disabled', async () => {
-    const { fixture } = await setupApp();
+  it('sends Windows media keys from the media controls', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
     const compiled = fixture.nativeElement as HTMLElement;
 
-    expect(queryButton(compiled, 'Play Pause').disabled).toBe(true);
-    expect(queryButton(compiled, 'Leiser').disabled).toBe(true);
-    expect(queryButton(compiled, 'Lauter').disabled).toBe(true);
-    expect(queryButton(compiled, 'Stumm').disabled).toBe(true);
+    sockets[0].open();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Play Pause').click();
+    queryButton(compiled, 'Leiser').click();
+    queryButton(compiled, 'Lauter').click();
+    queryButton(compiled, 'Stumm').click();
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"key","keys":["MEDIA_PLAY_PAUSE"]}',
+      '{"type":"key","keys":["VOLUME_DOWN"]}',
+      '{"type":"key","keys":["VOLUME_UP"]}',
+      '{"type":"key","keys":["VOLUME_MUTE"]}',
+    ]);
   });
 
   it('switches to touchpad and sends mouse clicks through the existing socket', async () => {
@@ -235,6 +263,59 @@ describe('App', () => {
     expect(serverLocation.assignments).toEqual(['http://192.168.1.20:5050/']);
     expect(sockets).toHaveLength(1);
     expect(sockets[0].closed).toBe(false);
+  });
+
+  it('creates a named layout profile from the settings dialog', async () => {
+    const { fixture, storage } = await setupApp();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    queryButton(compiled, 'Einstellungen').click();
+    fixture.detectChanges();
+
+    const nameInput = queryInput(compiled, '#profile-name');
+    nameInput.value = 'Präsentation';
+    nameInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Erstellen').click();
+    fixture.detectChanges();
+
+    const profileNames = Array.from(
+      compiled.querySelectorAll<HTMLOptionElement>('#layout-profile option'),
+    ).map((option) => option.textContent?.trim());
+    expect(profileNames).toEqual(['Standard', 'Präsentation']);
+    expect(storage.getItem(BUTTON_LAYOUT_PROFILES_STORAGE_KEY)).toContain('Präsentation');
+  });
+
+  it('revokes and clears the current device from the settings dialog', async () => {
+    const fetchCalls: { readonly url: string; readonly method: string }[] = [];
+    const pairingFetch = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      const method = init?.method ?? 'GET';
+      fetchCalls.push({ url: String(input), method });
+      return method === 'DELETE'
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify({ valid: true }), { status: 200 });
+    };
+    const { fixture, sockets, storage } = await setupApp({
+      autoConnect: true,
+      pairingFetch,
+    });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    queryButton(compiled, 'Einstellungen').click();
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Dieses Gerät entkoppeln').click();
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Entkoppeln').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fetchCalls.some((call) => call.method === 'DELETE')).toBe(true);
+    expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(sockets[0].closed).toBe(true);
+    expect(compiled.querySelector('#pairing-pin')).not.toBeNull();
   });
 
   it('creates a custom hotkey button through the editor and sends it exactly once done', async () => {
@@ -382,6 +463,17 @@ describe('App', () => {
     expect(compiled.querySelector('.status-pill')).toBeNull();
   });
 
+  it('prefills the pairing PIN from a QR-code fragment', async () => {
+    const { fixture, pairingHistory } = await setupApp({
+      paired: false,
+      serverUrl: 'http://localhost:5050/#pin=123456',
+    });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(queryInput(compiled, '#pairing-pin').value).toBe('123456');
+    expect(pairingHistory.replacements).toEqual(['/']);
+  });
+
   it('pairs successfully through the gate and reveals the remote control', async () => {
     const fetchCalls: string[] = [];
     const pairFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -449,6 +541,7 @@ async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
   const serverLocation = new FakeServerLocation(options.serverUrl);
+  const pairingHistory = new RecordingPairingHistory();
 
   if (options.paired ?? true) {
     storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'test-token');
@@ -460,6 +553,7 @@ async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: REMOTE_AUTO_CONNECT, useValue: options.autoConnect ?? false },
       { provide: SERVER_LOCATION, useValue: serverLocation },
+      { provide: PAIRING_HISTORY, useValue: pairingHistory },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {
@@ -481,6 +575,7 @@ async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
     sockets,
     storage,
     serverLocation,
+    pairingHistory,
   };
 }
 

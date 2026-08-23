@@ -109,6 +109,17 @@ export class RemoteService implements OnDestroy {
     this.statusSignal.set('disconnected');
   }
 
+  async unpair(): Promise<boolean> {
+    const unpaired = await this.pairing.unpair();
+    if (!unpaired) {
+      this.showError(this.pairing.lastError() ?? 'Entkopplung fehlgeschlagen.');
+      return false;
+    }
+
+    this.disconnect();
+    return true;
+  }
+
   reconnect(): void {
     this.manualDisconnectSignal.set(false);
     this.openFreshSocket();

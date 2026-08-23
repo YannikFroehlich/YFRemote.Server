@@ -408,6 +408,49 @@ describe('RemoteService', () => {
     expect(sockets[0].closed).toBe(true);
   });
 
+  it('closes the active socket after the server confirms self-unpairing', async () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'paired-token');
+    vi.useFakeTimers();
+
+    const sockets: MockRemoteSocket[] = [];
+    const pairingFetch = async (
+      _input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<Response> =>
+      init?.method === 'DELETE'
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify({ valid: true }), { status: 200 });
+
+    TestBed.configureTestingModule({
+      providers: [
+        RemoteService,
+        { provide: REMOTE_STORAGE, useValue: storage },
+        { provide: REMOTE_AUTO_CONNECT, useValue: false },
+        { provide: SERVER_LOCATION, useValue: new FakeServerLocation() },
+        {
+          provide: REMOTE_WEBSOCKET_FACTORY,
+          useValue: (url: string) => {
+            const socket = new MockRemoteSocket(url);
+            sockets.push(socket);
+            return socket;
+          },
+        },
+        { provide: PAIRING_FETCH, useValue: pairingFetch },
+      ],
+    });
+
+    const remote = TestBed.inject(RemoteService);
+    remote.connect();
+    sockets[0].open();
+
+    expect(await remote.unpair()).toBe(true);
+    expect(remote.status()).toBe('disconnected');
+    expect(remote.manuallyDisconnected()).toBe(true);
+    expect(sockets[0].closed).toBe(true);
+    expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
   it('navigates the page when switching to a different server', () => {
     const { remote, sockets, serverLocation } = setupRemoteService();
 

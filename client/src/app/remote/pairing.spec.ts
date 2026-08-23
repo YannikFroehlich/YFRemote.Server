@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEVICE_NAME_MAX_LENGTH,
+  getPairingPinFromHash,
   guessDeviceName,
   isValidPin,
   normalizeDeviceName,
@@ -10,6 +11,17 @@ import {
 } from './pairing';
 
 describe('pairing', () => {
+  describe('getPairingPinFromHash', () => {
+    it('reads a valid pairing PIN from the QR fragment', () => {
+      expect(getPairingPinFromHash('#pin=123456')).toBe('123456');
+    });
+
+    it('rejects malformed pairing PIN fragments', () => {
+      expect(getPairingPinFromHash('#pin=123')).toBe('');
+      expect(getPairingPinFromHash('#other=123456')).toBe('');
+    });
+  });
+
   describe('normalizePin / isValidPin', () => {
     it('accepts exactly six digits', () => {
       expect(isValidPin(normalizePin('123456'))).toBe(true);

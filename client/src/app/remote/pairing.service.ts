@@ -18,6 +18,10 @@ interface PairStatusResponseBody {
   readonly valid: boolean;
 }
 
+interface UnpairResponseBody {
+  readonly error?: string | null;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -93,6 +97,41 @@ export class PairingService {
     } catch {
       return true;
     }
+  }
+
+  async unpair(): Promise<boolean> {
+    const token = this.tokenSignal();
+    if (token === null) {
+      return true;
+    }
+
+    this.errorSignal.set(null);
+
+    let response: Response;
+    try {
+      response = await this.fetchFn(`${this.getHttpBaseUrl()}/pair`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      this.errorSignal.set(`Entkopplung fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      return false;
+    }
+
+    if (response.ok || response.status === 401) {
+      this.clearToken();
+      return true;
+    }
+
+    let body: UnpairResponseBody | null = null;
+    try {
+      body = (await response.json()) as UnpairResponseBody;
+    } catch {
+      // Fehlerantworten ohne JSON verwenden den stabilen Fallback unten.
+    }
+
+    this.errorSignal.set(body?.error?.trim() || 'Entkopplung wurde vom Server abgelehnt.');
+    return false;
   }
 
   private clearToken(): void {

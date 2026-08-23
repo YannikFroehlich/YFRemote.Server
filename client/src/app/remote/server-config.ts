@@ -38,6 +38,9 @@ export interface ServerLocation {
   readonly hostname: string;
   readonly port: string;
   readonly origin: string;
+  readonly pathname?: string;
+  readonly search?: string;
+  readonly hash?: string;
   assign(url: string): void;
 }
 

@@ -22,6 +22,9 @@ repository and include a production build of the Client.
 - The Angular Client is built as static files and copied into the Server's
   `wwwroot` directory during the release workflow.
 - The Server hosts the Client, the `/health` endpoint, and the `/ws` WebSocket.
+- `DELETE /pair` revokes the authenticated current device. The Client keeps its token
+  when persistence fails and clears it only after a confirmed removal or an explicit
+  invalid-token response.
 - Every step in a multi-step macro carries a `requestId` that the Server echoes in
   its response. Macros wait for that exact acknowledgement before executing the
   next step and stop on rejection, disconnect, or timeout. Single actions keep the
@@ -35,6 +38,9 @@ repository and include a production build of the Client.
 - The Server targets `net10.0-windows`, uses Windows Forms, and has
   `OutputType=WinExe`, so a normal installed launch has no terminal window.
 - Only one Server instance may run at a time.
+- Button layouts, custom buttons, and macros are stored in named browser-local profiles.
+  The previous single-layout storage format migrates to `Standard`; JSON export/import
+  includes all profiles and the active selection.
 
 ## Tray application
 

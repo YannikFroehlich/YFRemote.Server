@@ -143,9 +143,7 @@ export function computeMaxRow(placements: readonly ButtonPlacement[]): number {
   return placements.reduce((max, placement) => Math.max(max, placement.row + placement.rowSpan), 0);
 }
 
-export function normalizeCustomButtonDefinition(
-  candidate: unknown,
-): CustomButtonDefinition | null {
+export function normalizeCustomButtonDefinition(candidate: unknown): CustomButtonDefinition | null {
   if (typeof candidate !== 'object' || candidate === null) {
     return null;
   }
@@ -325,14 +323,18 @@ export function parseStoredButtonLayout(rawValue: string | null): ButtonLayout {
   try {
     const parsedValue: unknown = JSON.parse(rawValue);
 
-    if (!isButtonLayoutLike(parsedValue) || parsedValue.version !== BUTTON_LAYOUT_VERSION) {
-      return DEFAULT_BUTTON_LAYOUT;
-    }
-
-    return resolveButtonLayout(parsedValue);
+    return normalizeButtonLayout(parsedValue) ?? DEFAULT_BUTTON_LAYOUT;
   } catch {
     return DEFAULT_BUTTON_LAYOUT;
   }
+}
+
+export function normalizeButtonLayout(candidate: unknown): ButtonLayout | null {
+  if (!isButtonLayoutLike(candidate) || candidate.version !== BUTTON_LAYOUT_VERSION) {
+    return null;
+  }
+
+  return resolveButtonLayout(candidate);
 }
 
 export function labelVisibleFor(button: RemoteButtonConfig): boolean {

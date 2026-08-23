@@ -1,7 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './button-layout';
-import { BUTTON_ID_FACTORY, ButtonLayoutService } from './button-layout.service';
+import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './button-layout-profiles';
+import {
+  BUTTON_ID_FACTORY,
+  ButtonLayoutService,
+  PROFILE_ID_FACTORY,
+} from './button-layout.service';
 import { BUILT_IN_BUTTONS } from './remote-actions';
 import { REMOTE_STORAGE } from './remote.service';
 
@@ -41,6 +46,7 @@ function setupService(storage: MemoryStorage = new MemoryStorage()): {
     providers: [
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: BUTTON_ID_FACTORY, useValue: () => 'custom:test1' },
+      { provide: PROFILE_ID_FACTORY, useValue: () => 'profile:test1' },
     ],
   });
 
@@ -178,11 +184,98 @@ describe('ButtonLayoutService', () => {
     expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
   });
 
+  it('migrates the existing browser layout into a Standard profile', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      BUTTON_LAYOUT_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        snapToGrid: true,
+        placements: [],
+        customButtons: [],
+        hiddenBuiltInIds: ['mute'],
+      }),
+    );
+
+    const { service } = setupService(storage);
+
+    expect(service.profiles().map((profile) => profile.name)).toEqual(['Standard']);
+    expect(service.hiddenButtons().map((button) => button.id)).toContain('mute');
+
+    service.setSnapToGrid(false);
+    expect(storage.getItem(BUTTON_LAYOUT_PROFILES_STORAGE_KEY)).toContain('"name": "Standard"');
+  });
+
+  it('keeps edits isolated in named profiles and restores the active profile', () => {
+    const { service, storage } = setupService();
+    service.movePlacement('up', 3, 2);
+
+    expect(service.createProfile('Medien')).toBe(true);
+    service.hideButton('mute');
+    expect(service.activeProfileId()).toBe('profile:test1');
+
+    const standard = service.profiles().find((profile) => profile.name === 'Standard');
+    expect(standard).toBeDefined();
+    expect(service.switchProfile(standard!.id)).toBe(true);
+    expect(service.hiddenButtons()).toEqual([]);
+    expect(
+      service.visibleButtons().find((item) => item.placement.id === 'up')?.placement,
+    ).toMatchObject({
+      col: 3,
+      row: 2,
+    });
+
+    TestBed.resetTestingModule();
+    const restored = setupService(storage).service;
+    expect(restored.profiles().map((profile) => profile.name)).toEqual(['Standard', 'Medien']);
+    expect(restored.activeProfileId()).toBe(standard!.id);
+  });
+
+  it('exports and imports all profiles including custom buttons and macros', () => {
+    const { service } = setupService();
+    service.addCustomButton({
+      label: 'Start',
+      icon: 'key',
+      steps: [
+        { action: { type: 'hotkey', keys: ['WIN', 'R'] }, delayMs: 0 },
+        { action: { type: 'text', text: 'notepad' }, delayMs: 250 },
+      ],
+    });
+    expect(service.createProfile('Präsentation')).toBe(true);
+    const exported = service.exportProfiles();
+
+    TestBed.resetTestingModule();
+    const imported = setupService().service;
+    expect(imported.importProfiles(exported)).toBe(true);
+
+    expect(imported.profiles().map((profile) => profile.name)).toEqual([
+      'Standard',
+      'Präsentation',
+    ]);
+    expect(imported.layout().customButtons[0]).toMatchObject({
+      label: 'Start',
+      steps: [
+        { action: { type: 'hotkey', keys: ['WIN', 'R'] }, delayMs: 0 },
+        { action: { type: 'text', text: 'notepad' }, delayMs: 250 },
+      ],
+    });
+  });
+
+  it('rejects an invalid profile import without replacing the current layout', () => {
+    const { service } = setupService();
+    service.hideButton('mute');
+
+    expect(service.importProfiles('{"schemaVersion":99,"profiles":[]}')).toBe(false);
+    expect(service.hiddenButtons().map((button) => button.id)).toContain('mute');
+    expect(service.profileError()).toContain('keine gültigen');
+  });
+
   it('works with a null storage (private browsing) without throwing', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: REMOTE_STORAGE, useValue: null },
         { provide: BUTTON_ID_FACTORY, useValue: () => 'custom:test1' },
+        { provide: PROFILE_ID_FACTORY, useValue: () => 'profile:test1' },
       ],
     });
 

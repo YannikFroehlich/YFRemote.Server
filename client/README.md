@@ -51,6 +51,11 @@ zu dieser Adresse, damit Pairing und Fernsteuerung weiterhin Same-Origin bleiben
 Mehrschrittige Makros warten nach jeder Aktion auf die Bestätigung des Servers und
 brechen bei einer abgelehnten oder nicht bestätigten Aktion ab.
 
+Unter Einstellungen kann das aktuelle Gerät dauerhaft entkoppelt werden; dabei wird
+sein Token zuerst auf dem Server widerrufen und anschließend lokal entfernt. Eigene
+Buttons, Makros und Anordnungen werden in benannten Layoutprofilen gespeichert. Alle
+Profile lassen sich als JSON-Datei exportieren und auf einem anderen Gerät importieren.
+
 ### Tests
 
 ```powershell

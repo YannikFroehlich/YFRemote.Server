@@ -80,6 +80,146 @@
             </small>
           }
         </label>
+
+        <section class="settings-section" aria-labelledby="profiles-title">
+          <div class="settings-section__heading">
+            <div>
+              <p class="eyebrow">Layouts</p>
+              <h3 id="profiles-title">Profile und Sicherung</h3>
+            </div>
+            <span>{{ layout.profiles().length }}/20</span>
+          </div>
+
+          <label class="field" for="layout-profile">
+            <span>Aktives Profil</span>
+            <select
+              id="layout-profile"
+              [value]="layout.activeProfileId()"
+              (change)="selectProfile($event)"
+            >
+              @for (profile of layout.profiles(); track profile.id) {
+                <option [value]="profile.id">{{ profile.name }}</option>
+              }
+            </select>
+          </label>
+
+          <div class="profile-create-row">
+            <label class="field" for="profile-name">
+              <span>Neues Profil</span>
+              <input
+                id="profile-name"
+                type="text"
+                maxlength="40"
+                placeholder="z. B. Präsentation"
+                autocomplete="off"
+                [formControl]="profileName"
+                (keydown.enter)="createProfile(); $event.preventDefault()"
+              />
+              @if (profileName.invalid && profileName.touched) {
+                <small>Bitte einen Namen mit höchstens 40 Zeichen eingeben.</small>
+              }
+            </label>
+            <button
+              class="secondary-button"
+              type="button"
+              [disabled]="profileName.invalid"
+              (click)="createProfile()"
+            >
+              Erstellen
+            </button>
+          </div>
+
+          <div class="profile-actions">
+            <button class="secondary-button" type="button" (click)="exportProfiles()">
+              JSON exportieren
+            </button>
+            <button class="secondary-button" type="button" (click)="profileImport.click()">
+              JSON importieren
+            </button>
+            <input
+              #profileImport
+              class="visually-hidden"
+              type="file"
+              accept="application/json,.json"
+              (change)="importProfiles($event)"
+            />
+          </div>
+
+          <p class="settings-hint">
+            Der Import ersetzt alle lokalen Profile. Eigene Buttons und Makros sind enthalten.
+          </p>
+
+          @if (profileDeletePending()) {
+            <div class="confirm-row" role="alert">
+              <span>Aktives Profil wirklich löschen?</span>
+              <button class="danger-button" type="button" (click)="confirmProfileDeletion()">
+                Löschen
+              </button>
+              <button class="secondary-button" type="button" (click)="cancelProfileDeletion()">
+                Abbrechen
+              </button>
+            </div>
+          } @else {
+            <button
+              class="text-danger-button"
+              type="button"
+              [disabled]="layout.profiles().length <= 1"
+              (click)="requestProfileDeletion()"
+            >
+              Aktives Profil löschen
+            </button>
+          }
+        </section>
+
+        <section class="settings-section settings-section--danger" aria-labelledby="device-title">
+          <div class="settings-section__heading">
+            <div>
+              <p class="eyebrow">Kopplung</p>
+              <h3 id="device-title">Dieses Gerät</h3>
+            </div>
+          </div>
+          <p class="settings-hint">
+            Der Server widerruft die Kopplung dauerhaft. Für eine erneute Verbindung ist eine neue
+            PIN erforderlich.
+          </p>
+
+          @if (unpairPending()) {
+            <div class="confirm-row" role="alert">
+              <span>Dieses Gerät wirklich entkoppeln?</span>
+              <button
+                class="danger-button"
+                type="button"
+                [disabled]="unpairing()"
+                (click)="confirmUnpair()"
+              >
+                {{ unpairing() ? 'Entkopple…' : 'Entkoppeln' }}
+              </button>
+              <button
+                class="secondary-button"
+                type="button"
+                [disabled]="unpairing()"
+                (click)="cancelUnpair()"
+              >
+                Abbrechen
+              </button>
+            </div>
+          } @else {
+            <button class="danger-button" type="button" (click)="requestUnpair()">
+              Dieses Gerät entkoppeln
+            </button>
+          }
+        </section>
+
+        @if (operationMessage(); as message) {
+          <p
+            class="settings-message"
+            [class.settings-message--success]="operationSucceeded()"
+            role="status"
+            aria-live="polite"
+          >
+            {{ message }}
+          </p>
+        }
       </div>
 
       <footer class="settings-actions">

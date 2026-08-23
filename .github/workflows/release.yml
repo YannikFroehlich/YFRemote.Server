@@ -10,6 +10,10 @@ on:
         description: "Zu veroeffentlichende Version ohne fuehrendes v, z. B. 1.2.3"
         required: true
         type: string
+      client_sha:
+        description: "Unveraenderliche Commit-SHA aus YFRemote.Client"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,19 +21,53 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    concurrency:
+      # Aufgerufene Runs werden bereits vom Auto-Tag-Workflow serialisiert. Eine
+      # eigene Gruppe vermeidet dort eine Selbstblockade; direkte Tag-Runs nutzen
+      # dieselbe globale Sperre wie die Versionsermittlung.
+      group: ${{ inputs.client_sha != '' && format('yfremote-release-called-{0}', github.run_id) || 'yfremote-version-release' }}
+      cancel-in-progress: false
+      queue: max
 
     steps:
       - name: Server auschecken
         uses: actions/checkout@v6
         with:
           path: server
+          ref: ${{ github.sha }}
 
       - name: Client auschecken
         uses: actions/checkout@v6
         with:
           repository: YannikFroehlich/YFRemote.Client
           path: client
+          ref: ${{ inputs.client_sha || 'master' }}
           token: ${{ secrets.CLIENT_REPOSITORY_TOKEN || github.token }}
+
+      - name: Quellstaende verifizieren
+        id: sources
+        shell: pwsh
+        run: |
+          $serverSha = (git -C server rev-parse HEAD).Trim().ToLowerInvariant()
+          $clientSha = (git -C client rev-parse HEAD).Trim().ToLowerInvariant()
+          $expectedServerSha = "${{ github.sha }}".Trim().ToLowerInvariant()
+          $expectedClientSha = "${{ inputs.client_sha }}".Trim().ToLowerInvariant()
+
+          if ($serverSha -notmatch '^[0-9a-f]{40}$') {
+            throw "Ungueltige Server-SHA: $serverSha"
+          }
+          if ($clientSha -notmatch '^[0-9a-f]{40}$') {
+            throw "Ungueltige Client-SHA: $clientSha"
+          }
+          if ($serverSha -ne $expectedServerSha) {
+            throw "Server-Checkout $serverSha entspricht nicht $expectedServerSha"
+          }
+          if (![string]::IsNullOrWhiteSpace($expectedClientSha) -and $clientSha -ne $expectedClientSha) {
+            throw "Client-Checkout $clientSha entspricht nicht $expectedClientSha"
+          }
+
+          "server_sha=$serverSha" >> $env:GITHUB_OUTPUT
+          "client_sha=$clientSha" >> $env:GITHUB_OUTPUT
 
       - name: Node.js einrichten
         uses: actions/setup-node@v7
@@ -86,6 +124,29 @@ jobs:
           --output publish
           -p:Version=${{ steps.version.outputs.version }}
 
+      - name: Release-Manifest erstellen
+        shell: pwsh
+        run: |
+          $manifest = [ordered]@{
+            schemaVersion = 1
+            version = "${{ steps.version.outputs.version }}"
+            server = [ordered]@{
+              repository = "${{ github.repository }}"
+              sha = "${{ steps.sources.outputs.server_sha }}"
+            }
+            client = [ordered]@{
+              repository = "YannikFroehlich/YFRemote.Client"
+              sha = "${{ steps.sources.outputs.client_sha }}"
+            }
+          } | ConvertTo-Json -Depth 3
+
+          $utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
+          $manifestPath = Join-Path $PWD "publish/release-manifest.json"
+          [System.IO.File]::WriteAllText(
+            $manifestPath,
+            $manifest + [Environment]::NewLine,
+            $utf8WithoutBom)
+
       - name: Velopack installieren
         shell: pwsh
         run: dotnet tool install --global vpk --version 1.2.0
@@ -122,4 +183,13 @@ jobs:
           --publish
           --releaseName "YFRemote v${{ steps.version.outputs.version }}"
           --tag "v${{ steps.version.outputs.version }}"
-          --targetCommitish "${{ github.sha }}"
+          --targetCommitish "${{ steps.sources.outputs.server_sha }}"
+
+      - name: Release-Manifest hochladen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          gh release upload "v${{ steps.version.outputs.version }}"
+          "publish/release-manifest.json"
+          --repo "${{ github.repository }}"

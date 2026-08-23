@@ -2,6 +2,7 @@ using Microsoft.Extensions.FileProviders;
 using System.Text.Json;
 using Velopack;
 using YFRemote.Server.Configuration;
+using YFRemote.Server.Diagnostics;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 using YFRemote.Server.Tray;
@@ -50,12 +51,24 @@ internal static class Program
         {
             app = BuildApplication(args);
             app.StartAsync().GetAwaiter().GetResult();
+            app.Logger.LogInformation(
+                "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
+                DiagnosticPaths.LogDirectory);
 
             using var trayContext = new TrayApplicationContext(app);
             Application.Run(trayContext);
         }
         catch (Exception exception)
         {
+            try
+            {
+                app?.Logger.LogCritical(exception, "YFRemote.Server failed to start.");
+            }
+            catch
+            {
+                // Der separate Startfehler-Fallback unten muss auch bei einem Loggerfehler laufen.
+            }
+
             WriteStartupError(exception);
             MessageBox.Show(
                 $"YFRemote konnte nicht gestartet werden.\n\n{exception.Message}",
@@ -67,6 +80,7 @@ internal static class Program
         {
             if (app is not null)
             {
+                app.Logger.LogInformation("YFRemote.Server is stopping.");
                 StopAndDisposeApplication(app);
             }
         }
@@ -76,15 +90,9 @@ internal static class Program
     {
         try
         {
-            var logDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "YFRemote",
-                "Logs");
-            Directory.CreateDirectory(logDirectory);
-
-            var logPath = Path.Combine(logDirectory, "startup-error.log");
+            DiagnosticPaths.EnsureLogDirectory();
             File.AppendAllText(
-                logPath,
+                DiagnosticPaths.StartupErrorLogFilePath,
                 $"[{DateTimeOffset.Now:O}] {exception}{Environment.NewLine}{Environment.NewLine}");
         }
         catch
@@ -102,8 +110,7 @@ internal static class Program
             WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
         });
 
-        builder.Logging.ClearProviders();
-        builder.Logging.AddDebug();
+        DiagnosticLogging.Configure(builder);
 
         var serverOptions = builder.Configuration
             .GetSection(ServerOptions.SectionName)
@@ -201,6 +208,41 @@ internal static class Program
                 context.RequestAborted);
         });
 
+        app.MapDelete("/pair", async context =>
+        {
+            if (!IsAllowedOrigin(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
+                return;
+            }
+
+            var token = GetBearerToken(context.Request);
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+
+            switch (pairingService.RemoveDeviceByToken(token))
+            {
+                case PairingRemovalResult.Removed:
+                    context.Response.StatusCode = StatusCodes.Status204NoContent;
+                    return;
+                case PairingRemovalResult.NotFound:
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                case PairingRemovalResult.PersistenceFailed:
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    await context.Response.WriteAsJsonAsync(
+                        new
+                        {
+                            success = false,
+                            error = "Entkopplung konnte nicht dauerhaft gespeichert werden. Bitte erneut versuchen."
+                        },
+                        context.RequestAborted);
+                    return;
+                default:
+                    throw new InvalidOperationException("Unknown pairing removal result.");
+            }
+        });
+
         // Keine Origin-Pruefung: Browser senden bei einem Same-Origin-GET-fetch() ueblicherweise
         // keinen Origin-Header (anders als bei POST oder beim WebSocket-Handshake), und dieser
         // Endpoint liefert ohnehin nur ein Ja/Nein zu einem Token, das der Aufrufer bereits kennen
@@ -255,6 +297,20 @@ internal static class Program
 
         var expectedOrigin = $"{request.Scheme}://{request.Host}";
         return string.Equals(origin, expectedOrigin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? GetBearerToken(HttpRequest request)
+    {
+        const string bearerPrefix = "Bearer ";
+        var authorization = request.Headers.Authorization.ToString();
+
+        if (!authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var token = authorization[bearerPrefix.Length..].Trim();
+        return token.Length == 0 ? null : token;
     }
 
     private static void StopAndDisposeApplication(WebApplication app)

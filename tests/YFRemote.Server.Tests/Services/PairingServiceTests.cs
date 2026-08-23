@@ -113,6 +113,61 @@ public sealed class PairingServiceTests
     }
 
     [TestMethod]
+    public void RemoveDeviceByToken_RemovesOnlyTheMatchingPersistedDevice()
+    {
+        var service = CreateService();
+        var first = Pair(service, service.GetCurrentPin().Pin, "Telefon");
+        var second = Pair(service, service.GetCurrentPin().Pin, "Tablet");
+        Assert.IsTrue(first.Success, first.Error);
+        Assert.IsTrue(second.Success, second.Error);
+        Assert.IsNotNull(first.Token);
+        Assert.IsNotNull(second.Token);
+
+        var result = service.RemoveDeviceByToken(first.Token);
+
+        Assert.AreEqual(PairingRemovalResult.Removed, result);
+        Assert.IsFalse(service.IsValidToken(first.Token));
+        Assert.IsTrue(service.IsValidToken(second.Token));
+        Assert.HasCount(1, CreateService().GetPairedDevices());
+    }
+
+    [TestMethod]
+    public void RemoveDeviceByToken_WithUnknownToken_DoesNotChangeStoredDevices()
+    {
+        var service = CreateService();
+        var pairResponse = Pair(service, service.GetCurrentPin().Pin, "Telefon");
+        Assert.IsTrue(pairResponse.Success, pairResponse.Error);
+
+        var result = service.RemoveDeviceByToken("unknown-token");
+
+        Assert.AreEqual(PairingRemovalResult.NotFound, result);
+        Assert.HasCount(1, service.GetPairedDevices());
+        Assert.HasCount(1, CreateService().GetPairedDevices());
+    }
+
+    [TestMethod]
+    public void RemoveDeviceByToken_WhenWriteFails_KeepsTheTokenValidForRetry()
+    {
+        var service = CreateService();
+        var pairResponse = Pair(service, service.GetCurrentPin().Pin, "Telefon");
+        Assert.IsTrue(pairResponse.Success, pairResponse.Error);
+        Assert.IsNotNull(pairResponse.Token);
+
+        PairingRemovalResult firstResult;
+        using (File.Open(devicesFilePath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            firstResult = service.RemoveDeviceByToken(pairResponse.Token);
+        }
+
+        Assert.AreEqual(PairingRemovalResult.PersistenceFailed, firstResult);
+        Assert.IsTrue(service.IsValidToken(pairResponse.Token));
+        Assert.AreEqual(
+            PairingRemovalResult.Removed,
+            service.RemoveDeviceByToken(pairResponse.Token));
+        Assert.IsFalse(service.IsValidToken(pairResponse.Token));
+    }
+
+    [TestMethod]
     public void LoadDevices_WhenPrimaryIsDamaged_RecoversAndPreservesValidBackup()
     {
         var service = CreateService();

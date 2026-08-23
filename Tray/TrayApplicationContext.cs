@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Velopack;
 using YFRemote.Server.Configuration;
+using YFRemote.Server.Diagnostics;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 using YFRemote.Server.Updates;
@@ -12,6 +13,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
 
     private readonly UpdateService updateService = new();
+    private readonly ILogger<TrayApplicationContext> logger;
     private readonly PairingService pairingService;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
@@ -31,6 +33,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     public TrayApplicationContext(WebApplication app)
     {
         var serverOptions = app.Services.GetRequiredService<ServerOptions>();
+        logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<TrayApplicationContext>();
         pairingService = app.Services.GetRequiredService<PairingService>();
         localAddress = NetworkAddressService.GetLocalAddress(serverOptions.Port);
         deviceAddress = NetworkAddressService.GetDeviceAddress(serverOptions.Port);
@@ -54,6 +57,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var copyAddressItem = new ToolStripMenuItem("Geräteadresse kopieren");
         copyAddressItem.Click += (_, _) => CopyDeviceAddress();
+
+        var qrCodeItem = new ToolStripMenuItem("QR-Code zum Verbinden...");
+        qrCodeItem.Click += (_, _) => ShowPairingQrCode();
+
+        var diagnosticsItem = new ToolStripMenuItem("Diagnoseordner öffnen");
+        diagnosticsItem.Click += (_, _) => OpenDiagnosticsFolder();
 
         pinItem = new ToolStripMenuItem(FormatPinText(pairingService.GetCurrentPin()))
         {
@@ -96,6 +105,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new ToolStripSeparator(),
             openItem,
             copyAddressItem,
+            qrCodeItem,
+            diagnosticsItem,
             new ToolStripSeparator(),
             pinItem,
             copyPinItem,
@@ -215,6 +226,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception exception)
         {
+            logger.LogError(exception, "Failed to download or install update v{Version}.", version);
             updateOperationRunning = false;
             updateItem.Enabled = true;
             updateItem.Text = $"Neue Version v{version} verfügbar - installieren";
@@ -266,6 +278,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception exception)
         {
+            logger.LogWarning(exception, "Update check failed.");
             updateItem.Text = "Updatesuche fehlgeschlagen - erneut versuchen";
             updateItem.Enabled = true;
 
@@ -291,6 +304,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception exception)
         {
+            logger.LogWarning(exception, "Failed to open the local web UI.");
             MessageBox.Show(
                 $"Der Browser konnte nicht geöffnet werden.\n\n{exception.Message}",
                 "YFRemote",
@@ -312,8 +326,49 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception exception)
         {
+            logger.LogWarning(exception, "Failed to copy the device address.");
             MessageBox.Show(
                 $"Die Adresse konnte nicht kopiert werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private void ShowPairingQrCode()
+    {
+        try
+        {
+            using var dialog = new PairingQrCodeDialog(deviceAddress, pairingService);
+            dialog.ShowDialog();
+            RefreshPairingMenu();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to show the pairing QR code dialog.");
+            MessageBox.Show(
+                $"Der QR-Code konnte nicht angezeigt werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private void OpenDiagnosticsFolder()
+    {
+        try
+        {
+            var logDirectory = DiagnosticPaths.EnsureLogDirectory();
+            Process.Start(new ProcessStartInfo(logDirectory)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to open the diagnostics directory.");
+            MessageBox.Show(
+                $"Der Diagnoseordner konnte nicht geöffnet werden.\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
@@ -365,6 +420,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
+        logger.LogWarning("Failed to permanently unpair device {DeviceId}.", device.Id);
         MessageBox.Show(
             "Das Gerät konnte nicht dauerhaft entkoppelt werden. Bitte erneut versuchen.",
             "YFRemote",
@@ -382,6 +438,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception exception)
         {
+            logger.LogWarning(exception, "Failed to copy the pairing PIN.");
             MessageBox.Show(
                 $"Die PIN konnte nicht kopiert werden.\n\n{exception.Message}",
                 "YFRemote",
@@ -403,7 +460,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private static string FormatLastSeen(DateTimeOffset lastSeenUtc) =>
         lastSeenUtc.ToLocalTime().ToString("dd.MM. HH:mm");
 
-    private static void HandleStartWithWindowsClick(ToolStripMenuItem menuItem)
+    private void HandleStartWithWindowsClick(ToolStripMenuItem menuItem)
     {
         var requestedState = menuItem.Checked;
 
@@ -413,6 +470,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception exception)
         {
+            logger.LogWarning(exception, "Failed to change the Windows startup setting.");
             menuItem.Checked = !requestedState;
             MessageBox.Show(
                 $"Die Autostart-Einstellung konnte nicht gespeichert werden.\n\n{exception.Message}",
@@ -447,6 +505,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         exiting = true;
+        logger.LogInformation("Exit requested from the tray menu.");
         initialUpdateTimer.Stop();
         periodicUpdateTimer.Stop();
         notifyIcon.Visible = false;

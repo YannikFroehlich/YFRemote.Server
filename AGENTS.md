@@ -22,6 +22,9 @@ repository and include a production build of the Client.
 - The Angular Client is built as static files and copied into the Server's
   `wwwroot` directory during the release workflow.
 - The Server hosts the Client, the `/health` endpoint, and the `/ws` WebSocket.
+- `DELETE /pair` authenticates with the current device's bearer token and atomically
+  revokes that pairing. The Client clears its local token and closes its WebSocket only
+  after the Server confirms the removal (or reports that the token is already invalid).
 - WebSocket actions may include a `requestId`; every parsed action response echoes it
   so the Client can wait for the exact server acknowledgement before advancing a macro.
 - The default server binding is `http://0.0.0.0:5050`.
@@ -39,6 +42,9 @@ repository and include a production build of the Client.
   successful write. Failed pairing or unpairing writes are rolled back in memory.
 - Device `LastSeenUtc` updates remain immediate in memory and are persisted at most
   once every five minutes to avoid a disk write for every status check or connection.
+- Client button layouts are grouped into named browser-local profiles. The legacy single
+  layout is migrated to `Standard`; JSON export/import contains every profile, custom
+  button, macro, and the active profile selection.
 
 ## Tray application
 
@@ -51,6 +57,8 @@ The tray menu shows:
 - server status and device address;
 - open in browser;
 - copy device address;
+- show a connection QR code, optionally including the current pairing PIN in the URL fragment;
+- open the persistent diagnostics folder;
 - check for, download, and install updates;
 - enable or disable startup with Windows for the current user;
 - exit.
@@ -59,6 +67,11 @@ Double-clicking the tray icon opens the local web UI. The app performs an update
 check shortly after startup and then every six hours. When an update is available,
 the menu item changes to `Neue Version vX.Y.Z verfügbar - installieren`. Installing
 an update downloads it, exits the current process, applies it, and restarts the app.
+
+Runtime diagnostics are written to `%LOCALAPPDATA%\YFRemote\Logs` as daily rolling
+`yfremote-*.log` files. A file also rolls at 10 MB, and the newest 14 files are
+retained. `startup-error.log` remains the fallback for failures before normal host
+logging is available. Do not log pairing tokens, PINs, or user-entered text.
 
 The startup checkbox writes the stable installed launcher to
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. It is disabled for
@@ -139,10 +152,15 @@ required for a Server-only or combined change.
 1. analyzes commits since the previous tag using Conventional Commits (`fix:` → patch,
    `feat:` → minor, `feat!:` or a `BREAKING CHANGE:` footer → major; anything else falls
    back to a patch bump, so every merge produces at least a patch release);
-2. computes the next `X.Y.Z` version without creating a tag itself (`dry_run: true`);
-3. invokes `release.yml` directly as a reusable workflow (`workflow_call`), passing that
-   version — the tag itself is created later by `vpk upload github --publish` inside
-   `release.yml`, not by `auto-tag.yml`.
+2. resolves `YFRemote.Client/master` once and records the resulting immutable commit SHA;
+3. computes the next `X.Y.Z` version without creating a tag itself (`dry_run: true`);
+4. invokes `release.yml` directly as a reusable workflow (`workflow_call`), passing both
+   the version and Client SHA — the tag itself is created later by
+   `vpk upload github --publish` inside `release.yml`, not by `auto-tag.yml`.
+
+All automatic and manually triggered version calculations share the
+`yfremote-version-release` concurrency group. Runs queue instead of replacing one another,
+which prevents two releases from selecting or publishing the same next version in parallel.
 
 Use Conventional Commit prefixes in commit/PR titles so the version bump is meaningful.
 To skip a release entirely for a given merge (e.g. a docs-only change), include
@@ -162,14 +180,22 @@ can't run).
 
 The workflow:
 
-1. checks out the tagged Server commit;
-2. checks out the current default branch of `YFRemote.Client`;
+1. checks out and verifies the exact Server commit that triggered the release;
+2. checks out and verifies the pinned `YFRemote.Client` commit passed by `auto-tag.yml`;
 3. runs `npm ci`, Client tests, the Client production build, and the Server tests;
 4. copies `client/dist/YFRemote.Client/browser/*` to `server/wwwroot`;
 5. publishes a self-contained `win-x64` Server build with the tag version;
-6. downloads the previous release when available so Velopack can create a delta;
-7. creates the installer, portable archive, full package, and delta package;
-8. publishes a GitHub Release in `YFRemote.Server`.
+6. creates `release-manifest.json` with the version and both repository SHAs and includes
+   it in the packaged application;
+7. downloads the previous release when available so Velopack can create a delta;
+8. creates the installer, portable archive, full package, and delta package;
+9. publishes a GitHub Release in `YFRemote.Server` and uploads the manifest as a separate
+   release asset.
+
+The manual tag-push fallback has no `workflow_call` Client input. In that path,
+`release.yml` resolves `master` once at the start, verifies the checked-out SHA, and records
+it in the manifest. Prefer `auto-tag.yml` whenever possible because it passes the Client SHA
+explicitly between workflows.
 
 Typical release assets are:
 
@@ -180,6 +206,7 @@ Typical release assets are:
 - `YFRemote-X.Y.Z-delta.nupkg` when a previous release exists
 - `RELEASES`
 - `releases.win.json`
+- `release-manifest.json` (version plus exact Server and Client commit SHAs)
 
 Never reuse, move, or overwrite a published version tag. If a release changes after
 publication, increment the semantic version and create a new tag.
@@ -199,9 +226,9 @@ since nothing gets pushed to the Server's `main`.
 4. Monitor the run until both the tagging job and the invoked `release.yml` succeed.
 5. Verify the public Server release and its assets.
 
-The order is important: merge the Client first, then run the workflow. It checks out
-the current Client default branch at run time; triggering it too early can package
-the previous Client version.
+The order is important: merge the Client first, then run the workflow. `auto-tag.yml`
+resolves `master` once at the start and passes that exact SHA to the release; triggering it
+too early can therefore pin and package the previous Client version.
 
 Fallback if the automated workflow is unavailable: tag the intended Server `main`
 commit by hand and push the tag, which triggers `release.yml` directly.

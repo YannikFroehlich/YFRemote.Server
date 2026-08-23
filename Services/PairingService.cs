@@ -165,23 +165,45 @@ public sealed class PairingService
         lock (syncRoot)
         {
             var index = devices.FindIndex(device => device.Id == deviceId);
-            if (index < 0)
-            {
-                return false;
-            }
-
-            var removedDevice = devices[index];
-            devices.RemoveAt(index);
-
-            if (!TryPersistDevices())
-            {
-                devices.Insert(index, removedDevice);
-                return false;
-            }
-
-            nextLastSeenPersistenceUtc = UtcNow.Add(options.LastSeenPersistenceInterval);
-            return true;
+            return RemoveDeviceAt(index) == PairingRemovalResult.Removed;
         }
+    }
+
+    public PairingRemovalResult RemoveDeviceByToken(string? token)
+    {
+        if (string.IsNullOrEmpty(token))
+        {
+            return PairingRemovalResult.NotFound;
+        }
+
+        var tokenHash = HashToken(token);
+
+        lock (syncRoot)
+        {
+            var index = devices.FindIndex(device => device.TokenHash == tokenHash);
+            return RemoveDeviceAt(index);
+        }
+    }
+
+    private PairingRemovalResult RemoveDeviceAt(int index)
+    {
+        if (index < 0)
+        {
+            return PairingRemovalResult.NotFound;
+        }
+
+        var removedDevice = devices[index];
+        devices.RemoveAt(index);
+
+        if (!TryPersistDevices())
+        {
+            devices.Insert(index, removedDevice);
+            return PairingRemovalResult.PersistenceFailed;
+        }
+
+        nextLastSeenPersistenceUtc = UtcNow.Add(options.LastSeenPersistenceInterval);
+        logger.LogInformation("Device unpaired: {DeviceName} ({DeviceId})", removedDevice.Name, removedDevice.Id);
+        return PairingRemovalResult.Removed;
     }
 
     private DateTimeOffset UtcNow => timeProvider.GetUtcNow();
@@ -428,4 +450,11 @@ public sealed class PairingService
     private sealed record FailedAttemptState(int Count, DateTimeOffset LockedUntilUtc);
 
     private sealed record DevicesFile(List<PairedDeviceRecord>? Devices);
+}
+
+public enum PairingRemovalResult
+{
+    Removed,
+    NotFound,
+    PersistenceFailed
 }

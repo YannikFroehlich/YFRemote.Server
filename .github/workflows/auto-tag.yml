@@ -27,6 +27,12 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  # Die Sperre bleibt auch aktiv, waehrend der wiederverwendbare Release-Job laeuft.
+  group: yfremote-version-release
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   determine-version:
     runs-on: ubuntu-latest
@@ -35,11 +41,31 @@ jobs:
       !contains(github.event.head_commit.message, '[skip release]')
     outputs:
       version: ${{ steps.next.outputs.new_version }}
+      client_sha: ${{ steps.client.outputs.sha }}
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - name: Client-Commit festhalten
+        uses: actions/checkout@v6
+        with:
+          repository: YannikFroehlich/YFRemote.Client
+          path: client
+          ref: master
+          token: ${{ secrets.CLIENT_REPOSITORY_TOKEN || github.token }}
+
+      - name: Client-Commit pruefen
+        id: client
+        shell: bash
+        run: |
+          client_sha="$(git -C client rev-parse HEAD)"
+          if [[ ! "$client_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Ungueltige Client-SHA: $client_sha" >&2
+            exit 1
+          fi
+          echo "sha=$client_sha" >> "$GITHUB_OUTPUT"
 
       - name: Naechste Version aus Commits ermitteln
         id: next
@@ -56,4 +82,5 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.determine-version.outputs.version }}
+      client_sha: ${{ needs.determine-version.outputs.client_sha }}
     secrets: inherit

@@ -10,6 +10,20 @@
     </div>
   </header>
 
+  <form class="touchpad-text" (submit)="submitText($event, textInput)">
+    <input
+      #textInput
+      class="touchpad-text__input"
+      type="text"
+      placeholder="Text eingeben…"
+      autocomplete="off"
+      enterkeyhint="send"
+    />
+    <button class="primary-button touchpad-text__send" type="submit" aria-label="Text senden">
+      Senden
+    </button>
+  </form>
+
   <div
     class="touchpad-surface"
     role="application"
@@ -46,18 +60,4 @@
       Rechtsklick
     </button>
   </div>
-
-  <form class="touchpad-text" (submit)="submitText($event, textInput)">
-    <input
-      #textInput
-      class="touchpad-text__input"
-      type="text"
-      placeholder="Text eingeben…"
-      autocomplete="off"
-      enterkeyhint="send"
-    />
-    <button class="primary-button touchpad-text__send" type="submit" aria-label="Text senden">
-      Senden
-    </button>
-  </form>
 </section>

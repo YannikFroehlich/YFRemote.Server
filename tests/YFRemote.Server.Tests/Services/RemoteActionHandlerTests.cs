@@ -42,11 +42,48 @@ public sealed class RemoteActionHandlerTests
         Assert.AreEqual("Action 'key' requires exactly one key.", response.Error);
     }
 
-    private static RemoteActionHandler CreateHandler(IInputService inputService)
+    [TestMethod]
+    public void Handle_MouseDown_ForwardsButtonToMouseService()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseDown", Button = "left" });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual("left", mouseService.LastButtonDown);
+    }
+
+    [TestMethod]
+    public void Handle_MouseUp_ForwardsButtonToMouseService()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseUp", Button = "right" });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual("right", mouseService.LastButtonUp);
+    }
+
+    [TestMethod]
+    public void Handle_MouseDown_UnsupportedButton_Fails()
+    {
+        var handler = CreateHandler();
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseDown", Button = "scroll" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Unsupported mouse button: scroll", response.Error);
+    }
+
+    private static RemoteActionHandler CreateHandler(
+        IInputService? inputService = null,
+        RecordingMouseService? mouseService = null)
     {
         return new RemoteActionHandler(
-            inputService,
-            new NoOpMouseService(),
+            inputService ?? new RecordingInputService(),
+            mouseService ?? new RecordingMouseService(),
             NullLogger<RemoteActionHandler>.Instance);
     }
 
@@ -76,7 +113,7 @@ public sealed class RemoteActionHandlerTests
         }
     }
 
-    private sealed class NoOpMouseService : IMouseService
+    private sealed class RecordingMouseService : IMouseService
     {
         public void MoveRelative(int deltaX, int deltaY)
         {
@@ -88,6 +125,24 @@ public sealed class RemoteActionHandlerTests
 
         public void ClickRight()
         {
+        }
+
+        public void ClickMiddle()
+        {
+        }
+
+        public string? LastButtonDown { get; private set; }
+
+        public string? LastButtonUp { get; private set; }
+
+        public void ButtonDown(string button)
+        {
+            LastButtonDown = button;
+        }
+
+        public void ButtonUp(string button)
+        {
+            LastButtonUp = button;
         }
 
         public void Scroll(int delta)

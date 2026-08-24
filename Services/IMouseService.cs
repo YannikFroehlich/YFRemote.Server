@@ -8,5 +8,11 @@ public interface IMouseService
 
     void ClickRight();
 
+    void ClickMiddle();
+
+    void ButtonDown(string button);
+
+    void ButtonUp(string button);
+
     void Scroll(int delta);
 }

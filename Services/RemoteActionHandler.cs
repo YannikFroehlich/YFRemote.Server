@@ -33,6 +33,8 @@ public sealed class RemoteActionHandler(
                 "text" => HandleText(request),
                 "mousemove" => HandleMouseMove(request),
                 "mouseclick" => HandleMouseClick(request),
+                "mousedown" => HandleMouseButton(request, isDown: true),
+                "mouseup" => HandleMouseButton(request, isDown: false),
                 "mousescroll" => HandleMouseScroll(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
@@ -157,9 +159,46 @@ public sealed class RemoteActionHandler(
                 logger.LogDebug("Mouse right click succeeded.");
                 return RemoteActionResponse.Ok();
 
+            case "middle":
+                logger.LogDebug("Executing mouseClick action: middle");
+                mouseService.ClickMiddle();
+                logger.LogDebug("Mouse middle click succeeded.");
+                return RemoteActionResponse.Ok();
+
             default:
                 return Fail($"Unsupported mouse button: {request.Button}");
         }
+    }
+
+    private RemoteActionResponse HandleMouseButton(RemoteActionRequest request, bool isDown)
+    {
+        var actionName = isDown ? "mouseDown" : "mouseUp";
+        var button = request.Button?.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(button))
+        {
+            return Fail($"Action '{actionName}' requires button.");
+        }
+
+        if (button is not ("left" or "right" or "middle"))
+        {
+            return Fail($"Unsupported mouse button: {request.Button}");
+        }
+
+        logger.LogDebug("Executing {Action} action: {Button}", actionName, button);
+
+        if (isDown)
+        {
+            mouseService.ButtonDown(button);
+        }
+        else
+        {
+            mouseService.ButtonUp(button);
+        }
+
+        logger.LogDebug("Mouse {Button} {Action} succeeded.", button, actionName);
+
+        return RemoteActionResponse.Ok();
     }
 
     private RemoteActionResponse HandleMouseScroll(RemoteActionRequest request)

@@ -14,10 +14,33 @@ public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouse
     public void ClickRight() =>
         Click(WindowsInputFlags.MouseEventRightDown, WindowsInputFlags.MouseEventRightUp);
 
+    public void ClickMiddle() =>
+        Click(WindowsInputFlags.MouseEventMiddleDown, WindowsInputFlags.MouseEventMiddleUp);
+
+    public void ButtonDown(string button) =>
+        SendButtonFlag(button, WindowsInputFlags.MouseEventLeftDown, WindowsInputFlags.MouseEventRightDown, WindowsInputFlags.MouseEventMiddleDown);
+
+    public void ButtonUp(string button) =>
+        SendButtonFlag(button, WindowsInputFlags.MouseEventLeftUp, WindowsInputFlags.MouseEventRightUp, WindowsInputFlags.MouseEventMiddleUp);
+
     public void Scroll(int delta)
     {
         inputSender.ExecuteSynchronized(() =>
             inputSender.SendMouseInput(dx: 0, dy: 0, mouseData: delta, WindowsInputFlags.MouseEventWheel));
+    }
+
+    private void SendButtonFlag(string button, uint leftFlag, uint rightFlag, uint middleFlag)
+    {
+        var flag = button switch
+        {
+            "left" => leftFlag,
+            "right" => rightFlag,
+            "middle" => middleFlag,
+            _ => throw new ArgumentException($"Unsupported mouse button: {button}", nameof(button))
+        };
+
+        inputSender.ExecuteSynchronized(() =>
+            inputSender.SendMouseInput(dx: 0, dy: 0, mouseData: 0, flag));
     }
 
     private void Click(uint downFlag, uint upFlag)

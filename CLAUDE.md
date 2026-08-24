@@ -91,7 +91,8 @@ crashing silently.
 **Action pipeline.** `YFRemoteWebSocketHandler` owns the socket loop: reads a length-capped
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
-`mouseMove`, `mouseClick`, `mouseScroll`) into `IInputService` / `IMouseService`, validates
+`mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`) into `IInputService` /
+`IMouseService`, validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
 through to the socket — exceptions become `Success:false` responses). An optional `requestId`
 from the action is echoed in that response so the Client can correlate macro steps with their

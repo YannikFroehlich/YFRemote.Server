@@ -135,18 +135,80 @@ describe('TouchpadComponent', () => {
     expect(sockets[0].sentMessages).toEqual([]);
   });
 
-  it('sends the separate right-click button action', async () => {
+  it('holds and releases the right-click button like a real mouse button', async () => {
     const { fixture, sockets } = await setupTouchpad();
-    const root = fixture.nativeElement as HTMLElement;
-    const rightClickButton = root.querySelector<HTMLButtonElement>(
-      'button[aria-label="Rechtsklick"]',
-    );
+    const rightClickButton = mouseButton(fixture, 'Rechtsklick');
 
-    expect(rightClickButton).not.toBeNull();
+    dispatchPointer(rightClickButton, 'pointerdown', { pointerId: 5, clientX: 0, clientY: 0 });
 
-    rightClickButton?.click();
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseDown","button":"right"}']);
 
-    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"right"}']);
+    dispatchPointer(rightClickButton, 'pointerup', { pointerId: 5, clientX: 0, clientY: 0 });
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"right"}',
+      '{"type":"mouseUp","button":"right"}',
+    ]);
+  });
+
+  it('holds and releases the middle-click button like a real mouse button', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const middleClickButton = mouseButton(fixture, 'Mittelklick');
+
+    dispatchPointer(middleClickButton, 'pointerdown', { pointerId: 7, clientX: 0, clientY: 0 });
+    dispatchPointer(middleClickButton, 'pointerup', { pointerId: 7, clientX: 0, clientY: 0 });
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"middle"}',
+      '{"type":"mouseUp","button":"middle"}',
+    ]);
+  });
+
+  it('keeps the left button held while dragging on the touchpad surface, then releases it', async () => {
+    const { fixture, surface, sockets, flushRaf } = await setupTouchpad();
+    const leftClickButton = mouseButton(fixture, 'Linksklick');
+
+    dispatchPointer(leftClickButton, 'pointerdown', { pointerId: 1, clientX: 0, clientY: 0 });
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseDown","button":"left"}']);
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 30, clientY: 10 });
+    flushRaf();
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 30, clientY: 10 });
+
+    dispatchPointer(leftClickButton, 'pointerup', { pointerId: 1, clientX: 0, clientY: 0 });
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"left"}',
+      '{"type":"mouseMove","deltaX":20,"deltaY":0}',
+      '{"type":"mouseUp","button":"left"}',
+    ]);
+  });
+
+  it('releases a held button on pointercancel so it never stays stuck down', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const leftClickButton = mouseButton(fixture, 'Linksklick');
+
+    dispatchPointer(leftClickButton, 'pointerdown', { pointerId: 1, clientX: 0, clientY: 0 });
+    dispatchPointer(leftClickButton, 'pointercancel', { pointerId: 1, clientX: 0, clientY: 0 });
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"left"}',
+      '{"type":"mouseUp","button":"left"}',
+    ]);
+  });
+
+  it('releases any held button when the component is destroyed', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const leftClickButton = mouseButton(fixture, 'Linksklick');
+
+    dispatchPointer(leftClickButton, 'pointerdown', { pointerId: 1, clientX: 0, clientY: 0 });
+    fixture.destroy();
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"left"}',
+      '{"type":"mouseUp","button":"left"}',
+    ]);
   });
 
   it('sends typed text and clears the input', async () => {
@@ -222,14 +284,7 @@ async function setupTouchpad(options: { readonly sensitivity?: number } = {}): P
     throw new Error('Touchpad surface not found');
   }
 
-  Object.defineProperty(surface, 'setPointerCapture', {
-    configurable: true,
-    value: () => undefined,
-  });
-  Object.defineProperty(surface, 'releasePointerCapture', {
-    configurable: true,
-    value: () => undefined,
-  });
+  stubPointerCapture(surface);
 
   return {
     fixture,
@@ -245,6 +300,32 @@ async function setupTouchpad(options: { readonly sensitivity?: number } = {}): P
       fixture.detectChanges();
     },
   };
+}
+
+function mouseButton(
+  fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>,
+  ariaLabel: string,
+): HTMLButtonElement {
+  const root = fixture.nativeElement as HTMLElement;
+  const button = root.querySelector<HTMLButtonElement>(`button[aria-label="${ariaLabel}"]`);
+
+  if (button === null) {
+    throw new Error(`Button with aria-label "${ariaLabel}" not found`);
+  }
+
+  stubPointerCapture(button);
+  return button;
+}
+
+function stubPointerCapture(element: HTMLElement): void {
+  Object.defineProperty(element, 'setPointerCapture', {
+    configurable: true,
+    value: () => undefined,
+  });
+  Object.defineProperty(element, 'releasePointerCapture', {
+    configurable: true,
+    value: () => undefined,
+  });
 }
 
 function dispatchPointer(

@@ -13,6 +13,7 @@ interface PointerPosition {
 }
 
 type PointerMode = 'idle' | 'move' | 'scroll' | 'ignore';
+type MouseButtonName = 'left' | 'right' | 'middle';
 
 const TAP_MAX_DURATION_MS = 260;
 const TAP_MAX_MOVEMENT_PX = 8;
@@ -27,6 +28,7 @@ const MAX_SCROLL_DELTA = 1200;
 export class TouchpadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
   private readonly pointers = new Map<number, PointerPosition>();
+  private readonly heldButtons = new Map<MouseButtonName, number>();
 
   private pointerMode: PointerMode = 'idle';
   private lastScrollCenterY: number | null = null;
@@ -102,8 +104,44 @@ export class TouchpadComponent implements OnDestroy {
     event.preventDefault();
   }
 
-  protected clickMouseButton(button: 'left' | 'right'): void {
-    this.sendAction({ type: 'mouseClick', button });
+  /** Antippen und Halten hält die Maustaste gedrückt (wie eine echte Maustaste), sodass
+   *  parallel auf der Touchpad-Fläche gezogen werden kann; Loslassen gibt sie wieder frei. */
+  protected mouseButtonDown(button: MouseButtonName, event: PointerEvent): void {
+    event.preventDefault();
+
+    if (this.heldButtons.has(button)) {
+      return;
+    }
+
+    this.capturePointer(event);
+    this.heldButtons.set(button, event.pointerId);
+    this.sendAction({ type: 'mouseDown', button });
+  }
+
+  protected mouseButtonRelease(button: MouseButtonName, event: PointerEvent): void {
+    if (this.heldButtons.get(button) !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    this.releasePointer(event);
+    this.heldButtons.delete(button);
+    this.sendAction({ type: 'mouseUp', button });
+  }
+
+  /** Sicherheitsnetz: eine unterbrochene Geste (z. B. Browser übernimmt den Pointer) darf
+   *  die Maustaste auf dem PC nicht für immer gedrückt lassen. */
+  protected mouseButtonCancel(button: MouseButtonName, event: PointerEvent): void {
+    if (this.heldButtons.get(button) !== event.pointerId) {
+      return;
+    }
+
+    this.heldButtons.delete(button);
+    this.sendAction({ type: 'mouseUp', button });
+  }
+
+  protected isButtonHeld(button: MouseButtonName): boolean {
+    return this.heldButtons.has(button);
   }
 
   protected submitText(event: Event, input: HTMLInputElement): void {
@@ -121,6 +159,7 @@ export class TouchpadComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.resetPointers();
+    this.releaseAllHeldButtons();
   }
 
   private collectMove(pointer: PointerPosition, event: PointerEvent): void {
@@ -322,6 +361,14 @@ export class TouchpadComponent implements OnDestroy {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+  }
+
+  private releaseAllHeldButtons(): void {
+    for (const button of this.heldButtons.keys()) {
+      this.sendAction({ type: 'mouseUp', button });
+    }
+
+    this.heldButtons.clear();
   }
 
   private capturePointer(event: PointerEvent): void {

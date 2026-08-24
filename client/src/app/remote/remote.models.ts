@@ -11,7 +11,12 @@ export interface MouseMoveAction {
 
 export interface MouseClickAction {
   readonly type: 'mouseClick';
-  readonly button: 'left' | 'right';
+  readonly button: 'left' | 'right' | 'middle';
+}
+
+export interface MouseButtonAction {
+  readonly type: 'mouseDown' | 'mouseUp';
+  readonly button: 'left' | 'right' | 'middle';
 }
 
 export interface MouseScrollAction {
@@ -25,7 +30,12 @@ export interface TextAction {
 }
 
 export type RemoteAction =
-  KeyboardAction | MouseMoveAction | MouseClickAction | MouseScrollAction | TextAction;
+  | KeyboardAction
+  | MouseMoveAction
+  | MouseClickAction
+  | MouseButtonAction
+  | MouseScrollAction
+  | TextAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

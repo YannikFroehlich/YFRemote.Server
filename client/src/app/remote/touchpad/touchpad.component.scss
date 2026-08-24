@@ -117,7 +117,7 @@
 
 .touchpad-buttons {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   background: var(--line);
 }
@@ -136,7 +136,8 @@
     transform 90ms ease;
 }
 
-.touchpad-button:active {
+.touchpad-button:active,
+.touchpad-button--held {
   background: var(--accent-soft);
   color: var(--accent);
   transform: scale(0.99);

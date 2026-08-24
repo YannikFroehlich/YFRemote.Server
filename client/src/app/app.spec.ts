@@ -183,9 +183,16 @@ describe('App', () => {
 
     expect(queryButtonByText(compiled, 'Touchpad').getAttribute('aria-selected')).toBe('true');
 
-    queryButton(compiled, 'Rechtsklick').click();
+    const rightClickButton = queryButton(compiled, 'Rechtsklick');
+    stubPointerCapture(rightClickButton);
 
-    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"right"}']);
+    dispatchPointer(rightClickButton, 'pointerdown', { pointerId: 1, clientX: 0, clientY: 0 });
+    dispatchPointer(rightClickButton, 'pointerup', { pointerId: 1, clientX: 0, clientY: 0 });
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"right"}',
+      '{"type":"mouseUp","button":"right"}',
+    ]);
   });
 
   it('switches to the keyboard tab and sends a hotkey through the existing socket', async () => {
@@ -587,6 +594,34 @@ function queryButton(root: HTMLElement, ariaLabel: string): HTMLButtonElement {
   }
 
   return button;
+}
+
+function stubPointerCapture(element: HTMLElement): void {
+  Object.defineProperty(element, 'setPointerCapture', {
+    configurable: true,
+    value: () => undefined,
+  });
+  Object.defineProperty(element, 'releasePointerCapture', {
+    configurable: true,
+    value: () => undefined,
+  });
+}
+
+function dispatchPointer(
+  target: HTMLElement,
+  type: string,
+  init: { readonly pointerId: number; readonly clientX: number; readonly clientY: number },
+): void {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
+
+  Object.defineProperties(event, {
+    pointerId: { value: init.pointerId },
+    clientX: { value: init.clientX },
+    clientY: { value: init.clientY },
+    pointerType: { value: 'touch' },
+  });
+
+  target.dispatchEvent(event);
 }
 
 function queryButtonByText(root: HTMLElement, text: string): HTMLButtonElement {

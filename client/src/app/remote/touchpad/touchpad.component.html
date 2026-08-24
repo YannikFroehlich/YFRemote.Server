@@ -47,15 +47,35 @@
       class="touchpad-button"
       type="button"
       aria-label="Linksklick"
-      (click)="clickMouseButton('left')"
+      [class.touchpad-button--held]="isButtonHeld('left')"
+      (pointerdown)="mouseButtonDown('left', $event)"
+      (pointerup)="mouseButtonRelease('left', $event)"
+      (pointercancel)="mouseButtonCancel('left', $event)"
+      (lostpointercapture)="mouseButtonCancel('left', $event)"
     >
       Linksklick
     </button>
     <button
       class="touchpad-button"
       type="button"
+      aria-label="Mittelklick"
+      [class.touchpad-button--held]="isButtonHeld('middle')"
+      (pointerdown)="mouseButtonDown('middle', $event)"
+      (pointerup)="mouseButtonRelease('middle', $event)"
+      (pointercancel)="mouseButtonCancel('middle', $event)"
+      (lostpointercapture)="mouseButtonCancel('middle', $event)"
+    >
+      Mittelklick
+    </button>
+    <button
+      class="touchpad-button"
+      type="button"
       aria-label="Rechtsklick"
-      (click)="clickMouseButton('right')"
+      [class.touchpad-button--held]="isButtonHeld('right')"
+      (pointerdown)="mouseButtonDown('right', $event)"
+      (pointerup)="mouseButtonRelease('right', $event)"
+      (pointercancel)="mouseButtonCancel('right', $event)"
+      (lostpointercapture)="mouseButtonCancel('right', $event)"
     >
       Rechtsklick
     </button>

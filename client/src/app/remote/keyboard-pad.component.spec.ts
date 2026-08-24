@@ -99,20 +99,61 @@ describe('KeyboardPadComponent', () => {
     expect(ctrl.getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('tapping an armed modifier again de-arms it', async () => {
+  it('tapping an armed modifier again de-arms it without sending anything', async () => {
     const { root, sockets, detectChanges } = await setupKeyboardPad();
 
-    const ctrl = keyChip(root, 'CTRL');
-    ctrl.click();
+    const win = keyChip(root, 'WIN');
+    win.click();
     detectChanges();
-    ctrl.click();
+    win.click();
     detectChanges();
 
-    expect(ctrl.getAttribute('aria-pressed')).toBe('false');
+    expect(win.getAttribute('aria-pressed')).toBe('false');
+    expect(sockets[0].sentMessages).toEqual([]);
 
     keyChip(root, 'A').click();
 
     expect(sockets[0].sentMessages).toEqual(['{"type":"key","keys":["A"]}']);
+  });
+
+  it('sends the Windows key alone when the dedicated START button is tapped', async () => {
+    const { root, sockets } = await setupKeyboardPad();
+
+    queryButtonByText(root, 'START').click();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"key","keys":["WIN"]}']);
+  });
+
+  it('combines the dedicated START button with an armed modifier, like any other key', async () => {
+    const { root, sockets, detectChanges } = await setupKeyboardPad();
+
+    keyChip(root, 'CTRL').click();
+    detectChanges();
+
+    queryButtonByText(root, 'START').click();
+    detectChanges();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","WIN"]}']);
+    expect(keyChip(root, 'CTRL').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('tapping an armed modifier while another is also armed just de-arms it', async () => {
+    const { root, sockets, detectChanges } = await setupKeyboardPad();
+
+    keyChip(root, 'CTRL').click();
+    detectChanges();
+    const shift = keyChip(root, 'SHIFT');
+    shift.click();
+    detectChanges();
+    shift.click();
+    detectChanges();
+
+    expect(shift.getAttribute('aria-pressed')).toBe('false');
+    expect(sockets[0].sentMessages).toEqual([]);
+
+    keyChip(root, 'A').click();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"hotkey","keys":["CTRL","A"]}']);
   });
 
   it('disables arming a 4th modifier once three are armed', async () => {

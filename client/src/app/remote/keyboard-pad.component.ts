@@ -63,7 +63,7 @@ export class KeyboardPadComponent {
     this.armedModifiers.set([...current, modifier]);
   }
 
-  private pressKey(key: string): void {
+  protected pressKey(key: string): void {
     const action = keysToAction([...this.armedModifiers(), key]);
 
     if (action !== null) {

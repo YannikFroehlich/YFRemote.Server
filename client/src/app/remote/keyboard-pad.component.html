@@ -26,6 +26,16 @@
                 {{ key }}
               </button>
             }
+            @if (group.label === 'Modifikatoren') {
+              <button
+                class="key-chip"
+                type="button"
+                aria-label="Windows-Taste allein senden (öffnet das Startmenü)"
+                (click)="pressKey('WIN')"
+              >
+                START
+              </button>
+            }
           </div>
         </div>
       }

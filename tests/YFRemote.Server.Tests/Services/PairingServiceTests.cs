@@ -122,10 +122,12 @@ public sealed class PairingServiceTests
         Assert.IsTrue(second.Success, second.Error);
         Assert.IsNotNull(first.Token);
         Assert.IsNotNull(second.Token);
+        var expectedDeviceId = service.GetPairedDevices().Single(device => device.Name == "Telefon").Id;
 
-        var result = service.RemoveDeviceByToken(first.Token);
+        var result = service.RemoveDeviceByToken(first.Token, out var removedDeviceId);
 
         Assert.AreEqual(PairingRemovalResult.Removed, result);
+        Assert.AreEqual(expectedDeviceId, removedDeviceId);
         Assert.IsFalse(service.IsValidToken(first.Token));
         Assert.IsTrue(service.IsValidToken(second.Token));
         Assert.HasCount(1, CreateService().GetPairedDevices());
@@ -138,9 +140,10 @@ public sealed class PairingServiceTests
         var pairResponse = Pair(service, service.GetCurrentPin().Pin, "Telefon");
         Assert.IsTrue(pairResponse.Success, pairResponse.Error);
 
-        var result = service.RemoveDeviceByToken("unknown-token");
+        var result = service.RemoveDeviceByToken("unknown-token", out var removedDeviceId);
 
         Assert.AreEqual(PairingRemovalResult.NotFound, result);
+        Assert.AreEqual(Guid.Empty, removedDeviceId);
         Assert.HasCount(1, service.GetPairedDevices());
         Assert.HasCount(1, CreateService().GetPairedDevices());
     }
@@ -153,17 +156,22 @@ public sealed class PairingServiceTests
         Assert.IsTrue(pairResponse.Success, pairResponse.Error);
         Assert.IsNotNull(pairResponse.Token);
 
+        var expectedDeviceId = service.GetPairedDevices()[0].Id;
+
         PairingRemovalResult firstResult;
+        Guid firstDeviceId;
         using (File.Open(devicesFilePath, FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            firstResult = service.RemoveDeviceByToken(pairResponse.Token);
+            firstResult = service.RemoveDeviceByToken(pairResponse.Token, out firstDeviceId);
         }
 
         Assert.AreEqual(PairingRemovalResult.PersistenceFailed, firstResult);
+        Assert.AreEqual(expectedDeviceId, firstDeviceId);
         Assert.IsTrue(service.IsValidToken(pairResponse.Token));
         Assert.AreEqual(
             PairingRemovalResult.Removed,
-            service.RemoveDeviceByToken(pairResponse.Token));
+            service.RemoveDeviceByToken(pairResponse.Token, out var secondDeviceId));
+        Assert.AreEqual(expectedDeviceId, secondDeviceId);
         Assert.IsFalse(service.IsValidToken(pairResponse.Token));
     }
 
@@ -235,6 +243,59 @@ public sealed class PairingServiceTests
         timeProvider.Advance(TimeSpan.FromSeconds(60));
         var responseAfterTimeout = Pair(service, validPin, clientIp: "192.0.2.10");
         Assert.IsTrue(responseAfterTimeout.Success, responseAfterTimeout.Error);
+    }
+
+    [TestMethod]
+    public void TryPair_LockoutSurvivesServiceRestart()
+    {
+        var service = CreateService();
+        var validPin = service.GetCurrentPin().Pin;
+        var invalidPin = validPin == "000000" ? "000001" : "000000";
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            Assert.IsFalse(Pair(service, invalidPin, clientIp: "192.0.2.10").Success);
+        }
+
+        // Der PIN selbst ist absichtlich nicht persistiert (er ist an die Serverlaufzeit
+        // gebunden), nur der Lockout-Zustand soll den Neustart überleben.
+        var restartedService = CreateService();
+        var lockedResponse = Pair(restartedService, restartedService.GetCurrentPin().Pin, clientIp: "192.0.2.10");
+
+        Assert.IsFalse(lockedResponse.Success);
+        Assert.IsNotNull(lockedResponse.Error);
+        StringAssert.Contains(lockedResponse.Error, "Zu viele Fehlversuche");
+
+        timeProvider.Advance(TimeSpan.FromSeconds(60));
+        var responseAfterTimeout = Pair(restartedService, restartedService.GetCurrentPin().Pin, clientIp: "192.0.2.10");
+        Assert.IsTrue(responseAfterTimeout.Success, responseAfterTimeout.Error);
+    }
+
+    [TestMethod]
+    public void TryPair_SuccessfulPairingClearsPersistedLockoutState()
+    {
+        var service = CreateService();
+        var validPin = service.GetCurrentPin().Pin;
+        var invalidPin = validPin == "000000" ? "000001" : "000000";
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            Assert.IsFalse(Pair(service, invalidPin, clientIp: "192.0.2.10").Success);
+        }
+
+        timeProvider.Advance(TimeSpan.FromSeconds(60));
+        Assert.IsTrue(Pair(service, service.GetCurrentPin().Pin, clientIp: "192.0.2.10").Success);
+
+        var restartedService = CreateService();
+        var restartedValidPin = restartedService.GetCurrentPin().Pin;
+        var restartedInvalidPin = restartedValidPin == "000000" ? "000001" : "000000";
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            Assert.IsFalse(Pair(restartedService, restartedInvalidPin, clientIp: "192.0.2.10").Success);
+        }
+
+        var responseWithinLimit = Pair(restartedService, restartedService.GetCurrentPin().Pin, clientIp: "192.0.2.10");
+        Assert.IsTrue(responseWithinLimit.Success, responseWithinLimit.Error);
     }
 
     private PairingService CreateService(

@@ -125,6 +125,7 @@ internal static class Program
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
+        builder.Services.AddSingleton<WebSocketConnectionRegistry>();
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<PairingStorageOptions>();
         builder.Services.AddSingleton<PairingService>();
@@ -163,7 +164,7 @@ internal static class Program
 
             var pairingService = context.RequestServices.GetRequiredService<PairingService>();
             var token = context.Request.Query["token"].ToString();
-            if (!pairingService.IsValidToken(token))
+            if (!pairingService.TryValidateToken(token, out var deviceId))
             {
                 app.Logger.LogWarning(
                     "Rejected WebSocket handshake with invalid pairing token from {RemoteAddress}.",
@@ -173,11 +174,19 @@ internal static class Program
                 return;
             }
 
+            var connectionRegistry = context.RequestServices.GetRequiredService<WebSocketConnectionRegistry>();
             var handler = context.RequestServices.GetRequiredService<YFRemoteWebSocketHandler>();
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
             var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-            await handler.HandleAsync(socket, client, context.RequestAborted);
+            // Ein eigener CancellationTokenSource statt direkt context.RequestAborted, damit ein
+            // Entkoppeln des Geräts (Tray oder DELETE /pair) diese Verbindung gezielt beenden kann,
+            // ohne auf ein Schließen durch den Client warten zu müssen.
+            using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+            using (connectionRegistry.Register(deviceId, connectionCts))
+            {
+                await handler.HandleAsync(socket, client, connectionCts.Token);
+            }
         });
 
         app.MapPost("/pair", async context =>
@@ -220,9 +229,12 @@ internal static class Program
             var token = GetBearerToken(context.Request);
             var pairingService = context.RequestServices.GetRequiredService<PairingService>();
 
-            switch (pairingService.RemoveDeviceByToken(token))
+            switch (pairingService.RemoveDeviceByToken(token, out var deviceId))
             {
                 case PairingRemovalResult.Removed:
+                    context.RequestServices
+                        .GetRequiredService<WebSocketConnectionRegistry>()
+                        .CloseConnections(deviceId);
                     context.Response.StatusCode = StatusCodes.Status204NoContent;
                     return;
                 case PairingRemovalResult.NotFound:

@@ -44,9 +44,11 @@ body {
   min-height: 100%;
   margin: 0;
   overflow-x: hidden;
+  overscroll-behavior: none;
 }
 
 body {
+  min-height: 100vh;
   min-height: 100dvh;
   background:
     radial-gradient(circle at 8% -10%, rgba(69, 205, 180, 0.16), transparent 32rem),
@@ -134,6 +136,7 @@ h2 {
   position: relative;
   display: flex;
   width: min(100%, 960px);
+  min-height: calc(100vh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   min-height: calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   flex-direction: column;
   gap: 16px;
@@ -157,7 +160,8 @@ h2 {
 }
 
 .remote-panel--app {
-  min-height: min(880px, calc(100dvh - 40px));
+  height: min(880px, calc(100vh - 40px));
+  height: min(880px, calc(100dvh - 40px));
 }
 
 .remote-panel--pairing {
@@ -441,6 +445,9 @@ h2 {
   flex: 1;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  scrollbar-color: rgba(98, 227, 196, 0.3) transparent;
+  scrollbar-width: thin;
 }
 
 .view-content > app-button-canvas {
@@ -537,6 +544,7 @@ select:focus-visible {
   position: relative;
   display: flex;
   width: min(100%, 460px);
+  max-height: calc(100vh - 36px);
   max-height: calc(100dvh - 36px);
   flex-direction: column;
   padding: 24px;
@@ -1268,6 +1276,7 @@ select:focus-visible {
 
 @media (max-width: 680px) {
   body {
+    overflow-y: hidden;
     background: var(--app-bg);
   }
 
@@ -1280,7 +1289,8 @@ select:focus-visible {
   }
 
   .remote-panel {
-    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     padding: calc(16px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
       calc(16px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
     border: 0;
@@ -1290,6 +1300,7 @@ select:focus-visible {
   }
 
   .remote-panel--pairing {
+    min-height: 100vh;
     min-height: 100dvh;
     margin: 0;
     justify-content: center;
@@ -1315,18 +1326,100 @@ select:focus-visible {
   }
 
   .settings-dialog {
+    max-height: calc(100vh - 20px);
     max-height: calc(100dvh - 20px);
     padding: 20px;
     border-radius: 20px;
   }
 
+  .keyboard-card {
+    gap: 8px;
+    padding: 10px;
+  }
+
   .keyboard-card__header {
-    display: grid;
+    display: block;
   }
 
   .keyboard-card__hint {
-    max-width: none;
-    text-align: left;
+    display: none;
+  }
+
+  .keyboard-card__body {
+    gap: 4px;
+  }
+
+  .key-picker {
+    gap: 6px;
+  }
+
+  .key-group {
+    gap: 2px;
+  }
+
+  .key-group__label {
+    font-size: 0.58rem;
+    line-height: 1;
+  }
+
+  .key-group__keys {
+    gap: 3px;
+  }
+
+  .key-chip {
+    min-width: 26px;
+    min-height: 26px;
+    padding: 0 6px;
+    font-size: 0.66rem;
+  }
+
+  .key-picker__summary {
+    min-height: 26px;
+    margin-top: 0;
+    padding: 5px 9px;
+    font-size: 0.7rem;
+  }
+
+  .keyboard-card__footer .secondary-button {
+    min-height: 32px;
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 680px) and (max-height: 780px) {
+  .keyboard-card {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .keyboard-card__header h2 {
+    font-size: 1rem;
+  }
+
+  .keyboard-card__header .eyebrow {
+    display: none;
+  }
+
+  .key-group__label {
+    display: none;
+  }
+
+  .key-picker {
+    gap: 4px;
+  }
+
+  .key-chip {
+    min-width: 24px;
+    min-height: 20px;
+  }
+
+  .key-picker__summary {
+    min-height: 22px;
+    padding: 4px 8px;
+  }
+
+  .keyboard-card__footer .secondary-button {
+    min-height: 28px;
   }
 }
 
@@ -1414,7 +1507,7 @@ select:focus-visible {
 
 @media (max-height: 620px) and (min-width: 681px) {
   .remote-panel--app {
-    min-height: auto;
+    height: auto;
   }
 }
 

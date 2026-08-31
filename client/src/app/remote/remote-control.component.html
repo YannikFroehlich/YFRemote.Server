@@ -51,33 +51,86 @@
       </div>
     </header>
 
-    <div class="server-strip">
-      <div class="server-strip__identity">
-        <span class="server-strip__label">Aktiver Computer</span>
-        <strong>{{ config().host }}:{{ config().port }}</strong>
+    <div class="remote-context">
+      <div class="server-strip">
+        <div class="server-strip__identity">
+          <span class="server-strip__label">
+            <span class="server-strip__label-long">Aktiver Computer</span>
+            <span class="server-strip__label-short">Aktiv</span>
+          </span>
+          <strong>{{ config().host }}:{{ config().port }}</strong>
+        </div>
+        <div class="server-strip__actions">
+          <button
+            class="round-button round-button--small"
+            type="button"
+            aria-label="Neu verbinden"
+            title="Neu verbinden"
+            (click)="reconnect()"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths.refresh"></path>
+            </svg>
+          </button>
+          <button
+            class="round-button round-button--small"
+            type="button"
+            aria-label="Verbindung trennen"
+            title="Verbindung trennen"
+            (click)="disconnect()"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths.disconnect"></path>
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="server-strip__actions">
+
+      <div class="view-tabs" role="tablist" aria-label="Ansicht">
         <button
-          class="round-button round-button--small"
+          class="view-tab"
+          [class.view-tab--active]="activeView() === 'remote'"
           type="button"
-          aria-label="Neu verbinden"
-          title="Neu verbinden"
-          (click)="reconnect()"
+          role="tab"
+          [attr.aria-selected]="activeView() === 'remote'"
+          (click)="selectView('remote')"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path [attr.d]="iconPaths.refresh"></path>
+            <path
+              d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5l1.5 2H8.5l1.5-2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v8h14V7H5Z"
+            />
           </svg>
+          <span>Remote</span>
         </button>
         <button
-          class="round-button round-button--small"
+          class="view-tab"
+          [class.view-tab--active]="activeView() === 'touchpad'"
           type="button"
-          aria-label="Verbindung trennen"
-          title="Verbindung trennen"
-          (click)="disconnect()"
+          role="tab"
+          [attr.aria-selected]="activeView() === 'touchpad'"
+          (click)="selectView('touchpad')"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path [attr.d]="iconPaths.disconnect"></path>
+            <path
+              d="M7 2h10a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4Zm0 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H7Zm5 2a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z"
+            />
           </svg>
+          <span>Touchpad</span>
+        </button>
+        <button
+          class="view-tab"
+          [class.view-tab--active]="activeView() === 'keyboard'"
+          type="button"
+          role="tab"
+          [attr.aria-selected]="activeView() === 'keyboard'"
+          (click)="selectView('keyboard')"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path
+              d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h16V7H4Zm2 2h2v2H6V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9Zm4 0h1v2h-1V9ZM6 13h2v2H6v-2Zm4 0h8v2h-8v-2Z"
+            />
+          </svg>
+          <span>Tastatur</span>
         </button>
       </div>
     </div>
@@ -86,55 +139,11 @@
       <p class="toast" role="status" aria-live="polite">{{ errorMessage }}</p>
     }
 
-    <div class="view-tabs" role="tablist" aria-label="Ansicht">
-      <button
-        class="view-tab"
-        [class.view-tab--active]="activeView() === 'remote'"
-        type="button"
-        role="tab"
-        [attr.aria-selected]="activeView() === 'remote'"
-        (click)="selectView('remote')"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5l1.5 2H8.5l1.5-2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v8h14V7H5Z"
-          />
-        </svg>
-        <span>Remote</span>
-      </button>
-      <button
-        class="view-tab"
-        [class.view-tab--active]="activeView() === 'touchpad'"
-        type="button"
-        role="tab"
-        [attr.aria-selected]="activeView() === 'touchpad'"
-        (click)="selectView('touchpad')"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M7 2h10a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4Zm0 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H7Zm5 2a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z"
-          />
-        </svg>
-        <span>Touchpad</span>
-      </button>
-      <button
-        class="view-tab"
-        [class.view-tab--active]="activeView() === 'keyboard'"
-        type="button"
-        role="tab"
-        [attr.aria-selected]="activeView() === 'keyboard'"
-        (click)="selectView('keyboard')"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path
-            d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h16V7H4Zm2 2h2v2H6V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9Zm4 0h1v2h-1V9ZM6 13h2v2H6v-2Zm4 0h8v2h-8v-2Z"
-          />
-        </svg>
-        <span>Tastatur</span>
-      </button>
-    </div>
-
-    <section class="view-content">
+    <section
+      class="view-content"
+      [class.view-content--touchpad]="activeView() === 'touchpad'"
+      [class.view-content--keyboard]="activeView() === 'keyboard'"
+    >
       @if (activeView() === 'remote') {
         @if (editMode()) {
           <div class="layout-toolbar" role="toolbar" aria-label="Layout bearbeiten">

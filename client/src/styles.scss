@@ -186,6 +186,10 @@ h2 {
   min-height: 48px;
 }
 
+.remote-context {
+  display: contents;
+}
+
 .brand-block,
 .settings-dialog__header div,
 .server-strip__identity {
@@ -312,6 +316,10 @@ h2 {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.server-strip__label-short {
+  display: none;
 }
 
 .server-strip strong {
@@ -1291,8 +1299,9 @@ select:focus-visible {
   .remote-panel {
     height: 100vh;
     height: 100dvh;
-    padding: calc(16px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
-      calc(16px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+    gap: 10px;
+    padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+      calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
     border: 0;
     border-radius: 0;
     background: #0b1115;
@@ -1310,19 +1319,108 @@ select:focus-visible {
     display: none;
   }
 
+  .remote-header {
+    min-height: 42px;
+  }
+
+  .remote-context {
+    display: grid;
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+  }
+
   .server-strip {
-    min-height: 58px;
+    min-height: 40px;
+    padding: 2px 2px 2px 8px;
+    border: 0;
+    border-radius: 11px;
+    background: transparent;
+  }
+
+  .server-strip__identity {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+  }
+
+  .server-strip__label {
+    flex: none;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+  }
+
+  .server-strip__label-long {
+    display: none;
+  }
+
+  .server-strip__label-short {
+    display: inline;
+  }
+
+  .server-strip strong {
+    font-size: 0.76rem;
+  }
+
+  .server-strip__actions {
+    gap: 4px;
+  }
+
+  .server-strip .round-button--small {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  .server-strip .round-button--small svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .view-tabs {
+    gap: 2px;
+    padding: 3px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
   }
 
   .view-tab {
-    min-height: 48px;
-    padding: 0 8px;
-    gap: 6px;
+    min-height: 38px;
+    padding: 0 6px;
+    gap: 5px;
+    border-radius: 10px;
+    font-size: 0.72rem;
   }
 
   .view-tab svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .view-tab--active {
+    box-shadow:
+      0 5px 16px rgba(0, 0, 0, 0.18),
+      0 1px 0 rgba(255, 255, 255, 0.035) inset;
+  }
+
+  .view-content--touchpad {
+    overflow: hidden;
+  }
+
+  .view-content--touchpad > app-touchpad {
+    height: 100%;
+  }
+
+  .view-content--keyboard {
+    overflow: hidden;
+  }
+
+  .view-content--keyboard > app-keyboard-pad {
+    height: 100%;
   }
 
   .settings-dialog {
@@ -1333,12 +1431,25 @@ select:focus-visible {
   }
 
   .keyboard-card {
-    gap: 8px;
-    padding: 10px;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px;
+    overflow: hidden;
   }
 
   .keyboard-card__header {
     display: block;
+  }
+
+  .keyboard-card__header h2 {
+    font-size: 1.05rem;
+  }
+
+  .keyboard-card__header .eyebrow,
+  .key-group__label {
+    display: none;
   }
 
   .keyboard-card__hint {
@@ -1346,91 +1457,98 @@ select:focus-visible {
   }
 
   .keyboard-card__body {
-    gap: 4px;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 8px;
   }
 
   .key-picker {
+    min-height: 0;
+    grid-template-rows: 1fr 2fr 2fr 4fr 1fr;
     gap: 6px;
   }
 
   .key-group {
-    gap: 2px;
-  }
-
-  .key-group__label {
-    font-size: 0.58rem;
-    line-height: 1;
+    min-height: 0;
+    gap: 0;
   }
 
   .key-group__keys {
-    gap: 3px;
+    display: grid;
+    height: 100%;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .key-group:nth-child(1) .key-group__keys,
+  .key-group:nth-child(2) .key-group__keys {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .key-group:nth-child(3) .key-group__keys {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .key-group:nth-child(4) .key-group__keys {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .key-group:nth-child(5) .key-group__keys {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
   }
 
   .key-chip {
-    min-width: 26px;
-    min-height: 26px;
-    padding: 0 6px;
-    font-size: 0.66rem;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0 4px;
+    border-radius: 9px;
+    font-size: clamp(0.66rem, 2.8vw, 0.78rem);
   }
 
   .key-picker__summary {
-    min-height: 26px;
+    display: flex;
+    min-height: 38px;
+    align-items: center;
     margin-top: 0;
-    padding: 5px 9px;
-    font-size: 0.7rem;
+    padding: 7px 10px;
+    font-size: 0.72rem;
   }
 
   .keyboard-card__footer .secondary-button {
-    min-height: 32px;
-    padding: 0 14px;
+    min-height: 40px;
+    padding: 0 16px;
   }
 }
 
 @media (max-width: 680px) and (max-height: 780px) {
   .keyboard-card {
-    gap: 6px;
-    padding: 8px;
-  }
-
-  .keyboard-card__header h2 {
-    font-size: 1rem;
-  }
-
-  .keyboard-card__header .eyebrow {
-    display: none;
-  }
-
-  .key-group__label {
-    display: none;
+    gap: 8px;
+    padding: 10px;
   }
 
   .key-picker {
+    gap: 5px;
+  }
+
+  .key-group__keys {
     gap: 4px;
   }
 
-  .key-chip {
-    min-width: 24px;
-    min-height: 20px;
-  }
-
   .key-picker__summary {
-    min-height: 22px;
-    padding: 4px 8px;
+    min-height: 34px;
+    padding: 5px 8px;
   }
 
   .keyboard-card__footer .secondary-button {
-    min-height: 28px;
+    min-height: 36px;
   }
 }
 
 @media (max-width: 440px) {
-  .remote-panel {
-    gap: 13px;
-  }
-
   .brand-mark {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
   }
 
   .brand-subtitle {
@@ -1454,17 +1572,17 @@ select:focus-visible {
   }
 
   .view-tab {
-    display: grid;
-    min-height: 54px;
-    place-items: center;
-    align-content: center;
-    gap: 3px;
-    font-size: 0.67rem;
+    display: flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 0.68rem;
   }
 
   .view-tab svg {
-    width: 18px;
-    height: 18px;
+    width: 15px;
+    height: 15px;
   }
 
   .control-button span {

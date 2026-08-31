@@ -191,23 +191,65 @@
 
 @media (max-width: 540px) {
   .touchpad-card {
-    grid-template-rows: auto 66px minmax(0, 1fr) 62px;
+    grid-template-rows: auto 56px minmax(0, 1fr) 52px;
   }
 
   .touchpad-card__header {
-    display: grid;
-    gap: 10px;
-    padding: 15px 16px;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+  }
+
+  .touchpad-card__header h2 {
+    font-size: 1rem;
+  }
+
+  .touchpad-card__header .eyebrow {
+    display: none;
   }
 
   .touchpad-hints {
-    justify-content: flex-start;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .touchpad-hints span {
+    padding: 4px 6px;
+    font-size: 0.56rem;
+    white-space: nowrap;
+  }
+
+  .touchpad-text {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .touchpad-text__input,
+  .touchpad-text__send {
+    min-height: 42px;
+  }
+
+  .touchpad-text__input {
+    padding: 0 11px;
+  }
+
+  .touchpad-text__send {
+    padding: 0 14px;
+  }
+
+  .touchpad-surface {
+    min-height: 0;
+  }
+
+  .touchpad-button {
+    min-height: 52px;
   }
 }
 
 @media (max-height: 700px) {
   .touchpad-card {
-    grid-template-rows: auto 62px minmax(0, 1fr) 60px;
+    grid-template-rows: auto 56px minmax(0, 1fr) 52px;
   }
 
   .touchpad-surface {
@@ -221,6 +263,12 @@
 
   .touchpad-text__input,
   .touchpad-text__send {
-    min-height: 44px;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 540px) and (max-height: 780px) {
+  .touchpad-surface {
+    min-height: 0;
   }
 }

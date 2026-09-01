@@ -1,0 +1,42 @@
+name: CI
+
+# Baut und testet den Server bei jedem Pull Request, unabhaengig vom
+# Release-Workflow (der nur bei Push/Tag auf main laeuft). Verhindert, dass ein
+# kaputter Build oder fehlschlagende Tests erst beim Release-Versuch auffallen.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Auschecken
+        uses: actions/checkout@v6
+
+      - name: .NET einrichten
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Abhaengigkeiten wiederherstellen
+        shell: pwsh
+        run: dotnet restore
+
+      - name: Server bauen
+        shell: pwsh
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Server testen
+        shell: pwsh
+        run: >-
+          dotnet test tests/YFRemote.Server.Tests/YFRemote.Server.Tests.csproj
+          --configuration Release

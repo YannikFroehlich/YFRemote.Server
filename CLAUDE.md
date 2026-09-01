@@ -97,7 +97,10 @@ ranges/argument shape per action, and always returns a `RemoteActionResponse` (n
 through to the socket — exceptions become `Success:false` responses). An optional `requestId`
 from the action is echoed in that response so the Client can correlate macro steps with their
 server acknowledgements. One handler instance serially processes one client's messages, but
-multiple clients can connect concurrently.
+multiple clients can connect concurrently. Each connection also carries its own fixed-window
+rate limit (120 messages/second; a `Fail` response beyond that, connection stays open) as a
+backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
+move/scroll traffic tops out around one message per animation frame.
 
 **Input simulation.** `WindowsInputService`/`WindowsMouseService` translate high-level actions
 into raw Win32 `SendInput` calls via the shared `WindowsInputSender`, which serializes all

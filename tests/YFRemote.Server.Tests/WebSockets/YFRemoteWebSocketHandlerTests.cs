@@ -89,16 +89,65 @@ public sealed class YFRemoteWebSocketHandlerTests
         await AwaitHandlerAsync(handleTask);
     }
 
+    [TestMethod]
+    public async Task HandleAsync_ExceedsRateLimit_RejectsExtraMessage()
+    {
+        await using var pair = await WebSocketPair.CreateAsync();
+        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var handleTask = CreateHandler(timeProvider: timeProvider).HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        RemoteActionResponse response = null!;
+        for (var i = 0; i < YFRemoteWebSocketHandler.MaxMessagesPerRateLimitWindow + 1; i++)
+        {
+            await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"]}""");
+            response = await ReceiveResponseAsync(pair.Client);
+        }
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Rate limit exceeded.", response.Error);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
+    public async Task HandleAsync_RateLimitWindowElapsed_AllowsMessagesAgain()
+    {
+        await using var pair = await WebSocketPair.CreateAsync();
+        var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var handleTask = CreateHandler(timeProvider: timeProvider).HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        for (var i = 0; i < YFRemoteWebSocketHandler.MaxMessagesPerRateLimitWindow; i++)
+        {
+            await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"]}""");
+            await ReceiveResponseAsync(pair.Client);
+        }
+
+        timeProvider.Advance(TimeSpan.FromSeconds(2));
+
+        await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"]}""");
+        var response = await ReceiveResponseAsync(pair.Client);
+
+        Assert.IsTrue(response.Success, response.Error);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
     private static YFRemoteWebSocketHandler CreateHandler(
         IInputService? inputService = null,
-        IMouseService? mouseService = null)
+        IMouseService? mouseService = null,
+        TimeProvider? timeProvider = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
             mouseService ?? new RecordingMouseService(),
             NullLogger<RemoteActionHandler>.Instance);
 
-        return new YFRemoteWebSocketHandler(actionHandler, NullLogger<YFRemoteWebSocketHandler>.Instance);
+        return new YFRemoteWebSocketHandler(
+            actionHandler,
+            timeProvider ?? TimeProvider.System,
+            NullLogger<YFRemoteWebSocketHandler>.Instance);
     }
 
     private static Task SendTextAsync(WebSocket socket, string text) =>
@@ -238,6 +287,18 @@ public sealed class YFRemoteWebSocketHandlerTests
 
         public void ScrollHorizontal(int delta)
         {
+        }
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset initialTime) : TimeProvider
+    {
+        private DateTimeOffset utcNow = initialTime;
+
+        public override DateTimeOffset GetUtcNow() => utcNow;
+
+        public void Advance(TimeSpan duration)
+        {
+            utcNow = utcNow.Add(duration);
         }
     }
 }

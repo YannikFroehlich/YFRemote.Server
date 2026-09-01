@@ -1,15 +1,21 @@
 using System.Reflection;
 using Velopack;
+using Velopack.Locators;
 using Velopack.Sources;
 
 namespace YFRemote.Server.Updates;
 
-public sealed class UpdateService
+// locator bleibt im Produktivbetrieb null (UpdateManager verwendet dann den von
+// VelopackApp.Build().Run() gesetzten VelopackLocator.Current); Tests können hier einen
+// TestVelopackLocator einsetzen, um IsInstalled/CurrentVersion ohne echte Installation zu prüfen.
+public sealed class UpdateService(IVelopackLocator? locator = null)
 {
     private const string ReleaseRepositoryUrl = "https://github.com/YannikFroehlich/YFRemote.Server";
 
     private readonly UpdateManager updateManager = new(
-        new GithubSource(ReleaseRepositoryUrl, accessToken: null, prerelease: false));
+        new GithubSource(ReleaseRepositoryUrl, accessToken: null, prerelease: false),
+        options: null,
+        locator);
 
     public bool CanUpdate => updateManager.IsInstalled;
 

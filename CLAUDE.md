@@ -10,7 +10,8 @@ replays them into the interactive Windows session via `SendInput`. This repo als
 tray application, the installer, and GitHub Releases for the whole product.
 
 The Angular client lives in a **separate repository** (`YFRemote.Client`, local path
-`D:\Dev\YFRemote\client\YFRemote.Client`, branch `master`). Its production
+`D:\Dev\YFRemote\client\YFRemote.Client` on the laptop / `D:\Dokumente\Programmieren\YFRemote\client\YFRemote.Client`
+on the PC, branch `master`). Its production
 build is copied into this repo's `wwwroot/` and served as static files — it is not present in a
 normal checkout of this repo and is not built by `dotnet build`.
 
@@ -97,7 +98,10 @@ ranges/argument shape per action, and always returns a `RemoteActionResponse` (n
 through to the socket — exceptions become `Success:false` responses). An optional `requestId`
 from the action is echoed in that response so the Client can correlate macro steps with their
 server acknowledgements. One handler instance serially processes one client's messages, but
-multiple clients can connect concurrently.
+multiple clients can connect concurrently. Each connection also carries its own fixed-window
+rate limit (120 messages/second; a `Fail` response beyond that, connection stays open) as a
+backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
+move/scroll traffic tops out around one message per animation frame.
 
 **Input simulation.** `WindowsInputService`/`WindowsMouseService` translate high-level actions
 into raw Win32 `SendInput` calls via the shared `WindowsInputSender`, which serializes all

@@ -18,9 +18,10 @@ public sealed class PairingService
     private readonly TimeProvider timeProvider;
     private readonly string devicesFilePath;
     private readonly string backupFilePath;
+    private readonly string lockoutsFilePath;
     private readonly object syncRoot = new();
     private readonly List<PairedDeviceRecord> devices;
-    private readonly Dictionary<string, FailedAttemptState> failedAttemptsByIp = new();
+    private readonly Dictionary<string, FailedAttemptState> failedAttemptsByIp;
 
     private (string Pin, DateTimeOffset ExpiresAtUtc) pinState;
     private DateTimeOffset nextLastSeenPersistenceUtc;
@@ -38,7 +39,11 @@ public sealed class PairingService
         this.timeProvider = timeProvider;
         devicesFilePath = Path.GetFullPath(options.DevicesFilePath);
         backupFilePath = $"{devicesFilePath}.bak";
+        lockoutsFilePath = Path.Combine(
+            Path.GetDirectoryName(devicesFilePath) ?? ".",
+            "pairing-lockouts.json");
         devices = LoadDevices(out primaryFileIsValid);
+        failedAttemptsByIp = LoadFailedAttempts();
 
         var now = UtcNow;
         pinState = GenerateNewPin(now);
@@ -91,6 +96,7 @@ public sealed class PairingService
             }
 
             failedAttemptsByIp.Remove(clientIp);
+            TryPersistFailedAttempts();
 
             var token = GenerateDeviceToken();
             var deviceName = NormalizeDeviceName(request!.DeviceName);
@@ -122,6 +128,13 @@ public sealed class PairingService
 
     public bool IsValidToken(string? token)
     {
+        return TryValidateToken(token, out _);
+    }
+
+    public bool TryValidateToken(string? token, out Guid deviceId)
+    {
+        deviceId = default;
+
         if (string.IsNullOrEmpty(token))
         {
             return false;
@@ -139,6 +152,7 @@ public sealed class PairingService
 
             var now = UtcNow;
             devices[index] = devices[index] with { LastSeenUtc = now };
+            deviceId = devices[index].Id;
 
             if (now >= nextLastSeenPersistenceUtc)
             {
@@ -169,8 +183,10 @@ public sealed class PairingService
         }
     }
 
-    public PairingRemovalResult RemoveDeviceByToken(string? token)
+    public PairingRemovalResult RemoveDeviceByToken(string? token, out Guid deviceId)
     {
+        deviceId = default;
+
         if (string.IsNullOrEmpty(token))
         {
             return PairingRemovalResult.NotFound;
@@ -181,6 +197,11 @@ public sealed class PairingService
         lock (syncRoot)
         {
             var index = devices.FindIndex(device => device.TokenHash == tokenHash);
+            if (index >= 0)
+            {
+                deviceId = devices[index].Id;
+            }
+
             return RemoveDeviceAt(index);
         }
     }
@@ -247,6 +268,7 @@ public sealed class PairingService
             : DateTimeOffset.MinValue;
 
         failedAttemptsByIp[clientIp] = new FailedAttemptState(newCount, lockedUntilUtc);
+        TryPersistFailedAttempts();
     }
 
     private (string Pin, DateTimeOffset ExpiresAtUtc) GenerateNewPin(DateTimeOffset now)
@@ -323,6 +345,57 @@ public sealed class PairingService
         {
             logger.LogWarning(ex, "Failed to load pairing devices file {DevicesFilePath}.", path);
             return false;
+        }
+    }
+
+    private Dictionary<string, FailedAttemptState> LoadFailedAttempts()
+    {
+        if (!File.Exists(lockoutsFilePath))
+        {
+            return new Dictionary<string, FailedAttemptState>();
+        }
+
+        try
+        {
+            var json = File.ReadAllText(lockoutsFilePath);
+            var file = JsonSerializer.Deserialize<LockoutsFile>(json)
+                ?? throw new JsonException("Pairing lockouts file is empty.");
+
+            return file.Attempts is null
+                ? new Dictionary<string, FailedAttemptState>()
+                : new Dictionary<string, FailedAttemptState>(file.Attempts);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to load pairing lockouts file {LockoutsFilePath}.", lockoutsFilePath);
+            return new Dictionary<string, FailedAttemptState>();
+        }
+    }
+
+    // Verlorene Lockout-Daten sind unkritisch (sie stellen sich nach LockoutDuration von selbst
+    // wieder her), daher genügt ein Best-Effort-Schreibvorgang ohne Rollback der aufrufenden
+    // Operation.
+    private void TryPersistFailedAttempts()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(lockoutsFilePath)
+                ?? throw new InvalidOperationException("Pairing lockouts file must have a parent directory.");
+            Directory.CreateDirectory(directory);
+
+            var json = JsonSerializer.Serialize(
+                new LockoutsFile(failedAttemptsByIp),
+                new JsonSerializerOptions { WriteIndented = true });
+            var temporaryFilePath = Path.Combine(
+                directory,
+                $".{Path.GetFileName(lockoutsFilePath)}.{Guid.NewGuid():N}.tmp");
+
+            File.WriteAllText(temporaryFilePath, json);
+            File.Move(temporaryFilePath, lockoutsFilePath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to persist pairing lockouts file {LockoutsFilePath}.", lockoutsFilePath);
         }
     }
 
@@ -450,6 +523,8 @@ public sealed class PairingService
     private sealed record FailedAttemptState(int Count, DateTimeOffset LockedUntilUtc);
 
     private sealed record DevicesFile(List<PairedDeviceRecord>? Devices);
+
+    private sealed record LockoutsFile(Dictionary<string, FailedAttemptState>? Attempts);
 }
 
 public enum PairingRemovalResult

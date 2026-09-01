@@ -5,6 +5,7 @@ using YFRemote.Server.Diagnostics;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 using YFRemote.Server.Updates;
+using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server.Tray;
 
@@ -15,6 +16,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly UpdateService updateService = new();
     private readonly ILogger<TrayApplicationContext> logger;
     private readonly PairingService pairingService;
+    private readonly WebSocketConnectionRegistry connectionRegistry;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem updateItem;
@@ -35,6 +37,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var serverOptions = app.Services.GetRequiredService<ServerOptions>();
         logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<TrayApplicationContext>();
         pairingService = app.Services.GetRequiredService<PairingService>();
+        connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
         localAddress = NetworkAddressService.GetLocalAddress(serverOptions.Port);
         deviceAddress = NetworkAddressService.GetDeviceAddress(serverOptions.Port);
 
@@ -416,6 +419,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         if (pairingService.RemoveDevice(device.Id))
         {
+            connectionRegistry.CloseConnections(device.Id);
             notifyIcon.ShowBalloonTip(3000, "Gerät entkoppelt", device.Name, ToolTipIcon.Info);
             return;
         }

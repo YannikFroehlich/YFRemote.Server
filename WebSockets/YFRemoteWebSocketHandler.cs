@@ -10,10 +10,17 @@ namespace YFRemote.Server.WebSockets;
 
 public sealed class YFRemoteWebSocketHandler(
     RemoteActionHandler actionHandler,
+    TimeProvider timeProvider,
     ILogger<YFRemoteWebSocketHandler> logger)
 {
     private const int BufferSize = 4096;
     private const int MaxMessageBytes = 16 * 1024;
+
+    // Ein gepairtes Gerät gilt bereits als vertrauenswürdig; das Limit schützt nur vor einer
+    // durchgehenden Flut (Bug oder Missbrauch). Bewegen/Scrollen sendet pro Animationsframe eine
+    // Nachricht (~60-120/s bei hoher Bildwiederholrate), daher deutlich darüber ansetzen.
+    internal const int MaxMessagesPerRateLimitWindow = 120;
+    private static readonly TimeSpan RateLimitWindow = TimeSpan.FromSeconds(1);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -25,6 +32,8 @@ public sealed class YFRemoteWebSocketHandler(
     {
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
+        var rateLimiter = new FixedWindowRateLimiter(timeProvider, MaxMessagesPerRateLimitWindow, RateLimitWindow);
+
         try
         {
             while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
@@ -35,8 +44,17 @@ public sealed class YFRemoteWebSocketHandler(
                     break;
                 }
 
-                var response = receivedMessage.ErrorResponse
-                    ?? HandleMessage(receivedMessage.Payload!.Value);
+                RemoteActionResponse response;
+                if (!rateLimiter.TryAcquire())
+                {
+                    logger.LogWarning("WebSocket client {Client} exceeded the message rate limit.", client);
+                    response = RemoteActionResponse.Fail("Rate limit exceeded.");
+                }
+                else
+                {
+                    response = receivedMessage.ErrorResponse
+                        ?? HandleMessage(receivedMessage.Payload!.Value);
+                }
 
                 await SendResponseAsync(socket, response, cancellationToken);
             }
@@ -163,5 +181,26 @@ public sealed class YFRemoteWebSocketHandler(
         public static ReceivedMessage Ok(ReadOnlyMemory<byte> payload) => new(payload, null);
 
         public static ReceivedMessage Fail(string error) => new(null, RemoteActionResponse.Fail(error));
+    }
+
+    // Ein Zaehler pro Verbindung genuegt: HandleAsync verarbeitet die Nachrichten einer
+    // Verbindung ohnehin seriell, daher ist keine Synchronisierung noetig.
+    private sealed class FixedWindowRateLimiter(TimeProvider timeProvider, int limit, TimeSpan window)
+    {
+        private DateTimeOffset windowStart = timeProvider.GetUtcNow();
+        private int messagesInWindow;
+
+        public bool TryAcquire()
+        {
+            var now = timeProvider.GetUtcNow();
+            if (now - windowStart >= window)
+            {
+                windowStart = now;
+                messagesInWindow = 0;
+            }
+
+            messagesInWindow++;
+            return messagesInWindow <= limit;
+        }
     }
 }

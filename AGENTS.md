@@ -5,11 +5,13 @@
 YFRemote consists of two separate public Git repositories:
 
 - Client: `YannikFroehlich/YFRemote.Client`
-  - Local path: `D:\Dev\YFRemote\client\YFRemote.Client`
+  - Local path: `D:\Dev\YFRemote\client\YFRemote.Client` (laptop) /
+    `D:\Dokumente\Programmieren\YFRemote\client\YFRemote.Client` (PC)
   - Default branch: `master`
   - Angular web application
 - Server: `YannikFroehlich/YFRemote.Server`
-  - Local path: `D:\Dev\YFRemote\server\YFRemote.Server`
+  - Local path: `D:\Dev\YFRemote\server\YFRemote.Server` (laptop) /
+    `D:\Dokumente\Programmieren\YFRemote\server\YFRemote.Server` (PC)
   - Default branch: `main`
   - .NET Windows application, web server, tray application, and release owner
 
@@ -234,7 +236,7 @@ Fallback if the automated workflow is unavailable: tag the intended Server `main
 commit by hand and push the tag, which triggers `release.yml` directly.
 
 ```powershell
-cd D:\Dev\YFRemote\server\YFRemote.Server
+cd <server-repo-local-path>   # see "Repository layout" above
 git switch main
 git pull --ff-only
 git tag -a v1.0.2 -m "YFRemote v1.0.2"

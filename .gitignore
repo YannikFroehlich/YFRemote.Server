@@ -5,3 +5,4 @@ Releases/
 wwwroot/
 .tools/
 .claude/
+.codex-remote-attachments/

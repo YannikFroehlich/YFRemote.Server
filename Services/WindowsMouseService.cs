@@ -29,6 +29,12 @@ public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouse
             inputSender.SendMouseInput(dx: 0, dy: 0, mouseData: delta, WindowsInputFlags.MouseEventWheel));
     }
 
+    public void ScrollHorizontal(int delta)
+    {
+        inputSender.ExecuteSynchronized(() =>
+            inputSender.SendMouseInput(dx: 0, dy: 0, mouseData: delta, WindowsInputFlags.MouseEventHWheel));
+    }
+
     private void SendButtonFlag(string button, uint leftFlag, uint rightFlag, uint middleFlag)
     {
         var flag = button switch

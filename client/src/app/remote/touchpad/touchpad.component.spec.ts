@@ -124,6 +124,18 @@ describe('TouchpadComponent', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","delta":-60}']);
   });
 
+  it('scrolls horizontally when two fingers move sideways', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 100, clientY: 140 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 90, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 90, clientY: 140 });
+    flushRaf();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","deltaX":-60}']);
+  });
+
   it('clears pending movement on pointercancel', async () => {
     const { surface, sockets, flushRaf } = await setupTouchpad();
 

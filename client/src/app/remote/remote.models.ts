@@ -21,7 +21,8 @@ export interface MouseButtonAction {
 
 export interface MouseScrollAction {
   readonly type: 'mouseScroll';
-  readonly delta: number;
+  readonly delta?: number;
+  readonly deltaX?: number;
 }
 
 export interface TextAction {

@@ -31,10 +31,12 @@ export class TouchpadComponent implements OnDestroy {
   private readonly heldButtons = new Map<MouseButtonName, number>();
 
   private pointerMode: PointerMode = 'idle';
+  private lastScrollCenterX: number | null = null;
   private lastScrollCenterY: number | null = null;
   private pendingMoveX = 0;
   private pendingMoveY = 0;
-  private pendingScrollDelta = 0;
+  private pendingScrollDeltaX = 0;
+  private pendingScrollDeltaY = 0;
   private animationFrameId: number | null = null;
 
   protected pointerDown(event: PointerEvent): void {
@@ -178,25 +180,30 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private collectScroll(): void {
+    const scrollCenterX = this.getAverageX();
     const scrollCenterY = this.getAverageY();
 
-    if (scrollCenterY === null) {
+    if (scrollCenterX === null || scrollCenterY === null) {
       return;
     }
 
-    if (this.lastScrollCenterY === null) {
+    if (this.lastScrollCenterX === null || this.lastScrollCenterY === null) {
+      this.lastScrollCenterX = scrollCenterX;
       this.lastScrollCenterY = scrollCenterY;
       return;
     }
 
+    const deltaX = scrollCenterX - this.lastScrollCenterX;
     const deltaY = scrollCenterY - this.lastScrollCenterY;
+    this.lastScrollCenterX = scrollCenterX;
     this.lastScrollCenterY = scrollCenterY;
 
-    if (deltaY === 0) {
+    if (deltaX === 0 && deltaY === 0) {
       return;
     }
 
-    this.pendingScrollDelta += deltaY * SCROLL_SCALE;
+    this.pendingScrollDeltaX += deltaX * SCROLL_SCALE;
+    this.pendingScrollDeltaY += deltaY * SCROLL_SCALE;
     this.scheduleFlush();
   }
 
@@ -212,7 +219,8 @@ export class TouchpadComponent implements OnDestroy {
       if (
         Math.abs(this.pendingMoveX) >= 1 ||
         Math.abs(this.pendingMoveY) >= 1 ||
-        Math.abs(this.pendingScrollDelta) >= 1
+        Math.abs(this.pendingScrollDeltaX) >= 1 ||
+        Math.abs(this.pendingScrollDeltaY) >= 1
       ) {
         this.scheduleFlush();
       }
@@ -238,14 +246,21 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private flushPendingScroll(): void {
-    const delta = this.clampScrollDelta(Math.round(this.pendingScrollDelta));
+    const deltaX = this.clampScrollDelta(Math.round(this.pendingScrollDeltaX));
+    const deltaY = this.clampScrollDelta(Math.round(this.pendingScrollDeltaY));
 
-    if (delta === 0) {
+    if (deltaX === 0 && deltaY === 0) {
       return;
     }
 
-    this.pendingScrollDelta -= delta;
-    this.sendAction({ type: 'mouseScroll', delta });
+    this.pendingScrollDeltaX -= deltaX;
+    this.pendingScrollDeltaY -= deltaY;
+
+    this.sendAction({
+      type: 'mouseScroll',
+      ...(deltaY !== 0 ? { delta: deltaY } : {}),
+      ...(deltaX !== 0 ? { deltaX } : {}),
+    });
   }
 
   private resolveModeAfterPointerChange(): void {
@@ -253,12 +268,14 @@ export class TouchpadComponent implements OnDestroy {
 
     if (pointerCount === 0) {
       this.pointerMode = 'idle';
+      this.lastScrollCenterX = null;
       this.lastScrollCenterY = null;
       return;
     }
 
     if (pointerCount === 1) {
       this.pointerMode = 'move';
+      this.lastScrollCenterX = null;
       this.lastScrollCenterY = null;
       this.resetRemainingPointerBaseline();
       return;
@@ -269,11 +286,13 @@ export class TouchpadComponent implements OnDestroy {
 
     if (pointerCount === 2) {
       this.pointerMode = 'scroll';
+      this.lastScrollCenterX = this.getAverageX();
       this.lastScrollCenterY = this.getAverageY();
       return;
     }
 
     this.pointerMode = 'ignore';
+    this.lastScrollCenterX = null;
     this.lastScrollCenterY = null;
   }
 
@@ -327,6 +346,20 @@ export class TouchpadComponent implements OnDestroy {
     };
   }
 
+  private getAverageX(): number | null {
+    if (this.pointers.size === 0) {
+      return null;
+    }
+
+    let totalX = 0;
+
+    for (const pointer of this.pointers.values()) {
+      totalX += pointer.x;
+    }
+
+    return totalX / this.pointers.size;
+  }
+
   private getAverageY(): number | null {
     if (this.pointers.size === 0) {
       return null;
@@ -352,10 +385,12 @@ export class TouchpadComponent implements OnDestroy {
   private resetPointers(): void {
     this.pointers.clear();
     this.pointerMode = 'idle';
+    this.lastScrollCenterX = null;
     this.lastScrollCenterY = null;
     this.pendingMoveX = 0;
     this.pendingMoveY = 0;
-    this.pendingScrollDelta = 0;
+    this.pendingScrollDeltaX = 0;
+    this.pendingScrollDeltaY = 0;
 
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);

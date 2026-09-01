@@ -10,7 +10,8 @@ replays them into the interactive Windows session via `SendInput`. This repo als
 tray application, the installer, and GitHub Releases for the whole product.
 
 The Angular client lives in a **separate repository** (`YFRemote.Client`, local path
-`D:\Dev\YFRemote\client\YFRemote.Client`, branch `master`). Its production
+`D:\Dev\YFRemote\client\YFRemote.Client` on the laptop / `D:\Dokumente\Programmieren\YFRemote\client\YFRemote.Client`
+on the PC, branch `master`). Its production
 build is copied into this repo's `wwwroot/` and served as static files — it is not present in a
 normal checkout of this repo and is not built by `dotnet build`.
 

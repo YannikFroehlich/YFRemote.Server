@@ -203,18 +203,32 @@ public sealed class RemoteActionHandler(
 
     private RemoteActionResponse HandleMouseScroll(RemoteActionRequest request)
     {
-        if (request.Delta is null)
+        if (request.Delta is null && request.DeltaX is null)
         {
-            return Fail("Action 'mouseScroll' requires delta.");
+            return Fail("Action 'mouseScroll' requires delta or deltaX.");
         }
 
-        if (!IsInRange(request.Delta.Value, MinMouseScrollDelta, MaxMouseScrollDelta))
+        if (request.Delta is not null && !IsInRange(request.Delta.Value, MinMouseScrollDelta, MaxMouseScrollDelta))
         {
             return Fail($"delta must be between {MinMouseScrollDelta} and {MaxMouseScrollDelta}.");
         }
 
-        logger.LogTrace("Executing mouseScroll action: delta={Delta}", request.Delta.Value);
-        mouseService.Scroll(request.Delta.Value);
+        if (request.DeltaX is not null && !IsInRange(request.DeltaX.Value, MinMouseScrollDelta, MaxMouseScrollDelta))
+        {
+            return Fail($"deltaX must be between {MinMouseScrollDelta} and {MaxMouseScrollDelta}.");
+        }
+
+        if (request.Delta is not null)
+        {
+            logger.LogTrace("Executing mouseScroll action: delta={Delta}", request.Delta.Value);
+            mouseService.Scroll(request.Delta.Value);
+        }
+
+        if (request.DeltaX is not null)
+        {
+            logger.LogTrace("Executing mouseScroll action: deltaX={DeltaX}", request.DeltaX.Value);
+            mouseService.ScrollHorizontal(request.DeltaX.Value);
+        }
 
         return RemoteActionResponse.Ok();
     }

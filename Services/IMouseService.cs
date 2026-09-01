@@ -15,4 +15,6 @@ public interface IMouseService
     void ButtonUp(string button);
 
     void Scroll(int delta);
+
+    void ScrollHorizontal(int delta);
 }

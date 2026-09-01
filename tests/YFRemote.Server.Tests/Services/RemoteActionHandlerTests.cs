@@ -77,6 +77,67 @@ public sealed class RemoteActionHandlerTests
         Assert.AreEqual("Unsupported mouse button: scroll", response.Error);
     }
 
+    [TestMethod]
+    public void Handle_MouseScroll_Vertical_ForwardsDeltaToMouseService()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseScroll", Delta = 120 });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(120, mouseService.LastScrollDelta);
+        Assert.IsNull(mouseService.LastHorizontalScrollDelta);
+    }
+
+    [TestMethod]
+    public void Handle_MouseScroll_Horizontal_ForwardsDeltaXToMouseService()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseScroll", DeltaX = -90 });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(-90, mouseService.LastHorizontalScrollDelta);
+        Assert.IsNull(mouseService.LastScrollDelta);
+    }
+
+    [TestMethod]
+    public void Handle_MouseScroll_VerticalAndHorizontal_ForwardsBothToMouseService()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseScroll", Delta = 30, DeltaX = -30 });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(30, mouseService.LastScrollDelta);
+        Assert.AreEqual(-30, mouseService.LastHorizontalScrollDelta);
+    }
+
+    [TestMethod]
+    public void Handle_MouseScroll_NeitherDeltaNorDeltaX_Fails()
+    {
+        var handler = CreateHandler();
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseScroll" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Action 'mouseScroll' requires delta or deltaX.", response.Error);
+    }
+
+    [TestMethod]
+    public void Handle_MouseScroll_DeltaXOutOfRange_Fails()
+    {
+        var handler = CreateHandler();
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mouseScroll", DeltaX = 1201 });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("deltaX must be between -1200 and 1200.", response.Error);
+    }
+
     private static RemoteActionHandler CreateHandler(
         IInputService? inputService = null,
         RecordingMouseService? mouseService = null)
@@ -135,6 +196,10 @@ public sealed class RemoteActionHandlerTests
 
         public string? LastButtonUp { get; private set; }
 
+        public int? LastScrollDelta { get; private set; }
+
+        public int? LastHorizontalScrollDelta { get; private set; }
+
         public void ButtonDown(string button)
         {
             LastButtonDown = button;
@@ -147,6 +212,12 @@ public sealed class RemoteActionHandlerTests
 
         public void Scroll(int delta)
         {
+            LastScrollDelta = delta;
+        }
+
+        public void ScrollHorizontal(int delta)
+        {
+            LastHorizontalScrollDelta = delta;
         }
     }
 }

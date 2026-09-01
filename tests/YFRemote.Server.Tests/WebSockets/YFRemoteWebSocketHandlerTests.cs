@@ -235,5 +235,9 @@ public sealed class YFRemoteWebSocketHandlerTests
         public void Scroll(int delta)
         {
         }
+
+        public void ScrollHorizontal(int delta)
+        {
+        }
     }
 }

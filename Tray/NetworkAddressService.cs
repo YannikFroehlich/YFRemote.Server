@@ -41,7 +41,7 @@ internal static class NetworkAddressService
             !gateway.Address.Equals(IPAddress.IPv6Any));
     }
 
-    private static bool IsUsableIpv4Address(IPAddress address)
+    internal static bool IsUsableIpv4Address(IPAddress address)
     {
         if (address.AddressFamily != AddressFamily.InterNetwork || IPAddress.IsLoopback(address))
         {

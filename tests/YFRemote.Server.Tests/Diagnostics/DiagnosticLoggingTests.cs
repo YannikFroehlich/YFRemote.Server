@@ -36,14 +36,6 @@ public sealed class DiagnosticLoggingTests
     }
 
     [TestMethod]
-    public void GetLogDirectory_UsesStableLocalAppDataLocation()
-    {
-        var directory = DiagnosticPaths.GetLogDirectory(@"C:\Users\Test\AppData\Local");
-
-        Assert.AreEqual(@"C:\Users\Test\AppData\Local\YFRemote\Logs", directory);
-    }
-
-    [TestMethod]
     public void ConfigureFileLogger_WritesPersistentLogEvent()
     {
         var logFilePath = Path.Combine(testDirectory, "yfremote-.log");

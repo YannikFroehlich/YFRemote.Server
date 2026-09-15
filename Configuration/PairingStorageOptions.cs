@@ -2,6 +2,8 @@ namespace YFRemote.Server.Configuration;
 
 public sealed class PairingStorageOptions
 {
+    public const string SectionName = "PairingStorage";
+
     public string DevicesFilePath { get; init; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "YFRemote",

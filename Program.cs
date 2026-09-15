@@ -101,7 +101,7 @@ internal static class Program
         }
     }
 
-    private static WebApplication BuildApplication(string[] args)
+    internal static WebApplication BuildApplication(string[] args)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -127,7 +127,10 @@ internal static class Program
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
         builder.Services.AddSingleton<WebSocketConnectionRegistry>();
         builder.Services.AddSingleton(TimeProvider.System);
-        builder.Services.AddSingleton<PairingStorageOptions>();
+        var pairingStorageOptions = builder.Configuration
+            .GetSection(PairingStorageOptions.SectionName)
+            .Get<PairingStorageOptions>() ?? new PairingStorageOptions();
+        builder.Services.AddSingleton(pairingStorageOptions);
         builder.Services.AddSingleton<PairingService>();
 
         var app = builder.Build();

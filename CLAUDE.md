@@ -168,3 +168,6 @@ enough to send input, a device must first be paired.
 - Code comments in this repo are sparse and, where present, in German explaining a non-obvious
   "why" (e.g. why an uninstall-hook failure is swallowed). Match that style rather than adding
   English comments.
+- [`CHANGELOG.md`](CHANGELOG.md) tracks every notable change per released version. Add an entry
+  under its `[Unreleased]` section in the same change that adds a feature or fix; once that
+  change is released, rename `[Unreleased]` to the new version/date and start a fresh empty one.

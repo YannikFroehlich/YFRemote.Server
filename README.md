@@ -58,7 +58,8 @@ In-depth guides live in the [wiki](https://github.com/YannikFroehlich/YFRemote.S
 All ready-to-run downloads (installer, portable build, MSI) are on the
 [latest GitHub Release](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest).
 Short version: download and run the installer, then enter the PIN from the tray
-menu on the controlling device — done.
+menu on the controlling device — done. See [`CHANGELOG.md`](CHANGELOG.md) for what
+changed in each version.
 
 ## Security
 

@@ -366,14 +366,16 @@ publication, increment the semantic version and create a new tag.
 Server-only, Client-only, and combined changes all follow the same path — the Client is no
 longer a separate repository, so there is no ordering constraint and no manual step.
 
-1. Run the relevant Client and Server checks before merging (see "Validation" above).
-2. Merge to `main` — use Conventional Commit prefixes (`fix:`, `feat:`,
+1. Add an entry for the change under `[Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md).
+2. Run the relevant Client and Server checks before merging (see "Validation" above).
+3. Merge to `main` — use Conventional Commit prefixes (`fix:`, `feat:`,
    `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the automatic version bump is
    meaningful. Add `[skip release]` to the merge commit message to merge without releasing.
-3. `auto-tag.yml` fires automatically on the merge, computes the next version, and invokes
+4. `auto-tag.yml` fires automatically on the merge, computes the next version, and invokes
    `release.yml`. No manual tagging step is needed.
-4. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
-   assets.
+5. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
+   assets, then rename `[Unreleased]` in `CHANGELOG.md` to the version/date that was just
+   published and start a fresh empty `[Unreleased]` section above it.
 
 Fallback if the automated workflow is unavailable: tag the intended `main` commit by hand
 and push the tag, which triggers `release.yml` directly.

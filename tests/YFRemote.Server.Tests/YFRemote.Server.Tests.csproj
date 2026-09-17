@@ -2,6 +2,10 @@
 
   <PropertyGroup>
     <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
+    <!-- Siehe EnableWindowsTargeting in YFRemote.Server.csproj: noetig, damit Restore/Build
+         dieses ebenfalls crosstargeted Projekts auf einem echten Linux Build Host nicht mit
+         NETSDK1100 abbricht, auch wenn nur das net10.0 Ziel gebraucht wird. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>

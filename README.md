@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/YannikFroehlich/YFRemote.Client/master/public/favicon.ico" alt="YFRemote-Logo" width="180">
+  <img src="https://raw.githubusercontent.com/YannikFroehlich/YFRemote.Server/main/client/public/favicon.ico" alt="YFRemote-Logo" width="180">
 </p>
 
 # YFRemote
@@ -51,10 +51,10 @@ wird beim ersten Start automatisch als Profil „Standard“ übernommen.
 
 ## Für Entwickler
 
-YFRemote besteht aus zwei öffentlichen Repositories:
+YFRemote liegt vollständig in diesem Repository:
 
-- [`YFRemote.Client`](https://github.com/YannikFroehlich/YFRemote.Client): Angular-Oberfläche
-- [`YFRemote.Server`](https://github.com/YannikFroehlich/YFRemote.Server): .NET-Server, Tray-App, Installer und Updates
+- [`client/`](client): Angular-Oberfläche
+- Repository-Wurzel: .NET-Server, Tray-App, Installer und Updates
 
 Server starten:
 
@@ -62,6 +62,16 @@ Server starten:
 dotnet restore
 dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
 dotnet run
+```
+
+Client bauen und in den Server einbinden:
+
+```powershell
+cd client
+npm ci
+npm run build
+cd ..
+Copy-Item client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
 ```
 
 Details zu Entwicklungsumgebung, Client-Integration und Endpunkten stehen im Wiki

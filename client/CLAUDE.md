@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in `client/`.
+The .NET server, the tray application, and the release automation live in the repository root —
+see the root [CLAUDE.md](../CLAUDE.md) and [AGENTS.md](../AGENTS.md), which are authoritative for
+anything release-related.
 
 ## What this is
 
@@ -10,9 +13,10 @@ the server's tray menu, exchanged for a device token over `POST /pair`); once pa
 over a same-origin WebSocket to a companion server process (`ws(s)://<page-origin>/ws?token=...`) and streams key
 presses, hotkeys, mouse moves/clicks/scrolls as JSON messages, and the server replies with
 `{ success: true }` or `{ success: false, error?: string }`.
-The server lives in a sibling repo (`../../server` relative to this one, currently empty/not yet
-started) — this repo only implements the client UI and protocol, it does not implement or mock a
-real server beyond tests.
+The server lives in the repository root (one level up). This directory implements only the client
+UI and protocol; it does not implement or mock a real server beyond tests. The production build
+from `dist/YFRemote.Client/browser/` is copied into the server's `wwwroot/` — locally by hand, and
+by `release.yml` when packaging a release.
 
 ## Commands
 

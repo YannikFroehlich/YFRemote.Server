@@ -1,106 +1,105 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/YannikFroehlich/YFRemote.Server/main/client/public/brand-mark.png" alt="YFRemote-Logo" width="160">
+  <img src="https://raw.githubusercontent.com/YannikFroehlich/YFRemote.Server/main/client/public/brand-mark.png" alt="YFRemote logo" width="160">
 </p>
 
 <h1 align="center">YFRemote</h1>
 
 <p align="center">
-  Smartphone, Tablet oder Zweit-PC als Fernbedienung für Tastatur und Maus eines Windows-Rechners.
+  Turn a smartphone, tablet, or second computer into a keyboard-and-mouse remote control for a Windows PC.
 </p>
 
 <p align="center">
-  <a href="https://github.com/YannikFroehlich/YFRemote.Server/releases/latest"><img alt="Neuestes Release" src="https://img.shields.io/github/v/release/YannikFroehlich/YFRemote.Server?label=Release&color=2ea44f"></a>
-  <a href="https://github.com/YannikFroehlich/YFRemote.Server/actions/workflows/ci.yml"><img alt="Build-Status" src="https://github.com/YannikFroehlich/YFRemote.Server/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/YannikFroehlich/YFRemote.Server/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/YannikFroehlich/YFRemote.Server?label=Release&color=2ea44f"></a>
+  <a href="https://github.com/YannikFroehlich/YFRemote.Server/actions/workflows/ci.yml"><img alt="Build status" src="https://github.com/YannikFroehlich/YFRemote.Server/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/YannikFroehlich/YFRemote.Server/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/YannikFroehlich/YFRemote.Server/total?color=blue"></a>
-  <img alt="Plattform" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows&logoColor=white">
+  <img alt="Platform" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows&logoColor=white">
 </p>
 
-YFRemote verwandelt ein Smartphone, Tablet oder einen zweiten Computer in eine
-Fernbedienung für einen Windows-PC. Die Anwendung läuft unauffällig im Infobereich
-der Taskleiste und stellt die Bedienoberfläche im lokalen Netzwerk über den Browser
-bereit — keine App-Installation auf dem Steuergerät nötig.
+YFRemote turns a smartphone, tablet, or second computer into a remote control for
+a Windows PC. It runs quietly in the taskbar's notification area and serves its
+control UI over the local network through a browser — no app install required on
+the controlling device.
 
 ```mermaid
 flowchart LR
-    A["📱 Smartphone / Tablet<br/>Browser-Oberfläche"] -- "WebSocket (ws/wss)" --> B["🖥️ YFRemote-Server<br/>Tray-App unter Windows"]
-    B -- "SendInput" --> C["⌨️🖱️ Windows-Sitzung<br/>Tastatur & Maus"]
+    A["📱 Smartphone / Tablet<br/>Browser UI"] -- "WebSocket (ws/wss)" --> B["🖥️ YFRemote Server<br/>Windows tray app"]
+    B -- "SendInput" --> C["⌨️🖱️ Windows session<br/>Keyboard & mouse"]
 ```
 
-## Funktionen
+## Features
 
-- **Touchpad & Tastatur** — Mausbewegung, Klicks, Scrollen sowie Tastendrücke und
-  Hotkeys per Touch, latenzarm über WebSocket.
-- **Individuelle Buttons & Makros** — eigene Schaltflächen mit Tasten-/Hotkey-Aktionen frei
-  auf einem Raster platzieren; Mehrschritt-Makros warten auf die Server-Bestätigung
-  jedes einzelnen Schritts.
-- **Layoutprofile** — mehrere benannte Button-Layouts anlegen, wechseln und als JSON
-  exportieren/importieren, um sie auf einem anderen Gerät wiederzuverwenden.
-- **Sichere Kopplung** — Verbindung nur nach PIN-Eingabe oder Scan eines QR-Codes;
-  gekoppelte Geräte lassen sich jederzeit im Tray-Menü einsehen und widerrufen.
-- **Tray-Integration** — Geräteadresse, PIN, gekoppelte Geräte und Updates direkt aus
-  dem Infobereich der Taskleiste, ohne separates Fenster.
-- **Automatische Updates** — Update-Prüfung im Hintergrund und Ein-Klick-Installation
-  über Velopack, Bezug aus den öffentlichen GitHub Releases dieses Repositories.
-- **Nachvollziehbare Diagnose** — rotierende Logdateien ohne PINs, Tokens oder
-  eingegebene Texte, direkt über das Tray-Menü erreichbar.
-- **Linux-Unterstützung (Beta)** — ein `uinput`-basierter Eingabe-Backend-Zweig existiert
-  und ist unit-getestet, wurde aber noch nicht gegen einen echten Linux-Kernel verifiziert
-  (Details in [`AGENTS.md`](AGENTS.md)).
+- **Touchpad & keyboard** — mouse movement, clicks, and scrolling plus key presses
+  and hotkeys via touch, low-latency over WebSocket.
+- **Custom buttons & macros** — place your own buttons with key/hotkey actions
+  freely on a grid; multi-step macros wait for the server's acknowledgement of
+  each individual step.
+- **Layout profiles** — create and switch between multiple named button layouts,
+  and export/import them as JSON to reuse on another device.
+- **Secure pairing** — connections require a PIN or a scanned QR code first;
+  paired devices can be viewed and revoked at any time from the tray menu.
+- **Tray integration** — device address, PIN, paired devices, and updates, all
+  from the notification area, with no separate window.
+- **Automatic updates** — background update checks and one-click installation via
+  Velopack, sourced from this repository's public GitHub Releases.
+- **Traceable diagnostics** — rotating log files that never contain PINs, tokens,
+  or typed text, reachable directly from the tray menu.
+- **Linux support (beta)** — a `uinput`-based input backend exists and is
+  unit-tested, but has not yet been verified against a real Linux kernel
+  (details in [`AGENTS.md`](AGENTS.md)).
 
-## Erste Schritte
+## Getting started
 
-Ausführliche Anleitungen stehen im [Wiki](https://github.com/YannikFroehlich/YFRemote.Server/wiki):
+In-depth guides live in the [wiki](https://github.com/YannikFroehlich/YFRemote.Server/wiki) (German):
 
-- [Installation](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Installation) — Voraussetzungen, Download, Installationsschritte, Deinstallieren
-- [Verwendung](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Verwendung) — Bedienung, Verbindung herstellen, Updates
-- [Fehlerbehebung](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Fehlerbehebung) — Lösungen für häufige Probleme
+- [Installation](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Installation) — requirements, download, install steps, uninstalling
+- [Usage](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Verwendung) — operation, connecting, updates
+- [Troubleshooting](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Fehlerbehebung) — solutions for common problems
 
-Alle fertigen Downloads (Installer, portable Version, MSI) befinden sich im
-[aktuellen GitHub Release](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest).
-Kurzfassung: Installer herunterladen und ausführen, PIN aus dem Tray-Menü auf dem
-Steuergerät eingeben — fertig.
+All ready-to-run downloads (installer, portable build, MSI) are on the
+[latest GitHub Release](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest).
+Short version: download and run the installer, then enter the PIN from the tray
+menu on the controlling device — done.
 
-## Sicherheit
+## Security
 
-Ein Gerät muss sich einmalig über eine PIN koppeln, bevor es Steuerbefehle senden
-kann. Die aktuelle PIN wird im Tray-Menü von YFRemote angezeigt (dort auch als
-Kopie verfügbar und über "PIN neu erzeugen" austauschbar). Ein QR-Dialog öffnet die
-Geräteadresse auf dem Mobilgerät und kann die PIN auf Wunsch im URL-Fragment
-vorausfüllen, ohne sie an den HTTP-Server zu übertragen. Nach einer erfolgreichen
-Kopplung wird automatisch eine neue PIN erzeugt. Das Gerät erhält erst dann ein
-dauerhaftes Token, wenn seine Kopplung sicher gespeichert wurde; im Tray-Menü
-lassen sich gekoppelte Geräte einsehen und einzeln wieder entfernen. Im Client kann
-das aktuelle Gerät unter Einstellungen mit „Dieses Gerät entkoppeln“ sein Token
-zusätzlich selbst serverseitig widerrufen.
-Verwende YFRemote trotzdem nur in einem vertrauenswürdigen privaten Netzwerk und gib
-Port `5050` im Router nicht für das Internet frei. Details siehe
-[Sicherheit](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) im Wiki.
+A device must pair once via a PIN before it can send control commands. The
+current PIN is shown in YFRemote's tray menu (also available to copy, and
+replaceable via "regenerate PIN"). A QR dialog opens the device address on the
+mobile device and can optionally pre-fill the PIN in the URL fragment, without
+transmitting it to the HTTP server. A new PIN is generated automatically after a
+successful pairing. A device only receives a permanent token once its pairing
+has been safely persisted; paired devices can be viewed and individually removed
+from the tray menu. In the client, the current device can also revoke its own
+token server-side via "Unpair this device" in settings.
+Still, only use YFRemote on a trusted private network, and don't forward port
+`5050` to the internet on your router. See
+[Security](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) in
+the wiki for details.
 
-## Diagnose
+## Diagnostics
 
-YFRemote schreibt rotierende Laufzeitprotokolle nach
-`%LOCALAPPDATA%\YFRemote\Logs`. Über "Diagnoseordner öffnen" im Tray-Menü lässt sich
-der Ordner direkt öffnen. Die Protokolle rotieren täglich sowie bei 10 MB Größe; die
-neuesten 14 Dateien bleiben erhalten. PINs, Tokens und eingegebene Texte werden nicht
-protokolliert.
+YFRemote writes rotating runtime logs to `%LOCALAPPDATA%\YFRemote\Logs`. "Open
+diagnostics folder" in the tray menu opens it directly. Logs rotate daily and at
+10 MB; the newest 14 files are kept. PINs, tokens, and typed text are never
+logged.
 
-## Layoutprofile
+## Layout profiles
 
-Eigene Buttons, Makros und deren Anordnung lassen sich in benannten Profilen speichern
-und direkt wechseln. Unter Einstellungen können alle Profile als JSON-Datei exportiert
-und auf einem anderen Gerät wieder importiert werden. Ein vorhandenes Einzel-Layout
-wird beim ersten Start automatisch als Profil „Standard“ übernommen.
+Custom buttons, macros, and their arrangement can be saved into named profiles
+and switched between directly. Settings lets you export all profiles as a JSON
+file and import them again on another device. An existing single layout is
+automatically adopted as the "Default" profile on first launch.
 
-## Für Entwickler
+## For developers
 
-YFRemote liegt vollständig in diesem Repository:
+YFRemote lives entirely in this repository:
 
-| Bereich | Ort | Technologie |
+| Area | Location | Technology |
 | --- | --- | --- |
-| Server, Tray-App, Installer, Releases | Repository-Wurzel | .NET (`net10.0-windows` / `net10.0`) |
-| Bedienoberfläche | [`client/`](client) | Angular 21, zoneless, Signals |
+| Server, tray app, installer, releases | Repository root | .NET (`net10.0-windows` / `net10.0`) |
+| Control UI | [`client/`](client) | Angular 21, zoneless, signals |
 
-Server starten:
+Start the server:
 
 ```powershell
 dotnet restore
@@ -108,7 +107,7 @@ dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configura
 dotnet run
 ```
 
-Client bauen und in den Server einbinden:
+Build the client and wire it into the server:
 
 ```powershell
 cd client
@@ -119,7 +118,9 @@ New-Item -ItemType Directory -Path wwwroot -Force | Out-Null
 Copy-Item client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
 ```
 
-Details zu Entwicklungsumgebung, Client-Integration und Endpunkten stehen im Wiki
-unter [Entwicklung](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Entwicklung).
-Zum Release-Prozess siehe [Release-Prozess](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Release-Prozess)
-im Wiki sowie [`AGENTS.md`](AGENTS.md).
+Details on the development environment, client integration, and endpoints live
+in the wiki under
+[Development](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Entwicklung).
+For the release process, see
+[Release process](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Release-Prozess)
+in the wiki, as well as [`AGENTS.md`](AGENTS.md).

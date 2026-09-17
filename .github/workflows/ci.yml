@@ -1,8 +1,11 @@
 name: CI
 
-# Baut und testet den Server bei jedem Pull Request, unabhaengig vom
+# Baut und testet Server und Client bei jedem Pull Request, unabhaengig vom
 # Release-Workflow (der nur bei Push/Tag auf main laeuft). Verhindert, dass ein
 # kaputter Build oder fehlschlagende Tests erst beim Release-Versuch auffallen.
+#
+# Beide Jobs laufen immer, ohne paths-Filter: die Laufzeit ist gering und ein
+# Filter wuerde nur verdecken, dass der Server den gebauten Client ausliefert.
 
 on:
   pull_request:
@@ -40,3 +43,29 @@ jobs:
         run: >-
           dotnet test tests/YFRemote.Server.Tests/YFRemote.Server.Tests.csproj
           --configuration Release
+
+  client:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Auschecken
+        uses: actions/checkout@v6
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Abhaengigkeiten installieren
+        working-directory: client
+        run: npm ci
+
+      - name: Client testen
+        working-directory: client
+        run: npm test -- --watch=false
+
+      - name: Client bauen
+        working-directory: client
+        run: npm run build

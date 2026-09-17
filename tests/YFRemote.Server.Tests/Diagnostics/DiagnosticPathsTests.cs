@@ -8,9 +8,14 @@ public sealed class DiagnosticPathsTests
     [TestMethod]
     public void GetLogDirectory_UsesStableLocalAppDataLocation()
     {
-        var directory = DiagnosticPaths.GetLogDirectory(@"C:\Users\Test\AppData\Local");
+        // Path.Combine statt eines hartcodierten Windows-Pfads: GetLogDirectory haengt nur
+        // "YFRemote"/"Logs" an, das Trennzeichen selbst ist plattformabhaengig (\ unter
+        // Windows, / unter Linux) und kein Teil des zu testenden Verhaltens.
+        var localApplicationData = Path.Combine("base", "Users", "Test", "AppData", "Local");
 
-        Assert.AreEqual(@"C:\Users\Test\AppData\Local\YFRemote\Logs", directory);
+        var directory = DiagnosticPaths.GetLogDirectory(localApplicationData);
+
+        Assert.AreEqual(Path.Combine(localApplicationData, "YFRemote", "Logs"), directory);
     }
 
     [TestMethod]

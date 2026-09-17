@@ -113,7 +113,20 @@ not evidence of a WinForms dependency). The two integration tests that open a re
 `Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket` in
 `tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are still `#if WINDOWS`-only:
 they exercise the full `/ws` pipeline including a real input-service call, which this repo's
-Windows-hosted CI can't do for the Linux target either.
+Windows-hosted CI can't do for the Linux target either. Two `PairingServiceTests` are `#if
+WINDOWS`-only for a related but different reason:
+`RemoveDevice_WhenWriteFails_RollsBackAndCanBeRetried` and
+`RemoveDeviceByToken_WhenWriteFails_KeepsTheTokenValidForRetry` simulate a write failure by
+opening `devices.json` with `FileShare.None`. Windows enforces that as a mandatory lock (a second
+handle on the same path fails); POSIX/Linux locking is advisory only, and `File.Replace`
+(`rename()`) doesn't check other open handles at all, so the write just succeeds and the test's
+precondition never triggers. The actual rollback code path (`TryPersistDevices` catching any
+exception from `PersistDevicesAtomically`) is shared by `TryPair`/`RemoveDevice`/
+`RemoveDeviceByToken` alike and stays covered on both platforms via
+`TryPair_WhenWriteFails_RollsBackDeviceAndKeepsPinUsable`, which induces the failure with a
+blocking file in place of a directory instead — a portable failure mode, unlike exclusive
+locking. This is a real gap in the original Linux plan's assumption that "Pairing, WebSockets,
+Integration" tests would run unchanged on both platforms; they mostly do, but not these two.
 
 **Multi-targeting broke `dotnet publish` without `-f`.** `dotnet publish YFRemote.Server.csproj`
 used to infer the single `net10.0-windows` target; once the project multi-targets, `publish`
@@ -121,6 +134,17 @@ used to infer the single `net10.0-windows` target; once the project multi-target
 `NETSDK1129`. `release.yml`'s existing Windows publish step now passes
 `--framework net10.0-windows` explicitly. Keep this in mind for any other `dotnet publish`
 invocation added later (locally or in a workflow) — it needs an explicit `-f`/`--framework` now.
+
+**Multi-targeting also needs `EnableWindowsTargeting=true` to restore/build at all on a
+non-Windows host** (set in both `YFRemote.Server.csproj` and the test project). `-f`/`--framework`
+only scopes which single `TargetFramework` a `build`/`test`/`publish` invocation *builds*; the
+*restore* step for a crosstargeted project always evaluates the complete `TargetFrameworks` list
+first to compute the NuGet dependency graph, regardless of `-f`. Without this property, that
+restore-time evaluation of `net10.0-windows` fails on a real Linux host with `NETSDK1100` ("set
+the EnableWindowsTargeting property to true") — this bit the first real run of `ci.yml`'s `linux`
+job even with `--framework net10.0` already on every command. The property lets restore/build
+resolve Windows-only reference assemblies from NuGet on any host OS (it doesn't let you produce a
+runnable Windows executable from Linux); it's a no-op on Windows, which already resolves natively.
 
 **Linux release packaging (`release-linux` job in `release.yml`).** Runs `needs: release` after
 the existing Windows job, so it reuses the same tag/version/commit and does not rebuild the

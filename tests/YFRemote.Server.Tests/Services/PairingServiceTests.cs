@@ -91,6 +91,14 @@ public sealed class PairingServiceTests
         Assert.HasCount(1, service.GetPairedDevices());
     }
 
+    // Simuliert den Schreibfehlschlag ueber eine exklusive FileShare.None-Sperre: Windows
+    // erzwingt diese Sperre (ein zweiter Handle auf denselben Pfad scheitert), POSIX/Linux
+    // File-Locking ist nur "advisory" - File.Replace (rename()) prueft dort keine fremden
+    // offenen Handles und schreibt einfach durch, der Test-Fehlschlag tritt also nicht ein.
+    // Der eigentliche Rollback-Pfad (TryPersistDevices faengt jede Exception ab) ist derselbe
+    // Code wie in TryPair_WhenWriteFails_RollsBackDeviceAndKeepsPinUsable, die plattform-
+    // uebergreifend mit einer blockierenden Datei statt eines Verzeichnisses laeuft.
+#if WINDOWS
     [TestMethod]
     public void RemoveDevice_WhenWriteFails_RollsBackAndCanBeRetried()
     {
@@ -111,6 +119,7 @@ public sealed class PairingServiceTests
         Assert.IsEmpty(service.GetPairedDevices());
         Assert.IsEmpty(CreateService().GetPairedDevices());
     }
+#endif
 
     [TestMethod]
     public void RemoveDeviceByToken_RemovesOnlyTheMatchingPersistedDevice()
@@ -148,6 +157,8 @@ public sealed class PairingServiceTests
         Assert.HasCount(1, CreateService().GetPairedDevices());
     }
 
+    // Gleiche Einschraenkung wie RemoveDevice_WhenWriteFails_RollsBackAndCanBeRetried oben.
+#if WINDOWS
     [TestMethod]
     public void RemoveDeviceByToken_WhenWriteFails_KeepsTheTokenValidForRetry()
     {
@@ -174,6 +185,7 @@ public sealed class PairingServiceTests
         Assert.AreEqual(expectedDeviceId, secondDeviceId);
         Assert.IsFalse(service.IsValidToken(pairResponse.Token));
     }
+#endif
 
     [TestMethod]
     public void LoadDevices_WhenPrimaryIsDamaged_RecoversAndPreservesValidBackup()

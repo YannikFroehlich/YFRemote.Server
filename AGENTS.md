@@ -98,8 +98,7 @@ WebSocket → uinput → visible cursor/keystrokes on the Ubuntu desktop). Until
 at least once, treat the exact ioctl request codes, the legacy `uinput_user_dev` struct layout,
 and the `input_event` struct size (24 bytes, assumed for 64-bit `long` time fields on x64/arm64)
 as unverified against a real kernel, even though they match well-established values used by other
-uinput bindings (e.g. `ydotool`, the Go `uinput` package). Linux release channels/packaging in
-`release.yml`/`ci.yml` (Stufe 3 of the plan) are not implemented. Verify portability with:
+uinput bindings (e.g. `ydotool`, the Go `uinput` package). Verify portability with:
 
 ```powershell
 dotnet build --configuration Release
@@ -115,6 +114,50 @@ not evidence of a WinForms dependency). The two integration tests that open a re
 `tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are still `#if WINDOWS`-only:
 they exercise the full `/ws` pipeline including a real input-service call, which this repo's
 Windows-hosted CI can't do for the Linux target either.
+
+**Multi-targeting broke `dotnet publish` without `-f`.** `dotnet publish YFRemote.Server.csproj`
+used to infer the single `net10.0-windows` target; once the project multi-targets, `publish`
+(unlike `build`/`test`, which happily build/run every target) refuses to guess and fails with
+`NETSDK1129`. `release.yml`'s existing Windows publish step now passes
+`--framework net10.0-windows` explicitly. Keep this in mind for any other `dotnet publish`
+invocation added later (locally or in a workflow) — it needs an explicit `-f`/`--framework` now.
+
+**Linux release packaging (`release-linux` job in `release.yml`).** Runs `needs: release` after
+the existing Windows job, so it reuses the same tag/version/commit and does not rebuild the
+Angular client — the Windows job uploads its assembled `wwwroot/` as a build artifact
+(`actions/upload-artifact`), which this job downloads instead of running `npm` again, keeping the
+"Server and Client come from one commit" guarantee. It matrixes over `linux-x64` (on
+`ubuntu-latest`) and `linux-arm64` (on `ubuntu-24.04-arm`, a native ARM64 runner, free for public
+repos) rather than cross-packing arm64 from an x64 runner — the plan explicitly left that
+cross-packing question open, so this sidesteps it. Each leg publishes self-contained
+(`dotnet publish -f net10.0 -r <rid>`), then runs `vpk pack`/`vpk download`/`vpk upload` with
+`--channel <rid>` so Velopack keeps a separate feed per architecture
+(`releases.linux-x64.json`/`releases.linux-arm64.json`) alongside the untouched
+`releases.win.json` — an installed Windows client never sees the Linux packages. `--mainExe` has
+no `.exe` suffix on Linux. **This job has never actually run** (no release has happened since it
+was added) — before it runs for a real release, treat as open questions: whether `vpk upload
+--publish` cleanly adds packages to a tag/release the Windows job already published (rather than
+erroring or duplicating), whether the `ubuntu-24.04-arm` runner label is correct/available, and
+packaging icon format for the Linux `vpk pack` step (intentionally omitted here rather than
+guessing — Windows uses `--icon client/public/favicon.ico`, a `.ico`, which AppImage packaging
+may not accept as-is).
+
+**CI (`linux` job in `ci.yml`).** Runs on every PR alongside `build-and-test` (Windows,
+`net10.0-windows`) and `client`, building and testing the `net10.0` target on `ubuntu-latest`. Not
+named `build-and-test` and not a required check, matching the existing `client` job's status —
+see "Release automation" above for why the required check's name must not change. Note that
+`build-and-test` itself now also builds/tests `net10.0` on `windows-latest` as a side effect of
+`dotnet build`/`dotnet test` (unlike `publish`) building every target by default when `-f` is
+omitted; the new `linux` job additionally proves the `net10.0` target on a real Linux runner.
+
+**Autostart (`packaging/linux/yfremote.service`).** A `systemd --user` unit, the Linux
+counterpart to `WindowsStartupService`/the `HKCU\...\Run` entry — starts at user login, not at
+boot (`loginctl enable-linger` documented in the file for boot-time start without login).
+`ExecStart` assumes Velopack installs to `~/.local/share/YFRemote/current/...`, mirroring
+`%LOCALAPPDATA%\YFRemote\current\...` on Windows (consistent with
+`SpecialFolder.LocalApplicationData` resolving to `~/.local/share` on Linux, already used by
+`PairingStorageOptions`/`DiagnosticPaths`) — **unverified**, since no Linux Velopack install has
+happened yet; the path may need correcting once one has.
 
 ## Tray application
 

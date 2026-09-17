@@ -1,4 +1,4 @@
-namespace YFRemote.Server.Tray;
+namespace YFRemote.Server.Services;
 
 internal static class PairingQrCodePayload
 {

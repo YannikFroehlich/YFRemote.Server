@@ -36,9 +36,12 @@ into the publish output.
   host or port performs a full-page navigation to the new server so the connection
   remains same-origin. The Angular development server proxies these paths to the
   default local Server on port `5050`.
-- The Server targets `net10.0-windows`, uses Windows Forms, and has
-  `OutputType=WinExe`, so a normal installed launch has no terminal window.
-- Only one Server instance may run at a time.
+- The Server multi-targets `net10.0-windows;net10.0` (see [Linux support](#linux-support)
+  below). On `net10.0-windows` it uses Windows Forms and has `OutputType=WinExe`, so a
+  normal installed launch has no terminal window; on plain `net10.0` it is a console `Exe`.
+  Only the Windows build ships or is released today.
+- Only one Server instance may run at a time (Windows: a named `Mutex`; the headless build
+  has no tray/mutex and relies on the port bind failing instead).
 - A successful pairing is acknowledged only after its hashed device token has been
   atomically persisted to `%LOCALAPPDATA%\YFRemote\devices.json`; the previous valid
   state is retained as `devices.json.bak`. The used PIN rotates immediately after a
@@ -48,6 +51,43 @@ into the publish output.
 - Client button layouts are grouped into named browser-local profiles. The legacy single
   layout is migrated to `Standard`; JSON export/import contains every profile, custom
   button, macro, and the active profile selection.
+
+## Linux support
+
+The project multi-targets `net10.0-windows;net10.0` from one `.csproj` (no separate class
+library) so the same code and Git history serve both platforms. `Tray\**`, `Services\Windows*.cs`
+(the `SendInput`-based `WindowsInputSender`/`WindowsInputService`/`WindowsMouseService` and
+`WindowsStartupService`), and `Updates\**` (Velopack) are excluded from the `net10.0` compile via
+`<Compile Remove>` in `YFRemote.Server.csproj`, not `#ifdef`. `Program.cs` itself is split with a
+`#if WINDOWS` / `#else` on `Main`: the SDK defines the `WINDOWS` preprocessor symbol automatically
+for the `-windows` target, so `RunWindows` (Velopack lifecycle, single-instance `Mutex`, tray)
+compiles only there, and `RunLinux` (`BuildApplication` + blocking `app.Run()`, startup errors to
+`Console.Error` instead of a `MessageBox`) only for `net10.0`. The three DI registrations for
+`WindowsInputSender`/`IInputService`/`IMouseService` in `Program.BuildApplication` are likewise
+`#if WINDOWS`-only. `NetworkAddressService` and `PairingQrCodePayload` live in `Services/` (not
+`Tray/`) because they are BCL-only and needed on both platforms. The test project mirrors this:
+`tests/YFRemote.Server.Tests.csproj` also multi-targets, excluding `**\Windows*Tests.cs` and
+`Updates\**` for `net10.0`.
+
+**Current status: build/test/publish portability only, not a working Linux server yet.** There is
+no Linux input backend (`IInputService`/`IMouseService` have no Linux implementation), so on
+`net10.0` a `/ws` connection attempt returns `500` instead of upgrading — the two integration
+tests that open a real WebSocket (`WebSocket_WithValidTokenAndOrigin_Connects`,
+`Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket` in
+`tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are `#if WINDOWS`-only for the
+same reason. A planned `uinput`-based `LinuxInputSender`/`LinuxInputService`/`LinuxMouseService`
+(virtual `/dev/uinput` device, needs a real Linux box or bridged VM to verify) and Linux release
+channels/packaging in `release.yml`/`ci.yml` are not implemented. Verify portability with:
+
+```powershell
+dotnet build --configuration Release
+dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
+dotnet publish -c Release -f net10.0 -r linux-arm64 --self-contained true -o publish-linux
+```
+
+The publish output should be an ELF binary with no `System.Windows.Forms.dll`, `Velopack.dll`, or
+`QRCoder.dll` — `System.Drawing*.dll` is expected (a baseline self-contained-deployment assembly,
+not evidence of a WinForms dependency).
 
 ## Tray application
 

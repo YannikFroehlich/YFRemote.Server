@@ -1,11 +1,15 @@
 using Microsoft.Extensions.FileProviders;
 using System.Text.Json;
+#if WINDOWS
 using Velopack;
+#endif
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Diagnostics;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
+#if WINDOWS
 using YFRemote.Server.Tray;
+#endif
 using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server;
@@ -16,6 +20,16 @@ internal static class Program
 
     [STAThread]
     private static void Main(string[] args)
+    {
+#if WINDOWS
+        RunWindows(args);
+#else
+        RunLinux(args);
+#endif
+    }
+
+#if WINDOWS
+    private static void RunWindows(string[] args)
     {
         VelopackApp.Build()
             .OnBeforeUninstallFastCallback(_ =>
@@ -85,6 +99,38 @@ internal static class Program
             }
         }
     }
+#else
+    // Kein Tray, kein Velopack-Lifecycle, kein Mutex: ein fehlgeschlagenes Port-Binding sagt
+    // bereits "es laeuft schon eine Instanz", ganz ohne separate Einzelinstanz-Pruefung.
+    private static void RunLinux(string[] args)
+    {
+        WebApplication? app = null;
+
+        try
+        {
+            app = BuildApplication(args);
+            app.Logger.LogInformation(
+                "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
+                DiagnosticPaths.LogDirectory);
+            app.Run();
+        }
+        catch (Exception exception)
+        {
+            try
+            {
+                app?.Logger.LogCritical(exception, "YFRemote.Server failed to start.");
+            }
+            catch
+            {
+                // Der separate Startfehler-Fallback unten muss auch bei einem Loggerfehler laufen.
+            }
+
+            WriteStartupError(exception);
+            Console.Error.WriteLine(
+                $"YFRemote konnte nicht gestartet werden.{Environment.NewLine}{Environment.NewLine}{exception.Message}");
+        }
+    }
+#endif
 
     private static void WriteStartupError(Exception exception)
     {
@@ -120,9 +166,11 @@ internal static class Program
         builder.WebHost.UseUrls(serverOptions.Url);
 
         builder.Services.AddSingleton(serverOptions);
+#if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
+#endif
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
         builder.Services.AddSingleton<WebSocketConnectionRegistry>();
@@ -328,6 +376,7 @@ internal static class Program
         return token.Length == 0 ? null : token;
     }
 
+#if WINDOWS
     private static void StopAndDisposeApplication(WebApplication app)
     {
         try
@@ -339,4 +388,5 @@ internal static class Program
             app.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
+#endif
 }

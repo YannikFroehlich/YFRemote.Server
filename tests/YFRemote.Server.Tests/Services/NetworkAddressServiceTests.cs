@@ -1,7 +1,7 @@
 using System.Net;
-using YFRemote.Server.Tray;
+using YFRemote.Server.Services;
 
-namespace YFRemote.Server.Tests.Tray;
+namespace YFRemote.Server.Tests.Services;
 
 [TestClass]
 public sealed class NetworkAddressServiceTests

@@ -15,6 +15,11 @@ the server project's globs via `DefaultItemExcludes`; its production build is co
 `wwwroot/` (gitignored) and served as static files. Server and client are therefore versioned
 and released from a single commit.
 
+The Server project multi-targets `net10.0-windows;net10.0` so build/test/publish portability
+onto Linux can be proven without breaking the shipped Windows build — see AGENTS.md's
+"Linux support" section. Only the Windows target is released today; there is no Linux input
+backend yet.
+
 **Merging to `main` is release-related.** A push to `main` automatically triggers
 `auto-tag.yml`, which computes the next semantic version from commit messages and invokes
 `release.yml` to build, package, and publish a public GitHub Release — there is no separate
@@ -88,6 +93,9 @@ crashing silently.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
 - `GET /pair/status` → lets a client check whether a previously-issued token is still valid
   without opening a WebSocket (`PairingService.IsValidToken`).
+- `DELETE /pair` → removes the device identified by the `Bearer` token
+  (`PairingService.RemoveDeviceByToken`) and force-closes any open `/ws` connection for that
+  device via `WebSocketConnectionRegistry.CloseConnections`.
 - Static files from `wwwroot` (the Angular client's production build, copied in from `client/`)
   with SPA fallback to `index.html` if present.
 
@@ -141,10 +149,11 @@ damaged. Pairing only succeeds after that write, then immediately rotates the us
 pairing and removal writes roll back their in-memory change. `LastSeenUtc` updates immediately in
 memory and is persisted on a five-minute throttle. Failed pairing attempts are rate-limited per
 client IP
-(5 attempts → 60s lockout), in-memory only. Removing a device in the tray only blocks *future*
-`/ws` connections — an already-open socket is not force-closed. This closes the previous
-"no auth" gap (see README "Sicherheit" section): reaching the bound port is no longer enough
-to send input, a device must first be paired.
+(5 attempts → 60s lockout), in-memory only. Removing a device — in the tray, or via
+`DELETE /pair` — also force-closes any open `/ws` connection for that device
+(`WebSocketConnectionRegistry.CloseConnections`), not just future connections. This closes the
+previous "no auth" gap (see README "Sicherheit" section): reaching the bound port is no longer
+enough to send input, a device must first be paired.
 
 ## Conventions in this codebase
 

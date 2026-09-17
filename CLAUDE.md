@@ -26,6 +26,8 @@ before doing so, read [AGENTS.md](AGENTS.md)'s "Release automation" section. In 
 - Add `[skip release]` to the merge commit message to merge without releasing (e.g. docs-only).
 - A Client-only change releases exactly like a Server change — it is a commit in this repo, so
   the automation fires on its own. No manual `workflow_dispatch` step is needed.
+- `main` is protected by the required status check `build-and-test` (the server job in
+  `ci.yml`), so a merge needs a PR whose checks passed. Do not rename that job — see AGENTS.md.
 
 Full binding project/release rules (repo layout, release process, Velopack/versioning
 constraints, GitHub CLI usage) are in [AGENTS.md](AGENTS.md) — read it before doing anything
@@ -86,8 +88,8 @@ crashing silently.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
 - `GET /pair/status` → lets a client check whether a previously-issued token is still valid
   without opening a WebSocket (`PairingService.IsValidToken`).
-- Static files from `wwwroot` (the externally-built Angular client) with SPA fallback to
-  `index.html` if present.
+- Static files from `wwwroot` (the Angular client's production build, copied in from `client/`)
+  with SPA fallback to `index.html` if present.
 
 **Action pipeline.** `YFRemoteWebSocketHandler` owns the socket loop: reads a length-capped
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to

@@ -152,6 +152,18 @@ Test update behavior using an installed older version, not a development binary.
 Merging to `main` triggers a release automatically. Nothing else is required — this now
 covers Client-only changes too, because the Client lives in this repository.
 
+`.github/workflows/ci.yml` runs on every pull request with two jobs: `build-and-test`
+(restores, builds, and tests the Server on `windows-latest`) and `client` (`npm ci`, Client
+tests, and the Client production build on `ubuntu-latest`). Neither has a `paths` filter, so
+both run for every change.
+
+`main` is protected by exactly one required status check, named `build-and-test`. Because that
+check only runs on `pull_request`, a merge into `main` has to go through a pull request. The
+protection matches the job by name: **renaming the `build-and-test` job in `ci.yml` makes the
+required check unsatisfiable and blocks every merge into `main`** until the protection rule is
+updated to the new name. The `client` job is deliberately not a required check — add it in the
+branch protection settings if Client regressions should also block a merge.
+
 `.github/workflows/auto-tag.yml` runs on every push to `main`. It:
 
 1. analyzes commits since the previous tag using Conventional Commits (`fix:` → patch,

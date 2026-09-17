@@ -85,11 +85,13 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Abhaengigkeiten wiederherstellen
-        run: dotnet restore
-
       - name: Server bauen (net10.0)
-        run: dotnet build --configuration Release --framework net10.0 --no-restore
+        # Kein separater "dotnet restore"-Schritt: der waere unscoped und wertet damit auch
+        # net10.0-windows aus, was auf einem echten Linux-Host mit NETSDK1100 scheitert
+        # (Windows-Targeting braucht dort explizites EnableWindowsTargeting). --framework hier
+        # sorgt fuer ein automatisches, auf net10.0 beschraenktes Restore - genau das Muster,
+        # das release.yml's release-linux-Job bereits erfolgreich nutzt.
+        run: dotnet build --configuration Release --framework net10.0
 
       - name: Server testen (net10.0)
         run: >-

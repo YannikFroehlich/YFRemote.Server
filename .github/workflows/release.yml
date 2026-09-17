@@ -268,11 +268,16 @@ jobs:
           --channel ${{ matrix.channel }}
 
       - name: GitHub Release Pakete hochladen
+        # --merge noetig: ohne das lehnt vpk das Hochladen ab, wenn unter diesem Tag bereits
+        # ein (vom Windows-Job veroeffentlichtes) Release existiert ("There is already an
+        # existing release tagged '...'. Please delete this release or provide a new version
+        # number."), gefunden beim ersten echten Release-Versuch dieses Jobs.
         run: >-
           vpk upload github
           --repoUrl https://github.com/${{ github.repository }}
           --token "${{ secrets.GITHUB_TOKEN }}"
           --publish
+          --merge
           --releaseName "YFRemote v${{ needs.release.outputs.version }}"
           --tag "v${{ needs.release.outputs.version }}"
           --channel ${{ matrix.channel }}

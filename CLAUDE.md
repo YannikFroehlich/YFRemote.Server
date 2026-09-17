@@ -9,11 +9,11 @@ second computer sends key, hotkey, and mouse actions over a WebSocket to this se
 replays them into the interactive Windows session via `SendInput`. This repo also owns the
 tray application, the installer, and GitHub Releases for the whole product.
 
-The Angular client lives in a **separate repository** (`YFRemote.Client`, local path
-`D:\Dev\YFRemote\client\YFRemote.Client` on the laptop / `D:\Dokumente\Programmieren\YFRemote\client\YFRemote.Client`
-on the PC, branch `master`). Its production
-build is copied into this repo's `wwwroot/` and served as static files — it is not present in a
-normal checkout of this repo and is not built by `dotnet build`.
+The Angular client lives in [`client/`](client) **in this same repository** — it has its own
+[`client/CLAUDE.md`](client/CLAUDE.md). It is not built by `dotnet build` and is excluded from
+the server project's globs via `DefaultItemExcludes`; its production build is copied into
+`wwwroot/` (gitignored) and served as static files. Server and client are therefore versioned
+and released from a single commit.
 
 **Merging to `main` is release-related.** A push to `main` automatically triggers
 `auto-tag.yml`, which computes the next semantic version from commit messages and invokes
@@ -24,8 +24,8 @@ before doing so, read [AGENTS.md](AGENTS.md)'s "Release automation" section. In 
   commit/PR titles so the automatic version bump (patch/minor/major) is meaningful — anything
   else still triggers at least a patch release.
 - Add `[skip release]` to the merge commit message to merge without releasing (e.g. docs-only).
-- A Client-only change needs a manual `workflow_dispatch` run of `auto-tag.yml` afterwards
-  (nothing changes in this repo, so the automation doesn't fire on its own).
+- A Client-only change releases exactly like a Server change — it is a commit in this repo, so
+  the automation fires on its own. No manual `workflow_dispatch` step is needed.
 
 Full binding project/release rules (repo layout, release process, Velopack/versioning
 constraints, GitHub CLI usage) are in [AGENTS.md](AGENTS.md) — read it before doing anything
@@ -53,13 +53,13 @@ origin. There is no lint step beyond `dotnet build` warnings.
 To exercise a full client+server integration locally:
 
 ```powershell
-cd ..\..\client\YFRemote.Client
+cd client
 npm ci
 npm test -- --watch=false
 npm run build
-cd ..\..\server\YFRemote.Server
+cd ..
 New-Item -ItemType Directory -Path wwwroot -Force | Out-Null
-Copy-Item ..\..\client\YFRemote.Client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
+Copy-Item client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
 dotnet publish -c Release -r win-x64 --self-contained true -o publish
 ```
 

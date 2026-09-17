@@ -1,0 +1,18 @@
+{
+  "/health": {
+    "target": "http://localhost:5050",
+    "changeOrigin": false,
+    "secure": false
+  },
+  "/pair": {
+    "target": "http://localhost:5050",
+    "changeOrigin": false,
+    "secure": false
+  },
+  "/ws": {
+    "target": "http://localhost:5050",
+    "changeOrigin": false,
+    "secure": false,
+    "ws": true
+  }
+}

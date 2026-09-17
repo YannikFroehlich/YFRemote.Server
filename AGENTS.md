@@ -2,22 +2,23 @@
 
 ## Repository layout
 
-YFRemote consists of two separate public Git repositories:
+YFRemote is a single public Git repository, `YannikFroehlich/YFRemote.Server`:
 
-- Client: `YannikFroehlich/YFRemote.Client`
-  - Local path: `D:\Dev\YFRemote\client\YFRemote.Client` (laptop) /
-    `D:\Dokumente\Programmieren\YFRemote\client\YFRemote.Client` (PC)
-  - Default branch: `master`
-  - Angular web application
-- Server: `YannikFroehlich/YFRemote.Server`
-  - Local path: `D:\Dev\YFRemote\server\YFRemote.Server` (laptop) /
-    `D:\Dokumente\Programmieren\YFRemote\server\YFRemote.Server` (PC)
-  - Default branch: `main`
-  - .NET Windows application, web server, tray application, and release owner
+- Local path: `D:\Dev\YFRemote\server\YFRemote.Server` (laptop) /
+  `D:\Dokumente\Programmieren\YFRemote\server\YFRemote.Server` (PC)
+- Default branch: `main`; day-to-day work happens on `develop` and is merged into `main`
+- Repository root: .NET Windows application, web server, tray application, and release owner
+- `client/`: the Angular web application, including its own `client/CLAUDE.md`
 
-Treat the repositories as one product but keep their Git histories separate. Do not
-create a Client GitHub Release: all installable releases belong to the Server
-repository and include a production build of the Client.
+The Client previously lived in a separate repository (`YannikFroehlich/YFRemote.Client`,
+branch `master`) and was checked out at release time. Its history was merged into `client/`;
+that repository is obsolete and nothing in this repo depends on it any more. Do not
+reintroduce a checkout of it, and do not create a separate Client release: all installable
+releases belong to this repository and include a production build of the Client.
+
+The Client is excluded from the server project's MSBuild globs via `DefaultItemExcludes` in
+`YFRemote.Server.csproj`. Removing that line pulls `client/**` — including `node_modules` —
+into the publish output.
 
 ## Product architecture
 
@@ -81,7 +82,7 @@ development builds, because they do not have an installed Velopack launcher. The
 entry is removed by the Velopack uninstall hook.
 
 The tray icon is loaded from the deployed `wwwroot/favicon.ico`. The canonical
-source is `YFRemote.Client/public/favicon.ico`, which contains the existing YF
+source is `client/public/favicon.ico`, which contains the existing YF
 brand mark in 16, 32, 48, 128, and 256 pixel sizes. The same icon is used by the
 browser and Velopack installer. Preserve this relationship when changing branding.
 
@@ -124,15 +125,16 @@ executable. Tray updates continue to work for MSI installations.
 
 Run the relevant checks before merging or releasing.
 
-Client:
+Client (from `client/`):
 
 ```powershell
+cd client
 npm ci
 npm test -- --watch=false
 npm run build
 ```
 
-Server:
+Server (from the repository root):
 
 ```powershell
 dotnet restore
@@ -141,24 +143,24 @@ dotnet build --configuration Release
 ```
 
 For changes involving the packaged UI, also ensure the Client production output is
-copied into `wwwroot` or let the GitHub release workflow perform that integration.
+copied into `wwwroot` (`Copy-Item client\dist\YFRemote.Client\browser\* wwwroot -Recurse
+-Force`) or let the GitHub release workflow perform that integration.
 Test update behavior using an installed older version, not a development binary.
 
 ## Release automation
 
-Merging to the Server's `main` branch triggers a release automatically. Nothing else is
-required for a Server-only or combined change.
+Merging to `main` triggers a release automatically. Nothing else is required — this now
+covers Client-only changes too, because the Client lives in this repository.
 
-`YFRemote.Server/.github/workflows/auto-tag.yml` runs on every push to `main`. It:
+`.github/workflows/auto-tag.yml` runs on every push to `main`. It:
 
 1. analyzes commits since the previous tag using Conventional Commits (`fix:` → patch,
    `feat:` → minor, `feat!:` or a `BREAKING CHANGE:` footer → major; anything else falls
    back to a patch bump, so every merge produces at least a patch release);
-2. resolves `YFRemote.Client/master` once and records the resulting immutable commit SHA;
-3. computes the next `X.Y.Z` version without creating a tag itself (`dry_run: true`);
-4. invokes `release.yml` directly as a reusable workflow (`workflow_call`), passing both
-   the version and Client SHA — the tag itself is created later by
-   `vpk upload github --publish` inside `release.yml`, not by `auto-tag.yml`.
+2. computes the next `X.Y.Z` version without creating a tag itself (`dry_run: true`);
+3. invokes `release.yml` directly as a reusable workflow (`workflow_call`), passing the
+   version — the tag itself is created later by `vpk upload github --publish` inside
+   `release.yml`, not by `auto-tag.yml`.
 
 All automatic and manually triggered version calculations share the
 `yfremote-version-release` concurrency group. Runs queue instead of replacing one another,
@@ -169,35 +171,29 @@ To skip a release entirely for a given merge (e.g. a docs-only change), include
 `[skip release]` in the merge commit message.
 
 `auto-tag.yml` also accepts a manual `workflow_dispatch` run with a chosen `bump` input
-(`patch`/`minor`/`major`). Use this for a **Client-only change**: since nothing changes in
-the Server repo, no push to `main` happens and the automation never fires on its own — run
-the workflow manually (GitHub → Actions → "Auto Tag YFRemote" → "Run workflow") after the
-Client change has been merged to `master`.
+(`patch`/`minor`/`major`). It is only needed to force a version step or to redo a release
+without a new commit.
 
-`YFRemote.Server/.github/workflows/release.yml` does the actual build/pack/publish work. It
-runs either invoked by `auto-tag.yml` above, or directly when a semantic-version tag matching
-`v*.*.*` is pushed to the Server repository by hand — keep the manual tag-push path in mind
-as a fallback (e.g. for re-running a release, or environments where the automated workflow
-can't run).
+`.github/workflows/release.yml` does the actual build/pack/publish work. It runs either
+invoked by `auto-tag.yml` above, or directly when a semantic-version tag matching `v*.*.*`
+is pushed by hand — keep the manual tag-push path in mind as a fallback (e.g. for re-running
+a release, or environments where the automated workflow can't run).
 
 The workflow:
 
-1. checks out and verifies the exact Server commit that triggered the release;
-2. checks out and verifies the pinned `YFRemote.Client` commit passed by `auto-tag.yml`;
-3. runs `npm ci`, Client tests, the Client production build, and the Server tests;
-4. copies `client/dist/YFRemote.Client/browser/*` to `server/wwwroot`;
-5. publishes a self-contained `win-x64` Server build with the tag version;
-6. creates `release-manifest.json` with the version and both repository SHAs and includes
+1. checks out and verifies the exact commit that triggered the release — Server and Client
+   come from that one commit, so they can no longer drift apart;
+2. runs `npm ci`, Client tests, the Client production build, and the Server tests;
+3. copies `client/dist/YFRemote.Client/browser/*` to `wwwroot`;
+4. publishes a self-contained `win-x64` Server build with the tag version;
+5. creates `release-manifest.json` with the version and the repository SHA and includes
    it in the packaged application;
-7. downloads the previous release when available so Velopack can create a delta;
-8. creates the installer, portable archive, full package, and delta package;
-9. publishes a GitHub Release in `YFRemote.Server` and uploads the manifest as a separate
-   release asset.
+6. downloads the previous release when available so Velopack can create a delta;
+7. creates the installer, portable archive, full package, and delta package;
+8. publishes a GitHub Release and uploads the manifest as a separate release asset.
 
-The manual tag-push fallback has no `workflow_call` Client input. In that path,
-`release.yml` resolves `master` once at the start, verifies the checked-out SHA, and records
-it in the manifest. Prefer `auto-tag.yml` whenever possible because it passes the Client SHA
-explicitly between workflows.
+Both entry points behave identically — there is no Client input to pass between workflows
+any more.
 
 Typical release assets are:
 
@@ -208,56 +204,38 @@ Typical release assets are:
 - `YFRemote-X.Y.Z-delta.nupkg` when a previous release exists
 - `RELEASES`
 - `releases.win.json`
-- `release-manifest.json` (version plus exact Server and Client commit SHAs)
+- `release-manifest.json` (version plus the exact commit SHA the release was built from)
 
 Never reuse, move, or overwrite a published version tag. If a release changes after
 publication, increment the semantic version and create a new tag.
 
-## Releasing a Client-only change
+## Releasing a change
 
-A Client-only change still requires a new Server release because the compiled
-Client is embedded in the Server package. The Server source does not need a new
-commit — but that also means `auto-tag.yml` never fires on its own for this case,
-since nothing gets pushed to the Server's `main`.
+Server-only, Client-only, and combined changes all follow the same path — the Client is no
+longer a separate repository, so there is no ordering constraint and no manual step.
 
-1. Commit and merge the Client change into `YFRemote.Client/master`.
-2. Verify that GitHub shows the intended Client commit on `master`.
-3. In `YFRemote.Server`, run `auto-tag.yml` manually: GitHub → Actions → "Auto Tag
-   YFRemote" → "Run workflow" on `main`, choosing the appropriate `bump` (usually
-   `patch`).
-4. Monitor the run until both the tagging job and the invoked `release.yml` succeed.
-5. Verify the public Server release and its assets.
+1. Run the relevant Client and Server checks before merging (see "Validation" above).
+2. Merge to `main` — use Conventional Commit prefixes (`fix:`, `feat:`,
+   `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the automatic version bump is
+   meaningful. Add `[skip release]` to the merge commit message to merge without releasing.
+3. `auto-tag.yml` fires automatically on the merge, computes the next version, and invokes
+   `release.yml`. No manual tagging step is needed.
+4. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
+   assets.
 
-The order is important: merge the Client first, then run the workflow. `auto-tag.yml`
-resolves `master` once at the start and passes that exact SHA to the release; triggering it
-too early can therefore pin and package the previous Client version.
-
-Fallback if the automated workflow is unavailable: tag the intended Server `main`
-commit by hand and push the tag, which triggers `release.yml` directly.
+Fallback if the automated workflow is unavailable: tag the intended `main` commit by hand
+and push the tag, which triggers `release.yml` directly.
 
 ```powershell
-cd <server-repo-local-path>   # see "Repository layout" above
+cd <repo-local-path>   # see "Repository layout" above
 git switch main
 git pull --ff-only
 git tag -a v1.0.2 -m "YFRemote v1.0.2"
 git push origin v1.0.2
 ```
 
-## Releasing a Server or combined change
-
-1. Merge all required Client changes to `master`, if any.
-2. Merge the Server changes to `main` — use Conventional Commit prefixes (`fix:`,
-   `feat:`, `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the automatic
-   version bump is meaningful.
-3. Run/confirm the relevant Client and Server checks before merging.
-4. `auto-tag.yml` fires automatically on the merge to `main`, computes the next
-   version, and invokes `release.yml`. No manual tagging step is needed.
-5. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify
-   all assets.
-
-The latest known release when this file was created was `v1.0.1`. Do not assume
-that remains current: query Server releases and tags before assuming what the next
-automatic version will be.
+Do not assume any particular current version: query releases and tags before assuming what
+the next automatic version will be.
 
 ## GitHub CLI notes
 

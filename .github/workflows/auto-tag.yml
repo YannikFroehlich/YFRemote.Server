@@ -4,9 +4,11 @@ name: Auto Tag YFRemote
 # Conventional Commits (fix: -> patch, feat: -> minor, feat!:/BREAKING CHANGE: -> major)
 # und stoesst darueber direkt den bestehenden Release-Workflow an. Ein Commit mit
 # "[skip release]" in der Merge-Commit-Message ueberspringt das Release. Ueber
-# workflow_dispatch laesst sich die Versionsstufe auch manuell erzwingen, z. B. um
-# nach einer reinen Client-Aenderung ein neues Release ohne neuen Server-Commit
-# auszuloesen.
+# workflow_dispatch laesst sich die Versionsstufe auch manuell erzwingen, etwa um
+# ein Release ohne neuen Commit nachzuholen.
+#
+# Server und Client liegen seit dem Monorepo-Merge im selben Repository, deshalb
+# loest auch eine reine Client-Aenderung hier automatisch ein Release aus.
 
 on:
   push:
@@ -15,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Versionsstufe erzwingen (z. B. fuer eine reine Client-Aenderung)"
+        description: "Versionsstufe erzwingen"
         required: true
         default: patch
         type: choice
@@ -41,31 +43,11 @@ jobs:
       !contains(github.event.head_commit.message, '[skip release]')
     outputs:
       version: ${{ steps.next.outputs.new_version }}
-      client_sha: ${{ steps.client.outputs.sha }}
     steps:
       - name: Repository auschecken
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Client-Commit festhalten
-        uses: actions/checkout@v6
-        with:
-          repository: YannikFroehlich/YFRemote.Client
-          path: client
-          ref: master
-          token: ${{ secrets.CLIENT_REPOSITORY_TOKEN || github.token }}
-
-      - name: Client-Commit pruefen
-        id: client
-        shell: bash
-        run: |
-          client_sha="$(git -C client rev-parse HEAD)"
-          if [[ ! "$client_sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "Ungueltige Client-SHA: $client_sha" >&2
-            exit 1
-          fi
-          echo "sha=$client_sha" >> "$GITHUB_OUTPUT"
 
       - name: Naechste Version aus Commits ermitteln
         id: next
@@ -82,5 +64,4 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.determine-version.outputs.version }}
-      client_sha: ${{ needs.determine-version.outputs.client_sha }}
     secrets: inherit

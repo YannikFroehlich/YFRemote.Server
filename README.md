@@ -71,6 +71,7 @@ cd client
 npm ci
 npm run build
 cd ..
+New-Item -ItemType Directory -Path wwwroot -Force | Out-Null
 Copy-Item client\dist\YFRemote.Client\browser\* wwwroot -Recurse -Force
 ```
 

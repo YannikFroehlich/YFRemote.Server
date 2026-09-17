@@ -9,6 +9,10 @@
     <Version>1.0.0</Version>
     <Product>YFRemote</Product>
     <Description>Lokaler Windows-Server fuer YFRemote</Description>
+    <!-- Der Angular-Client liegt im selben Repo. Ohne diesen Ausschluss saugen die
+         Default-Globs des Web-SDK (**/*.json &amp; Co.) den kompletten client-Baum
+         inklusive node_modules in den Publish-Output. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);client\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

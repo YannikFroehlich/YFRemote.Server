@@ -104,6 +104,12 @@ internal static class Program
     // bereits "es laeuft schon eine Instanz", ganz ohne separate Einzelinstanz-Pruefung.
     private static void RunLinux(string[] args)
     {
+        if (args.Contains("--uinput-smoke-test"))
+        {
+            RunUinputSmokeTest();
+            return;
+        }
+
         WebApplication? app = null;
 
         try
@@ -128,6 +134,51 @@ internal static class Program
             WriteStartupError(exception);
             Console.Error.WriteLine(
                 $"YFRemote konnte nicht gestartet werden.{Environment.NewLine}{Environment.NewLine}{exception.Message}");
+        }
+    }
+
+    // Manueller Diagnosemodus fuer den Stufe-2-Beweis aus AGENTS.md "Linux support": prueft den
+    // echten uinput-Sendepfad isoliert, ganz ohne Pairing/WebSocket/HTTP. Tippt in das gerade
+    // fokussierte Fenster und bewegt die Maus - vorher ein harmloses Textfeld fokussieren.
+    // Aufruf: dotnet run -- --uinput-smoke-test  (oder die publizierte Binary mit demselben Flag).
+    private static void RunUinputSmokeTest()
+    {
+        Console.WriteLine("uinput-Smoketest: lege virtuelles Tastatur- und Mausgeraet an...");
+
+        try
+        {
+            using var sender = new LinuxInputSender();
+            var inputService = new LinuxInputService(sender);
+            var mouseService = new LinuxMouseService(sender);
+
+            Console.WriteLine("In 3 Sekunden wird 'yfremote' in das fokussierte Fenster getippt - jetzt ein Textfeld fokussieren.");
+            Thread.Sleep(3000);
+            inputService.TypeText("yfremote");
+            Console.WriteLine("TypeText gesendet.");
+
+            Console.WriteLine("Bewege die Maus in einem Quadrat...");
+            mouseService.MoveRelative(80, 0);
+            Thread.Sleep(300);
+            mouseService.MoveRelative(0, 80);
+            Thread.Sleep(300);
+            mouseService.MoveRelative(-80, 0);
+            Thread.Sleep(300);
+            mouseService.MoveRelative(0, -80);
+            Console.WriteLine("Mausbewegung gesendet.");
+
+            Console.WriteLine("Linksklick...");
+            mouseService.ClickLeft();
+
+            Console.WriteLine("Scrollen...");
+            mouseService.Scroll(-3);
+
+            Console.WriteLine();
+            Console.WriteLine("Fertig. Ist 'yfremote' angekommen und hat sich die Maus sichtbar bewegt: uinput funktioniert.");
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"uinput-Smoketest fehlgeschlagen: {exception}");
+            Environment.Exit(1);
         }
     }
 #endif

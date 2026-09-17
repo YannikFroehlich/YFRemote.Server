@@ -131,11 +131,17 @@ Angular client — the Windows job uploads its assembled `wwwroot/` as a build a
 repos) rather than cross-packing arm64 from an x64 runner — the plan explicitly left that
 cross-packing question open, so this sidesteps it. Each leg publishes self-contained
 (`dotnet publish -f net10.0 -r <rid>`), then runs `vpk pack`/`vpk download`/`vpk upload` with
-`--channel <rid>` so Velopack keeps a separate feed per architecture
-(`releases.linux-x64.json`/`releases.linux-arm64.json`) alongside the untouched
-`releases.win.json` — an installed Windows client never sees the Linux packages. `--mainExe` has
-no `.exe` suffix on Linux. **This job has never actually run** (no release has happened since it
-was added) — before it runs for a real release, treat as open questions: whether `vpk upload
+`--channel <rid>-beta` (`linux-x64-beta`/`linux-arm64-beta`) so Velopack keeps a separate feed per
+architecture (`releases.linux-x64-beta.json`/`releases.linux-arm64-beta.json`) alongside the
+untouched `releases.win.json` — an installed Windows client never sees the Linux packages. The
+`-beta` suffix reflects that the uinput input path has never run against real hardware (see
+above); it also carries into `--packTitle "YFRemote (Linux Beta)"` and, once, into the shared
+GitHub Release body (a step gated to the `linux-x64` matrix leg so it only runs once per release,
+appending rather than overwriting whatever notes the Windows job/`vpk` already set). Promoting
+Linux to stable later means switching the channel name to `linux-x64`/`linux-arm64` — a clean
+channel change, not a retroactive relabel of already-published beta packages. `--mainExe` has no
+`.exe` suffix on Linux. **This job has never actually run** (no release has happened since it was
+added) — before it runs for a real release, treat as open questions: whether `vpk upload
 --publish` cleanly adds packages to a tag/release the Windows job already published (rather than
 erroring or duplicating), whether the `ubuntu-24.04-arm` runner label is correct/available, and
 packaging icon format for the Linux `vpk pack` step (intentionally omitted here rather than

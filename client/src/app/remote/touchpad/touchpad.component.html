@@ -1,0 +1,83 @@
+<section class="touchpad-card" aria-label="Touchpad">
+  <header class="touchpad-card__header">
+    <div>
+      <p class="eyebrow">Präzise Steuerung</p>
+      <h2>Touchpad</h2>
+    </div>
+    <div class="touchpad-hints" aria-label="Gestenhilfe">
+      <span>1 Finger · Bewegen</span>
+      <span>2 Finger · Scrollen</span>
+    </div>
+  </header>
+
+  <form class="touchpad-text" (submit)="submitText($event, textInput)">
+    <input
+      #textInput
+      class="touchpad-text__input"
+      type="text"
+      placeholder="Text eingeben…"
+      autocomplete="off"
+      enterkeyhint="send"
+    />
+    <button class="primary-button touchpad-text__send" type="submit" aria-label="Text senden">
+      Senden
+    </button>
+  </form>
+
+  <div
+    class="touchpad-surface"
+    role="application"
+    aria-label="Touchpad-Fläche"
+    (pointerdown)="pointerDown($event)"
+    (pointermove)="pointerMove($event)"
+    (pointerup)="pointerUp($event)"
+    (pointercancel)="pointerCancel($event)"
+    (lostpointercapture)="lostPointerCapture($event)"
+    (contextmenu)="preventContextMenu($event)"
+  >
+    <div class="touchpad-surface__center" aria-hidden="true">
+      <span class="touchpad-surface__gesture"></span>
+      <strong>Zum Steuern bewegen</strong>
+      <small>Tippen für Linksklick</small>
+    </div>
+  </div>
+
+  <div class="touchpad-buttons" aria-label="Maustasten">
+    <button
+      class="touchpad-button"
+      type="button"
+      aria-label="Linksklick"
+      [class.touchpad-button--held]="isButtonHeld('left')"
+      (pointerdown)="mouseButtonDown('left', $event)"
+      (pointerup)="mouseButtonRelease('left', $event)"
+      (pointercancel)="mouseButtonCancel('left', $event)"
+      (lostpointercapture)="mouseButtonCancel('left', $event)"
+    >
+      Linksklick
+    </button>
+    <button
+      class="touchpad-button"
+      type="button"
+      aria-label="Mittelklick"
+      [class.touchpad-button--held]="isButtonHeld('middle')"
+      (pointerdown)="mouseButtonDown('middle', $event)"
+      (pointerup)="mouseButtonRelease('middle', $event)"
+      (pointercancel)="mouseButtonCancel('middle', $event)"
+      (lostpointercapture)="mouseButtonCancel('middle', $event)"
+    >
+      Mittelklick
+    </button>
+    <button
+      class="touchpad-button"
+      type="button"
+      aria-label="Rechtsklick"
+      [class.touchpad-button--held]="isButtonHeld('right')"
+      (pointerdown)="mouseButtonDown('right', $event)"
+      (pointerup)="mouseButtonRelease('right', $event)"
+      (pointercancel)="mouseButtonCancel('right', $event)"
+      (lostpointercapture)="mouseButtonCancel('right', $event)"
+    >
+      Rechtsklick
+    </button>
+  </div>
+</section>

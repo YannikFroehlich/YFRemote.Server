@@ -1,0 +1,28 @@
+# systemd --user Unit, das Gegenstueck zu WindowsStartupService/HKCU...\Run: startet den
+# Server automatisch bei der Anmeldung des Benutzers, nicht beim Systemboot.
+#
+# ExecStart folgt der Velopack-Installationskonvention: SpecialFolder.LocalApplicationData
+# loest auf Linux nach ~/.local/share auf (siehe PairingStorageOptions.cs/DiagnosticPaths.cs),
+# Velopack installiert je PackId ("YFRemote") darunter mit einem "current"-Symlink/-Ordner wie
+# unter Windows. UNVERIFIZIERT: noch nicht gegen einen echten Velopack-Linux-Install geprueft
+# (siehe AGENTS.md "Linux support") - Pfad ggf. anpassen, sobald das feststeht.
+#
+# Installation:
+#   mkdir -p ~/.config/systemd/user
+#   cp yfremote.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now yfremote.service
+# Optional, damit der Dienst auch ohne aktive Anmeldung laeuft:
+#   loginctl enable-linger $USER
+
+[Unit]
+Description=YFRemote Server
+After=network.target
+
+[Service]
+ExecStart=%h/.local/share/YFRemote/current/YFRemote.Server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

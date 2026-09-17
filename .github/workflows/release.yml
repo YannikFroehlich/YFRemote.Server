@@ -17,6 +17,9 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      server_sha: ${{ steps.sources.outputs.server_sha }}
     concurrency:
       # Aufgerufene Runs werden bereits vom Auto-Tag-Workflow serialisiert. Eine
       # eigene Gruppe vermeidet dort eine Selbstblockade; direkte Tag-Runs nutzen
@@ -92,11 +95,19 @@ jobs:
           New-Item -ItemType Directory -Path wwwroot -Force | Out-Null
           Copy-Item -Path client/dist/YFRemote.Client/browser/* -Destination wwwroot -Recurse -Force
 
+      - name: Client-Build fuer den Linux-Release-Job bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: wwwroot
+          path: wwwroot
+          retention-days: 1
+
       - name: Server veroeffentlichen
         shell: pwsh
         run: >-
           dotnet publish YFRemote.Server.csproj
           --configuration Release
+          --framework net10.0-windows
           --runtime win-x64
           --self-contained true
           --output publish
@@ -167,3 +178,117 @@ jobs:
           gh release upload "v${{ steps.version.outputs.version }}"
           "publish/release-manifest.json"
           --repo "${{ github.repository }}"
+
+  # Ergaenzt den bestehenden Windows-Release additiv um Linux-Pakete im selben Tag: Velopack
+  # fuehrt pro Architektur einen eigenen Kanal mit eigener Feed-Datei (releases.win.json bleibt
+  # unberuehrt), sodass ein installiertes Windows-YFRemote von den Linux-Paketen nichts sieht.
+  # Jede Architektur baut nativ auf ihrem eigenen Runner statt arm64 auf einem x64-Runner zu
+  # cross-packen (unklar, ob vpk das unterstuetzt) - ubuntu-24.04-arm ist fuer oeffentliche
+  # Repos kostenlos.
+  #
+  # UNVERIFIZIERT: Dieser Job wurde noch nie real ausgefuehrt (kein Release seit seiner
+  # Einfuehrung). Vor dem ersten echten Release pruefen: vpk-Kanaltrennung, ob "vpk upload
+  # --publish" Pakete sauber in einen von einem anderen Job bereits veroeffentlichten Tag
+  # nachtraegt statt ihn zu duplizieren, und ob der ubuntu-24.04-arm-Runner wie erwartet
+  # verfuegbar ist.
+  release-linux:
+    needs: release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Kanal traegt "-beta": der uinput-Eingabepfad ist nie gegen echte Hardware
+          # gelaufen (siehe AGENTS.md "Linux support"). Eigener Kanalname statt eines
+          # nachtraeglichen Labels, damit ein spaeterer Wechsel auf "linux-x64"/"linux-arm64"
+          # (stabil) ein sauberer Kanalwechsel ist, keine rueckwirkende Umbenennung.
+          - rid: linux-x64
+            channel: linux-x64-beta
+            os: ubuntu-latest
+          - rid: linux-arm64
+            channel: linux-arm64-beta
+            os: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: .NET einrichten
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Client-Build vom Windows-Job laden
+        uses: actions/download-artifact@v5
+        with:
+          name: wwwroot
+          path: wwwroot
+
+      - name: Server testen
+        run: >-
+          dotnet test tests/YFRemote.Server.Tests/YFRemote.Server.Tests.csproj
+          --configuration Release
+          --framework net10.0
+
+      - name: Server veroeffentlichen
+        run: >-
+          dotnet publish YFRemote.Server.csproj
+          --configuration Release
+          --framework net10.0
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --output publish
+          -p:Version=${{ needs.release.outputs.version }}
+
+      - name: Velopack installieren
+        run: dotnet tool install --global vpk --version 1.2.0
+
+      - name: Vorherigen Release fuer Delta-Update laden
+        continue-on-error: true
+        run: >-
+          vpk download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token "${{ secrets.GITHUB_TOKEN }}"
+          --channel ${{ matrix.channel }}
+
+      - name: Installer- und Updatepakete erstellen
+        run: >-
+          vpk pack
+          --packId YFRemote
+          --packVersion ${{ needs.release.outputs.version }}
+          --packDir publish
+          --mainExe YFRemote.Server
+          --packTitle "YFRemote (Linux Beta)"
+          --packAuthors YannikFroehlich
+          --channel ${{ matrix.channel }}
+
+      - name: GitHub Release Pakete hochladen
+        run: >-
+          vpk upload github
+          --repoUrl https://github.com/${{ github.repository }}
+          --token "${{ secrets.GITHUB_TOKEN }}"
+          --publish
+          --releaseName "YFRemote v${{ needs.release.outputs.version }}"
+          --tag "v${{ needs.release.outputs.version }}"
+          --channel ${{ matrix.channel }}
+          --targetCommitish "${{ needs.release.outputs.server_sha }}"
+
+      # Nur einmal pro Release ausfuehren, nicht einmal je Matrix-Bein - haengt an, statt die
+      # vom Windows-Job (oder vpk) gesetzten Release-Notes zu ueberschreiben.
+      - name: Beta-Hinweis in die Release-Notes einfuegen
+        if: matrix.rid == 'linux-x64'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ needs.release.outputs.version }}"
+          current_body=$(gh release view "$tag" --repo "${{ github.repository }}" --json body -q .body)
+          if [[ "$current_body" != *"Linux (Beta)"* ]]; then
+            note=$'\n\n---\n**Linux (Beta):** uinput-Eingabepfad ungetestet auf echter Hardware/VM. Probleme bitte als Issue melden.'
+            gh release edit "$tag" --repo "${{ github.repository }}" --notes "${current_body}${note}"
+          fi

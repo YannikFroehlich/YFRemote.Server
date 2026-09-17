@@ -36,9 +36,12 @@ into the publish output.
   host or port performs a full-page navigation to the new server so the connection
   remains same-origin. The Angular development server proxies these paths to the
   default local Server on port `5050`.
-- The Server targets `net10.0-windows`, uses Windows Forms, and has
-  `OutputType=WinExe`, so a normal installed launch has no terminal window.
-- Only one Server instance may run at a time.
+- The Server multi-targets `net10.0-windows;net10.0` (see [Linux support](#linux-support)
+  below). On `net10.0-windows` it uses Windows Forms and has `OutputType=WinExe`, so a
+  normal installed launch has no terminal window; on plain `net10.0` it is a console `Exe`.
+  Only the Windows build ships or is released today.
+- Only one Server instance may run at a time (Windows: a named `Mutex`; the headless build
+  has no tray/mutex and relies on the port bind failing instead).
 - A successful pairing is acknowledged only after its hashed device token has been
   atomically persisted to `%LOCALAPPDATA%\YFRemote\devices.json`; the previous valid
   state is retained as `devices.json.bak`. The used PIN rotates immediately after a
@@ -48,6 +51,143 @@ into the publish output.
 - Client button layouts are grouped into named browser-local profiles. The legacy single
   layout is migrated to `Standard`; JSON export/import contains every profile, custom
   button, macro, and the active profile selection.
+
+## Linux support
+
+The project multi-targets `net10.0-windows;net10.0` from one `.csproj` (no separate class
+library) so the same code and Git history serve both platforms. `Tray\**`, `Services\Windows*.cs`
+(the `SendInput`-based `WindowsInputSender`/`WindowsInputService`/`WindowsMouseService` and
+`WindowsStartupService`), and `Updates\**` (Velopack) are excluded from the `net10.0` compile via
+`<Compile Remove>` in `YFRemote.Server.csproj`, not `#ifdef`. `Program.cs` itself is split with a
+`#if WINDOWS` / `#else` on `Main`: the SDK defines the `WINDOWS` preprocessor symbol automatically
+for the `-windows` target, so `RunWindows` (Velopack lifecycle, single-instance `Mutex`, tray)
+compiles only there, and `RunLinux` (`BuildApplication` + blocking `app.Run()`, startup errors to
+`Console.Error` instead of a `MessageBox`) only for `net10.0`. The three DI registrations for
+`IInputService`/`IMouseService` (plus the sender they depend on) in `Program.BuildApplication` are
+`#if WINDOWS`/`#else` conditional: `WindowsInputSender`/`WindowsInputService`/`WindowsMouseService`
+on `net10.0-windows`, `LinuxInputSender`/`LinuxInputService`/`LinuxMouseService` on `net10.0`.
+`NetworkAddressService` and `PairingQrCodePayload` live in `Services/` (not `Tray/`) because they
+are BCL-only and needed on both platforms. The test project mirrors this:
+`tests/YFRemote.Server.Tests.csproj` also multi-targets, excluding `**\Windows*Tests.cs` and
+`Updates\**` for `net10.0`, and `**\Linux*Tests.cs` for `net10.0-windows`.
+
+**Linux input backend (`Services/LinuxInputSender.cs`, `LinuxInputService.cs`,
+`LinuxMouseService.cs`).** Registers a virtual keyboard and a virtual mouse with the kernel via
+`/dev/uinput` (P/Invoke on `libc`: `open`/`ioctl`/`write`/`close`), whose events are
+indistinguishable from real hardware to X11, Wayland, and the console alike. `LinuxInputSender`
+serializes every send behind one lock (`ExecuteSynchronized`), mirroring
+`WindowsInputSender.ExecuteSynchronized`, so hotkey modifier press/release ordering can't
+interleave across concurrent requests. The two uinput devices are created lazily on first actual
+send (not in the constructor), which keeps `ExecuteSynchronized` and any validation that throws
+before a real send (e.g. `UnsupportedKeyException`) unit-testable without a Linux kernel — see
+`tests/YFRemote.Server.Tests/Services/Linux*Tests.cs`. `LinuxInputService` maps the same 66 key
+names as `WindowsInputService.VirtualKeys` to Linux `KEY_*` codes (physical key positions, not
+characters). `TypeText` sends characters as a `KEY_*` code plus Shift instead of Unicode — uinput
+has no equivalent to Windows' `KEYEVENTF_UNICODE` — using a US-layout mapping; on a different
+active keyboard layout on the target machine, the wrong character (or nothing) arrives for
+non-ASCII input. This is a property of the technique (`ydotool` has the same limitation), not a
+bug in the mapping table. Operationally the target machine needs the `uinput` kernel module loaded
+(`modprobe uinput`, persist via `/etc/modules-load.d/`) and a udev rule granting the service user
+access without running as root — see `packaging/linux/99-yfremote-uinput.rules`.
+
+**Current status: code compiles and unit-tests here, but is unverified end-to-end.** No Linux
+box or VM has run it yet — see the plan's two-stage proof: (1) a standalone `/dev/uinput`
+round-trip (create device, write events, read them back from `/dev/input/eventN`) with no
+compositor involved, then (2) a real bridged-VM run (phone → Angular page served from the VM →
+WebSocket → uinput → visible cursor/keystrokes on the Ubuntu desktop). Until stage (1) has passed
+at least once, treat the exact ioctl request codes, the legacy `uinput_user_dev` struct layout,
+and the `input_event` struct size (24 bytes, assumed for 64-bit `long` time fields on x64/arm64)
+as unverified against a real kernel, even though they match well-established values used by other
+uinput bindings (e.g. `ydotool`, the Go `uinput` package). Verify portability with:
+
+```powershell
+dotnet build --configuration Release
+dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
+dotnet publish -c Release -f net10.0 -r linux-arm64 --self-contained true -o publish-linux
+```
+
+The publish output should be an ELF binary with no `System.Windows.Forms.dll`, `Velopack.dll`, or
+`QRCoder.dll` — `System.Drawing*.dll` is expected (a baseline self-contained-deployment assembly,
+not evidence of a WinForms dependency). The two integration tests that open a real WebSocket
+(`WebSocket_WithValidTokenAndOrigin_Connects`,
+`Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket` in
+`tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are still `#if WINDOWS`-only:
+they exercise the full `/ws` pipeline including a real input-service call, which this repo's
+Windows-hosted CI can't do for the Linux target either. Two `PairingServiceTests` are `#if
+WINDOWS`-only for a related but different reason:
+`RemoveDevice_WhenWriteFails_RollsBackAndCanBeRetried` and
+`RemoveDeviceByToken_WhenWriteFails_KeepsTheTokenValidForRetry` simulate a write failure by
+opening `devices.json` with `FileShare.None`. Windows enforces that as a mandatory lock (a second
+handle on the same path fails); POSIX/Linux locking is advisory only, and `File.Replace`
+(`rename()`) doesn't check other open handles at all, so the write just succeeds and the test's
+precondition never triggers. The actual rollback code path (`TryPersistDevices` catching any
+exception from `PersistDevicesAtomically`) is shared by `TryPair`/`RemoveDevice`/
+`RemoveDeviceByToken` alike and stays covered on both platforms via
+`TryPair_WhenWriteFails_RollsBackDeviceAndKeepsPinUsable`, which induces the failure with a
+blocking file in place of a directory instead — a portable failure mode, unlike exclusive
+locking. This is a real gap in the original Linux plan's assumption that "Pairing, WebSockets,
+Integration" tests would run unchanged on both platforms; they mostly do, but not these two.
+
+**Multi-targeting broke `dotnet publish` without `-f`.** `dotnet publish YFRemote.Server.csproj`
+used to infer the single `net10.0-windows` target; once the project multi-targets, `publish`
+(unlike `build`/`test`, which happily build/run every target) refuses to guess and fails with
+`NETSDK1129`. `release.yml`'s existing Windows publish step now passes
+`--framework net10.0-windows` explicitly. Keep this in mind for any other `dotnet publish`
+invocation added later (locally or in a workflow) — it needs an explicit `-f`/`--framework` now.
+
+**Multi-targeting also needs `EnableWindowsTargeting=true` to restore/build at all on a
+non-Windows host** (set in both `YFRemote.Server.csproj` and the test project). `-f`/`--framework`
+only scopes which single `TargetFramework` a `build`/`test`/`publish` invocation *builds*; the
+*restore* step for a crosstargeted project always evaluates the complete `TargetFrameworks` list
+first to compute the NuGet dependency graph, regardless of `-f`. Without this property, that
+restore-time evaluation of `net10.0-windows` fails on a real Linux host with `NETSDK1100` ("set
+the EnableWindowsTargeting property to true") — this bit the first real run of `ci.yml`'s `linux`
+job even with `--framework net10.0` already on every command. The property lets restore/build
+resolve Windows-only reference assemblies from NuGet on any host OS (it doesn't let you produce a
+runnable Windows executable from Linux); it's a no-op on Windows, which already resolves natively.
+
+**Linux release packaging (`release-linux` job in `release.yml`).** Runs `needs: release` after
+the existing Windows job, so it reuses the same tag/version/commit and does not rebuild the
+Angular client — the Windows job uploads its assembled `wwwroot/` as a build artifact
+(`actions/upload-artifact`), which this job downloads instead of running `npm` again, keeping the
+"Server and Client come from one commit" guarantee. It matrixes over `linux-x64` (on
+`ubuntu-latest`) and `linux-arm64` (on `ubuntu-24.04-arm`, a native ARM64 runner, free for public
+repos) rather than cross-packing arm64 from an x64 runner — the plan explicitly left that
+cross-packing question open, so this sidesteps it. Each leg publishes self-contained
+(`dotnet publish -f net10.0 -r <rid>`), then runs `vpk pack`/`vpk download`/`vpk upload` with
+`--channel <rid>-beta` (`linux-x64-beta`/`linux-arm64-beta`) so Velopack keeps a separate feed per
+architecture (`releases.linux-x64-beta.json`/`releases.linux-arm64-beta.json`) alongside the
+untouched `releases.win.json` — an installed Windows client never sees the Linux packages. The
+`-beta` suffix reflects that the uinput input path has never run against real hardware (see
+above); it also carries into `--packTitle "YFRemote (Linux Beta)"` and, once, into the shared
+GitHub Release body (a step gated to the `linux-x64` matrix leg so it only runs once per release,
+appending rather than overwriting whatever notes the Windows job/`vpk` already set). Promoting
+Linux to stable later means switching the channel name to `linux-x64`/`linux-arm64` — a clean
+channel change, not a retroactive relabel of already-published beta packages. `--mainExe` has no
+`.exe` suffix on Linux. **This job has never actually run** (no release has happened since it was
+added) — before it runs for a real release, treat as open questions: whether `vpk upload
+--publish` cleanly adds packages to a tag/release the Windows job already published (rather than
+erroring or duplicating), whether the `ubuntu-24.04-arm` runner label is correct/available, and
+packaging icon format for the Linux `vpk pack` step (intentionally omitted here rather than
+guessing — Windows uses `--icon client/public/favicon.ico`, a `.ico`, which AppImage packaging
+may not accept as-is).
+
+**CI (`linux` job in `ci.yml`).** Runs on every PR alongside `build-and-test` (Windows,
+`net10.0-windows`) and `client`, building and testing the `net10.0` target on `ubuntu-latest`. Not
+named `build-and-test` and not a required check, matching the existing `client` job's status —
+see "Release automation" above for why the required check's name must not change. Note that
+`build-and-test` itself now also builds/tests `net10.0` on `windows-latest` as a side effect of
+`dotnet build`/`dotnet test` (unlike `publish`) building every target by default when `-f` is
+omitted; the new `linux` job additionally proves the `net10.0` target on a real Linux runner.
+
+**Autostart (`packaging/linux/yfremote.service`).** A `systemd --user` unit, the Linux
+counterpart to `WindowsStartupService`/the `HKCU\...\Run` entry — starts at user login, not at
+boot (`loginctl enable-linger` documented in the file for boot-time start without login).
+`ExecStart` assumes Velopack installs to `~/.local/share/YFRemote/current/...`, mirroring
+`%LOCALAPPDATA%\YFRemote\current\...` on Windows (consistent with
+`SpecialFolder.LocalApplicationData` resolving to `~/.local/share` on Linux, already used by
+`PairingStorageOptions`/`DiagnosticPaths`) — **unverified**, since no Linux Velopack install has
+happened yet; the path may need correcting once one has.
 
 ## Tray application
 

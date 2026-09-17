@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace YFRemote.Server.Tray;
+namespace YFRemote.Server.Services;
 
 internal static class NetworkAddressService
 {

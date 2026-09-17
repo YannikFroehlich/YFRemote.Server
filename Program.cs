@@ -1,11 +1,15 @@
 using Microsoft.Extensions.FileProviders;
 using System.Text.Json;
+#if WINDOWS
 using Velopack;
+#endif
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Diagnostics;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
+#if WINDOWS
 using YFRemote.Server.Tray;
+#endif
 using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server;
@@ -16,6 +20,16 @@ internal static class Program
 
     [STAThread]
     private static void Main(string[] args)
+    {
+#if WINDOWS
+        RunWindows(args);
+#else
+        RunLinux(args);
+#endif
+    }
+
+#if WINDOWS
+    private static void RunWindows(string[] args)
     {
         VelopackApp.Build()
             .OnBeforeUninstallFastCallback(_ =>
@@ -85,6 +99,89 @@ internal static class Program
             }
         }
     }
+#else
+    // Kein Tray, kein Velopack-Lifecycle, kein Mutex: ein fehlgeschlagenes Port-Binding sagt
+    // bereits "es laeuft schon eine Instanz", ganz ohne separate Einzelinstanz-Pruefung.
+    private static void RunLinux(string[] args)
+    {
+        if (args.Contains("--uinput-smoke-test"))
+        {
+            RunUinputSmokeTest();
+            return;
+        }
+
+        WebApplication? app = null;
+
+        try
+        {
+            app = BuildApplication(args);
+            app.Logger.LogInformation(
+                "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
+                DiagnosticPaths.LogDirectory);
+            app.Run();
+        }
+        catch (Exception exception)
+        {
+            try
+            {
+                app?.Logger.LogCritical(exception, "YFRemote.Server failed to start.");
+            }
+            catch
+            {
+                // Der separate Startfehler-Fallback unten muss auch bei einem Loggerfehler laufen.
+            }
+
+            WriteStartupError(exception);
+            Console.Error.WriteLine(
+                $"YFRemote konnte nicht gestartet werden.{Environment.NewLine}{Environment.NewLine}{exception.Message}");
+        }
+    }
+
+    // Manueller Diagnosemodus fuer den Stufe-2-Beweis aus AGENTS.md "Linux support": prueft den
+    // echten uinput-Sendepfad isoliert, ganz ohne Pairing/WebSocket/HTTP. Tippt in das gerade
+    // fokussierte Fenster und bewegt die Maus - vorher ein harmloses Textfeld fokussieren.
+    // Aufruf: dotnet run -- --uinput-smoke-test  (oder die publizierte Binary mit demselben Flag).
+    private static void RunUinputSmokeTest()
+    {
+        Console.WriteLine("uinput-Smoketest: lege virtuelles Tastatur- und Mausgeraet an...");
+
+        try
+        {
+            using var sender = new LinuxInputSender();
+            var inputService = new LinuxInputService(sender);
+            var mouseService = new LinuxMouseService(sender);
+
+            Console.WriteLine("In 3 Sekunden wird 'yfremote' in das fokussierte Fenster getippt - jetzt ein Textfeld fokussieren.");
+            Thread.Sleep(3000);
+            inputService.TypeText("yfremote");
+            Console.WriteLine("TypeText gesendet.");
+
+            Console.WriteLine("Bewege die Maus in einem Quadrat...");
+            mouseService.MoveRelative(80, 0);
+            Thread.Sleep(300);
+            mouseService.MoveRelative(0, 80);
+            Thread.Sleep(300);
+            mouseService.MoveRelative(-80, 0);
+            Thread.Sleep(300);
+            mouseService.MoveRelative(0, -80);
+            Console.WriteLine("Mausbewegung gesendet.");
+
+            Console.WriteLine("Linksklick...");
+            mouseService.ClickLeft();
+
+            Console.WriteLine("Scrollen...");
+            mouseService.Scroll(-3);
+
+            Console.WriteLine();
+            Console.WriteLine("Fertig. Ist 'yfremote' angekommen und hat sich die Maus sichtbar bewegt: uinput funktioniert.");
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"uinput-Smoketest fehlgeschlagen: {exception}");
+            Environment.Exit(1);
+        }
+    }
+#endif
 
     private static void WriteStartupError(Exception exception)
     {
@@ -120,9 +217,15 @@ internal static class Program
         builder.WebHost.UseUrls(serverOptions.Url);
 
         builder.Services.AddSingleton(serverOptions);
+#if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
+#else
+        builder.Services.AddSingleton<LinuxInputSender>();
+        builder.Services.AddSingleton<IInputService, LinuxInputService>();
+        builder.Services.AddSingleton<IMouseService, LinuxMouseService>();
+#endif
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
         builder.Services.AddSingleton<WebSocketConnectionRegistry>();
@@ -328,6 +431,7 @@ internal static class Program
         return token.Length == 0 ? null : token;
     }
 
+#if WINDOWS
     private static void StopAndDisposeApplication(WebApplication app)
     {
         try
@@ -339,4 +443,5 @@ internal static class Program
             app.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
+#endif
 }

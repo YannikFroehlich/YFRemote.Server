@@ -69,3 +69,32 @@ jobs:
       - name: Client bauen
         working-directory: client
         run: npm run build
+
+  # Absichtlich nicht "build-and-test" genannt - das ist der Pflicht-Check auf main
+  # (siehe AGENTS.md "Release automation"). Eine Umbenennung dieses Jobs waere folgenlos,
+  # eine Umbenennung von build-and-test wuerde jeden Merge nach main blockieren.
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Auschecken
+        uses: actions/checkout@v6
+
+      - name: .NET einrichten
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Server bauen (net10.0)
+        # Kein separater "dotnet restore"-Schritt: der waere unscoped und wertet damit auch
+        # net10.0-windows aus, was auf einem echten Linux-Host mit NETSDK1100 scheitert
+        # (Windows-Targeting braucht dort explizites EnableWindowsTargeting). --framework hier
+        # sorgt fuer ein automatisches, auf net10.0 beschraenktes Restore - genau das Muster,
+        # das release.yml's release-linux-Job bereits erfolgreich nutzt.
+        run: dotnet build --configuration Release --framework net10.0
+
+      - name: Server testen (net10.0)
+        run: >-
+          dotnet test tests/YFRemote.Server.Tests/YFRemote.Server.Tests.csproj
+          --configuration Release
+          --framework net10.0

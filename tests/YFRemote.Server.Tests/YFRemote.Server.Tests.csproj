@@ -1,12 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
+    <!-- Siehe EnableWindowsTargeting in YFRemote.Server.csproj: noetig, damit Restore/Build
+         dieses ebenfalls crosstargeted Projekts auf einem echten Linux Build Host nicht mit
+         NETSDK1100 abbricht, auch wenn nur das net10.0 Ziel gebraucht wird. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
+
+  <!-- Spiegelt die Ausschluesse in YFRemote.Server.csproj: Tests fuer Windows-only-Dienste und
+       fuer Updates/ (Velopack) koennen auf dem Linux-Ziel nicht kompilieren. -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows'">
+    <Compile Remove="**\Windows*Tests.cs" />
+    <Compile Remove="Updates\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <Compile Remove="**\Linux*Tests.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MSTest" Version="4.4.0" />

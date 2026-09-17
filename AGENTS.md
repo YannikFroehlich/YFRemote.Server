@@ -63,21 +63,43 @@ library) so the same code and Git history serve both platforms. `Tray\**`, `Serv
 for the `-windows` target, so `RunWindows` (Velopack lifecycle, single-instance `Mutex`, tray)
 compiles only there, and `RunLinux` (`BuildApplication` + blocking `app.Run()`, startup errors to
 `Console.Error` instead of a `MessageBox`) only for `net10.0`. The three DI registrations for
-`WindowsInputSender`/`IInputService`/`IMouseService` in `Program.BuildApplication` are likewise
-`#if WINDOWS`-only. `NetworkAddressService` and `PairingQrCodePayload` live in `Services/` (not
-`Tray/`) because they are BCL-only and needed on both platforms. The test project mirrors this:
+`IInputService`/`IMouseService` (plus the sender they depend on) in `Program.BuildApplication` are
+`#if WINDOWS`/`#else` conditional: `WindowsInputSender`/`WindowsInputService`/`WindowsMouseService`
+on `net10.0-windows`, `LinuxInputSender`/`LinuxInputService`/`LinuxMouseService` on `net10.0`.
+`NetworkAddressService` and `PairingQrCodePayload` live in `Services/` (not `Tray/`) because they
+are BCL-only and needed on both platforms. The test project mirrors this:
 `tests/YFRemote.Server.Tests.csproj` also multi-targets, excluding `**\Windows*Tests.cs` and
-`Updates\**` for `net10.0`.
+`Updates\**` for `net10.0`, and `**\Linux*Tests.cs` for `net10.0-windows`.
 
-**Current status: build/test/publish portability only, not a working Linux server yet.** There is
-no Linux input backend (`IInputService`/`IMouseService` have no Linux implementation), so on
-`net10.0` a `/ws` connection attempt returns `500` instead of upgrading — the two integration
-tests that open a real WebSocket (`WebSocket_WithValidTokenAndOrigin_Connects`,
-`Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket` in
-`tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are `#if WINDOWS`-only for the
-same reason. A planned `uinput`-based `LinuxInputSender`/`LinuxInputService`/`LinuxMouseService`
-(virtual `/dev/uinput` device, needs a real Linux box or bridged VM to verify) and Linux release
-channels/packaging in `release.yml`/`ci.yml` are not implemented. Verify portability with:
+**Linux input backend (`Services/LinuxInputSender.cs`, `LinuxInputService.cs`,
+`LinuxMouseService.cs`).** Registers a virtual keyboard and a virtual mouse with the kernel via
+`/dev/uinput` (P/Invoke on `libc`: `open`/`ioctl`/`write`/`close`), whose events are
+indistinguishable from real hardware to X11, Wayland, and the console alike. `LinuxInputSender`
+serializes every send behind one lock (`ExecuteSynchronized`), mirroring
+`WindowsInputSender.ExecuteSynchronized`, so hotkey modifier press/release ordering can't
+interleave across concurrent requests. The two uinput devices are created lazily on first actual
+send (not in the constructor), which keeps `ExecuteSynchronized` and any validation that throws
+before a real send (e.g. `UnsupportedKeyException`) unit-testable without a Linux kernel — see
+`tests/YFRemote.Server.Tests/Services/Linux*Tests.cs`. `LinuxInputService` maps the same 66 key
+names as `WindowsInputService.VirtualKeys` to Linux `KEY_*` codes (physical key positions, not
+characters). `TypeText` sends characters as a `KEY_*` code plus Shift instead of Unicode — uinput
+has no equivalent to Windows' `KEYEVENTF_UNICODE` — using a US-layout mapping; on a different
+active keyboard layout on the target machine, the wrong character (or nothing) arrives for
+non-ASCII input. This is a property of the technique (`ydotool` has the same limitation), not a
+bug in the mapping table. Operationally the target machine needs the `uinput` kernel module loaded
+(`modprobe uinput`, persist via `/etc/modules-load.d/`) and a udev rule granting the service user
+access without running as root — see `packaging/linux/99-yfremote-uinput.rules`.
+
+**Current status: code compiles and unit-tests here, but is unverified end-to-end.** No Linux
+box or VM has run it yet — see the plan's two-stage proof: (1) a standalone `/dev/uinput`
+round-trip (create device, write events, read them back from `/dev/input/eventN`) with no
+compositor involved, then (2) a real bridged-VM run (phone → Angular page served from the VM →
+WebSocket → uinput → visible cursor/keystrokes on the Ubuntu desktop). Until stage (1) has passed
+at least once, treat the exact ioctl request codes, the legacy `uinput_user_dev` struct layout,
+and the `input_event` struct size (24 bytes, assumed for 64-bit `long` time fields on x64/arm64)
+as unverified against a real kernel, even though they match well-established values used by other
+uinput bindings (e.g. `ydotool`, the Go `uinput` package). Linux release channels/packaging in
+`release.yml`/`ci.yml` (Stufe 3 of the plan) are not implemented. Verify portability with:
 
 ```powershell
 dotnet build --configuration Release
@@ -87,7 +109,12 @@ dotnet publish -c Release -f net10.0 -r linux-arm64 --self-contained true -o pub
 
 The publish output should be an ELF binary with no `System.Windows.Forms.dll`, `Velopack.dll`, or
 `QRCoder.dll` — `System.Drawing*.dll` is expected (a baseline self-contained-deployment assembly,
-not evidence of a WinForms dependency).
+not evidence of a WinForms dependency). The two integration tests that open a real WebSocket
+(`WebSocket_WithValidTokenAndOrigin_Connects`,
+`Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket` in
+`tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are still `#if WINDOWS`-only:
+they exercise the full `/ws` pipeline including a real input-service call, which this repo's
+Windows-hosted CI can't do for the Linux target either.
 
 ## Tray application
 

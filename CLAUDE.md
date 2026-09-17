@@ -17,8 +17,8 @@ and released from a single commit.
 
 The Server project multi-targets `net10.0-windows;net10.0` so build/test/publish portability
 onto Linux can be proven without breaking the shipped Windows build — see AGENTS.md's
-"Linux support" section. Only the Windows target is released today; there is no Linux input
-backend yet.
+"Linux support" section. Only the Windows target is released today; the Linux `uinput` input
+backend exists and unit-tests here but has not been run against a real Linux kernel yet.
 
 **Merging to `main` is release-related.** A push to `main` automatically triggers
 `auto-tag.yml`, which computes the next semantic version from commit messages and invokes

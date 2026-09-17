@@ -1,0 +1,11 @@
+# /dev/uinput ist per Default nur fuer root beschreibbar. Diese Regel erlaubt Mitgliedern der
+# Gruppe "input" Zugriff, damit YFRemote.Server nicht als root laufen muss.
+#
+# Installation: nach /etc/udev/rules.d/ kopieren, dann:
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# Der Dienstbenutzer muss zusaetzlich Mitglied der Gruppe "input" sein:
+#   sudo usermod -aG input <user>
+#
+# Das Kernelmodul selbst laedt Ubuntu nicht automatisch - einmalig testen mit
+# "sudo modprobe uinput", dauerhaft via /etc/modules-load.d/uinput.conf (Inhalt: "uinput").
+KERNEL=="uinput", MODE="0660", GROUP="input"

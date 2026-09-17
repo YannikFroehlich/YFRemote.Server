@@ -24,7 +24,10 @@
     <Compile Remove="Updates\**\*.cs" />
   </ItemGroup>
 
+  <!-- Der uinput-basierte Linux-Eingabepfad (Stufe 2) braucht libc-P/Invoke und existiert nur
+       fuer das Linux-Ziel. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <Compile Remove="Services\Linux*.cs" />
     <PackageReference Include="QRCoder" Version="1.8.0" />
     <PackageReference Include="Velopack" Version="1.2.0" />
   </ItemGroup>

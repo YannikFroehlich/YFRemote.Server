@@ -170,6 +170,10 @@ internal static class Program
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
+#else
+        builder.Services.AddSingleton<LinuxInputSender>();
+        builder.Services.AddSingleton<IInputService, LinuxInputService>();
+        builder.Services.AddSingleton<IMouseService, LinuxMouseService>();
 #endif
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();

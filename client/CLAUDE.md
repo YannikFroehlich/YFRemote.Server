@@ -51,9 +51,10 @@ manual `ChangeDetectorRef` calls.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and
    the only thing that talks to the WebSocket. Exposes readonly signals (`config`, `status`,
    `lastError`, `manuallyDisconnected`, plus the persisted input preferences `mouseSensitivity`,
-   `scrollSpeed`, `invertScroll`, `haptics`, `liveTyping`) and imperative methods
-   (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/`saveScrollSettings`/
-   `saveHaptics`/`saveLiveTyping`/`sendAction`/`runSteps`). `sendAction` (for `key`, `hotkey`,
+   `pointerAcceleration`, `scrollSpeed`, `invertScroll`, `haptics`, `liveTyping`) and imperative
+   methods (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/
+   `savePointerAcceleration`/`saveScrollSettings`/`saveHaptics`/`saveLiveTyping`/`sendAction`/
+   `runSteps`). `sendAction` (for `key`, `hotkey`,
    `mouseClick`, `mouseDown`) and each `runSteps` call trigger a short vibration when `haptics`
    is on. Owns reconnect-with-backoff logic (`RECONNECT_DELAYS_MS`) and transient-error
    display (`ERROR_VISIBLE_MS`). Every step in a multi-step macro carries a connection-local
@@ -121,8 +122,9 @@ manual `ChangeDetectorRef` calls.
 5. **Other UI components**, each paired with its own `.html` template (styles are mostly global,
    see below):
    - `TouchpadComponent` (`touchpad/`) — raw Pointer Events (not a library) implementing a
-     laptop-trackpad UX: 1 finger drags the cursor, scaled by `remote.mouseSensitivity()` and a
-     speed-based acceleration factor (`ACCEL_*` constants, from `event.timeStamp`). A tap within
+     laptop-trackpad UX: 1 finger drags the cursor, scaled by `remote.mouseSensitivity()` and,
+     unless `remote.pointerAcceleration()` is off, a speed-based acceleration factor (`ACCEL_*`
+     constants, from `event.timeStamp`). A tap within
      `TAP_MAX_MOVEMENT_PX`/`TAP_MAX_DURATION_MS` left-clicks, but only after `TAP_DRAG_WINDOW_MS`:
      touching down again inside that window sends `mouseDown` and drags until lift (a second
      short tap instead becomes a double click). 2 fingers scroll vertically and horizontally
@@ -162,6 +164,35 @@ manual `ChangeDetectorRef` calls.
 holds only the canvas's absolute-positioning geometry (cell math via CSS custom properties), not
 its visual language, which stays in the shared `.control-button` classes. When adding UI, check
 `styles.scss` for an existing class before introducing component-scoped styles.
+Every color lives as a custom property in the `:root` block at the top of `styles.scss`, never
+as a literal in a rule, so a theme only has to override that block. Translucent variants use
+channel tokens: `rgba(var(--accent-rgb), 0.12)`. Keep that block ASCII-only — a single umlaut in
+it (even in a comment) makes the build emit `@charset`.
+Light mode is the `light-tokens` mixin right below that block, applied for
+`:root[data-mode='light']` and, when no mode is stored ("System"), via
+`prefers-color-scheme: light`. `theme.ts` (`applyThemeMode`) sets `data-mode` and the
+`theme-color` metas; an inline script in `index.html` repeats that logic before Angular starts
+so the stored mode never flashes — change both together. The mode is a `RemoteService`
+preference (`themeMode`/`saveThemeMode`, stored as `yfremote.themeMode`).
+Styles work the same way via `data-style` (`futuristic`/`minimal`; `standard` = no attribute,
+`themeStyle`/`saveThemeStyle`, `yfremote.themeStyle`): each style has a dark mixin and a light
+mixin that starts from `light-tokens`, so no dark value leaks into light mode. Besides colors, a
+style turns the shape knobs `--radius-scale`, `--radius-pill`, `--shadow-strength`,
+`--decor-strength`, `--grid-strength` and `--font-display`; standard keeps them at 1/defaults.
+Write new radii as `calc(Npx * var(--radius-scale))` and shadow/decor alphas as
+`calc(A * var(--shadow-strength))` / `calc(A * var(--decor-strength))` so every style follows.
+
+**`ThemeService`** (`theme.service.ts`) owns mode, style and the user's own styles and is the only
+place that touches `<html>`: `applyTheme` writes `data-mode`/`data-style` plus, for an own style,
+the derived tokens as inline custom properties (it clears the whole inline `style` first, so nothing
+else may put inline styles on `<html>`). Every change also stores the finished `AppliedTheme` under
+`yfremote.appliedTheme`; the inline script in `index.html` only replays that snapshot, so the boot
+path has no theme logic of its own. An own style is a `CustomTheme` (base style + light/dark + a
+handful of values); `deriveCustomThemeProperties` expands those into the full token set, then the
+`advanced` map overrides single tokens. `normalizeCustomTheme` is the trust boundary for stored and
+imported styles: hex colors and in-range numbers only, so no foreign CSS reaches a token.
+Borders use `var(--border-width)` (never a literal `1px`), and text sizes use `rem` so
+`--font-scale` (applied to the `html` font size) scales them.
 
 **All user-facing strings are German** (labels, aria-labels, error messages like "Keine Verbindung
 zum Server."). Keep new UI text consistent with this.

@@ -14,6 +14,7 @@ import {
   INVERT_SCROLL_STORAGE_KEY,
   LIVE_TYPING_STORAGE_KEY,
   MOUSE_SENSITIVITY_STORAGE_KEY,
+  POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
   ServerLocation,
@@ -504,10 +505,12 @@ describe('RemoteService', () => {
     expect(remote.scrollSpeed()).toBe(1);
     expect(remote.invertScroll()).toBe(false);
     expect(remote.haptics()).toBe(true);
+    expect(remote.pointerAcceleration()).toBe(true);
     expect(remote.liveTyping()).toBe(false);
 
     expect(remote.saveScrollSettings(2.5, true)).toBe(true);
     remote.saveHaptics(false);
+    remote.savePointerAcceleration(false);
     remote.saveLiveTyping(true);
 
     expect(remote.scrollSpeed()).toBe(2.5);
@@ -515,6 +518,8 @@ describe('RemoteService', () => {
     expect(storage.getItem(SCROLL_SPEED_STORAGE_KEY)).toBe('2.5');
     expect(storage.getItem(INVERT_SCROLL_STORAGE_KEY)).toBe('true');
     expect(storage.getItem(HAPTICS_STORAGE_KEY)).toBe('false');
+    expect(remote.pointerAcceleration()).toBe(false);
+    expect(storage.getItem(POINTER_ACCELERATION_STORAGE_KEY)).toBe('false');
     expect(storage.getItem(LIVE_TYPING_STORAGE_KEY)).toBe('true');
 
     expect(remote.saveScrollSettings(5, false)).toBe(false);

@@ -22,6 +22,22 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Added
 
+- Own styles. Settings → "Neuer Stil" opens an editor for colors (accent, background, surfaces, buttons, text, lines, warning), border thickness, corner rounding, shadows, gradients, background grid, fonts and text size; a "Profi" section sets each of the 36 color tokens on its own. Changes are visible while editing, several styles can be kept side by side, and they can be exported to and imported from a JSON file. An own style brings its own light or dark.
+- Three styles, selectable under Settings → "Stil" and combinable with light and dark mode: "Standard" (the existing look), "Futuristisch" (neon cyan and violet, glow, sharper corners, monospace headings, visible grid) and "Minimalistisch" (flat monochrome, no gradients, glow or shadows). The choice is remembered and applied before the page first renders.
+- Light mode. Settings → "Darstellung" chooses between "Wie das Gerät (System)" (the default, follows the phone's light/dark setting), "Hell" and "Dunkel". The choice is remembered and applied before the page first renders, so it never flashes the wrong mode on load. The browser bar color follows along.
+- Settings: a "Mausbeschleunigung" switch turns the touchpad's pointer acceleration off, so
+  cursor movement stays 1:1 regardless of finger speed. It is on by default.
+
+### Fixed
+
+- Phone layout: the touchpad tab no longer runs off the right edge of the screen (the gesture chips, the "Senden" button and "Rechtsklick" were cut off); on phones the gesture hints now sit in the middle of the touchpad. The Live switch shows an on/off indicator.
+- Phone layout: the Backspace key on the keyboard tab is labelled "⌫" so it fits its button, and key labels can no longer spill outside their button.
+- Settings: the on/off switches are full-width rows like the other fields instead of pills with wrapped text.
+
+## [2.12.0] - 2026-09-19
+
+### Added
+
 - Touchpad: pointer acceleration. Slow finger movement stays 1:1 for precise positioning, fast
   swipes move the cursor up to three times as far.
 - Touchpad: tap, then touch down again and move to drag with the left button held (moving

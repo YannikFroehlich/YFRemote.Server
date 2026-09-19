@@ -286,8 +286,10 @@ export class TouchpadComponent implements OnDestroy {
       return;
     }
 
-    const scale =
-      this.remote.mouseSensitivity() * accelerationFactor(Math.hypot(deltaX, deltaY), elapsedMs);
+    const acceleration = this.remote.pointerAcceleration()
+      ? accelerationFactor(Math.hypot(deltaX, deltaY), elapsedMs)
+      : 1;
+    const scale = this.remote.mouseSensitivity() * acceleration;
 
     this.pendingMoveX += deltaX * scale;
     this.pendingMoveY += deltaY * scale;

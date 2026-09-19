@@ -29,6 +29,7 @@
       [attr.aria-checked]="liveTyping()"
       (click)="toggleLiveTyping(textInput)"
     >
+      <span class="switch-indicator" aria-hidden="true"></span>
       Live
     </button>
     @if (!liveTyping()) {
@@ -52,8 +53,9 @@
     <div class="touchpad-surface__center" aria-hidden="true">
       <span class="touchpad-surface__gesture"></span>
       <strong>Zum Steuern bewegen</strong>
+      <small>1 Finger: Bewegen · 2 Finger: Scrollen</small>
       <small>Tippen: Linksklick · 2 Finger: Rechtsklick · 3 Finger: Mittelklick</small>
-      <small>Tippen, dann gedrückt halten: Ziehen</small>
+      <small>Tippen, dann halten: Ziehen</small>
     </div>
   </div>
 

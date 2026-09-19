@@ -7,7 +7,7 @@
 .layout-canvas {
   position: relative;
   height: calc(var(--rows) * var(--row-h));
-  border-radius: 18px;
+  border-radius: calc(18px * var(--radius-scale));
 }
 
 .layout-grid {
@@ -17,12 +17,12 @@
   background-image:
     repeating-linear-gradient(
       to right,
-      rgba(98, 227, 196, 0.14) 0 1px,
+      rgba(var(--accent-rgb), 0.14) 0 1px,
       transparent 1px calc(100% / var(--cols))
     ),
     repeating-linear-gradient(
       to bottom,
-      rgba(98, 227, 196, 0.14) 0 1px,
+      rgba(var(--accent-rgb), 0.14) 0 1px,
       transparent 1px var(--row-h)
     );
 }
@@ -61,8 +61,8 @@
 .layout-slot--dragging > .control-button {
   border-color: var(--line-strong);
   box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.28),
-    0 0 0 3px rgba(98, 227, 196, 0.1);
+    0 18px 42px rgba(var(--shadow-rgb), calc(0.28 * var(--shadow-strength))),
+    0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
 .slot-remove {
@@ -75,11 +75,11 @@
   height: 24px;
   padding: 0;
   place-items: center;
-  border: 1px solid rgba(255, 155, 135, 0.22);
-  border-radius: 999px;
-  background: #271b1a;
+  border: var(--border-width) solid rgba(var(--danger-rgb), 0.22);
+  border-radius: var(--radius-pill);
+  background: var(--danger-surface);
   color: var(--danger);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 6px 14px rgba(var(--shadow-rgb), calc(0.22 * var(--shadow-strength)));
   cursor: pointer;
 }
 
@@ -91,6 +91,6 @@
 .slot-remove:hover,
 .slot-remove:focus-visible {
   border-color: var(--danger);
-  background: #36201d;
+  background: var(--danger-surface-hover);
   outline: none;
 }

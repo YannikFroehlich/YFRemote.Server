@@ -8,7 +8,30 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="brand-mark.png">
-  <meta name="theme-color" content="#070b0e">
+  <meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#eef3f4" media="(prefers-color-scheme: light)">
+  <script>
+    // Zuletzt angewendetes Theme vor dem ersten Rendern setzen, sonst blitzt beim Laden der
+    // falsche Stil auf. ThemeService speichert es fertig berechnet (AppliedTheme in theme.ts).
+    (function () {
+      try {
+        var theme = JSON.parse(localStorage.getItem('yfremote.appliedTheme'));
+        if (!theme) return;
+        var root = document.documentElement;
+        if (theme.mode) root.dataset.mode = theme.mode;
+        if (theme.style) root.dataset.style = theme.style;
+        Object.keys(theme.props || {}).forEach(function (name) {
+          if (name.indexOf('--') === 0) root.style.setProperty(name, String(theme.props[name]));
+        });
+        var color = theme.themeColor || (theme.mode === 'light' ? '#eef3f4' : theme.mode ? '#070b0e' : null);
+        if (color) {
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
+            meta.content = color;
+          });
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

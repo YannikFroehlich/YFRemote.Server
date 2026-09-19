@@ -9,6 +9,7 @@
   height: 100%;
   min-height: 0;
   flex: 1;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 68px minmax(0, 1fr) 66px;
   gap: 0;
   overflow: hidden;
@@ -80,7 +81,9 @@
   display: grid;
   place-items: center;
   gap: 7px;
+  padding: 0 24px;
   pointer-events: none;
+  text-align: center;
 }
 
 .touchpad-surface__center strong {
@@ -209,15 +212,7 @@
   }
 
   .touchpad-hints {
-    flex-wrap: nowrap;
-    justify-content: flex-end;
-    gap: 4px;
-  }
-
-  .touchpad-hints span {
-    padding: 4px 6px;
-    font-size: 0.56rem;
-    white-space: nowrap;
+    display: none;
   }
 
   .touchpad-text {
@@ -232,6 +227,12 @@
 
   .touchpad-text__input {
     padding: 0 11px;
+  }
+
+  .touchpad-text .snap-switch {
+    min-height: 42px;
+    padding: 0 10px;
+    gap: 7px;
   }
 
   .touchpad-text__send {

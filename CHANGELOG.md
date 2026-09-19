@@ -25,6 +25,12 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - Settings: a "Mausbeschleunigung" switch turns the touchpad's pointer acceleration off, so
   cursor movement stays 1:1 regardless of finger speed. It is on by default.
 
+### Fixed
+
+- Phone layout: the touchpad tab no longer runs off the right edge of the screen (the gesture chips, the "Senden" button and "Rechtsklick" were cut off); on phones the gesture hints now sit in the middle of the touchpad. The Live switch shows an on/off indicator.
+- Phone layout: the Backspace key on the keyboard tab is labelled "⌫" so it fits its button, and key labels can no longer spill outside their button.
+- Settings: the on/off switches are full-width rows like the other fields instead of pills with wrapped text.
+
 ## [2.12.0] - 2026-09-19
 
 ### Added

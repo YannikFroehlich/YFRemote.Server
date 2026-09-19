@@ -95,6 +95,7 @@ const KEY_LABELS: Readonly<Record<string, string>> = {
   PAGE_UP: 'Bild ↑',
   PAGE_DOWN: 'Bild ↓',
   PRINT_SCREEN: 'Druck',
+  BACKSPACE: '⌫',
 };
 
 export function keyLabel(key: string): string {

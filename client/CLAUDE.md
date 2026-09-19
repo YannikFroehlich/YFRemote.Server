@@ -168,6 +168,12 @@ Every color lives as a custom property in the `:root` block at the top of `style
 as a literal in a rule, so a theme only has to override that block. Translucent variants use
 channel tokens: `rgba(var(--accent-rgb), 0.12)`. Keep that block ASCII-only — a single umlaut in
 it (even in a comment) makes the build emit `@charset`.
+Light mode is the `light-tokens` mixin right below that block, applied for
+`:root[data-mode='light']` and, when no mode is stored ("System"), via
+`prefers-color-scheme: light`. `theme.ts` (`applyThemeMode`) sets `data-mode` and the
+`theme-color` metas; an inline script in `index.html` repeats that logic before Angular starts
+so the stored mode never flashes — change both together. The mode is a `RemoteService`
+preference (`themeMode`/`saveThemeMode`, stored as `yfremote.themeMode`).
 
 **All user-facing strings are German** (labels, aria-labels, error messages like "Keine Verbindung
 zum Server."). Keep new UI text consistent with this.

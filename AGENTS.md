@@ -6,7 +6,9 @@ YFRemote is a single public Git repository, `YannikFroehlich/YFRemote.Server`:
 
 - Local path: `D:\Dev\YFRemote\server\YFRemote.Server` (laptop) /
   `D:\Dokumente\Programmieren\YFRemote\server\YFRemote.Server` (PC)
-- Default branch: `main`; day-to-day work happens on `develop` and is merged into `main`
+- Default branch: `main`; day-to-day work happens on `develop` and is merged into `main`.
+  Neither branch takes direct pushes: work goes on a feature branch cut from `develop` and
+  reaches `develop` through a pull request (see "Release automation")
 - Repository root: .NET Windows application, web server, tray application, and release owner
 - `client/`: the Angular web application, including its own `client/CLAUDE.md`
 
@@ -315,6 +317,12 @@ required check unsatisfiable and blocks every merge into `main`** until the prot
 updated to the new name. The `client` job is deliberately not a required check — add it in the
 branch protection settings if Client regressions should also block a merge.
 
+`develop` has the same `build-and-test` rule. The owner's admin account can bypass it, and a
+direct push then succeeds with a "Bypassed rule violations" notice — that is a mistake, not
+a shortcut. Every change, including small docs follow-ups such as the CHANGELOG rename after
+a release, goes on a feature branch and into `develop` through a pull request whose checks
+passed.
+
 `.github/workflows/auto-tag.yml` runs on every push to `main`. It:
 
 1. analyzes commits since the previous tag using Conventional Commits (`fix:` → patch,
@@ -381,14 +389,18 @@ longer a separate repository, so there is no ordering constraint and no manual s
    `release.yml` copies that section (or `## [<version>]`, if it already exists) into the
    GitHub Release text, so an empty `[Unreleased]` means a release without real notes.
 2. Run the relevant Client and Server checks before merging (see "Validation" above).
-3. Merge to `main` — use Conventional Commit prefixes (`fix:`, `feat:`,
-   `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the automatic version bump is
-   meaningful. Add `[skip release]` to the merge commit message to merge without releasing.
-4. `auto-tag.yml` fires automatically on the merge, computes the next version, and invokes
+3. Open a pull request from your feature branch into `develop` and merge it once
+   `build-and-test` passed. Never push to `develop` directly.
+4. Open a pull request from `develop` into `main` and merge it — use Conventional Commit
+   prefixes (`fix:`, `feat:`, `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the
+   automatic version bump is meaningful. Add `[skip release]` to the merge commit message to
+   merge without releasing.
+5. `auto-tag.yml` fires automatically on the merge, computes the next version, and invokes
    `release.yml`. No manual tagging step is needed.
-5. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
+6. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
    assets, then rename `[Unreleased]` in `CHANGELOG.md` to the version/date that was just
-   published and start a fresh empty `[Unreleased]` section above it.
+   published and start a fresh empty `[Unreleased]` section above it — on a feature branch
+   and through a pull request into `develop`, like any other change.
 
 Fallback if the automated workflow is unavailable: tag the intended `main` commit by hand
 and push the tag, which triggers `release.yml` directly.

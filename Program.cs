@@ -118,6 +118,12 @@ internal static class Program
             app.Logger.LogInformation(
                 "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
                 DiagnosticPaths.LogDirectory);
+
+            // Kein Tray auf Linux, also kein Menue-Eintrag fuer die PIN: sie muss stattdessen
+            // hier auf der Konsole des Servers erscheinen, sonst kann sich kein Geraet koppeln.
+            var (pin, expiresAtUtc) = app.Services.GetRequiredService<PairingService>().GetCurrentPin();
+            Console.WriteLine($"Pairing-PIN: {pin} (gueltig bis {expiresAtUtc:HH:mm:ss} UTC)");
+
             app.Run();
         }
         catch (Exception exception)

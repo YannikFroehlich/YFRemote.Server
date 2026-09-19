@@ -90,15 +90,27 @@ bug in the mapping table. Operationally the target machine needs the `uinput` ke
 (`modprobe uinput`, persist via `/etc/modules-load.d/`) and a udev rule granting the service user
 access without running as root — see `packaging/linux/99-yfremote-uinput.rules`.
 
-**Current status: code compiles and unit-tests here, but is unverified end-to-end.** No Linux
-box or VM has run it yet — see the plan's two-stage proof: (1) a standalone `/dev/uinput`
-round-trip (create device, write events, read them back from `/dev/input/eventN`) with no
-compositor involved, then (2) a real bridged-VM run (phone → Angular page served from the VM →
-WebSocket → uinput → visible cursor/keystrokes on the Ubuntu desktop). Until stage (1) has passed
-at least once, treat the exact ioctl request codes, the legacy `uinput_user_dev` struct layout,
-and the `input_event` struct size (24 bytes, assumed for 64-bit `long` time fields on x64/arm64)
-as unverified against a real kernel, even though they match well-established values used by other
-uinput bindings (e.g. `ydotool`, the Go `uinput` package). Verify portability with:
+**Current status: both stages of the plan's proof have now passed, on x86_64 only.** Manually
+tested on a Linux Mint 22 (Cinnamon) VM in VirtualBox: (1) the standalone `/dev/uinput`
+round-trip via `--uinput-smoke-test` (typed text and moved/clicked/scrolled the mouse with no
+compositor-specific code involved — X11 vs. Wayland made no difference, as expected for a
+kernel-level technique), then (2) a real bridged-VM run — paired a phone over the LAN, sent
+key/mouse actions through the actual `/ws` pipeline, and watched them land on the VM's desktop.
+This confirms the ioctl request codes, the legacy `uinput_user_dev` struct layout, and the
+`input_event` struct size (24 bytes, assumed for 64-bit `long` time fields) against a real x64
+kernel. Still open: `linux-arm64` has not been run on real hardware/VM (only cross-published and
+unit-tested); non-ASCII `TypeText` input was not exercised (only an ASCII string); the actual
+Velopack-installed path (`~/.local/share/YFRemote/current/...`, `packaging/linux/yfremote.service`
+systemd autostart) was not exercised — the manual test ran a bare `dotnet publish` output
+directly, not an installed package; and the `release-linux` CI job that would produce that
+installable package has still never run (see below). Two other things surfaced by this manual
+run, independent of the input backend itself: the target user account needs to be in the
+kernel's `input` group (via the udev rule in `packaging/linux/99-yfremote-uinput.rules`) *and*
+that group membership only takes effect in a new login session (`newgrp <group>` works as a
+same-shell shortcut for testing) — forgetting this reads as a mysterious "Action failed" from the
+client with no server-side clue; and headless Linux has no tray to show the pairing PIN in, so
+`RunLinux` now also prints it to the console (or, once installed as a systemd service, to
+`journalctl --user -u yfremote`) right after startup. Verify portability with:
 
 ```powershell
 dotnet build --configuration Release

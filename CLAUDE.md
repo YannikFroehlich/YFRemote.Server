@@ -18,7 +18,10 @@ and released from a single commit.
 The Server project multi-targets `net10.0-windows;net10.0` so build/test/publish portability
 onto Linux can be proven without breaking the shipped Windows build — see AGENTS.md's
 "Linux support" section. Only the Windows target is released today; the Linux `uinput` input
-backend exists and unit-tests here but has not been run against a real Linux kernel yet.
+backend has now been manually verified end-to-end on a real x86_64 Linux kernel (Linux Mint
+Cinnamon VM), though only as a bare `dotnet publish` output, not an installed package — see
+AGENTS.md's "Linux support" section for what's still unverified (arm64, the Velopack-installed
+path, `release-linux` CI).
 
 **Merging to `main` is release-related.** A push to `main` automatically triggers
 `auto-tag.yml`, which computes the next semantic version from commit messages and invokes

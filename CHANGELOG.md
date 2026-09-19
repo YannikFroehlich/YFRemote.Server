@@ -20,7 +20,16 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- On Linux, the pairing PIN is printed to the console (or `journalctl --user -u yfremote` when
+  running as a systemd service) at startup, since there is no tray to show it in.
+
 ### Changed
+
+- Verified the Linux `uinput` input backend end-to-end on a real x86_64 kernel (Linux Mint VM,
+  paired phone over the LAN). arm64 and the Velopack-installed package remain unverified, so
+  Linux stays on the `-beta` channels.
 
 - Reworked the README with release/build/download badges, a Mermaid diagram of the core
   concept, and a Features section, and translated it to English to match the project's

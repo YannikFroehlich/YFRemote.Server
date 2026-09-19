@@ -114,13 +114,17 @@ manual `ChangeDetectorRef` calls.
 5. **Other UI components**, each paired with its own `.html` template (styles are mostly global,
    see below):
    - `TouchpadComponent` (`touchpad/`) — raw Pointer Events (not a library) implementing a
-     laptop-trackpad UX: 1 finger drags the cursor (scaled by `remote.mouseSensitivity()`) and
-     tap-clicks if it stayed within `TAP_MAX_MOVEMENT_PX`/`TAP_MAX_DURATION_MS`; 2 fingers scroll
-     vertically and horizontally (`SCROLL_SCALE`), and a 2-finger tap within the same limits
-     right-clicks (scrolling is held back until the fingers move past `TAP_MAX_MOVEMENT_PX`);
-     3+ fingers are ignored. Movement/scroll deltas are
+     laptop-trackpad UX: 1 finger drags the cursor, scaled by `remote.mouseSensitivity()` and a
+     speed-based acceleration factor (`ACCEL_*` constants, from `event.timeStamp`). A tap within
+     `TAP_MAX_MOVEMENT_PX`/`TAP_MAX_DURATION_MS` left-clicks, but only after `TAP_DRAG_WINDOW_MS`:
+     touching down again inside that window sends `mouseDown` and drags until lift (a second
+     short tap instead becomes a double click). 2 fingers scroll vertically and horizontally
+     (`SCROLL_SCALE`); a 2-finger tap right-clicks and a 3-finger tap middle-clicks (scrolling
+     is held back while such a tap is still possible). Movement/scroll deltas are
      accumulated and flushed at most once per animation frame (`requestAnimationFrame`) rather than
-     sent per pointer event, to avoid flooding the socket.
+     sent per pointer event, to avoid flooding the socket. The text field above the surface
+     sends its content on submit, or with the "Live" switch on, sends every change immediately
+     as a diff against the last sent text (`BACKSPACE` keys plus a `text` action).
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an

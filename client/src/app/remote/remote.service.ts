@@ -21,6 +21,7 @@ import {
   parseStoredFlag,
   parseStoredMouseSensitivity,
   parseStoredScrollSpeed,
+  POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
 } from './server-config';
@@ -105,6 +106,9 @@ export class RemoteService implements OnDestroy {
   private readonly hapticsSignal = signal(
     parseStoredFlag(this.readStorage(HAPTICS_STORAGE_KEY), true),
   );
+  private readonly pointerAccelerationSignal = signal(
+    parseStoredFlag(this.readStorage(POINTER_ACCELERATION_STORAGE_KEY), true),
+  );
   private readonly liveTypingSignal = signal(
     parseStoredFlag(this.readStorage(LIVE_TYPING_STORAGE_KEY), false),
   );
@@ -124,6 +128,7 @@ export class RemoteService implements OnDestroy {
   readonly scrollSpeed = this.scrollSpeedSignal.asReadonly();
   readonly invertScroll = this.invertScrollSignal.asReadonly();
   readonly haptics = this.hapticsSignal.asReadonly();
+  readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
@@ -222,6 +227,11 @@ export class RemoteService implements OnDestroy {
   saveHaptics(enabled: boolean): void {
     this.hapticsSignal.set(enabled);
     this.storage?.setItem(HAPTICS_STORAGE_KEY, String(enabled));
+  }
+
+  savePointerAcceleration(enabled: boolean): void {
+    this.pointerAccelerationSignal.set(enabled);
+    this.storage?.setItem(POINTER_ACCELERATION_STORAGE_KEY, String(enabled));
   }
 
   saveLiveTyping(enabled: boolean): void {

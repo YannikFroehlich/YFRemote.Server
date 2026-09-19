@@ -20,6 +20,11 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- Settings: a "Mausbeschleunigung" switch turns the touchpad's pointer acceleration off, so
+  cursor movement stays 1:1 regardless of finger speed. It is on by default.
+
 ## [2.12.0] - 2026-09-19
 
 ### Added

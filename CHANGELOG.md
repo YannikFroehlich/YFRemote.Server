@@ -20,6 +20,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-09-19
+
 ### Added
 
 - Touchpad: a short two-finger tap sends a right click, like on a laptop trackpad. While the

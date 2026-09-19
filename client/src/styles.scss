@@ -1169,6 +1169,15 @@ select:focus-visible {
   text-align: right;
 }
 
+.theme-editor__advanced > .theme-editor__colors {
+  margin-top: 12px;
+}
+
+/* details gibt seinem Inhalt eine eigene Box, das grid-gap der Section greift dort nicht. */
+.theme-editor__advanced > .secondary-button {
+  margin-top: 12px;
+}
+
 .theme-editor__advanced summary {
   color: var(--text-soft);
   font-size: 0.82rem;

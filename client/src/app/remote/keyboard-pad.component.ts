@@ -1,5 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { KEY_GROUPS, keysToAction, MAX_HOTKEY_KEYS, MODIFIER_KEYS } from './keyboard-keys';
+import {
+  KEY_GROUPS,
+  keyLabel,
+  keysToAction,
+  MAX_HOTKEY_KEYS,
+  MODIFIER_KEYS,
+} from './keyboard-keys';
 import { RemoteService } from './remote.service';
 
 @Component({
@@ -11,6 +17,7 @@ export class KeyboardPadComponent {
   private readonly remote = inject(RemoteService);
 
   protected readonly keyGroups = KEY_GROUPS;
+  protected readonly keyLabel = keyLabel;
   protected readonly armedModifiers = signal<readonly string[]>([]);
 
   protected onKeyTap(key: string): void {

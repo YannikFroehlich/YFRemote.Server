@@ -9,7 +9,13 @@ interface PointerPosition {
   startY: number;
   totalMovement: number;
   startedAt: number;
+  lastEventAt: number;
   canTap: boolean;
+}
+
+interface MultiFingerTap {
+  readonly fingers: 2 | 3;
+  readonly startedAt: number;
 }
 
 type PointerMode = 'idle' | 'move' | 'scroll' | 'ignore';
@@ -17,8 +23,18 @@ type MouseButtonName = 'left' | 'right' | 'middle';
 
 const TAP_MAX_DURATION_MS = 260;
 const TAP_MAX_MOVEMENT_PX = 8;
+// So lange nach einem Tipp wird auf erneutes Aufsetzen gewartet (Tippen, halten, ziehen);
+// um genau diese Zeit kommt der Linksklick eines einzelnen Tipps verzögert an.
+const TAP_DRAG_WINDOW_MS = 180;
 const SCROLL_SCALE = 6;
 const MAX_SCROLL_DELTA = 1200;
+// Zeiger-Beschleunigung: bis ACCEL_THRESHOLD px/ms bleibt die Bewegung 1:1, darüber wächst
+// der Faktor linear bis ACCEL_MAX_FACTOR. Kürzere Event-Abstände als MIN_EVENT_INTERVAL_MS
+// (zusammengefasste Events) würden sonst eine absurde Geschwindigkeit ergeben.
+const ACCEL_THRESHOLD_PX_PER_MS = 0.25;
+const ACCEL_GAIN = 1.5;
+const ACCEL_MAX_FACTOR = 3;
+const MIN_EVENT_INTERVAL_MS = 8;
 
 @Component({
   selector: 'app-touchpad',
@@ -30,10 +46,15 @@ export class TouchpadComponent implements OnDestroy {
   private readonly pointers = new Map<number, PointerPosition>();
   private readonly heldButtons = new Map<MouseButtonName, number>();
 
+  protected readonly liveTyping = this.remote.liveTyping;
+
   private pointerMode: PointerMode = 'idle';
   private lastScrollCenterX: number | null = null;
   private lastScrollCenterY: number | null = null;
-  private twoFingerTapStartedAt: number | null = null;
+  private multiFingerTap: MultiFingerTap | null = null;
+  private pendingTapClick: ReturnType<typeof setTimeout> | null = null;
+  private tapDragPointerId: number | null = null;
+  private liveTypedText = '';
   private pendingMoveX = 0;
   private pendingMoveY = 0;
   private pendingScrollDeltaX = 0;
@@ -43,6 +64,12 @@ export class TouchpadComponent implements OnDestroy {
   protected pointerDown(event: PointerEvent): void {
     this.preventBrowserGesture(event);
     this.capturePointer(event);
+
+    if (this.tapDragPointerId !== null) {
+      this.endTapDrag();
+    } else if (this.pendingTapClick !== null && this.pointers.size === 0) {
+      this.startTapDrag(event.pointerId);
+    }
 
     this.pointers.set(event.pointerId, this.createPointerPosition(event));
     this.resolveModeAfterPointerChange();
@@ -64,11 +91,11 @@ export class TouchpadComponent implements OnDestroy {
 
     this.updatePointerPosition(pointer, event);
 
-    if (this.pointerMode === 'scroll' && this.pointers.size === 2) {
-      if (pointer.totalMovement > TAP_MAX_MOVEMENT_PX) {
-        this.twoFingerTapStartedAt = null;
-      }
+    if (pointer.totalMovement > TAP_MAX_MOVEMENT_PX) {
+      this.multiFingerTap = null;
+    }
 
+    if (this.pointerMode === 'scroll' && this.pointers.size === 2) {
       this.collectScroll();
     }
   }
@@ -84,18 +111,28 @@ export class TouchpadComponent implements OnDestroy {
     this.releasePointer(event);
     this.updatePointerPosition(pointer, event);
 
-    const shouldClick = this.shouldClick(pointer);
-    const shouldRightClick = this.shouldRightClick(pointer);
+    const isTap = this.shouldClick(pointer);
+    const multiFingerButton = this.multiFingerTapButton(pointer);
+    const endsTapDrag = this.tapDragPointerId === event.pointerId;
 
     this.flushPendingActions();
     this.pointers.delete(event.pointerId);
 
-    if (shouldClick) {
-      this.sendAction({ type: 'mouseClick', button: 'left' });
+    if (endsTapDrag) {
+      this.tapDragPointerId = null;
+      this.sendAction({ type: 'mouseUp', button: 'left' });
+
+      // Zweiter kurzer Tipp statt Ziehen: Drücken+Loslassen war der erste Klick, das hier
+      // macht daraus einen Doppelklick.
+      if (isTap) {
+        this.sendAction({ type: 'mouseClick', button: 'left' });
+      }
+    } else if (isTap) {
+      this.schedulePendingTapClick();
     }
 
-    if (shouldRightClick) {
-      this.sendAction({ type: 'mouseClick', button: 'right' });
+    if (multiFingerButton !== null) {
+      this.sendAction({ type: 'mouseClick', button: multiFingerButton });
     }
 
     this.resolveModeAfterPointerChange();
@@ -108,6 +145,10 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   protected lostPointerCapture(event: PointerEvent): void {
+    if (this.tapDragPointerId === event.pointerId) {
+      this.endTapDrag();
+    }
+
     this.pointers.delete(event.pointerId);
     this.resolveModeAfterPointerChange();
   }
@@ -159,6 +200,12 @@ export class TouchpadComponent implements OnDestroy {
   protected submitText(event: Event, input: HTMLInputElement): void {
     event.preventDefault();
 
+    if (this.liveTyping()) {
+      this.sendAction({ type: 'key', keys: ['ENTER'] });
+      this.clearLiveText(input);
+      return;
+    }
+
     const text = input.value;
 
     if (text.length === 0) {
@@ -169,14 +216,69 @@ export class TouchpadComponent implements OnDestroy {
     input.value = '';
   }
 
+  protected toggleLiveTyping(input: HTMLInputElement): void {
+    this.remote.saveLiveTyping(!this.liveTyping());
+    this.clearLiveText(input);
+
+    if (this.liveTyping()) {
+      input.focus();
+    }
+  }
+
+  /** Live-Eingabe: vergleicht das Feld mit dem zuletzt gesendeten Stand und schickt nur die
+   *  Differenz (Rücktasten + neuer Text). So funktionieren auch Autokorrektur und
+   *  Wortvorschläge der Handy-Tastatur, die ganze Wörter auf einmal ersetzen. */
+  protected onTextInput(input: HTMLInputElement): void {
+    if (!this.liveTyping()) {
+      return;
+    }
+
+    // ponytail: eine Rücktaste pro Codepoint. Löscht die PC-Anwendung zusammengesetzte Emoji
+    // am Stück, gehen dabei zu viele Zeichen weg; dann auf Intl.Segmenter (Grapheme) umstellen.
+    const previous = Array.from(this.liveTypedText);
+    const next = Array.from(input.value);
+    let common = 0;
+
+    while (common < previous.length && common < next.length && previous[common] === next[common]) {
+      common++;
+    }
+
+    for (let index = common; index < previous.length; index++) {
+      this.sendAction({ type: 'key', keys: ['BACKSPACE'] });
+    }
+
+    const inserted = next.slice(common).join('');
+
+    if (inserted.length > 0) {
+      this.sendAction({ type: 'text', text: inserted });
+    }
+
+    this.liveTypedText = input.value;
+  }
+
+  /** Bei leerem Feld löst die Rücktaste kein input-Event aus, soll im Live-Modus aber trotzdem
+   *  bereits gesendeten Text auf dem PC löschen. */
+  protected onTextKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
+    if (this.liveTyping() && event.key === 'Backspace' && input.value.length === 0) {
+      event.preventDefault();
+      this.sendAction({ type: 'key', keys: ['BACKSPACE'] });
+    }
+  }
+
   ngOnDestroy(): void {
     this.resetPointers();
     this.releaseAllHeldButtons();
   }
 
+  private clearLiveText(input: HTMLInputElement): void {
+    input.value = '';
+    this.liveTypedText = '';
+  }
+
   private collectMove(pointer: PointerPosition, event: PointerEvent): void {
     const deltaX = event.clientX - pointer.x;
     const deltaY = event.clientY - pointer.y;
+    const elapsedMs = event.timeStamp - pointer.lastEventAt;
 
     this.updatePointerPosition(pointer, event);
 
@@ -184,8 +286,11 @@ export class TouchpadComponent implements OnDestroy {
       return;
     }
 
-    this.pendingMoveX += deltaX * this.remote.mouseSensitivity();
-    this.pendingMoveY += deltaY * this.remote.mouseSensitivity();
+    const scale =
+      this.remote.mouseSensitivity() * accelerationFactor(Math.hypot(deltaX, deltaY), elapsedMs);
+
+    this.pendingMoveX += deltaX * scale;
+    this.pendingMoveY += deltaY * scale;
     this.scheduleFlush();
   }
 
@@ -210,12 +315,14 @@ export class TouchpadComponent implements OnDestroy {
 
     // Solange es noch ein Zwei-Finger-Tipp werden kann, kein Scrollen: sonst scrollt das
     // Zittern beim Tippen die Seite ein Stück, bevor der Rechtsklick kommt.
-    if (this.twoFingerTapStartedAt !== null || (deltaX === 0 && deltaY === 0)) {
+    if (this.multiFingerTap !== null || (deltaX === 0 && deltaY === 0)) {
       return;
     }
 
-    this.pendingScrollDeltaX += deltaX * SCROLL_SCALE;
-    this.pendingScrollDeltaY += deltaY * SCROLL_SCALE;
+    const scale = SCROLL_SCALE * this.remote.scrollSpeed() * (this.remote.invertScroll() ? -1 : 1);
+
+    this.pendingScrollDeltaX += deltaX * scale;
+    this.pendingScrollDeltaY += deltaY * scale;
     this.scheduleFlush();
   }
 
@@ -279,12 +386,18 @@ export class TouchpadComponent implements OnDestroy {
     const pointerCount = this.pointers.size;
     const pointers = Array.from(this.pointers.values());
 
-    // Nur ein frisches 1→2-Finger-Aufsetzen ist ein Tipp-Kandidat; bei 3→2 oder nach
-    // Bewegung ist canTap bereits false.
-    this.twoFingerTapStartedAt =
-      pointerCount === 2 && pointers.every((pointer) => pointer.canTap)
-        ? Math.min(...pointers.map((pointer) => pointer.startedAt))
-        : null;
+    // Nur frisch nacheinander aufgesetzte Finger (1→2, dann ggf. 2→3) sind ein Tipp-Kandidat;
+    // bei 3→2 oder nach Bewegung ist canTap bzw. der Kandidat bereits verworfen.
+    if (pointerCount === 2 && pointers.every((pointer) => pointer.canTap)) {
+      this.multiFingerTap = {
+        fingers: 2,
+        startedAt: Math.min(...pointers.map((pointer) => pointer.startedAt)),
+      };
+    } else if (pointerCount === 3 && this.multiFingerTap?.fingers === 2) {
+      this.multiFingerTap = { ...this.multiFingerTap, fingers: 3 };
+    } else {
+      this.multiFingerTap = null;
+    }
 
     if (pointerCount === 0) {
       this.pointerMode = 'idle';
@@ -326,13 +439,58 @@ export class TouchpadComponent implements OnDestroy {
     );
   }
 
-  private shouldRightClick(pointer: PointerPosition): boolean {
-    return (
-      this.pointerMode === 'scroll' &&
-      this.twoFingerTapStartedAt !== null &&
-      pointer.totalMovement <= TAP_MAX_MOVEMENT_PX &&
-      performance.now() - this.twoFingerTapStartedAt <= TAP_MAX_DURATION_MS
-    );
+  private multiFingerTapButton(pointer: PointerPosition): 'right' | 'middle' | null {
+    const tap = this.multiFingerTap;
+
+    if (
+      tap === null ||
+      this.pointers.size !== tap.fingers ||
+      pointer.totalMovement > TAP_MAX_MOVEMENT_PX ||
+      performance.now() - tap.startedAt > TAP_MAX_DURATION_MS
+    ) {
+      return null;
+    }
+
+    return tap.fingers === 2 ? 'right' : 'middle';
+  }
+
+  private schedulePendingTapClick(): void {
+    this.cancelPendingTapClick();
+    this.pendingTapClick = setTimeout(() => {
+      this.pendingTapClick = null;
+      this.sendAction({ type: 'mouseClick', button: 'left' });
+    }, TAP_DRAG_WINDOW_MS);
+  }
+
+  private cancelPendingTapClick(): void {
+    if (this.pendingTapClick !== null) {
+      clearTimeout(this.pendingTapClick);
+      this.pendingTapClick = null;
+    }
+  }
+
+  private startTapDrag(pointerId: number): void {
+    this.cancelPendingTapClick();
+    this.tapDragPointerId = pointerId;
+    this.sendAction({ type: 'mouseDown', button: 'left' });
+  }
+
+  /** Beendet ein Tippen-Halten-Ziehen vorzeitig (weiterer Finger, abgebrochene Geste), damit
+   *  die linke Maustaste auf dem PC nie gedrückt hängen bleibt. */
+  private endTapDrag(): void {
+    if (this.tapDragPointerId === null) {
+      return;
+    }
+
+    const pointer = this.pointers.get(this.tapDragPointerId);
+
+    if (pointer !== undefined) {
+      pointer.canTap = false;
+    }
+
+    this.tapDragPointerId = null;
+    this.flushPendingActions();
+    this.sendAction({ type: 'mouseUp', button: 'left' });
   }
 
   private resetRemainingPointerBaseline(): void {
@@ -356,6 +514,7 @@ export class TouchpadComponent implements OnDestroy {
   private updatePointerPosition(pointer: PointerPosition, event: PointerEvent): void {
     pointer.x = event.clientX;
     pointer.y = event.clientY;
+    pointer.lastEventAt = event.timeStamp;
     pointer.totalMovement = Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY);
 
     if (pointer.totalMovement > TAP_MAX_MOVEMENT_PX) {
@@ -371,6 +530,7 @@ export class TouchpadComponent implements OnDestroy {
       startY: event.clientY,
       totalMovement: 0,
       startedAt: performance.now(),
+      lastEventAt: event.timeStamp,
       canTap: true,
     };
   }
@@ -412,11 +572,13 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private resetPointers(): void {
+    this.endTapDrag();
+    this.cancelPendingTapClick();
     this.pointers.clear();
     this.pointerMode = 'idle';
     this.lastScrollCenterX = null;
     this.lastScrollCenterY = null;
-    this.twoFingerTapStartedAt = null;
+    this.multiFingerTap = null;
     this.pendingMoveX = 0;
     this.pendingMoveY = 0;
     this.pendingScrollDeltaX = 0;
@@ -463,4 +625,13 @@ export class TouchpadComponent implements OnDestroy {
   private preventBrowserGesture(event: PointerEvent): void {
     event.preventDefault();
   }
+}
+
+function accelerationFactor(distancePx: number, elapsedMs: number): number {
+  const speed = distancePx / Math.max(elapsedMs, MIN_EVENT_INTERVAL_MS);
+
+  return Math.min(
+    ACCEL_MAX_FACTOR,
+    1 + Math.max(0, speed - ACCEL_THRESHOLD_PX_PER_MS) * ACCEL_GAIN,
+  );
 }

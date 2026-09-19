@@ -11,10 +11,17 @@ import {
   getServerConfigFromLocation,
   getServerPageUrl,
   getServerWebSocketBaseUrl,
+  HAPTICS_STORAGE_KEY,
+  INVERT_SCROLL_STORAGE_KEY,
+  LIVE_TYPING_STORAGE_KEY,
   MOUSE_SENSITIVITY_STORAGE_KEY,
   normalizeMouseSensitivity,
+  normalizeScrollSpeed,
   normalizeServerConfig,
+  parseStoredFlag,
   parseStoredMouseSensitivity,
+  parseStoredScrollSpeed,
+  SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
 } from './server-config';
 
@@ -49,10 +56,25 @@ export const REMOTE_AUTO_CONNECT = new InjectionToken<boolean>('REMOTE_AUTO_CONN
   factory: () => true,
 });
 
+export const REMOTE_VIBRATE = new InjectionToken<(durationMs: number) => void>('REMOTE_VIBRATE', {
+  providedIn: 'root',
+  // iOS kennt navigator.vibrate nicht; dort bleibt es einfach still.
+  factory: () => (durationMs: number) => void globalThis.navigator?.vibrate?.(durationMs),
+});
+
 const SOCKET_OPEN = 1;
 const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
 const ERROR_VISIBLE_MS = 4200;
 const ACTION_CONFIRMATION_TIMEOUT_MS = 5000;
+const HAPTIC_PULSE_MS = 10;
+// Nur für einzelne Tipp-Aktionen vibrieren, nicht für den Strom aus Bewegungen, Scrollen und
+// Text (die Handy-Tastatur gibt beim Tippen schon selbst Rückmeldung).
+const HAPTIC_ACTION_TYPES: ReadonlySet<RemoteAction['type']> = new Set([
+  'key',
+  'hotkey',
+  'mouseClick',
+  'mouseDown',
+]);
 
 interface PendingAction {
   readonly resolve: (success: boolean) => void;
@@ -66,6 +88,7 @@ export class RemoteService implements OnDestroy {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly createSocket = inject(REMOTE_WEBSOCKET_FACTORY);
   private readonly autoConnect = inject(REMOTE_AUTO_CONNECT);
+  private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly pairing = inject(PairingService);
   private readonly serverLocation = inject(SERVER_LOCATION);
 
@@ -73,6 +96,18 @@ export class RemoteService implements OnDestroy {
     getServerConfigFromLocation(this.serverLocation),
   );
   private readonly mouseSensitivitySignal = signal(this.loadMouseSensitivity());
+  private readonly scrollSpeedSignal = signal(
+    parseStoredScrollSpeed(this.readStorage(SCROLL_SPEED_STORAGE_KEY)),
+  );
+  private readonly invertScrollSignal = signal(
+    parseStoredFlag(this.readStorage(INVERT_SCROLL_STORAGE_KEY), false),
+  );
+  private readonly hapticsSignal = signal(
+    parseStoredFlag(this.readStorage(HAPTICS_STORAGE_KEY), true),
+  );
+  private readonly liveTypingSignal = signal(
+    parseStoredFlag(this.readStorage(LIVE_TYPING_STORAGE_KEY), false),
+  );
   private readonly statusSignal = signal<ConnectionStatus>('disconnected');
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly manualDisconnectSignal = signal(false);
@@ -86,6 +121,10 @@ export class RemoteService implements OnDestroy {
 
   readonly config = this.configSignal.asReadonly();
   readonly mouseSensitivity = this.mouseSensitivitySignal.asReadonly();
+  readonly scrollSpeed = this.scrollSpeedSignal.asReadonly();
+  readonly invertScroll = this.invertScrollSignal.asReadonly();
+  readonly haptics = this.hapticsSignal.asReadonly();
+  readonly liveTyping = this.liveTypingSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
@@ -165,10 +204,36 @@ export class RemoteService implements OnDestroy {
     return true;
   }
 
+  saveScrollSettings(speed: number, invert: boolean): boolean {
+    const normalizedSpeed = normalizeScrollSpeed(speed);
+
+    if (normalizedSpeed === null) {
+      this.showError('Scroll-Geschwindigkeit ist ungültig.');
+      return false;
+    }
+
+    this.scrollSpeedSignal.set(normalizedSpeed);
+    this.invertScrollSignal.set(invert);
+    this.storage?.setItem(SCROLL_SPEED_STORAGE_KEY, String(normalizedSpeed));
+    this.storage?.setItem(INVERT_SCROLL_STORAGE_KEY, String(invert));
+    return true;
+  }
+
+  saveHaptics(enabled: boolean): void {
+    this.hapticsSignal.set(enabled);
+    this.storage?.setItem(HAPTICS_STORAGE_KEY, String(enabled));
+  }
+
+  saveLiveTyping(enabled: boolean): void {
+    this.liveTypingSignal.set(enabled);
+    this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
+  }
+
   /** Führt eine Aktionskette sequenziell aus und wartet neben der konfigurierten
    *  Verzögerung auch auf die Serverbestätigung jedes einzelnen Schritts. */
   async runSteps(steps: readonly MacroStep[]): Promise<void> {
     const waitForServerConfirmation = steps.length > 1;
+    this.hapticPulse();
 
     for (const step of steps) {
       if (step.delayMs > 0) {
@@ -177,7 +242,7 @@ export class RemoteService implements OnDestroy {
 
       const succeeded = waitForServerConfirmation
         ? await this.sendActionAndWait(step.action)
-        : this.sendAction(step.action);
+        : this.sendActionRequest(step.action);
 
       if (!succeeded) {
         return;
@@ -186,7 +251,17 @@ export class RemoteService implements OnDestroy {
   }
 
   sendAction(action: RemoteAction): boolean {
+    if (HAPTIC_ACTION_TYPES.has(action.type)) {
+      this.hapticPulse();
+    }
+
     return this.sendActionRequest(action);
+  }
+
+  private hapticPulse(): void {
+    if (this.hapticsSignal()) {
+      this.vibrate(HAPTIC_PULSE_MS);
+    }
   }
 
   private sendActionAndWait(action: RemoteAction): Promise<boolean> {
@@ -466,9 +541,11 @@ export class RemoteService implements OnDestroy {
   }
 
   private loadMouseSensitivity(): number {
-    return parseStoredMouseSensitivity(
-      this.storage?.getItem(MOUSE_SENSITIVITY_STORAGE_KEY) ?? null,
-    );
+    return parseStoredMouseSensitivity(this.readStorage(MOUSE_SENSITIVITY_STORAGE_KEY));
+  }
+
+  private readStorage(key: string): string | null {
+    return this.storage?.getItem(key) ?? null;
   }
 
   private persistMouseSensitivity(sensitivity: number): void {

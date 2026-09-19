@@ -15,13 +15,27 @@
       #textInput
       class="touchpad-text__input"
       type="text"
-      placeholder="Text eingeben…"
+      [placeholder]="liveTyping() ? 'Live: Tasten gehen sofort an den PC…' : 'Text eingeben…'"
       autocomplete="off"
-      enterkeyhint="send"
+      [attr.enterkeyhint]="liveTyping() ? 'enter' : 'send'"
+      (input)="onTextInput(textInput)"
+      (keydown)="onTextKeydown($event, textInput)"
     />
-    <button class="primary-button touchpad-text__send" type="submit" aria-label="Text senden">
-      Senden
+    <button
+      class="snap-switch"
+      type="button"
+      role="switch"
+      title="Live-Eingabe: jede Taste sofort an den PC senden"
+      [attr.aria-checked]="liveTyping()"
+      (click)="toggleLiveTyping(textInput)"
+    >
+      Live
     </button>
+    @if (!liveTyping()) {
+      <button class="primary-button touchpad-text__send" type="submit" aria-label="Text senden">
+        Senden
+      </button>
+    }
   </form>
 
   <div
@@ -38,7 +52,8 @@
     <div class="touchpad-surface__center" aria-hidden="true">
       <span class="touchpad-surface__gesture"></span>
       <strong>Zum Steuern bewegen</strong>
-      <small>Tippen für Linksklick · mit 2 Fingern für Rechtsklick</small>
+      <small>Tippen: Linksklick · 2 Finger: Rechtsklick · 3 Finger: Mittelklick</small>
+      <small>Tippen, dann gedrückt halten: Ziehen</small>
     </div>
   </div>
 

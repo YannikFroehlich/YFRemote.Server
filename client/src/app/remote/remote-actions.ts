@@ -120,6 +120,27 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
     icon: 'volume-mute',
     action: { type: 'key', keys: ['VOLUME_MUTE'] },
   },
+  {
+    id: 'previous-track',
+    label: 'Vorheriger',
+    ariaLabel: 'Vorheriger Titel',
+    icon: 'track-previous',
+    action: { type: 'key', keys: ['MEDIA_PREVIOUS'] },
+  },
+  {
+    id: 'stop',
+    label: 'Stopp',
+    ariaLabel: 'Wiedergabe stoppen',
+    icon: 'stop',
+    action: { type: 'key', keys: ['MEDIA_STOP'] },
+  },
+  {
+    id: 'next-track',
+    label: 'Nächster',
+    ariaLabel: 'Nächster Titel',
+    icon: 'track-next',
+    action: { type: 'key', keys: ['MEDIA_NEXT'] },
+  },
 ];
 
 /** Alle eingebauten Buttons, flach, für Id-Auflösung im Layout. */
@@ -147,4 +168,7 @@ export const DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
   { id: 'volume-down', col: 3, row: 10, colSpan: 3, rowSpan: 2 },
   { id: 'volume-up', col: 6, row: 10, colSpan: 3, rowSpan: 2 },
   { id: 'mute', col: 9, row: 10, colSpan: 3, rowSpan: 2 },
+  { id: 'previous-track', col: 0, row: 12, colSpan: 4, rowSpan: 2 },
+  { id: 'stop', col: 4, row: 12, colSpan: 4, rowSpan: 2 },
+  { id: 'next-track', col: 8, row: 12, colSpan: 4, rowSpan: 2 },
 ];

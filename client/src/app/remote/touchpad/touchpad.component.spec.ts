@@ -6,7 +6,12 @@ import {
   RemoteService,
   RemoteSocket,
 } from '../remote.service';
-import { MOUSE_SENSITIVITY_STORAGE_KEY } from '../server-config';
+import {
+  INVERT_SCROLL_STORAGE_KEY,
+  LIVE_TYPING_STORAGE_KEY,
+  MOUSE_SENSITIVITY_STORAGE_KEY,
+  SCROLL_SPEED_STORAGE_KEY,
+} from '../server-config';
 import { TouchpadComponent } from './touchpad.component';
 
 class MemoryStorage implements Storage {
@@ -75,6 +80,7 @@ describe('TouchpadComponent', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('batches one-finger movement per animation frame and applies sensitivity', async () => {
@@ -88,17 +94,19 @@ describe('TouchpadComponent', () => {
 
     flushRaf();
 
-    expect(sockets[0].sentMessages).toEqual([
-      '{"type":"mouseMove","deltaX":10,"deltaY":-2}',
-    ]);
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseMove","deltaX":10,"deltaY":-2}']);
   });
 
   it('turns a short tap into left click but does not click after a drag', async () => {
     const { surface, sockets, flushRaf } = await setupTouchpad();
+    useFakeTapTimers();
 
     dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 10, clientY: 10 });
     dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 10, clientY: 10 });
 
+    // Der Klick wartet das Tippen-Halten-Ziehen-Fenster ab.
+    expect(sockets[0].sentMessages).toEqual([]);
+    vi.advanceTimersByTime(180);
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"left"}']);
 
     dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 20, clientY: 20 });
@@ -136,6 +144,20 @@ describe('TouchpadComponent', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","deltaX":-60}']);
   });
 
+  it('applies the stored scroll speed and inverted direction', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad({
+      stored: { [SCROLL_SPEED_STORAGE_KEY]: '2', [INVERT_SCROLL_STORAGE_KEY]: 'true' },
+    });
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 100, clientY: 90 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 140, clientY: 90 });
+    flushRaf();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","delta":120}']);
+  });
+
   it('turns a short two-finger tap into right click without scrolling the jitter', async () => {
     const { surface, sockets, flushRaf } = await setupTouchpad();
 
@@ -167,13 +189,109 @@ describe('TouchpadComponent', () => {
     const { surface, sockets, flushRaf } = await setupTouchpad();
 
     dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
-    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 130, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 120, clientY: 100 });
     dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 170, clientY: 100 });
     dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 170, clientY: 100 });
-    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 130, clientY: 100 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 120, clientY: 100 });
     flushRaf();
 
-    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseMove","deltaX":30,"deltaY":0}']);
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseMove","deltaX":20,"deltaY":0}']);
+  });
+
+  it('turns a short three-finger tap into middle click', async () => {
+    const { surface, sockets } = await setupTouchpad();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 3, clientX: 180, clientY: 100 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 140, clientY: 100 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 3, clientX: 180, clientY: 100 });
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"middle"}']);
+  });
+
+  it('accelerates fast finger movement but keeps slow movement 1:1', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad();
+
+    dispatchPointer(surface, 'pointerdown', {
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      timeStamp: 1000,
+    });
+    dispatchPointer(surface, 'pointermove', {
+      pointerId: 1,
+      clientX: 20,
+      clientY: 0,
+      timeStamp: 1100,
+    });
+    flushRaf();
+    dispatchPointer(surface, 'pointermove', {
+      pointerId: 1,
+      clientX: 60,
+      clientY: 0,
+      timeStamp: 1120,
+    });
+    flushRaf();
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseMove","deltaX":20,"deltaY":0}',
+      '{"type":"mouseMove","deltaX":120,"deltaY":0}',
+    ]);
+  });
+
+  it('drags with the left button held after tap, then touch and move', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad();
+    useFakeTapTimers();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 30, clientY: 10 });
+    flushRaf();
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 30, clientY: 10 });
+    vi.advanceTimersByTime(1000);
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"left"}',
+      '{"type":"mouseMove","deltaX":20,"deltaY":0}',
+      '{"type":"mouseUp","button":"left"}',
+    ]);
+  });
+
+  it('turns two quick taps into a double click', async () => {
+    const { surface, sockets } = await setupTouchpad();
+    useFakeTapTimers();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 11, clientY: 10 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 11, clientY: 10 });
+    vi.advanceTimersByTime(1000);
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"left"}',
+      '{"type":"mouseUp","button":"left"}',
+      '{"type":"mouseClick","button":"left"}',
+    ]);
+  });
+
+  it('releases a tap-drag when a second finger joins', async () => {
+    const { surface, sockets } = await setupTouchpad();
+    useFakeTapTimers();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 10, clientY: 10 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 3, clientX: 50, clientY: 10 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 3, clientX: 50, clientY: 10 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 10, clientY: 10 });
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"mouseDown","button":"left"}',
+      '{"type":"mouseUp","button":"left"}',
+    ]);
   });
 
   it('clears pending movement on pointercancel', async () => {
@@ -279,6 +397,56 @@ describe('TouchpadComponent', () => {
     expect(textInput!.value).toBe('');
   });
 
+  it('sends live typing as a diff, including autocorrect rewrites', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const { textInput, liveSwitch, form } = textControls(fixture);
+
+    liveSwitch.click();
+    fixture.detectChanges();
+
+    typeInto(textInput, 'Halo');
+    typeInto(textInput, 'Hallo');
+    typeInto(textInput, 'Hallo \u{1F642}');
+    typeInto(textInput, 'Hallo');
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"text","text":"Halo"}',
+      '{"type":"key","keys":["BACKSPACE"]}',
+      '{"type":"text","text":"lo"}',
+      JSON.stringify({ type: 'text', text: ' \u{1F642}' }),
+      '{"type":"key","keys":["BACKSPACE"]}',
+      '{"type":"key","keys":["BACKSPACE"]}',
+      '{"type":"key","keys":["ENTER"]}',
+    ]);
+    expect(textInput.value).toBe('');
+  });
+
+  it('restores the stored live-typing switch', async () => {
+    const { fixture, sockets } = await setupTouchpad({
+      stored: { [LIVE_TYPING_STORAGE_KEY]: 'true' },
+    });
+    const { textInput, liveSwitch } = textControls(fixture);
+
+    expect(liveSwitch.getAttribute('aria-checked')).toBe('true');
+    typeInto(textInput, 'x');
+    expect(sockets[0].sentMessages).toEqual(['{"type":"text","text":"x"}']);
+  });
+
+  it('sends backspace for an empty live field and nothing when live typing is off', async () => {
+    const { fixture, sockets } = await setupTouchpad();
+    const { textInput, liveSwitch } = textControls(fixture);
+
+    textInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', cancelable: true }));
+    typeInto(textInput, 'abc');
+
+    liveSwitch.click();
+    fixture.detectChanges();
+    textInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', cancelable: true }));
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"key","keys":["BACKSPACE"]}']);
+  });
+
   it('does not send anything when submitting an empty text field', async () => {
     const { fixture, sockets } = await setupTouchpad();
     const root = fixture.nativeElement as HTMLElement;
@@ -290,13 +458,22 @@ describe('TouchpadComponent', () => {
   });
 });
 
-async function setupTouchpad(options: { readonly sensitivity?: number } = {}): Promise<TouchpadHarness> {
+async function setupTouchpad(
+  options: {
+    readonly sensitivity?: number;
+    readonly stored?: Readonly<Record<string, string>>;
+  } = {},
+): Promise<TouchpadHarness> {
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
   const rafCallbacks: FrameRequestCallback[] = [];
 
   if (options.sensitivity !== undefined) {
     storage.setItem(MOUSE_SENSITIVITY_STORAGE_KEY, String(options.sensitivity));
+  }
+
+  for (const [key, value] of Object.entries(options.stored ?? {})) {
+    storage.setItem(key, value);
   }
 
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
@@ -380,19 +557,56 @@ function stubPointerCapture(element: HTMLElement): void {
   });
 }
 
+// Standardmäßig 100 ms zwischen Events: langsam genug, dass die Zeiger-Beschleunigung in
+// Tests ohne eigenen timeStamp nicht greift.
+let pointerClock = 0;
+
 function dispatchPointer(
   target: HTMLElement,
   type: string,
-  init: { readonly pointerId: number; readonly clientX: number; readonly clientY: number },
+  init: {
+    readonly pointerId: number;
+    readonly clientX: number;
+    readonly clientY: number;
+    readonly timeStamp?: number;
+  },
 ): void {
   const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
+  pointerClock = init.timeStamp ?? pointerClock + 100;
 
   Object.defineProperties(event, {
     pointerId: { value: init.pointerId },
     clientX: { value: init.clientX },
     clientY: { value: init.clientY },
     pointerType: { value: 'touch' },
+    timeStamp: { value: pointerClock },
   });
 
   target.dispatchEvent(event);
+}
+
+function useFakeTapTimers(): void {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+}
+
+function textControls(fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>): {
+  readonly textInput: HTMLInputElement;
+  readonly liveSwitch: HTMLButtonElement;
+  readonly form: HTMLFormElement;
+} {
+  const root = fixture.nativeElement as HTMLElement;
+  const textInput = root.querySelector<HTMLInputElement>('.touchpad-text__input');
+  const liveSwitch = root.querySelector<HTMLButtonElement>('.touchpad-text [role="switch"]');
+  const form = root.querySelector<HTMLFormElement>('.touchpad-text');
+
+  if (textInput === null || liveSwitch === null || form === null) {
+    throw new Error('Text controls not found');
+  }
+
+  return { textInput, liveSwitch, form };
+}
+
+function typeInto(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }

@@ -23,7 +23,7 @@
                 [attr.aria-pressed]="isKeyActive(key)"
                 (click)="onKeyTap(key)"
               >
-                {{ key }}
+                {{ keyLabel(key) }}
               </button>
             }
             @if (group.label === 'Modifikatoren') {

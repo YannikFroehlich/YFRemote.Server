@@ -18,6 +18,11 @@ export const SUPPORTED_KEYS: readonly string[] = [
   'DOWN',
   'LEFT',
   'RIGHT',
+  'HOME',
+  'END',
+  'PAGE_UP',
+  'PAGE_DOWN',
+  'PRINT_SCREEN',
   'F1',
   'F2',
   'F3',
@@ -43,7 +48,23 @@ export const KEY_GROUPS: readonly KeyGroup[] = [
   { label: 'Modifikatoren', keys: MODIFIER_KEYS },
   {
     label: 'Navigation',
-    keys: ['ENTER', 'ESC', 'TAB', 'SPACE', 'BACKSPACE', 'DELETE', 'UP', 'DOWN', 'LEFT', 'RIGHT'],
+    keys: [
+      'ENTER',
+      'ESC',
+      'TAB',
+      'SPACE',
+      'BACKSPACE',
+      'DELETE',
+      'UP',
+      'DOWN',
+      'LEFT',
+      'RIGHT',
+      'HOME',
+      'END',
+      'PAGE_UP',
+      'PAGE_DOWN',
+      'PRINT_SCREEN',
+    ],
   },
   {
     label: 'Funktionstasten',
@@ -65,6 +86,20 @@ export const KEY_GROUPS: readonly KeyGroup[] = [
   { label: 'Buchstaben', keys: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') },
   { label: 'Zahlen', keys: '0123456789'.split('') },
 ];
+
+// Beschriftung wie auf einer deutschen Tastatur, wo der interne Name zu lang für die
+// Tastenkacheln ist.
+const KEY_LABELS: Readonly<Record<string, string>> = {
+  HOME: 'Pos1',
+  END: 'Ende',
+  PAGE_UP: 'Bild ↑',
+  PAGE_DOWN: 'Bild ↓',
+  PRINT_SCREEN: 'Druck',
+};
+
+export function keyLabel(key: string): string {
+  return KEY_LABELS[key] ?? key;
+}
 
 export function isSupportedKey(key: string): boolean {
   return SUPPORTED_KEYS.includes(normalizeKeyName(key));

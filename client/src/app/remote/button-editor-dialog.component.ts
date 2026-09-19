@@ -8,7 +8,7 @@ import {
   resolveButtonSteps,
 } from './button-layout';
 import { ButtonLayoutService } from './button-layout.service';
-import { KEY_GROUPS, keysToAction, MAX_HOTKEY_KEYS } from './keyboard-keys';
+import { KEY_GROUPS, keyLabel, keysToAction, MAX_HOTKEY_KEYS } from './keyboard-keys';
 import { REMOTE_ICON_PATHS, REMOTE_ICONS } from './remote-icons';
 import { MacroStep, RemoteAction, RemoteIcon } from './remote.models';
 
@@ -30,6 +30,7 @@ export class ButtonEditorDialogComponent implements OnInit {
   protected readonly icons = REMOTE_ICONS;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly keyGroups = KEY_GROUPS;
+  protected readonly keyLabel = keyLabel;
   protected readonly maxKeysPerStep = MAX_HOTKEY_KEYS;
   protected readonly maxSteps = MAX_MACRO_STEPS;
   protected readonly maxDelayMs = MAX_MACRO_DELAY_MS;
@@ -168,10 +169,10 @@ export class ButtonEditorDialogComponent implements OnInit {
   protected describeStep(action: RemoteAction): string {
     switch (action.type) {
       case 'key':
-        return `Taste: ${action.keys[0]}`;
+        return `Taste: ${keyLabel(action.keys[0])}`;
 
       case 'hotkey':
-        return `Hotkey: ${action.keys.join(' + ')}`;
+        return `Hotkey: ${action.keys.map(keyLabel).join(' + ')}`;
 
       case 'text':
         return `Text: "${truncate(action.text, MAX_TEXT_STEP_PREVIEW_LENGTH)}"`;

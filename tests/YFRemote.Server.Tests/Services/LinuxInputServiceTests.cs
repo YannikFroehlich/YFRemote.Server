@@ -10,7 +10,15 @@ public sealed class LinuxInputServiceTests
     [DataRow("VOLUME_DOWN")]
     [DataRow("VOLUME_UP")]
     [DataRow("VOLUME_MUTE")]
-    public void SupportsKey_MediaKey_ReturnsTrue(string key)
+    [DataRow("MEDIA_NEXT")]
+    [DataRow("MEDIA_PREVIOUS")]
+    [DataRow("MEDIA_STOP")]
+    [DataRow("HOME")]
+    [DataRow("END")]
+    [DataRow("PAGE_UP")]
+    [DataRow("PAGE_DOWN")]
+    [DataRow("PRINT_SCREEN")]
+    public void SupportsKey_MediaAndNavigationKey_ReturnsTrue(string key)
     {
         Assert.IsTrue(LinuxInputService.SupportsKey(key));
     }

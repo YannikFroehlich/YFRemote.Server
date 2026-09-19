@@ -123,7 +123,7 @@ describe('button-layout', () => {
         snapToGrid: true,
         placements: [{ id: 'custom:1', col: 0, row: 12, colSpan: 3, rowSpan: 2 }],
         customButtons: [
-          { id: 'custom:1', label: 'Test', icon: null, action: { type: 'key', keys: ['HOME'] } },
+          { id: 'custom:1', label: 'Test', icon: null, action: { type: 'key', keys: ['INSERT'] } },
         ],
         hiddenBuiltInIds: [],
       };
@@ -284,7 +284,7 @@ describe('button-layout', () => {
         icon: 'key',
         steps: [
           { action: { type: 'key', keys: ['A'] }, delayMs: 0 },
-          { action: { type: 'key', keys: ['HOME'] }, delayMs: 0 },
+          { action: { type: 'key', keys: ['INSERT'] }, delayMs: 0 },
           { action: { type: 'mouseClick', button: 'up' }, delayMs: 0 },
           'not an object',
         ],

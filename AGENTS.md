@@ -378,6 +378,8 @@ Server-only, Client-only, and combined changes all follow the same path — the 
 longer a separate repository, so there is no ordering constraint and no manual step.
 
 1. Add an entry for the change under `[Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md).
+   `release.yml` copies that section (or `## [<version>]`, if it already exists) into the
+   GitHub Release text, so an empty `[Unreleased]` means a release without real notes.
 2. Run the relevant Client and Server checks before merging (see "Validation" above).
 3. Merge to `main` — use Conventional Commit prefixes (`fix:`, `feat:`,
    `feat!:`/`BREAKING CHANGE:`) in the commit or PR title so the automatic version bump is

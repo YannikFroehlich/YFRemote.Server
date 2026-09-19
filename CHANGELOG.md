@@ -25,6 +25,12 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - Touchpad: a short two-finger tap sends a right click, like on a laptop trackpad. While the
   two fingers could still be a tap, small jitter no longer scrolls the page.
 
+### Changed
+
+- GitHub Releases now carry release notes: `release.yml` copies the version's section of this
+  changelog into the release text instead of leaving it empty. The Linux beta note appended
+  to it now says the backend is verified on x86_64 instead of untested.
+
 ## [2.10.0] - 2026-09-19
 
 _Merge of `develop` into `main`; the Linux PIN/verification changes it carries already shipped

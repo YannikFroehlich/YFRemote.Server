@@ -2,13 +2,22 @@ import { TestBed } from '@angular/core/testing';
 import {
   REMOTE_AUTO_CONNECT,
   REMOTE_STORAGE,
+  REMOTE_VIBRATE,
   REMOTE_WEBSOCKET_FACTORY,
   RemoteService,
   RemoteSocket,
 } from './remote.service';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import { PAIRING_TOKEN_STORAGE_KEY } from './pairing';
-import { MOUSE_SENSITIVITY_STORAGE_KEY, SERVER_LOCATION, ServerLocation } from './server-config';
+import {
+  HAPTICS_STORAGE_KEY,
+  INVERT_SCROLL_STORAGE_KEY,
+  LIVE_TYPING_STORAGE_KEY,
+  MOUSE_SENSITIVITY_STORAGE_KEY,
+  SCROLL_SPEED_STORAGE_KEY,
+  SERVER_LOCATION,
+  ServerLocation,
+} from './server-config';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -108,6 +117,7 @@ interface RemoteServiceHarness {
   readonly sockets: MockRemoteSocket[];
   readonly storage: MemoryStorage;
   readonly serverLocation: FakeServerLocation;
+  readonly vibrations: number[];
 }
 
 interface RemoteServiceSetup {
@@ -488,6 +498,49 @@ describe('RemoteService', () => {
     expect(storage.getItem(MOUSE_SENSITIVITY_STORAGE_KEY)).toBe('4');
   });
 
+  it('persists scroll, haptics and live-typing preferences', () => {
+    const { remote, storage } = setupRemoteService();
+
+    expect(remote.scrollSpeed()).toBe(1);
+    expect(remote.invertScroll()).toBe(false);
+    expect(remote.haptics()).toBe(true);
+    expect(remote.liveTyping()).toBe(false);
+
+    expect(remote.saveScrollSettings(2.5, true)).toBe(true);
+    remote.saveHaptics(false);
+    remote.saveLiveTyping(true);
+
+    expect(remote.scrollSpeed()).toBe(2.5);
+    expect(remote.invertScroll()).toBe(true);
+    expect(storage.getItem(SCROLL_SPEED_STORAGE_KEY)).toBe('2.5');
+    expect(storage.getItem(INVERT_SCROLL_STORAGE_KEY)).toBe('true');
+    expect(storage.getItem(HAPTICS_STORAGE_KEY)).toBe('false');
+    expect(storage.getItem(LIVE_TYPING_STORAGE_KEY)).toBe('true');
+
+    expect(remote.saveScrollSettings(5, false)).toBe(false);
+    expect(remote.scrollSpeed()).toBe(2.5);
+    expect(remote.invertScroll()).toBe(true);
+  });
+
+  it('vibrates for taps and macros but not for movement, scrolling or text', async () => {
+    const { remote, sockets, vibrations } = setupRemoteService();
+
+    remote.connect();
+    sockets[0].open();
+
+    remote.sendAction({ type: 'key', keys: ['ENTER'] });
+    remote.sendAction({ type: 'mouseClick', button: 'left' });
+    remote.sendAction({ type: 'mouseMove', deltaX: 1, deltaY: 1 });
+    remote.sendAction({ type: 'mouseScroll', delta: 6 });
+    remote.sendAction({ type: 'text', text: 'a' });
+    await remote.runSteps([{ action: { type: 'key', keys: ['F5'] }, delayMs: 0 }]);
+    expect(vibrations).toEqual([10, 10, 10]);
+
+    remote.saveHaptics(false);
+    remote.sendAction({ type: 'key', keys: ['ENTER'] });
+    expect(vibrations).toHaveLength(3);
+  });
+
   it('rejects invalid settings without changing the active config', () => {
     const { remote, sockets, serverLocation } = setupRemoteService();
 
@@ -505,6 +558,7 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
   const serverLocation = new FakeServerLocation(options.serverUrl);
+  const vibrations: number[] = [];
 
   if (options.storedPairingToken !== undefined) {
     storage.setItem(PAIRING_TOKEN_STORAGE_KEY, options.storedPairingToken);
@@ -525,6 +579,7 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
         },
       },
       { provide: PAIRING_FETCH, useValue: unusedPairingFetch },
+      { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
     ],
   });
 
@@ -533,5 +588,6 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
     sockets,
     storage,
     serverLocation,
+    vibrations,
   };
 }

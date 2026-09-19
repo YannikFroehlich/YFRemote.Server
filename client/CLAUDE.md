@@ -50,18 +50,21 @@ manual `ChangeDetectorRef` calls.
    `RemoteIcon`.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and
    the only thing that talks to the WebSocket. Exposes readonly signals (`config`, `status`,
-   `lastError`, `mouseSensitivity`, `manuallyDisconnected`) and imperative methods
-   (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/`sendAction`/
-   `runSteps`). Owns reconnect-with-backoff logic (`RECONNECT_DELAYS_MS`) and transient-error
+   `lastError`, `manuallyDisconnected`, plus the persisted input preferences `mouseSensitivity`,
+   `scrollSpeed`, `invertScroll`, `haptics`, `liveTyping`) and imperative methods
+   (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/`saveScrollSettings`/
+   `saveHaptics`/`saveLiveTyping`/`sendAction`/`runSteps`). `sendAction` (for `key`, `hotkey`,
+   `mouseClick`, `mouseDown`) and each `runSteps` call trigger a short vibration when `haptics`
+   is on. Owns reconnect-with-backoff logic (`RECONNECT_DELAYS_MS`) and transient-error
    display (`ERROR_VISIBLE_MS`). Every step in a multi-step macro carries a connection-local
    `requestId`; `runSteps` advances only after the matching successful server response and stops
    on rejection, disconnect, or a five-second acknowledgement timeout. Single actions remain
    fire-and-forget and use the compact existing message format. It is injected everywhere else
    that needs connection state or wants to send an action — components never touch `WebSocket`
    or `localStorage` directly.
-   - The socket, page location, storage, and auto-connect-on-construct behavior are all swapped via
-     `InjectionToken`s (`REMOTE_WEBSOCKET_FACTORY`, `SERVER_LOCATION`, `REMOTE_STORAGE`,
-     `REMOTE_AUTO_CONNECT`) so
+   - The socket, page location, storage, vibration, and auto-connect-on-construct behavior are all
+     swapped via `InjectionToken`s (`REMOTE_WEBSOCKET_FACTORY`, `SERVER_LOCATION`,
+     `REMOTE_STORAGE`, `REMOTE_VIBRATE`, `REMOTE_AUTO_CONNECT`) so
      tests can inject fakes (see `RemoteSocket` interface and `MockRemoteSocket` in
      [remote.service.spec.ts](src/app/remote/remote.service.spec.ts)) instead of hitting a real
      socket/`localStorage`. Follow this pattern for any other browser API a service needs to own.
@@ -69,8 +72,9 @@ manual `ChangeDetectorRef` calls.
      exists — the server rejects a `/ws` handshake without one. `RemoteService` injects
      `PairingService`, never the other way around (see below), so there is no DI cycle.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
-   host, port, and mouse sensitivity, the injectable page location, same-origin HTTP/WebSocket URL
-   builders, the mouse-sensitivity `localStorage` key, and Angular reactive-form `ValidatorFn`s
+   host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
+   HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences
+   (`parseStoredFlag` for the boolean ones), and Angular reactive-form `ValidatorFn`s
    built on top of the same predicates. `RemoteService`, `PairingService`, and
    `SettingsDialogComponent` import from here so endpoint and validation logic never lives twice.
 4. **The button layout is a free-form, user-editable canvas**, layered on top of the static
@@ -89,9 +93,12 @@ manual `ChangeDetectorRef` calls.
      version (unknown ids dropped, missing built-ins auto-placed unless hidden, invalid custom
      buttons dropped). Same shape as `server-config.ts`: `normalize*` + `parseStored*` with a
      safe default fallback.
-   - `keyboard-keys.ts` mirrors the server's key allowlist (`WindowsInputService.VirtualKeys`) so
-     a custom button's `key`/`hotkey` action is validated client-side before it can ever reach
-     the server.
+   - `keyboard-keys.ts` mirrors the server's key allowlist (`WindowsInputService.VirtualKeys`,
+     minus the volume/media keys, which only the built-in buttons use) so a custom button's
+     `key`/`hotkey` action is validated client-side before it can ever reach the server.
+     `keyLabel` gives keys whose internal name is too long for a key chip their German keyboard
+     label (`PAGE_UP` → `Bild ↑`). A new key needs the Windows *and* Linux map on the server
+     (`WindowsInputService`, `LinuxInputService`) plus this file.
    - `ButtonLayoutService` (`button-layout.service.ts`) owns the layout signal and all mutations
      (`movePlacement`, `hideButton`/`restoreButton`, `addCustomButton`/`updateCustomButton`/
      `deleteCustomButton`, `resetLayout`, `setSnapToGrid`); it injects the same `REMOTE_STORAGE`

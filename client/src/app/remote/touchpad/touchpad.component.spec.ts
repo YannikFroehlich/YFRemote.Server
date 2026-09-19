@@ -6,7 +6,12 @@ import {
   RemoteService,
   RemoteSocket,
 } from '../remote.service';
-import { MOUSE_SENSITIVITY_STORAGE_KEY } from '../server-config';
+import {
+  INVERT_SCROLL_STORAGE_KEY,
+  LIVE_TYPING_STORAGE_KEY,
+  MOUSE_SENSITIVITY_STORAGE_KEY,
+  SCROLL_SPEED_STORAGE_KEY,
+} from '../server-config';
 import { TouchpadComponent } from './touchpad.component';
 
 class MemoryStorage implements Storage {
@@ -137,6 +142,20 @@ describe('TouchpadComponent', () => {
     flushRaf();
 
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","deltaX":-60}']);
+  });
+
+  it('applies the stored scroll speed and inverted direction', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad({
+      stored: { [SCROLL_SPEED_STORAGE_KEY]: '2', [INVERT_SCROLL_STORAGE_KEY]: 'true' },
+    });
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 100, clientY: 90 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 140, clientY: 90 });
+    flushRaf();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","delta":120}']);
   });
 
   it('turns a short two-finger tap into right click without scrolling the jitter', async () => {
@@ -403,6 +422,17 @@ describe('TouchpadComponent', () => {
     expect(textInput.value).toBe('');
   });
 
+  it('restores the stored live-typing switch', async () => {
+    const { fixture, sockets } = await setupTouchpad({
+      stored: { [LIVE_TYPING_STORAGE_KEY]: 'true' },
+    });
+    const { textInput, liveSwitch } = textControls(fixture);
+
+    expect(liveSwitch.getAttribute('aria-checked')).toBe('true');
+    typeInto(textInput, 'x');
+    expect(sockets[0].sentMessages).toEqual(['{"type":"text","text":"x"}']);
+  });
+
   it('sends backspace for an empty live field and nothing when live typing is off', async () => {
     const { fixture, sockets } = await setupTouchpad();
     const { textInput, liveSwitch } = textControls(fixture);
@@ -429,7 +459,10 @@ describe('TouchpadComponent', () => {
 });
 
 async function setupTouchpad(
-  options: { readonly sensitivity?: number } = {},
+  options: {
+    readonly sensitivity?: number;
+    readonly stored?: Readonly<Record<string, string>>;
+  } = {},
 ): Promise<TouchpadHarness> {
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
@@ -437,6 +470,10 @@ async function setupTouchpad(
 
   if (options.sensitivity !== undefined) {
     storage.setItem(MOUSE_SENSITIVITY_STORAGE_KEY, String(options.sensitivity));
+  }
+
+  for (const [key, value] of Object.entries(options.stored ?? {})) {
+    storage.setItem(key, value);
   }
 
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {

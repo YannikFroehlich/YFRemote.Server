@@ -14,17 +14,18 @@ describe('keyboard-keys', () => {
     expect(isSupportedKey('ctrl')).toBe(true);
     expect(isSupportedKey('f5')).toBe(true);
     expect(isSupportedKey('a')).toBe(true);
+    expect(isSupportedKey('page_down')).toBe(true);
   });
 
   it('rejects keys outside the server allowlist', () => {
-    expect(isSupportedKey('HOME')).toBe(false);
+    expect(isSupportedKey('INSERT')).toBe(false);
     expect(isSupportedKey('PRINTSCREEN')).toBe(false);
     expect(isSupportedKey('')).toBe(false);
     expect(isSupportedKey('F13')).toBe(false);
   });
 
-  it('has exactly the 62 keys supported by the server allowlist', () => {
-    expect(SUPPORTED_KEYS.length).toBe(62);
+  it('has exactly the 67 keys supported by the server allowlist', () => {
+    expect(SUPPORTED_KEYS.length).toBe(67);
   });
 
   it('normalizes a single key into a key action', () => {
@@ -44,7 +45,7 @@ describe('keyboard-keys', () => {
   });
 
   it('rejects unsupported keys', () => {
-    expect(keysToAction(['CTRL', 'HOME'])).toBeNull();
+    expect(keysToAction(['CTRL', 'INSERT'])).toBeNull();
   });
 
   it(`rejects more than ${MAX_HOTKEY_KEYS} keys`, () => {

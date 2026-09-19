@@ -31,7 +31,18 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - Touchpad: a short three-finger tap sends a middle click.
 - Touchpad text field: a "Live" switch sends every keystroke to the PC immediately, including
   backspace and Enter, instead of waiting for "Senden". Autocorrect replacements from the
-  phone keyboard are sent as the matching backspaces plus the new text.
+  phone keyboard are sent as the matching backspaces plus the new text. The switch is
+  remembered across reloads.
+- New keys: Home (Pos1), End (Ende), Page Up/Down (Bild ↑/↓) and Print Screen (Druck) on the
+  keyboard tab and for custom buttons, on Windows and Linux.
+- New built-in buttons for previous track, stop and next track, placed below the volume
+  buttons. Existing custom layouts get them in the first free spot.
+- Settings: scroll speed and a switch to reverse the scroll direction of the two-finger
+  gesture.
+- Short vibration on button presses, clicks and macros (Android only; can be turned off in the
+  settings).
+- Web app manifest, theme color and home-screen icon, so "Add to home screen" shows the YF
+  icon and opens without the browser bar where the browser allows it.
 
 ## [2.11.0] - 2026-09-19
 

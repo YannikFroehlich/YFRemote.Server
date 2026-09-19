@@ -7,6 +7,14 @@ export const DEFAULT_MOUSE_SENSITIVITY = 1;
 export const MOUSE_SENSITIVITY_MIN = 0.5;
 export const MOUSE_SENSITIVITY_MAX = 4;
 export const MOUSE_SENSITIVITY_STEP = 0.25;
+export const SCROLL_SPEED_STORAGE_KEY = 'yfremote.scrollSpeed';
+export const DEFAULT_SCROLL_SPEED = 1;
+export const SCROLL_SPEED_MIN = 0.25;
+export const SCROLL_SPEED_MAX = 3;
+export const SCROLL_SPEED_STEP = 0.25;
+export const INVERT_SCROLL_STORAGE_KEY = 'yfremote.invertScroll';
+export const HAPTICS_STORAGE_KEY = 'yfremote.haptics';
+export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
 
 const IPV4_SEGMENT_PATTERN = '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])';
 const IPV4_PATTERN = new RegExp(
@@ -80,17 +88,7 @@ export function normalizeServerConfig(config: ServerConfig): ServerConfig | null
 }
 
 export function normalizeMouseSensitivity(value: number): number | null {
-  if (!Number.isFinite(value)) {
-    return null;
-  }
-
-  const roundedValue = Math.round(value * 100) / 100;
-
-  if (roundedValue < MOUSE_SENSITIVITY_MIN || roundedValue > MOUSE_SENSITIVITY_MAX) {
-    return null;
-  }
-
-  return roundedValue;
+  return normalizeRangeValue(value, MOUSE_SENSITIVITY_MIN, MOUSE_SENSITIVITY_MAX);
 }
 
 export function parseStoredMouseSensitivity(rawValue: string | null): number {
@@ -100,6 +98,29 @@ export function parseStoredMouseSensitivity(rawValue: string | null): number {
 
   const parsedValue = Number(rawValue);
   return normalizeMouseSensitivity(parsedValue) ?? DEFAULT_MOUSE_SENSITIVITY;
+}
+
+export function normalizeScrollSpeed(value: number): number | null {
+  return normalizeRangeValue(value, SCROLL_SPEED_MIN, SCROLL_SPEED_MAX);
+}
+
+export function parseStoredScrollSpeed(rawValue: string | null): number {
+  return rawValue === null
+    ? DEFAULT_SCROLL_SPEED
+    : (normalizeScrollSpeed(Number(rawValue)) ?? DEFAULT_SCROLL_SPEED);
+}
+
+export function parseStoredFlag(rawValue: string | null, fallback: boolean): boolean {
+  return rawValue === null ? fallback : rawValue === 'true';
+}
+
+function normalizeRangeValue(value: number, min: number, max: number): number | null {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  const roundedValue = Math.round(value * 100) / 100;
+  return roundedValue < min || roundedValue > max ? null : roundedValue;
 }
 
 export function getServerConfigFromLocation(location: ServerLocation): ServerConfig {
@@ -153,16 +174,25 @@ export const portValidator: ValidatorFn = (
   return parsePortValue(control.value) === null ? { port: true } : null;
 };
 
-export const mouseSensitivityValidator: ValidatorFn = (
-  control: AbstractControl<unknown>,
-): ValidationErrors | null => {
-  const value =
-    typeof control.value === 'number' || typeof control.value === 'string'
-      ? Number(control.value)
-      : Number.NaN;
+export const mouseSensitivityValidator = rangeValidator(
+  normalizeMouseSensitivity,
+  'mouseSensitivity',
+);
+export const scrollSpeedValidator = rangeValidator(normalizeScrollSpeed, 'scrollSpeed');
 
-  return normalizeMouseSensitivity(value) === null ? { mouseSensitivity: true } : null;
-};
+function rangeValidator(
+  normalize: (value: number) => number | null,
+  errorKey: string,
+): ValidatorFn {
+  return (control: AbstractControl<unknown>): ValidationErrors | null => {
+    const value =
+      typeof control.value === 'number' || typeof control.value === 'string'
+        ? Number(control.value)
+        : Number.NaN;
+
+    return normalize(value) === null ? { [errorKey]: true } : null;
+  };
+}
 
 function httpProtocol(protocol: string): 'http:' | 'https:' {
   return protocol === 'https:' ? 'https:' : 'http:';

@@ -20,6 +20,12 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Fixed
+
+- Button editor: on phones the key picker shows its category headings again (Modifikatoren, Navigation, Funktionstasten, Buchstaben, Zahlen). The compact full-height key grid of the keyboard tab no longer leaks into the editor dialog, where the keys now wrap per category as on a desktop.
+
+## [2.13.0] - 2026-09-19
+
 ### Added
 
 - Own styles. Settings → "Neuer Stil" opens an editor for colors (accent, background, surfaces, buttons, text, lines, warning), border thickness, corner rounding, shadows, gradients, background grid, fonts and text size; a "Profi" section sets each of the 36 color tokens on its own. Changes are visible while editing, several styles can be kept side by side, and they can be exported to and imported from a JSON file. An own style brings its own light or dark.

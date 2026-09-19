@@ -174,6 +174,13 @@ Light mode is the `light-tokens` mixin right below that block, applied for
 `theme-color` metas; an inline script in `index.html` repeats that logic before Angular starts
 so the stored mode never flashes — change both together. The mode is a `RemoteService`
 preference (`themeMode`/`saveThemeMode`, stored as `yfremote.themeMode`).
+Styles work the same way via `data-style` (`futuristic`/`minimal`; `standard` = no attribute,
+`themeStyle`/`saveThemeStyle`, `yfremote.themeStyle`): each style has a dark mixin and a light
+mixin that starts from `light-tokens`, so no dark value leaks into light mode. Besides colors, a
+style turns the shape knobs `--radius-scale`, `--radius-pill`, `--shadow-strength`,
+`--decor-strength`, `--grid-strength` and `--font-display`; standard keeps them at 1/defaults.
+Write new radii as `calc(Npx * var(--radius-scale))` and shadow/decor alphas as
+`calc(A * var(--shadow-strength))` / `calc(A * var(--decor-strength))` so every style follows.
 
 **All user-facing strings are German** (labels, aria-labels, error messages like "Keine Verbindung
 zum Server."). Keep new UI text consistent with this.

@@ -1,4 +1,9 @@
-import { applyThemeMode, parseStoredThemeMode } from './theme';
+import {
+  applyThemeMode,
+  applyThemeStyle,
+  parseStoredThemeMode,
+  parseStoredThemeStyle,
+} from './theme';
 
 describe('theme', () => {
   it('falls back to system for missing or unknown stored values', () => {
@@ -6,6 +11,19 @@ describe('theme', () => {
     expect(parseStoredThemeMode('purple')).toBe('system');
     expect(parseStoredThemeMode('light')).toBe('light');
     expect(parseStoredThemeMode('dark')).toBe('dark');
+    expect(parseStoredThemeStyle(null)).toBe('standard');
+    expect(parseStoredThemeStyle('retro')).toBe('standard');
+    expect(parseStoredThemeStyle('minimal')).toBe('minimal');
+  });
+
+  it('sets the style attribute and removes it for the standard style', () => {
+    const doc = document.implementation.createHTMLDocument();
+
+    applyThemeStyle(doc, 'futuristic');
+    expect(doc.documentElement.dataset['style']).toBe('futuristic');
+
+    applyThemeStyle(doc, 'standard');
+    expect(doc.documentElement.dataset['style']).toBeUndefined();
   });
 
   it('sets the mode attribute and the browser bar colors', () => {

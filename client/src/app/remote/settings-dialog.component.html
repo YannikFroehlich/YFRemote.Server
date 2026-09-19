@@ -146,6 +146,23 @@
           </select>
         </label>
 
+        <fieldset class="field style-picker">
+          <legend>Stil</legend>
+          <div class="style-picker__options">
+            @for (style of themeStyles; track style.value) {
+              <label class="style-option">
+                <input type="radio" formControlName="themeStyle" [value]="style.value" />
+                <span
+                  class="style-option__preview style-option__preview--{{ style.value }}"
+                  aria-hidden="true"
+                ></span>
+                <strong>{{ style.name }}</strong>
+                <small>{{ style.hint }}</small>
+              </label>
+            }
+          </div>
+        </fieldset>
+
         <section class="settings-section" aria-labelledby="profiles-title">
           <div class="settings-section__heading">
             <div>

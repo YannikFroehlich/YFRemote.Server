@@ -22,6 +22,7 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Added
 
+- Own styles. Settings → "Neuer Stil" opens an editor for colors (accent, background, surfaces, buttons, text, lines, warning), border thickness, corner rounding, shadows, gradients, background grid, fonts and text size; a "Profi" section sets each of the 36 color tokens on its own. Changes are visible while editing, several styles can be kept side by side, and they can be exported to and imported from a JSON file. An own style brings its own light or dark.
 - Three styles, selectable under Settings → "Stil" and combinable with light and dark mode: "Standard" (the existing look), "Futuristisch" (neon cyan and violet, glow, sharper corners, monospace headings, visible grid) and "Minimalistisch" (flat monochrome, no gradients, glow or shadows). The choice is remembered and applied before the page first renders.
 - Light mode. Settings → "Darstellung" chooses between "Wie das Gerät (System)" (the default, follows the phone's light/dark setting), "Hell" and "Dunkel". The choice is remembered and applied before the page first renders, so it never flashes the wrong mode on load. The browser bar color follows along.
 - Settings: a "Mausbeschleunigung" switch turns the touchpad's pointer acceleration off, so

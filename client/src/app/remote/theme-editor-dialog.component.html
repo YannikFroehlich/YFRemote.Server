@@ -1,0 +1,209 @@
+<div class="settings-layer settings-layer--stacked">
+  <button class="settings-scrim" type="button" aria-label="Schließen" (click)="close()"></button>
+
+  <section
+    class="settings-dialog settings-dialog--editor"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="theme-editor-title"
+  >
+    <header class="settings-dialog__header">
+      <div>
+        <p class="eyebrow">{{ isEditing() ? 'Bearbeiten' : 'Neu' }}</p>
+        <h2 id="theme-editor-title">Eigener Stil</h2>
+      </div>
+      <button
+        class="round-button round-button--dialog"
+        type="button"
+        aria-label="Schließen"
+        (click)="close()"
+      >
+        <span aria-hidden="true">x</span>
+      </button>
+    </header>
+
+    @if (draft(); as draft) {
+      <form class="settings-form" (submit)="save($event)" novalidate>
+        <div class="settings-form__scroll">
+          <p class="settings-hint">Änderungen sind sofort sichtbar. Abbrechen verwirft sie.</p>
+
+          <label class="field" for="theme-name">
+            <span>Name</span>
+            <input
+              id="theme-name"
+              type="text"
+              autocomplete="off"
+              [attr.maxlength]="maxNameLength"
+              [value]="draft.name"
+              (input)="setName($event)"
+            />
+            @if (nameError()) {
+              <small>Bitte einen Namen mit höchstens {{ maxNameLength }} Zeichen eingeben.</small>
+            }
+          </label>
+
+          <div class="theme-editor__row">
+            <label class="field" for="theme-base">
+              <span>Grundstil</span>
+              <select id="theme-base" (change)="selectBase($event)">
+                <option value="standard" [selected]="draft.base === 'standard'">Standard</option>
+                <option value="futuristic" [selected]="draft.base === 'futuristic'">
+                  Futuristisch
+                </option>
+                <option value="minimal" [selected]="draft.base === 'minimal'">
+                  Minimalistisch
+                </option>
+              </select>
+            </label>
+            <label class="field" for="theme-base-mode">
+              <span>Grundlage</span>
+              <select id="theme-base-mode" (change)="selectMode($event)">
+                <option value="dark" [selected]="draft.mode === 'dark'">Dunkel</option>
+                <option value="light" [selected]="draft.mode === 'light'">Hell</option>
+              </select>
+            </label>
+          </div>
+          <p class="settings-hint">
+            Grundstil oder Grundlage zu ändern setzt Farben und Formen auf dessen Werte zurück.
+          </p>
+
+          <section class="settings-section" aria-labelledby="theme-colors-title">
+            <h3 id="theme-colors-title">Farben</h3>
+            <div class="theme-editor__colors">
+              @for (color of colors; track color.key) {
+                <label class="theme-color">
+                  <input
+                    type="color"
+                    [value]="draft.values[color.key]"
+                    (input)="setColor(color.key, $event)"
+                  />
+                  <span>{{ color.label }}</span>
+                </label>
+              }
+            </div>
+          </section>
+
+          <section class="settings-section" aria-labelledby="theme-shape-title">
+            <h3 id="theme-shape-title">Form und Effekte</h3>
+            @for (control of shapeControls; track control.key) {
+              <label class="field" [for]="'theme-' + control.key">
+                <span>{{ control.label }}</span>
+                <div class="theme-editor__range">
+                  <input
+                    type="range"
+                    [id]="'theme-' + control.key"
+                    [min]="ranges[control.key].min"
+                    [max]="ranges[control.key].max"
+                    [step]="ranges[control.key].step"
+                    [value]="draft.values[control.key]"
+                    (input)="setNumber(control.key, $event)"
+                  />
+                  <output>{{ rangeLabel(control.key) }}</output>
+                </div>
+              </label>
+            }
+
+            <button
+              class="snap-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="draft.values.pillCorners"
+              (click)="togglePillCorners()"
+            >
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>Runde Pillen (Status, Schalter, Hinweise)</span>
+            </button>
+          </section>
+
+          <section class="settings-section" aria-labelledby="theme-font-title">
+            <h3 id="theme-font-title">Schrift</h3>
+            <div class="theme-editor__row">
+              <label class="field" for="theme-font">
+                <span>Text</span>
+                <select id="theme-font" (change)="setFont('font', $event)">
+                  @for (font of fonts; track font.value) {
+                    <option [value]="font.value" [selected]="draft.values.font === font.value">
+                      {{ font.label }}
+                    </option>
+                  }
+                </select>
+              </label>
+              <label class="field" for="theme-display-font">
+                <span>Überschriften</span>
+                <select id="theme-display-font" (change)="setFont('displayFont', $event)">
+                  @for (font of fonts; track font.value) {
+                    <option
+                      [value]="font.value"
+                      [selected]="draft.values.displayFont === font.value"
+                    >
+                      {{ font.label }}
+                    </option>
+                  }
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <details class="settings-section theme-editor__advanced">
+            <summary>
+              Profi: alle Farben einzeln
+              @if (advancedCount() > 0) {
+                ({{ advancedCount() }} geändert)
+              }
+            </summary>
+            <div class="theme-editor__colors">
+              @for (entry of advancedTokens; track entry.token) {
+                <label
+                  class="theme-color"
+                  [class.theme-color--changed]="isAdvancedOverridden(entry.token)"
+                >
+                  <input
+                    type="color"
+                    [value]="advancedColors()[entry.token]"
+                    (input)="setAdvanced(entry.token, $event)"
+                  />
+                  <span>{{ entry.label }}</span>
+                </label>
+              }
+            </div>
+            <button
+              class="secondary-button"
+              type="button"
+              [disabled]="advancedCount() === 0"
+              (click)="resetAdvanced()"
+            >
+              Profi-Farben zurücksetzen
+            </button>
+          </details>
+
+          @if (isEditing()) {
+            @if (deletePending()) {
+              <div class="confirm-row" role="alert">
+                <span>Stil wirklich löschen?</span>
+                <button class="danger-button" type="button" (click)="confirmDelete()">
+                  Löschen
+                </button>
+                <button class="secondary-button" type="button" (click)="deletePending.set(false)">
+                  Abbrechen
+                </button>
+              </div>
+            } @else {
+              <button class="text-danger-button" type="button" (click)="deletePending.set(true)">
+                Stil löschen
+              </button>
+            }
+          }
+
+          @if (saveError(); as message) {
+            <p class="settings-message" role="status">{{ message }}</p>
+          }
+        </div>
+
+        <footer class="settings-actions">
+          <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
+          <button class="primary-button" type="submit">Speichern</button>
+        </footer>
+      </form>
+    }
+  </section>
+</div>

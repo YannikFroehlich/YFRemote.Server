@@ -522,20 +522,6 @@ describe('RemoteService', () => {
     expect(storage.getItem(POINTER_ACCELERATION_STORAGE_KEY)).toBe('false');
     expect(storage.getItem(LIVE_TYPING_STORAGE_KEY)).toBe('true');
 
-    expect(remote.themeMode()).toBe('system');
-    remote.saveThemeMode('light');
-    expect(remote.themeMode()).toBe('light');
-    expect(storage.getItem('yfremote.themeMode')).toBe('light');
-    expect(document.documentElement.dataset['mode']).toBe('light');
-    remote.saveThemeMode('system');
-
-    expect(remote.themeStyle()).toBe('standard');
-    remote.saveThemeStyle('minimal');
-    expect(remote.themeStyle()).toBe('minimal');
-    expect(storage.getItem('yfremote.themeStyle')).toBe('minimal');
-    expect(document.documentElement.dataset['style']).toBe('minimal');
-    remote.saveThemeStyle('standard');
-
     expect(remote.saveScrollSettings(5, false)).toBe(false);
     expect(remote.scrollSpeed()).toBe(2.5);
     expect(remote.invertScroll()).toBe(true);

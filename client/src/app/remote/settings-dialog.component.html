@@ -139,11 +139,18 @@
 
         <label class="field" for="theme-mode">
           <span>Darstellung</span>
-          <select id="theme-mode" formControlName="themeMode">
+          <select
+            id="theme-mode"
+            formControlName="themeMode"
+            [attr.disabled]="customStyleSelected() ? '' : null"
+          >
             <option value="system">Wie das Gerät (System)</option>
             <option value="light">Hell</option>
             <option value="dark">Dunkel</option>
           </select>
+          @if (customStyleSelected()) {
+            <p class="settings-hint">Ein eigener Stil legt Hell oder Dunkel selbst fest.</p>
+          }
         </label>
 
         <fieldset class="field style-picker">
@@ -160,6 +167,59 @@
                 <small>{{ style.hint }}</small>
               </label>
             }
+            @for (custom of theme.customThemes(); track custom.id) {
+              <div class="style-option style-option--custom">
+                <label class="style-option__select">
+                  <input
+                    type="radio"
+                    formControlName="themeStyle"
+                    [value]="customStylePrefix + custom.id"
+                  />
+                  <span
+                    class="style-option__preview"
+                    aria-hidden="true"
+                    [style.background]="customThemePreview(custom)"
+                  ></span>
+                  <strong>{{ custom.name }}</strong>
+                </label>
+                <button
+                  class="style-option__edit"
+                  type="button"
+                  [attr.aria-label]="'Stil ' + custom.name + ' bearbeiten'"
+                  (click)="openThemeEditor(custom.id)"
+                >
+                  Bearbeiten
+                </button>
+              </div>
+            }
+            <button
+              class="style-option style-option--new"
+              type="button"
+              (click)="openThemeEditor(null)"
+            >
+              <span aria-hidden="true">+</span>
+              <strong>Neuer Stil</strong>
+            </button>
+          </div>
+          <div class="profile-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              [disabled]="theme.customThemes().length === 0"
+              (click)="exportCustomThemes()"
+            >
+              Stile exportieren
+            </button>
+            <button class="secondary-button" type="button" (click)="themeImport.click()">
+              Stile importieren
+            </button>
+            <input
+              #themeImport
+              class="visually-hidden"
+              type="file"
+              accept="application/json,.json"
+              (change)="importCustomThemes($event)"
+            />
           </div>
         </fieldset>
 
@@ -310,4 +370,12 @@
       </footer>
     </form>
   </section>
+
+  @if (editingThemeId() !== undefined) {
+    <app-theme-editor-dialog
+      [themeId]="editingThemeId() ?? null"
+      (saved)="onThemeSaved($event)"
+      (closed)="onThemeEditorClosed()"
+    />
+  }
 </div>

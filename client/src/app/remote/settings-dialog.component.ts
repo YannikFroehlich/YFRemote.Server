@@ -1,4 +1,5 @@
 import { Component, inject, output, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
 import { RemoteService } from './remote.service';
@@ -19,16 +20,21 @@ import {
   SCROLL_SPEED_STEP,
   scrollSpeedValidator,
 } from './server-config';
-import { ThemeMode, ThemeStyle } from './theme';
+import { CustomTheme, ThemeMode, ThemeStyle } from './theme';
+import { ThemeEditorDialogComponent } from './theme-editor-dialog.component';
+import { ThemeService } from './theme.service';
+
+const CUSTOM_STYLE_PREFIX = 'custom:';
 
 @Component({
   selector: 'app-settings-dialog',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ThemeEditorDialogComponent],
   templateUrl: './settings-dialog.component.html',
 })
 export class SettingsDialogComponent {
   private readonly remote = inject(RemoteService);
   protected readonly layout = inject(ButtonLayoutService);
+  protected readonly theme = inject(ThemeService);
 
   readonly closed = output<void>();
 
@@ -69,9 +75,16 @@ export class SettingsDialogComponent {
     invertScroll: new FormControl(this.remote.invertScroll(), { nonNullable: true }),
     pointerAcceleration: new FormControl(this.remote.pointerAcceleration(), { nonNullable: true }),
     haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
-    themeMode: new FormControl<ThemeMode>(this.remote.themeMode(), { nonNullable: true }),
-    themeStyle: new FormControl<ThemeStyle>(this.remote.themeStyle(), { nonNullable: true }),
+    themeMode: new FormControl<ThemeMode>(this.theme.mode(), { nonNullable: true }),
+    /** Eingebauter Stil oder `custom:<id>` für einen eigenen. */
+    themeStyle: new FormControl<string>(this.initialStyleSelection(), { nonNullable: true }),
   });
+  private readonly selectedStyle = toSignal(this.form.controls.themeStyle.valueChanges, {
+    initialValue: this.form.controls.themeStyle.value,
+  });
+  /** undefined: Editor zu; null: neuer Stil; sonst id des bearbeiteten Stils. */
+  protected readonly editingThemeId = signal<string | null | undefined>(undefined);
+  protected readonly customStylePrefix = CUSTOM_STYLE_PREFIX;
 
   protected close(): void {
     this.closed.emit();
@@ -99,8 +112,7 @@ export class SettingsDialogComponent {
 
     this.remote.savePointerAcceleration(this.form.controls.pointerAcceleration.value);
     this.remote.saveHaptics(this.form.controls.haptics.value);
-    this.remote.saveThemeMode(this.form.controls.themeMode.value);
-    this.remote.saveThemeStyle(this.form.controls.themeStyle.value);
+    this.saveTheme();
 
     // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
     const configSaved =
@@ -118,6 +130,91 @@ export class SettingsDialogComponent {
     { value: 'futuristic', name: 'Futuristisch', hint: 'Neon, Leuchten, kantig' },
     { value: 'minimal', name: 'Minimalistisch', hint: 'Flach, schlicht, ohne Effekte' },
   ];
+
+  protected customStyleSelected(): boolean {
+    return this.selectedStyle().startsWith(CUSTOM_STYLE_PREFIX);
+  }
+
+  protected openThemeEditor(id: string | null): void {
+    this.editingThemeId.set(id);
+  }
+
+  protected onThemeSaved(id: string): void {
+    this.form.controls.themeStyle.setValue(CUSTOM_STYLE_PREFIX + id);
+  }
+
+  protected onThemeEditorClosed(): void {
+    this.editingThemeId.set(undefined);
+    // Ein gelöschter Stil darf nicht ausgewählt bleiben.
+    const selected = this.form.controls.themeStyle.value;
+    const exists = this.theme
+      .customThemes()
+      .some((theme) => CUSTOM_STYLE_PREFIX + theme.id === selected);
+    if (selected.startsWith(CUSTOM_STYLE_PREFIX) && !exists) {
+      this.form.controls.themeStyle.setValue(this.theme.style());
+    }
+  }
+
+  protected customThemePreview(theme: CustomTheme): string {
+    const v = theme.values;
+    return `linear-gradient(135deg, ${v.accent} 0 30%, ${v.raised} 30% 65%, ${v.background} 65%)`;
+  }
+
+  protected exportCustomThemes(): void {
+    this.download(this.theme.exportCustomThemes(), 'yfremote-stile.json');
+    this.showOperationMessage('Eigene Stile wurden exportiert.', true);
+  }
+
+  protected async importCustomThemes(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file === undefined) {
+      return;
+    }
+    if (file.size > 1_000_000) {
+      this.showOperationMessage('Die Importdatei darf höchstens 1 MB groß sein.');
+      return;
+    }
+    try {
+      const added = this.theme.importCustomThemes(await file.text());
+      if (added === null) {
+        this.showOperationMessage('Die Datei enthält keine gültigen Stile.');
+      } else {
+        this.showOperationMessage(`${added} Stil(e) importiert.`, added > 0);
+      }
+    } catch {
+      this.showOperationMessage('Die Importdatei konnte nicht gelesen werden.');
+    }
+  }
+
+  private initialStyleSelection(): string {
+    const custom = this.theme.activeCustomTheme();
+    return custom === null ? this.theme.style() : CUSTOM_STYLE_PREFIX + custom.id;
+  }
+
+  private saveTheme(): void {
+    const selected = this.form.controls.themeStyle.value;
+    this.theme.saveMode(this.form.controls.themeMode.value);
+    if (selected.startsWith(CUSTOM_STYLE_PREFIX)) {
+      this.theme.activateCustomTheme(selected.slice(CUSTOM_STYLE_PREFIX.length));
+    } else {
+      this.theme.saveStyle(selected as ThemeStyle);
+      this.theme.activateCustomTheme(null);
+    }
+  }
+
+  private download(content: string, fileName: string): void {
+    const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    try {
+      anchor.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
 
   protected toggleSetting(name: 'pointerAcceleration' | 'invertScroll' | 'haptics'): void {
     const control = this.form.controls[name];

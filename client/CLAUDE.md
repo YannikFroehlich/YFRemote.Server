@@ -164,6 +164,10 @@ manual `ChangeDetectorRef` calls.
 holds only the canvas's absolute-positioning geometry (cell math via CSS custom properties), not
 its visual language, which stays in the shared `.control-button` classes. When adding UI, check
 `styles.scss` for an existing class before introducing component-scoped styles.
+Every color lives as a custom property in the `:root` block at the top of `styles.scss`, never
+as a literal in a rule, so a theme only has to override that block. Translucent variants use
+channel tokens: `rgba(var(--accent-rgb), 0.12)`. Keep that block ASCII-only — a single umlaut in
+it (even in a comment) makes the build emit `@charset`.
 
 **All user-facing strings are German** (labels, aria-labels, error messages like "Keine Verbindung
 zum Server."). Keep new UI text consistent with this.

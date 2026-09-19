@@ -20,6 +20,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-09-19
+
 ### Added
 
 - On Linux, the pairing PIN is printed to the console (or `journalctl --user -u yfremote` when

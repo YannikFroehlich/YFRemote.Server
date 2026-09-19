@@ -2002,7 +2002,7 @@ select:focus-visible {
   }
 
   .keyboard-card__header .eyebrow,
-  .key-group__label {
+  .keyboard-card .key-group__label {
     display: none;
   }
 
@@ -2016,42 +2016,42 @@ select:focus-visible {
     gap: 8px;
   }
 
-  .key-picker {
+  .keyboard-card .key-picker {
     min-height: 0;
     grid-template-rows: 1fr 3fr 2fr 4fr 1fr;
     gap: 6px;
   }
 
-  .key-group {
+  .keyboard-card .key-group {
     min-height: 0;
     gap: 0;
   }
 
-  .key-group__keys {
+  .keyboard-card .key-group__keys {
     display: grid;
     height: 100%;
     grid-auto-rows: minmax(0, 1fr);
     gap: 5px;
   }
 
-  .key-group:nth-child(1) .key-group__keys,
-  .key-group:nth-child(2) .key-group__keys {
+  .keyboard-card .key-group:nth-child(1) .key-group__keys,
+  .keyboard-card .key-group:nth-child(2) .key-group__keys {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  .key-group:nth-child(3) .key-group__keys {
+  .keyboard-card .key-group:nth-child(3) .key-group__keys {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
-  .key-group:nth-child(4) .key-group__keys {
+  .keyboard-card .key-group:nth-child(4) .key-group__keys {
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
-  .key-group:nth-child(5) .key-group__keys {
+  .keyboard-card .key-group:nth-child(5) .key-group__keys {
     grid-template-columns: repeat(10, minmax(0, 1fr));
   }
 
-  .key-chip {
+  .keyboard-card .key-chip {
     width: 100%;
     min-width: 0;
     min-height: 0;
@@ -2084,11 +2084,11 @@ select:focus-visible {
     padding: 10px;
   }
 
-  .key-picker {
+  .keyboard-card .key-picker {
     gap: 5px;
   }
 
-  .key-group__keys {
+  .keyboard-card .key-group__keys {
     gap: 4px;
   }
 

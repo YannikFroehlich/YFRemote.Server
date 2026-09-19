@@ -10,6 +10,7 @@ import {
   INVERT_SCROLL_STORAGE_KEY,
   LIVE_TYPING_STORAGE_KEY,
   MOUSE_SENSITIVITY_STORAGE_KEY,
+  POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
 } from '../server-config';
 import { TouchpadComponent } from './touchpad.component';
@@ -239,6 +240,28 @@ describe('TouchpadComponent', () => {
       '{"type":"mouseMove","deltaX":20,"deltaY":0}',
       '{"type":"mouseMove","deltaX":120,"deltaY":0}',
     ]);
+  });
+
+  it('keeps fast movement 1:1 when pointer acceleration is switched off', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad({
+      stored: { [POINTER_ACCELERATION_STORAGE_KEY]: 'false' },
+    });
+
+    dispatchPointer(surface, 'pointerdown', {
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      timeStamp: 1000,
+    });
+    dispatchPointer(surface, 'pointermove', {
+      pointerId: 1,
+      clientX: 40,
+      clientY: 0,
+      timeStamp: 1020,
+    });
+    flushRaf();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseMove","deltaX":40,"deltaY":0}']);
   });
 
   it('drags with the left button held after tap, then touch and move', async () => {

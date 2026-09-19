@@ -51,9 +51,10 @@ manual `ChangeDetectorRef` calls.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and
    the only thing that talks to the WebSocket. Exposes readonly signals (`config`, `status`,
    `lastError`, `manuallyDisconnected`, plus the persisted input preferences `mouseSensitivity`,
-   `scrollSpeed`, `invertScroll`, `haptics`, `liveTyping`) and imperative methods
-   (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/`saveScrollSettings`/
-   `saveHaptics`/`saveLiveTyping`/`sendAction`/`runSteps`). `sendAction` (for `key`, `hotkey`,
+   `pointerAcceleration`, `scrollSpeed`, `invertScroll`, `haptics`, `liveTyping`) and imperative
+   methods (`connect`/`disconnect`/`reconnect`/`saveConfig`/`saveMouseSensitivity`/
+   `savePointerAcceleration`/`saveScrollSettings`/`saveHaptics`/`saveLiveTyping`/`sendAction`/
+   `runSteps`). `sendAction` (for `key`, `hotkey`,
    `mouseClick`, `mouseDown`) and each `runSteps` call trigger a short vibration when `haptics`
    is on. Owns reconnect-with-backoff logic (`RECONNECT_DELAYS_MS`) and transient-error
    display (`ERROR_VISIBLE_MS`). Every step in a multi-step macro carries a connection-local
@@ -121,8 +122,9 @@ manual `ChangeDetectorRef` calls.
 5. **Other UI components**, each paired with its own `.html` template (styles are mostly global,
    see below):
    - `TouchpadComponent` (`touchpad/`) — raw Pointer Events (not a library) implementing a
-     laptop-trackpad UX: 1 finger drags the cursor, scaled by `remote.mouseSensitivity()` and a
-     speed-based acceleration factor (`ACCEL_*` constants, from `event.timeStamp`). A tap within
+     laptop-trackpad UX: 1 finger drags the cursor, scaled by `remote.mouseSensitivity()` and,
+     unless `remote.pointerAcceleration()` is off, a speed-based acceleration factor (`ACCEL_*`
+     constants, from `event.timeStamp`). A tap within
      `TAP_MAX_MOVEMENT_PX`/`TAP_MAX_DURATION_MS` left-clicks, but only after `TAP_DRAG_WINDOW_MS`:
      touching down again inside that window sends `mouseDown` and drags until lift (a second
      short tap instead becomes a double click). 2 fingers scroll vertically and horizontally

@@ -66,6 +66,7 @@ export class SettingsDialogComponent {
       validators: [Validators.required, scrollSpeedValidator],
     }),
     invertScroll: new FormControl(this.remote.invertScroll(), { nonNullable: true }),
+    pointerAcceleration: new FormControl(this.remote.pointerAcceleration(), { nonNullable: true }),
     haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
   });
 
@@ -93,6 +94,7 @@ export class SettingsDialogComponent {
       return;
     }
 
+    this.remote.savePointerAcceleration(this.form.controls.pointerAcceleration.value);
     this.remote.saveHaptics(this.form.controls.haptics.value);
 
     // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
@@ -106,7 +108,7 @@ export class SettingsDialogComponent {
     }
   }
 
-  protected toggleSetting(name: 'invertScroll' | 'haptics'): void {
+  protected toggleSetting(name: 'pointerAcceleration' | 'invertScroll' | 'haptics'): void {
     const control = this.form.controls[name];
     control.setValue(!control.value);
     control.markAsDirty();

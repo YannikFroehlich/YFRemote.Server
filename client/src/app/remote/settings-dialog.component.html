@@ -81,6 +81,17 @@
           }
         </label>
 
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="form.controls.pointerAcceleration.value"
+          (click)="toggleSetting('pointerAcceleration')"
+        >
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>Mausbeschleunigung (schnelle Wischer bewegen weiter)</span>
+        </button>
+
         <label class="field" for="scroll-speed">
           <span>Scroll-Geschwindigkeit</span>
           <div class="range-row">

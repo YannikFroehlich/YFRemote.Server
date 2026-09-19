@@ -179,6 +179,35 @@ jobs:
           "publish/release-manifest.json"
           --repo "${{ github.repository }}"
 
+      # vpk setzt keinen Release-Text. Beim automatischen Release stehen die Aenderungen noch
+      # unter [Unreleased] (umbenannt wird erst danach), bei einem Tag-Push evtl. schon unter
+      # der Version - daher erst die Version, dann [Unreleased] versuchen.
+      - name: Release-Notes aus CHANGELOG setzen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $changelog = (Get-Content CHANGELOG.md -Raw) -replace "`r`n", "`n"
+          $notes = $null
+
+          foreach ($heading in @([regex]::Escape($version), 'Unreleased')) {
+            $match = [regex]::Match($changelog, "(?ms)^## \[$heading\][^\n]*\n(.*?)(?=^## \[|\z)")
+            if ($match.Success -and $match.Groups[1].Value.Trim()) {
+              # GitHub rendert jeden Zeilenumbruch im Release-Text als <br>; den 100-Zeichen-
+              # Umbruch des CHANGELOG daher zu einer Zeile pro Eintrag zusammenziehen.
+              $notes = $match.Groups[1].Value.Trim() -replace '(?<=\S)\n[ ]*(?=[^\s\-#])', ' '
+              break
+            }
+          }
+
+          if (-not $notes) {
+            $notes = "Siehe [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/v$version/CHANGELOG.md)."
+          }
+
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8NoBOM
+          gh release edit "v$version" --repo "${{ github.repository }}" --notes-file release-notes.md
+
   # Ergaenzt den bestehenden Windows-Release additiv um Linux-Pakete im selben Tag: Velopack
   # fuehrt pro Architektur einen eigenen Kanal mit eigener Feed-Datei (releases.win.json bleibt
   # unberuehrt), sodass ein installiertes Windows-YFRemote von den Linux-Paketen nichts sieht.
@@ -294,6 +323,6 @@ jobs:
           tag="v${{ needs.release.outputs.version }}"
           current_body=$(gh release view "$tag" --repo "${{ github.repository }}" --json body -q .body)
           if [[ "$current_body" != *"Linux (Beta)"* ]]; then
-            note=$'\n\n---\n**Linux (Beta):** uinput-Eingabepfad ungetestet auf echter Hardware/VM. Probleme bitte als Issue melden.'
+            note=$'\n\n---\n**Linux (Beta):** uinput-Eingabepfad auf x86_64 verifiziert; arm64 und das installierte Paket sind noch ungetestet. Probleme bitte als Issue melden.'
             gh release edit "$tag" --repo "${{ github.repository }}" --notes "${current_body}${note}"
           fi

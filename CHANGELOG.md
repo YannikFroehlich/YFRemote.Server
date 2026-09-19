@@ -22,6 +22,32 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Added
 
+- Touchpad: a short two-finger tap sends a right click, like on a laptop trackpad. While the
+  two fingers could still be a tap, small jitter no longer scrolls the page.
+
+### Changed
+
+- GitHub Releases now carry release notes: `release.yml` copies the version's section of this
+  changelog into the release text instead of leaving it empty. The Linux beta note appended
+  to it now says the backend is verified on x86_64 instead of untested.
+
+## [2.10.0] - 2026-09-19
+
+_Merge of `develop` into `main`; the Linux PIN/verification changes it carries already shipped
+in 2.9.0._
+
+### Changed
+
+- README and AGENTS.md now describe the Linux backend as verified on x86_64 (arm64 and the
+  installed package still unverified) and record the `release-linux` job's first successful
+  run.
+- Disabled Angular CLI analytics prompts in `client/angular.json`, and ignored the local
+  `publish-linux/` output folder.
+
+## [2.9.0] - 2026-09-19
+
+### Added
+
 - On Linux, the pairing PIN is printed to the console (or `journalctl --user -u yfremote` when
   running as a systemd service) at startup, since there is no tray to show it in.
 
@@ -30,6 +56,14 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - Verified the Linux `uinput` input backend end-to-end on a real x86_64 kernel (Linux Mint VM,
   paired phone over the LAN). arm64 and the Velopack-installed package remain unverified, so
   Linux stays on the `-beta` channels.
+
+## [2.8.2] - 2026-09-17
+
+### Added
+
+- This `CHANGELOG.md`, backfilled from the release history.
+
+### Changed
 
 - Reworked the README with release/build/download badges, a Mermaid diagram of the core
   concept, and a Features section, and translated it to English to match the project's

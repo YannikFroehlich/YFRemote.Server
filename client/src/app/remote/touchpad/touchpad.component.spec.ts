@@ -136,6 +136,46 @@ describe('TouchpadComponent', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","deltaX":-60}']);
   });
 
+  it('turns a short two-finger tap into right click without scrolling the jitter', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 101, clientY: 102 });
+    flushRaf();
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 101, clientY: 102 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 140, clientY: 100 });
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseClick","button":"right"}']);
+  });
+
+  it('does not right click after a two-finger scroll', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 140, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 100, clientY: 90 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 140, clientY: 90 });
+    flushRaf();
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 100, clientY: 90 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 140, clientY: 90 });
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","delta":-60}']);
+  });
+
+  it('does not right click when the second finger joins after the first one moved', async () => {
+    const { surface, sockets, flushRaf } = await setupTouchpad();
+
+    dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer(surface, 'pointermove', { pointerId: 1, clientX: 130, clientY: 100 });
+    dispatchPointer(surface, 'pointerdown', { pointerId: 2, clientX: 170, clientY: 100 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 2, clientX: 170, clientY: 100 });
+    dispatchPointer(surface, 'pointerup', { pointerId: 1, clientX: 130, clientY: 100 });
+    flushRaf();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseMove","deltaX":30,"deltaY":0}']);
+  });
+
   it('clears pending movement on pointercancel', async () => {
     const { surface, sockets, flushRaf } = await setupTouchpad();
 

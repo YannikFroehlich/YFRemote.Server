@@ -116,7 +116,9 @@ manual `ChangeDetectorRef` calls.
    - `TouchpadComponent` (`touchpad/`) — raw Pointer Events (not a library) implementing a
      laptop-trackpad UX: 1 finger drags the cursor (scaled by `remote.mouseSensitivity()`) and
      tap-clicks if it stayed within `TAP_MAX_MOVEMENT_PX`/`TAP_MAX_DURATION_MS`; 2 fingers scroll
-     (vertical delta only, `SCROLL_SCALE`); 3+ fingers are ignored. Movement/scroll deltas are
+     vertically and horizontally (`SCROLL_SCALE`), and a 2-finger tap within the same limits
+     right-clicks (scrolling is held back until the fingers move past `TAP_MAX_MOVEMENT_PX`);
+     3+ fingers are ignored. Movement/scroll deltas are
      accumulated and flushed at most once per animation frame (`requestAnimationFrame`) rather than
      sent per pointer event, to avoid flooding the socket.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,

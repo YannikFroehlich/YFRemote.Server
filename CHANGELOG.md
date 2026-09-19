@@ -22,6 +22,7 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Added
 
+- Light mode. Settings → "Darstellung" chooses between "Wie das Gerät (System)" (the default, follows the phone's light/dark setting), "Hell" and "Dunkel". The choice is remembered and applied before the page first renders, so it never flashes the wrong mode on load. The browser bar color follows along.
 - Settings: a "Mausbeschleunigung" switch turns the touchpad's pointer acceleration off, so
   cursor movement stays 1:1 regardless of finger speed. It is on by default.
 

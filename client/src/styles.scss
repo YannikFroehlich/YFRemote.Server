@@ -78,6 +78,79 @@
   --danger-surface-hover: #36201d;
 }
 
+/* Hell: explizit per data-mode="light" oder, ohne Auswahl ("System"), ueber die Einstellung
+   des Geraets. Siehe applyThemeMode in src/app/remote/theme.ts. */
+@mixin light-tokens {
+  color-scheme: light;
+  --app-bg: #eef3f4;
+  --surface: rgba(255, 255, 255, 0.94);
+  --surface-solid: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-soft: #f5f8f9;
+  --surface-hover: #e8eff1;
+  --line-strong: rgba(10, 138, 112, 0.35);
+  --text: #0f1a1e;
+  --text-soft: #2c3b41;
+  --muted: #5c6d74;
+  --muted-strong: #475a61;
+  --accent: #0a8a70;
+  --accent-strong: #08765f;
+  --danger: #c2410c;
+  --warning: #a16207;
+  --success: #15803d;
+  --shadow-lg: 0 24px 60px rgba(var(--shadow-rgb), 0.12);
+  --accent-rgb: 10, 138, 112;
+  --danger-rgb: 194, 65, 12;
+  --danger-strong-rgb: 220, 70, 40;
+  --success-rgb: 21, 128, 61;
+  --warning-rgb: 161, 98, 7;
+  --line-rgb: 16, 42, 50;
+  --shadow-rgb: 15, 30, 36;
+  --overlay-rgb: 255, 255, 255;
+  --glow-rgb: 10, 138, 112;
+  --glow-deep-rgb: 10, 138, 112;
+  --brand-glow-rgb: 10, 138, 112;
+  --backdrop-glow-1-rgb: 10, 138, 112;
+  --backdrop-glow-2-rgb: 59, 130, 246;
+  --accent-border-rgb: 10, 138, 112;
+  --well-dot-rgb: 16, 42, 50;
+  --scrim-rgb: 15, 26, 30;
+  --surface-disabled-rgb: 230, 236, 238;
+  --surface-inset-rgb: 240, 244, 245;
+  --app-bg-start: #f3f7f8;
+  --app-bg-end: #e9f0f1;
+  --danger-text: #9a3412;
+  --accent-text: #064e3f;
+  --text-disabled: #9aa8ad;
+  --surface-dialog: #ffffff;
+  --surface-focus: #ffffff;
+  --accent-gradient-start: #0f9f81;
+  --accent-gradient-end: #0a8a70;
+  --on-accent: #ffffff;
+  --button-disabled-bg: #e3e9eb;
+  --button-disabled-text: #8a999f;
+  --text-faint: #a3b0b5;
+  --surface-sunken: #e9eff1;
+  --switch-track: #c9d3d7;
+  --switch-knob: #ffffff;
+  --panel-bg-mobile: #f3f7f8;
+  --danger-text-hover: #7c2d12;
+  --surface-well: #e6edef;
+  --surface-bar: #f0f4f5;
+  --danger-surface: #fde8e2;
+  --danger-surface-hover: #fbd3c8;
+}
+
+:root[data-mode='light'] {
+  @include light-tokens;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-mode='dark']) {
+    @include light-tokens;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

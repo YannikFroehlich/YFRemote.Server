@@ -19,6 +19,7 @@ import {
   SCROLL_SPEED_STEP,
   scrollSpeedValidator,
 } from './server-config';
+import { ThemeMode } from './theme';
 
 @Component({
   selector: 'app-settings-dialog',
@@ -68,6 +69,7 @@ export class SettingsDialogComponent {
     invertScroll: new FormControl(this.remote.invertScroll(), { nonNullable: true }),
     pointerAcceleration: new FormControl(this.remote.pointerAcceleration(), { nonNullable: true }),
     haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
+    themeMode: new FormControl<ThemeMode>(this.remote.themeMode(), { nonNullable: true }),
   });
 
   protected close(): void {
@@ -96,6 +98,7 @@ export class SettingsDialogComponent {
 
     this.remote.savePointerAcceleration(this.form.controls.pointerAcceleration.value);
     this.remote.saveHaptics(this.form.controls.haptics.value);
+    this.remote.saveThemeMode(this.form.controls.themeMode.value);
 
     // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
     const configSaved =

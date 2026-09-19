@@ -8,7 +8,22 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="brand-mark.png">
-  <meta name="theme-color" content="#070b0e">
+  <meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#eef3f4" media="(prefers-color-scheme: light)">
+  <script>
+    // Gespeicherten Hell/Dunkel-Modus vor dem ersten Rendern setzen, sonst blitzt der falsche
+    // auf. Gleiche Logik wie applyThemeMode in src/app/remote/theme.ts.
+    (function () {
+      try {
+        var mode = localStorage.getItem('yfremote.themeMode');
+        if (mode !== 'light' && mode !== 'dark') return;
+        document.documentElement.dataset.mode = mode;
+        document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
+          meta.content = mode === 'light' ? '#eef3f4' : '#070b0e';
+        });
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

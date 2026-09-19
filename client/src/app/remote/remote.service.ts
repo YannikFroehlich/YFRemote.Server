@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   ConnectionStatus,
@@ -25,6 +26,7 @@ import {
   SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
 } from './server-config';
+import { applyThemeMode, parseStoredThemeMode, THEME_MODE_STORAGE_KEY, ThemeMode } from './theme';
 
 export interface RemoteSocket {
   readonly url: string;
@@ -92,6 +94,7 @@ export class RemoteService implements OnDestroy {
   private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly pairing = inject(PairingService);
   private readonly serverLocation = inject(SERVER_LOCATION);
+  private readonly document = inject(DOCUMENT);
 
   private readonly configSignal = signal<ServerConfig>(
     getServerConfigFromLocation(this.serverLocation),
@@ -112,6 +115,9 @@ export class RemoteService implements OnDestroy {
   private readonly liveTypingSignal = signal(
     parseStoredFlag(this.readStorage(LIVE_TYPING_STORAGE_KEY), false),
   );
+  private readonly themeModeSignal = signal(
+    parseStoredThemeMode(this.readStorage(THEME_MODE_STORAGE_KEY)),
+  );
   private readonly statusSignal = signal<ConnectionStatus>('disconnected');
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly manualDisconnectSignal = signal(false);
@@ -130,6 +136,7 @@ export class RemoteService implements OnDestroy {
   readonly haptics = this.hapticsSignal.asReadonly();
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
+  readonly themeMode = this.themeModeSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
@@ -237,6 +244,12 @@ export class RemoteService implements OnDestroy {
   saveLiveTyping(enabled: boolean): void {
     this.liveTypingSignal.set(enabled);
     this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
+  }
+
+  saveThemeMode(mode: ThemeMode): void {
+    this.themeModeSignal.set(mode);
+    this.storage?.setItem(THEME_MODE_STORAGE_KEY, mode);
+    applyThemeMode(this.document, mode);
   }
 
   /** Führt eine Aktionskette sequenziell aus und wartet neben der konfigurierten

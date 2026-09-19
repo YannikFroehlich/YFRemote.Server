@@ -75,7 +75,7 @@
   height: 24px;
   padding: 0;
   place-items: center;
-  border: 1px solid rgba(var(--danger-rgb), 0.22);
+  border: var(--border-width) solid rgba(var(--danger-rgb), 0.22);
   border-radius: var(--radius-pill);
   background: var(--danger-surface);
   color: var(--danger);

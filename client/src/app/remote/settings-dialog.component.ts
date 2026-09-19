@@ -11,8 +11,13 @@ import {
   mouseSensitivityValidator,
   normalizeHost,
   normalizeMouseSensitivity,
+  normalizeScrollSpeed,
   parsePortValue,
   portValidator,
+  SCROLL_SPEED_MAX,
+  SCROLL_SPEED_MIN,
+  SCROLL_SPEED_STEP,
+  scrollSpeedValidator,
 } from './server-config';
 
 @Component({
@@ -31,6 +36,9 @@ export class SettingsDialogComponent {
   protected readonly mouseSensitivityMin = MOUSE_SENSITIVITY_MIN;
   protected readonly mouseSensitivityMax = MOUSE_SENSITIVITY_MAX;
   protected readonly mouseSensitivityStep = MOUSE_SENSITIVITY_STEP;
+  protected readonly scrollSpeedMin = SCROLL_SPEED_MIN;
+  protected readonly scrollSpeedMax = SCROLL_SPEED_MAX;
+  protected readonly scrollSpeedStep = SCROLL_SPEED_STEP;
   protected readonly profileName = new FormControl('', {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(40)],
@@ -53,6 +61,12 @@ export class SettingsDialogComponent {
       nonNullable: true,
       validators: [Validators.required, mouseSensitivityValidator],
     }),
+    scrollSpeed: new FormControl(this.remote.scrollSpeed(), {
+      nonNullable: true,
+      validators: [Validators.required, scrollSpeedValidator],
+    }),
+    invertScroll: new FormControl(this.remote.invertScroll(), { nonNullable: true }),
+    haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
   });
 
   protected close(): void {
@@ -67,24 +81,48 @@ export class SettingsDialogComponent {
     const mouseSensitivity = normalizeMouseSensitivity(
       Number(this.form.controls.mouseSensitivity.value),
     );
+    const scrollSpeed = normalizeScrollSpeed(Number(this.form.controls.scrollSpeed.value));
 
-    if (this.form.invalid || !isValidHost(host) || port === null || mouseSensitivity === null) {
+    if (
+      this.form.invalid ||
+      !isValidHost(host) ||
+      port === null ||
+      mouseSensitivity === null ||
+      scrollSpeed === null
+    ) {
       return;
     }
 
-    const mouseSensitivitySaved = this.remote.saveMouseSensitivity(mouseSensitivity);
-    const configSaved = mouseSensitivitySaved && this.remote.saveConfig({ host, port });
+    this.remote.saveHaptics(this.form.controls.haptics.value);
 
-    if (configSaved && mouseSensitivitySaved) {
+    // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
+    const configSaved =
+      this.remote.saveMouseSensitivity(mouseSensitivity) &&
+      this.remote.saveScrollSettings(scrollSpeed, this.form.controls.invertScroll.value) &&
+      this.remote.saveConfig({ host, port });
+
+    if (configSaved) {
       this.closed.emit();
     }
+  }
+
+  protected toggleSetting(name: 'invertScroll' | 'haptics'): void {
+    const control = this.form.controls[name];
+    control.setValue(!control.value);
+    control.markAsDirty();
   }
 
   protected sensitivityLabel(): string {
     return Number(this.form.controls.mouseSensitivity.value).toFixed(2);
   }
 
-  protected hasFieldError(fieldName: 'host' | 'port' | 'mouseSensitivity'): boolean {
+  protected scrollSpeedLabel(): string {
+    return Number(this.form.controls.scrollSpeed.value).toFixed(2);
+  }
+
+  protected hasFieldError(
+    fieldName: 'host' | 'port' | 'mouseSensitivity' | 'scrollSpeed',
+  ): boolean {
     const control = this.form.controls[fieldName];
     return control.invalid && (control.dirty || control.touched);
   }

@@ -3,6 +3,8 @@ import {
   getServerHttpBaseUrl,
   getServerPageUrl,
   getServerWebSocketBaseUrl,
+  parseStoredFlag,
+  parseStoredScrollSpeed,
   ServerLocation,
 } from './server-config';
 
@@ -40,5 +42,20 @@ describe('same-origin server config', () => {
     expect(getServerPageUrl({ host: 'living-room.local', port: 7443 }, location)).toBe(
       'https://living-room.local:7443/',
     );
+  });
+});
+
+describe('stored input preferences', () => {
+  it('falls back to defaults for missing or invalid scroll speeds', () => {
+    expect(parseStoredScrollSpeed(null)).toBe(1);
+    expect(parseStoredScrollSpeed('2.25')).toBe(2.25);
+    expect(parseStoredScrollSpeed('9')).toBe(1);
+    expect(parseStoredScrollSpeed('abc')).toBe(1);
+  });
+
+  it('reads stored flags with a fallback for missing values', () => {
+    expect(parseStoredFlag(null, true)).toBe(true);
+    expect(parseStoredFlag('false', true)).toBe(false);
+    expect(parseStoredFlag('true', false)).toBe(true);
   });
 });

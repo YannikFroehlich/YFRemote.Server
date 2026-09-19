@@ -81,6 +81,51 @@
           }
         </label>
 
+        <label class="field" for="scroll-speed">
+          <span>Scroll-Geschwindigkeit</span>
+          <div class="range-row">
+            <small>Langsam</small>
+            <input
+              id="scroll-speed"
+              type="range"
+              formControlName="scrollSpeed"
+              [min]="scrollSpeedMin"
+              [max]="scrollSpeedMax"
+              [step]="scrollSpeedStep"
+            />
+            <small>Schnell</small>
+          </div>
+          <output>{{ scrollSpeedLabel() }}</output>
+          @if (hasFieldError('scrollSpeed')) {
+            <small>
+              Wert muss zwischen {{ scrollSpeedMin.toFixed(2) }} und
+              {{ scrollSpeedMax.toFixed(2) }} liegen.
+            </small>
+          }
+        </label>
+
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="form.controls.invertScroll.value"
+          (click)="toggleSetting('invertScroll')"
+        >
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>Scrollrichtung umkehren</span>
+        </button>
+
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="form.controls.haptics.value"
+          (click)="toggleSetting('haptics')"
+        >
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>Vibration bei Tastendruck (Android)</span>
+        </button>
+
         <section class="settings-section" aria-labelledby="profiles-title">
           <div class="settings-section__heading">
             <div>

@@ -1,0 +1,16 @@
+{
+  "name": "YFRemote",
+  "short_name": "YFRemote",
+  "lang": "de",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070b0e",
+  "theme_color": "#070b0e",
+  "icons": [
+    {
+      "src": "brand-mark.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}

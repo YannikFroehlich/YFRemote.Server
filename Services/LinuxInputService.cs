@@ -2,7 +2,7 @@ namespace YFRemote.Server.Services;
 
 public sealed class LinuxInputService(LinuxInputSender inputSender) : IInputService
 {
-    // Linux-Keycodes (KEY_* aus linux/input-event-codes.h) fuer dieselben 66 Namen wie
+    // Linux-Keycodes (KEY_* aus linux/input-event-codes.h) fuer dieselben 74 Namen wie
     // WindowsInputService.VirtualKeys. Es sind physische Tastenpositionen (Scancodes), keine
     // Zeichen - der Compositor uebersetzt sie durch das aktive Tastaturlayout.
     private static readonly IReadOnlyDictionary<string, ushort> KeyCodes =
@@ -22,6 +22,11 @@ public sealed class LinuxInputService(LinuxInputSender inputSender) : IInputServ
             ["DOWN"] = 108,      // KEY_DOWN
             ["LEFT"] = 105,      // KEY_LEFT
             ["RIGHT"] = 106,     // KEY_RIGHT
+            ["HOME"] = 102,      // KEY_HOME
+            ["END"] = 107,       // KEY_END
+            ["PAGE_UP"] = 104,   // KEY_PAGEUP
+            ["PAGE_DOWN"] = 109, // KEY_PAGEDOWN
+            ["PRINT_SCREEN"] = 99, // KEY_SYSRQ
             ["F1"] = 59,
             ["F2"] = 60,
             ["F3"] = 61,
@@ -38,6 +43,9 @@ public sealed class LinuxInputService(LinuxInputSender inputSender) : IInputServ
             ["VOLUME_DOWN"] = 114,       // KEY_VOLUMEDOWN
             ["VOLUME_UP"] = 115,         // KEY_VOLUMEUP
             ["MEDIA_PLAY_PAUSE"] = 164,  // KEY_PLAYPAUSE
+            ["MEDIA_NEXT"] = 163,        // KEY_NEXTSONG
+            ["MEDIA_PREVIOUS"] = 165,    // KEY_PREVIOUSSONG
+            ["MEDIA_STOP"] = 166,        // KEY_STOPCD
             ["A"] = 30,
             ["B"] = 48,
             ["C"] = 46,

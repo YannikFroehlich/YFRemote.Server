@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnDestroy } from '@angular/core';
 import { RemoteAction } from '../remote.models';
 import { RemoteService } from '../remote.service';
 
@@ -46,7 +46,7 @@ export class TouchpadComponent implements OnDestroy {
   private readonly pointers = new Map<number, PointerPosition>();
   private readonly heldButtons = new Map<MouseButtonName, number>();
 
-  protected readonly liveTyping = signal(false);
+  protected readonly liveTyping = this.remote.liveTyping;
 
   private pointerMode: PointerMode = 'idle';
   private lastScrollCenterX: number | null = null;
@@ -217,7 +217,7 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   protected toggleLiveTyping(input: HTMLInputElement): void {
-    this.liveTyping.update((enabled) => !enabled);
+    this.remote.saveLiveTyping(!this.liveTyping());
     this.clearLiveText(input);
 
     if (this.liveTyping()) {
@@ -319,8 +319,10 @@ export class TouchpadComponent implements OnDestroy {
       return;
     }
 
-    this.pendingScrollDeltaX += deltaX * SCROLL_SCALE;
-    this.pendingScrollDeltaY += deltaY * SCROLL_SCALE;
+    const scale = SCROLL_SCALE * this.remote.scrollSpeed() * (this.remote.invertScroll() ? -1 : 1);
+
+    this.pendingScrollDeltaX += deltaX * scale;
+    this.pendingScrollDeltaY += deltaY * scale;
     this.scheduleFlush();
   }
 

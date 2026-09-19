@@ -176,13 +176,12 @@ GitHub Release body (a step gated to the `linux-x64` matrix leg so it only runs 
 appending rather than overwriting whatever notes the Windows job/`vpk` already set). Promoting
 Linux to stable later means switching the channel name to `linux-x64`/`linux-arm64` — a clean
 channel change, not a retroactive relabel of already-published beta packages. `--mainExe` has no
-`.exe` suffix on Linux. **This job has never actually run** (no release has happened since it was
-added) — before it runs for a real release, treat as open questions: whether `vpk upload
---publish` cleanly adds packages to a tag/release the Windows job already published (rather than
-erroring or duplicating), whether the `ubuntu-24.04-arm` runner label is correct/available, and
-packaging icon format for the Linux `vpk pack` step (intentionally omitted here rather than
-guessing — Windows uses `--icon client/public/favicon.ico`, a `.ico`, which AppImage packaging
-may not accept as-is).
+`.exe` suffix on Linux. **This job ran for real for the first time in the v2.9.0 release**
+(2026-09-19, both `linux-x64` and `linux-arm64` legs succeeded), resolving what used to be open
+questions here: `vpk upload --publish` cleanly added both Linux packages to the tag/release the
+Windows job already published, without erroring or duplicating; the `ubuntu-24.04-arm` runner
+label was valid and available; and the Windows `--icon client/public/favicon.ico` (a `.ico`)
+packaged without issue for the Linux `vpk pack` step too.
 
 **CI (`linux` job in `ci.yml`).** Runs on every PR alongside `build-and-test` (Windows,
 `net10.0-windows`) and `client`, building and testing the `net10.0` target on `ubuntu-latest`. Not

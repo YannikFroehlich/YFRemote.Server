@@ -13,7 +13,7 @@
   grid-template-rows: auto 68px minmax(0, 1fr) 66px;
   gap: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: var(--border-width) solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface-soft);
 }
@@ -24,7 +24,7 @@
   justify-content: space-between;
   gap: 18px;
   padding: 18px 20px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--border-width) solid var(--line);
 }
 
 .touchpad-hints {
@@ -36,7 +36,7 @@
 
 .touchpad-hints span {
   padding: 5px 8px;
-  border: 1px solid var(--line);
+  border: var(--border-width) solid var(--line);
   border-radius: var(--radius-pill);
   color: var(--muted);
   font-size: 0.66rem;
@@ -49,7 +49,7 @@
   min-height: 200px;
   place-items: center;
   overflow: hidden;
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--border-width) solid var(--line);
   background:
     radial-gradient(
       circle at 50% 45%,
@@ -74,7 +74,7 @@
 .touchpad-surface::after {
   position: absolute;
   inset: 18px;
-  border: 1px solid rgba(var(--highlight-rgb), 0.035);
+  border: var(--border-width) solid rgba(var(--highlight-rgb), 0.035);
   border-radius: calc(18px * var(--radius-scale));
   content: '';
   pointer-events: none;
@@ -107,7 +107,7 @@
   width: 38px;
   height: 48px;
   margin-bottom: 5px;
-  border: 1.5px solid rgba(var(--accent-rgb), 0.5);
+  border: calc(1.5 * var(--border-width)) solid rgba(var(--accent-rgb), 0.5);
   border-radius: calc(18px * var(--radius-scale));
   background: rgba(var(--accent-rgb), 0.06);
 }
@@ -163,7 +163,7 @@
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--border-width) solid var(--line);
   background: var(--surface-bar);
 }
 
@@ -172,7 +172,7 @@
   min-height: 48px;
   flex: 1;
   padding: 0 14px;
-  border: 1px solid var(--line);
+  border: var(--border-width) solid var(--line);
   border-radius: calc(13px * var(--radius-scale));
   background: var(--surface-raised);
   color: var(--text);

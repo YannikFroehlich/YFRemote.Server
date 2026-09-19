@@ -181,6 +181,8 @@ style turns the shape knobs `--radius-scale`, `--radius-pill`, `--shadow-strengt
 `--decor-strength`, `--grid-strength` and `--font-display`; standard keeps them at 1/defaults.
 Write new radii as `calc(Npx * var(--radius-scale))` and shadow/decor alphas as
 `calc(A * var(--shadow-strength))` / `calc(A * var(--decor-strength))` so every style follows.
+Borders use `var(--border-width)` (never a literal `1px`), and text sizes use `rem` so
+`--font-scale` (applied to the `html` font size) scales them.
 
 **All user-facing strings are German** (labels, aria-labels, error messages like "Keine Verbindung
 zum Server."). Keep new UI text consistent with this.

@@ -170,8 +170,8 @@ cross-packing question open, so this sidesteps it. Each leg publishes self-conta
 `--channel <rid>-beta` (`linux-x64-beta`/`linux-arm64-beta`) so Velopack keeps a separate feed per
 architecture (`releases.linux-x64-beta.json`/`releases.linux-arm64-beta.json`) alongside the
 untouched `releases.win.json` — an installed Windows client never sees the Linux packages. The
-`-beta` suffix reflects that the uinput input path has never run against real hardware (see
-above); it also carries into `--packTitle "YFRemote (Linux Beta)"` and, once, into the shared
+`-beta` suffix reflects that the Linux build is only partially verified — x64 input via a bare
+`dotnet publish` output, but not arm64 and not the installed package (see above); it also carries into `--packTitle "YFRemote (Linux Beta)"` and, once, into the shared
 GitHub Release body (a step gated to the `linux-x64` matrix leg so it only runs once per release,
 appending rather than overwriting whatever notes the Windows job/`vpk` already set). Promoting
 Linux to stable later means switching the channel name to `linux-x64`/`linux-arm64` — a clean

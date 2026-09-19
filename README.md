@@ -43,8 +43,8 @@ flowchart LR
   Velopack, sourced from this repository's public GitHub Releases.
 - **Traceable diagnostics** — rotating log files that never contain PINs, tokens,
   or typed text, reachable directly from the tray menu.
-- **Linux support (beta)** — a `uinput`-based input backend exists and is
-  unit-tested, but has not yet been verified against a real Linux kernel
+- **Linux support (beta)** — a `uinput`-based input backend, verified end-to-end
+  on x86_64; arm64 and the installed package are not yet verified
   (details in [`AGENTS.md`](AGENTS.md)).
 
 ## Getting started

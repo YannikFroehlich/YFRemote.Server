@@ -181,6 +181,16 @@ style turns the shape knobs `--radius-scale`, `--radius-pill`, `--shadow-strengt
 `--decor-strength`, `--grid-strength` and `--font-display`; standard keeps them at 1/defaults.
 Write new radii as `calc(Npx * var(--radius-scale))` and shadow/decor alphas as
 `calc(A * var(--shadow-strength))` / `calc(A * var(--decor-strength))` so every style follows.
+
+**`ThemeService`** (`theme.service.ts`) owns mode, style and the user's own styles and is the only
+place that touches `<html>`: `applyTheme` writes `data-mode`/`data-style` plus, for an own style,
+the derived tokens as inline custom properties (it clears the whole inline `style` first, so nothing
+else may put inline styles on `<html>`). Every change also stores the finished `AppliedTheme` under
+`yfremote.appliedTheme`; the inline script in `index.html` only replays that snapshot, so the boot
+path has no theme logic of its own. An own style is a `CustomTheme` (base style + light/dark + a
+handful of values); `deriveCustomThemeProperties` expands those into the full token set, then the
+`advanced` map overrides single tokens. `normalizeCustomTheme` is the trust boundary for stored and
+imported styles: hex colors and in-range numbers only, so no foreign CSS reaches a token.
 Borders use `var(--border-width)` (never a literal `1px`), and text sizes use `rem` so
 `--font-scale` (applied to the `html` font size) scales them.
 

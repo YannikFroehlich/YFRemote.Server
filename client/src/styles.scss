@@ -887,6 +887,10 @@ select:focus-visible {
   padding: 18px;
 }
 
+.settings-layer--stacked {
+  z-index: 30;
+}
+
 .settings-scrim {
   position: absolute;
   inset: 0;
@@ -1076,6 +1080,106 @@ select:focus-visible {
   font-size: 0.64rem;
   font-weight: 600;
   line-height: 1.3;
+}
+
+.style-option--custom {
+  padding: 0;
+  overflow: hidden;
+}
+
+.style-option__select {
+  display: grid;
+  gap: 4px;
+  padding: 8px 8px 4px;
+  cursor: pointer;
+}
+
+.style-option__edit {
+  min-height: 30px;
+  border: 0;
+  border-top: var(--border-width) solid var(--line);
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.style-option--new {
+  min-height: 80px;
+  place-items: center;
+  align-content: center;
+  border-style: dashed;
+  color: var(--muted-strong);
+}
+
+.style-option--new span {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.style-picker .profile-actions {
+  margin-top: 10px;
+}
+
+.theme-editor__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.theme-editor__colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.theme-color {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.theme-color input {
+  width: 38px;
+  height: 32px;
+  flex: none;
+  padding: 2px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(8px * var(--radius-scale));
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+
+.theme-color--changed span {
+  color: var(--accent);
+}
+
+.theme-editor__range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-editor__range output {
+  text-align: right;
+}
+
+.theme-editor__advanced summary {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-section h3 {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.86rem;
 }
 
 /* Vorschau zeigt bewusst feste Farben: sie bildet die anderen Stile ab, nicht den aktiven. */

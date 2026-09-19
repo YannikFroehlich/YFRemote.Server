@@ -20,6 +20,19 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- Touchpad: pointer acceleration. Slow finger movement stays 1:1 for precise positioning, fast
+  swipes move the cursor up to three times as far.
+- Touchpad: tap, then touch down again and move to drag with the left button held (moving
+  windows, selecting text). Two quick taps give a double click. A single tap's left click now
+  arrives about 0.2 seconds later, because the touchpad first waits to see whether a drag
+  follows.
+- Touchpad: a short three-finger tap sends a middle click.
+- Touchpad text field: a "Live" switch sends every keystroke to the PC immediately, including
+  backspace and Enter, instead of waiting for "Senden". Autocorrect replacements from the
+  phone keyboard are sent as the matching backspaces plus the new text.
+
 ## [2.11.0] - 2026-09-19
 
 ### Added

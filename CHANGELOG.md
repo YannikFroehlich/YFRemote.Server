@@ -20,6 +20,11 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- Touchpad: a short two-finger tap sends a right click, like on a laptop trackpad. While the
+  two fingers could still be a tap, small jitter no longer scrolls the page.
+
 ## [2.10.0] - 2026-09-19
 
 _Merge of `develop` into `main`; the Linux PIN/verification changes it carries already shipped

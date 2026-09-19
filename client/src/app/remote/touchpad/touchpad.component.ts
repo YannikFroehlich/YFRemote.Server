@@ -33,6 +33,7 @@ export class TouchpadComponent implements OnDestroy {
   private pointerMode: PointerMode = 'idle';
   private lastScrollCenterX: number | null = null;
   private lastScrollCenterY: number | null = null;
+  private twoFingerTapStartedAt: number | null = null;
   private pendingMoveX = 0;
   private pendingMoveY = 0;
   private pendingScrollDeltaX = 0;
@@ -64,6 +65,10 @@ export class TouchpadComponent implements OnDestroy {
     this.updatePointerPosition(pointer, event);
 
     if (this.pointerMode === 'scroll' && this.pointers.size === 2) {
+      if (pointer.totalMovement > TAP_MAX_MOVEMENT_PX) {
+        this.twoFingerTapStartedAt = null;
+      }
+
       this.collectScroll();
     }
   }
@@ -80,12 +85,17 @@ export class TouchpadComponent implements OnDestroy {
     this.updatePointerPosition(pointer, event);
 
     const shouldClick = this.shouldClick(pointer);
+    const shouldRightClick = this.shouldRightClick(pointer);
 
     this.flushPendingActions();
     this.pointers.delete(event.pointerId);
 
     if (shouldClick) {
       this.sendAction({ type: 'mouseClick', button: 'left' });
+    }
+
+    if (shouldRightClick) {
+      this.sendAction({ type: 'mouseClick', button: 'right' });
     }
 
     this.resolveModeAfterPointerChange();
@@ -198,7 +208,9 @@ export class TouchpadComponent implements OnDestroy {
     this.lastScrollCenterX = scrollCenterX;
     this.lastScrollCenterY = scrollCenterY;
 
-    if (deltaX === 0 && deltaY === 0) {
+    // Solange es noch ein Zwei-Finger-Tipp werden kann, kein Scrollen: sonst scrollt das
+    // Zittern beim Tippen die Seite ein Stück, bevor der Rechtsklick kommt.
+    if (this.twoFingerTapStartedAt !== null || (deltaX === 0 && deltaY === 0)) {
       return;
     }
 
@@ -265,6 +277,14 @@ export class TouchpadComponent implements OnDestroy {
 
   private resolveModeAfterPointerChange(): void {
     const pointerCount = this.pointers.size;
+    const pointers = Array.from(this.pointers.values());
+
+    // Nur ein frisches 1→2-Finger-Aufsetzen ist ein Tipp-Kandidat; bei 3→2 oder nach
+    // Bewegung ist canTap bereits false.
+    this.twoFingerTapStartedAt =
+      pointerCount === 2 && pointers.every((pointer) => pointer.canTap)
+        ? Math.min(...pointers.map((pointer) => pointer.startedAt))
+        : null;
 
     if (pointerCount === 0) {
       this.pointerMode = 'idle';
@@ -303,6 +323,15 @@ export class TouchpadComponent implements OnDestroy {
       pointer.canTap &&
       pointer.totalMovement <= TAP_MAX_MOVEMENT_PX &&
       performance.now() - pointer.startedAt <= TAP_MAX_DURATION_MS
+    );
+  }
+
+  private shouldRightClick(pointer: PointerPosition): boolean {
+    return (
+      this.pointerMode === 'scroll' &&
+      this.twoFingerTapStartedAt !== null &&
+      pointer.totalMovement <= TAP_MAX_MOVEMENT_PX &&
+      performance.now() - this.twoFingerTapStartedAt <= TAP_MAX_DURATION_MS
     );
   }
 
@@ -387,6 +416,7 @@ export class TouchpadComponent implements OnDestroy {
     this.pointerMode = 'idle';
     this.lastScrollCenterX = null;
     this.lastScrollCenterY = null;
+    this.twoFingerTapStartedAt = null;
     this.pendingMoveX = 0;
     this.pendingMoveY = 0;
     this.pendingScrollDeltaX = 0;

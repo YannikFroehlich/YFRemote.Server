@@ -37,7 +37,7 @@
 .touchpad-hints span {
   padding: 5px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--muted);
   font-size: 0.66rem;
   font-weight: 650;
@@ -51,7 +51,11 @@
   overflow: hidden;
   border-bottom: 1px solid var(--line);
   background:
-    radial-gradient(circle at 50% 45%, rgba(var(--accent-rgb), 0.11), transparent 36%),
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(var(--accent-rgb), calc(0.11 * var(--decor-strength))),
+      transparent 36%
+    ),
     radial-gradient(circle, rgba(var(--well-dot-rgb), 0.07) 1px, transparent 1.2px),
     var(--surface-well);
   background-size:
@@ -71,7 +75,7 @@
   position: absolute;
   inset: 18px;
   border: 1px solid rgba(var(--highlight-rgb), 0.035);
-  border-radius: 18px;
+  border-radius: calc(18px * var(--radius-scale));
   content: '';
   pointer-events: none;
 }
@@ -104,7 +108,7 @@
   height: 48px;
   margin-bottom: 5px;
   border: 1.5px solid rgba(var(--accent-rgb), 0.5);
-  border-radius: 18px;
+  border-radius: calc(18px * var(--radius-scale));
   background: rgba(var(--accent-rgb), 0.06);
 }
 
@@ -114,7 +118,7 @@
   left: 50%;
   width: 4px;
   height: 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   content: '';
   transform: translateX(-50%);
@@ -169,7 +173,7 @@
   flex: 1;
   padding: 0 14px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: calc(13px * var(--radius-scale));
   background: var(--surface-raised);
   color: var(--text);
   caret-color: var(--accent);

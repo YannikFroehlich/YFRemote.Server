@@ -26,7 +26,16 @@ import {
   SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
 } from './server-config';
-import { applyThemeMode, parseStoredThemeMode, THEME_MODE_STORAGE_KEY, ThemeMode } from './theme';
+import {
+  applyThemeMode,
+  applyThemeStyle,
+  parseStoredThemeMode,
+  parseStoredThemeStyle,
+  THEME_MODE_STORAGE_KEY,
+  THEME_STYLE_STORAGE_KEY,
+  ThemeMode,
+  ThemeStyle,
+} from './theme';
 
 export interface RemoteSocket {
   readonly url: string;
@@ -118,6 +127,9 @@ export class RemoteService implements OnDestroy {
   private readonly themeModeSignal = signal(
     parseStoredThemeMode(this.readStorage(THEME_MODE_STORAGE_KEY)),
   );
+  private readonly themeStyleSignal = signal(
+    parseStoredThemeStyle(this.readStorage(THEME_STYLE_STORAGE_KEY)),
+  );
   private readonly statusSignal = signal<ConnectionStatus>('disconnected');
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly manualDisconnectSignal = signal(false);
@@ -137,6 +149,7 @@ export class RemoteService implements OnDestroy {
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
   readonly themeMode = this.themeModeSignal.asReadonly();
+  readonly themeStyle = this.themeStyleSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
@@ -250,6 +263,12 @@ export class RemoteService implements OnDestroy {
     this.themeModeSignal.set(mode);
     this.storage?.setItem(THEME_MODE_STORAGE_KEY, mode);
     applyThemeMode(this.document, mode);
+  }
+
+  saveThemeStyle(style: ThemeStyle): void {
+    this.themeStyleSignal.set(style);
+    this.storage?.setItem(THEME_STYLE_STORAGE_KEY, style);
+    applyThemeStyle(this.document, style);
   }
 
   /** Führt eine Aktionskette sequenziell aus und wartet neben der konfigurierten

@@ -11,10 +11,12 @@
   <meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#eef3f4" media="(prefers-color-scheme: light)">
   <script>
-    // Gespeicherten Hell/Dunkel-Modus vor dem ersten Rendern setzen, sonst blitzt der falsche
-    // auf. Gleiche Logik wie applyThemeMode in src/app/remote/theme.ts.
+    // Gespeicherten Stil und Hell/Dunkel-Modus vor dem ersten Rendern setzen, sonst blitzt der
+    // falsche auf. Gleiche Logik wie applyThemeStyle/applyThemeMode in src/app/remote/theme.ts.
     (function () {
       try {
+        var style = localStorage.getItem('yfremote.themeStyle');
+        if (style === 'futuristic' || style === 'minimal') document.documentElement.dataset.style = style;
         var mode = localStorage.getItem('yfremote.themeMode');
         if (mode !== 'light' && mode !== 'dark') return;
         document.documentElement.dataset.mode = mode;

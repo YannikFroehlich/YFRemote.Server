@@ -529,6 +529,13 @@ describe('RemoteService', () => {
     expect(document.documentElement.dataset['mode']).toBe('light');
     remote.saveThemeMode('system');
 
+    expect(remote.themeStyle()).toBe('standard');
+    remote.saveThemeStyle('minimal');
+    expect(remote.themeStyle()).toBe('minimal');
+    expect(storage.getItem('yfremote.themeStyle')).toBe('minimal');
+    expect(document.documentElement.dataset['style']).toBe('minimal');
+    remote.saveThemeStyle('standard');
+
     expect(remote.saveScrollSettings(5, false)).toBe(false);
     expect(remote.scrollSpeed()).toBe(2.5);
     expect(remote.invertScroll()).toBe(true);

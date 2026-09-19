@@ -20,6 +20,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-09-19
+
 ### Added
 
 - Touchpad: pointer acceleration. Slow finger movement stays 1:1 for precise positioning, fast

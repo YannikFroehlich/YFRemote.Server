@@ -34,6 +34,13 @@ internal static class NetworkAddressService
         }
     }
 
+    // Immer ueber HTTP: das Zertifikat muss geladen werden koennen, bevor das Geraet der
+    // HTTPS-Adresse ueberhaupt vertraut.
+    public static string GetCertificateUrl(int httpPort)
+    {
+        return new Uri(new Uri(GetDeviceAddress(httpPort)), "/ca.crt").AbsoluteUri;
+    }
+
     // Alle LAN-Adressen, nicht nur die bevorzugte: das Serverzertifikat muss jede abdecken, ueber
     // die ein Geraet den Server erreichen kann.
     public static IReadOnlyCollection<IPAddress> GetLocalIpv4Addresses()

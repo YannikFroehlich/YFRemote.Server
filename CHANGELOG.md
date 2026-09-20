@@ -20,6 +20,11 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- Optional HTTPS. With `Https:Enabled` set in `appsettings.json`, the server additionally listens on port 5443 (`Https:Port`) with a certificate it issues itself. The key material stays on the PC: a local certificate authority is created once under `%LOCALAPPDATA%\YFRemote\ca.pfx`, protected with DPAPI on Windows and with file permissions on Linux. Its public certificate is available at `/ca.crt` over plain HTTP, so it can be installed on a device before that device trusts the server. Once installed, the connection is encrypted without a browser warning, which is also what a browser requires before it will install the page as an app or run a service worker. HTTP on port 5050 stays switched on and unchanged; existing setups are unaffected.
+- The server certificate covers every local IPv4 address and is reissued automatically when the network address changes, so a new address from the router does not require installing the certificate again.
+
 ## [2.13.1] - 2026-09-19
 
 ### Fixed

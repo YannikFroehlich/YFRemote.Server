@@ -49,6 +49,7 @@ dotnet build --configuration Release
 dotnet test tests\YFRemote.Server.Tests\YFRemote.Server.Tests.csproj --configuration Release
 dotnet run                                    # starts server + tray; Velopack updates disabled (not an installed build)
 dotnet run -- Server:Port=5060                # override port for a dev run
+dotnet run -- Https:Enabled=true               # additionally serve HTTPS on 5443 via a local CA
 ```
 
 Automated Server tests live in `tests/YFRemote.Server.Tests` and cover pairing persistence,
@@ -76,6 +77,15 @@ dotnet publish -c Release -r win-x64 --self-contained true -o publish
 Server binding (host/port) comes from `appsettings.json` (`Server:Host` / `Server:Port`,
 default `0.0.0.0:5050`); validated in `ServerOptions.Validate()`.
 
+HTTPS is opt-in via `Https:Enabled` (`HttpsOptions`, default off, port 5443). When it is on,
+`LocalCertificateAuthority` creates a local CA once (`%LOCALAPPDATA%\YFRemote\ca.pfx`, DPAPI on
+Windows, `0600` on Linux) and `ServerCertificateProvider` issues the server certificate from it for
+every local IPv4 address, reissuing it on `NetworkAddressChanged`. HTTP keeps serving on
+`Server:Port` either way. A damaged CA file is a hard startup error on purpose: silently creating a
+new CA would leave every device that installed the old one on a certificate warning. Enabling HTTPS
+changes the page origin, so paired devices have to pair again — the pairing token lives in the
+client's `localStorage`, which is per-origin.
+
 ## Architecture
 
 **Process shape.** `Program.Main` is `[STAThread]` and does three things in order: (1) runs
@@ -99,6 +109,9 @@ crashing silently.
 - `DELETE /pair` → removes the device identified by the `Bearer` token
   (`PairingService.RemoveDeviceByToken`) and force-closes any open `/ws` connection for that
   device via `WebSocketConnectionRegistry.CloseConnections`.
+- `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
+  `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over
+  plain HTTP, because it has to be installable before a device trusts the server.
 - Static files from `wwwroot` (the Angular client's production build, copied in from `client/`)
   with SPA fallback to `index.html` if present.
 

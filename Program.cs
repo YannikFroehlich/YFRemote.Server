@@ -1,4 +1,5 @@
 using Microsoft.Extensions.FileProviders;
+using System.Net;
 using System.Text.Json;
 #if WINDOWS
 using Velopack;
@@ -220,9 +221,39 @@ internal static class Program
             .Get<ServerOptions>() ?? new ServerOptions();
         serverOptions.Validate();
 
-        builder.WebHost.UseUrls(serverOptions.Url);
+        var httpsOptions = builder.Configuration
+            .GetSection(HttpsOptions.SectionName)
+            .Get<HttpsOptions>() ?? new HttpsOptions();
+        httpsOptions.Validate();
+
+        if (httpsOptions.Enabled)
+        {
+            if (!IPAddress.TryParse(serverOptions.Host, out var bindAddress))
+            {
+                throw new InvalidOperationException(
+                    "Server:Host must be an IP address (for example 0.0.0.0) when Https:Enabled is set.");
+            }
+
+            var certificateProvider = new ServerCertificateProvider(httpsOptions, TimeProvider.System);
+            builder.Services.AddSingleton(certificateProvider);
+
+            // UseUrls und eigene Kestrel-Endpunkte schliessen sich aus: sobald Listen aufgerufen
+            // wird, ignoriert Kestrel UseUrls. Deshalb bindet dieser Zweig beide Ports selbst.
+            builder.WebHost.ConfigureKestrel(kestrel =>
+            {
+                kestrel.Listen(bindAddress, serverOptions.Port);
+                kestrel.Listen(bindAddress, httpsOptions.Port, listenOptions =>
+                    listenOptions.UseHttps(https =>
+                        https.ServerCertificateSelector = (_, _) => certificateProvider.GetServerCertificate()));
+            });
+        }
+        else
+        {
+            builder.WebHost.UseUrls(serverOptions.Url);
+        }
 
         builder.Services.AddSingleton(serverOptions);
+        builder.Services.AddSingleton(httpsOptions);
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
@@ -253,6 +284,17 @@ internal static class Program
         });
 
         app.MapGet("/health", () => new HealthResponse("ok", "YFRemote.Server"));
+
+        if (httpsOptions.Enabled)
+        {
+            // Bewusst ohne Origin- und Pairing-Pruefung und auch ueber HTTP erreichbar: das
+            // Zertifikat muss installierbar sein, bevor dem Server vertraut wird. Ausgeliefert
+            // wird nur der oeffentliche Teil der CA, nicht ihr Schluessel.
+            app.MapGet("/ca.crt", (ServerCertificateProvider provider) => Results.File(
+                provider.ExportAuthorityCertificate(),
+                "application/x-x509-ca-cert",
+                "YFRemote-CA.crt"));
+        }
 
         app.Map("/ws", async context =>
         {

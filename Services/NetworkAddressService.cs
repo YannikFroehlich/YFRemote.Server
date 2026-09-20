@@ -6,12 +6,12 @@ namespace YFRemote.Server.Services;
 
 internal static class NetworkAddressService
 {
-    public static string GetLocalAddress(int port)
+    public static string GetLocalAddress(int port, string scheme = "http")
     {
-        return $"http://localhost:{port}";
+        return $"{scheme}://localhost:{port}";
     }
 
-    public static string GetDeviceAddress(int port)
+    public static string GetDeviceAddress(int port, string scheme = "http")
     {
         try
         {
@@ -25,12 +25,34 @@ internal static class NetworkAddressService
                 .FirstOrDefault(IsUsableIpv4Address);
 
             return address is null
-                ? GetLocalAddress(port)
-                : $"http://{address}:{port}";
+                ? GetLocalAddress(port, scheme)
+                : $"{scheme}://{address}:{port}";
         }
         catch (NetworkInformationException)
         {
-            return GetLocalAddress(port);
+            return GetLocalAddress(port, scheme);
+        }
+    }
+
+    // Alle LAN-Adressen, nicht nur die bevorzugte: das Serverzertifikat muss jede abdecken, ueber
+    // die ein Geraet den Server erreichen kann.
+    public static IReadOnlyCollection<IPAddress> GetLocalIpv4Addresses()
+    {
+        try
+        {
+            return NetworkInterface.GetAllNetworkInterfaces()
+                .Where(networkInterface =>
+                    networkInterface.OperationalStatus == OperationalStatus.Up &&
+                    networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .SelectMany(networkInterface => networkInterface.GetIPProperties().UnicastAddresses)
+                .Select(unicastAddress => unicastAddress.Address)
+                .Where(IsUsableIpv4Address)
+                .Distinct()
+                .ToArray();
+        }
+        catch (NetworkInformationException)
+        {
+            return [];
         }
     }
 

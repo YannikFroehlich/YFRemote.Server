@@ -38,8 +38,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<TrayApplicationContext>();
         pairingService = app.Services.GetRequiredService<PairingService>();
         connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
-        localAddress = NetworkAddressService.GetLocalAddress(serverOptions.Port);
-        deviceAddress = NetworkAddressService.GetDeviceAddress(serverOptions.Port);
+        var httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
+        var scheme = httpsOptions.Enabled ? "https" : "http";
+        var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
+        localAddress = NetworkAddressService.GetLocalAddress(port, scheme);
+        deviceAddress = NetworkAddressService.GetDeviceAddress(port, scheme);
 
         uiDispatcher.CreateControl();
 

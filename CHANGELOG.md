@@ -20,6 +20,10 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- iOS: added to the home screen, YFRemote now starts as a standalone app without the Safari address and tab bars, under the name "YFRemote". The status bar stays transparent over the app background.
+
 ## [2.13.1] - 2026-09-19
 
 ### Fixed

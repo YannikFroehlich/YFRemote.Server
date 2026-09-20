@@ -46,8 +46,8 @@ manual `ChangeDetectorRef` calls.
 **Everything meaningful lives under `src/app/remote/`.** The feature has six layers:
 
 1. **`remote.models.ts`** — shared types: `RemoteAction` (discriminated union of `key`/`hotkey`/
-   `mouseMove`/`mouseClick`/`mouseScroll`), `ServerConfig`, `RemoteResponse`, `RemoteButtonConfig`,
-   `RemoteIcon`.
+   `mouseMove`/`mouseClick`/`mouseScroll`/`shutdown`/`restart`/`sleep`), `ServerConfig`,
+   `RemoteResponse`, `RemoteButtonConfig`, `RemoteIcon`.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and
    the only thing that talks to the WebSocket. Exposes readonly signals (`config`, `status`,
    `lastError`, `manuallyDisconnected`, plus the persisted input preferences `mouseSensitivity`,
@@ -81,7 +81,7 @@ manual `ChangeDetectorRef` calls.
 4. **The button layout is a free-form, user-editable canvas**, layered on top of the static
    button definitions:
    - `remote-actions.ts` still defines the built-in buttons (`D_PAD_ACTIONS`, `BROWSER_ACTIONS`,
-     `SYSTEM_ACTIONS`, `MEDIA_ACTIONS`, flattened into `BUILT_IN_BUTTONS`), plus
+     `SYSTEM_ACTIONS`, `MEDIA_ACTIONS`, `POWER_ACTIONS`, flattened into `BUILT_IN_BUTTONS`), plus
      `DEFAULT_PLACEMENTS`, which reproduces today's visual arrangement as cell coordinates on a
      12-column grid. Adding a new built-in button means adding a `RemoteButtonConfig` to the
      right array *and* a `DEFAULT_PLACEMENTS` entry for it — otherwise it has no default position
@@ -113,7 +113,8 @@ manual `ChangeDetectorRef` calls.
      capture/rAF-batching pattern as `TouchpadComponent`. Coordinates are only rounded to whole
      cells when `snapToGrid` is on; with it off they stay fractional. Outside edit mode the
      canvas behaves exactly like the old static grids — a plain `click` sends the button's
-     action.
+     action. A button with `confirm` set (the power buttons: Ruhemodus/Neustart/Herunterfahren)
+     asks via `globalThis.confirm` first, since those actions are not undoable from a phone.
    - `ButtonEditorDialogComponent` is the create/edit modal for custom buttons (label, one of the
      existing `RemoteIcon`s, and a key/hotkey picker built from `keyboard-keys.ts`), structured
      like `SettingsDialogComponent`.

@@ -88,6 +88,19 @@ describe('ButtonCanvasComponent', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"key","keys":["UP"]}']);
   });
 
+  it('sends a power action only after the confirmation is accepted', async () => {
+    const { sockets, button } = await setupCanvas(false);
+    const confirmSpy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    vi.stubGlobal('confirm', confirmSpy);
+
+    button('Rechner herunterfahren').click();
+    expect(sockets[0].sentMessages).toEqual([]);
+
+    button('Rechner herunterfahren').click();
+    expect(sockets[0].sentMessages).toEqual(['{"type":"shutdown"}']);
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('does not send an action when clicked in edit mode', async () => {
     const { sockets, button } = await setupCanvas(true);
 

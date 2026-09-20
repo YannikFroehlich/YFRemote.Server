@@ -5,6 +5,7 @@ namespace YFRemote.Server.Services;
 public sealed class RemoteActionHandler(
     IInputService inputService,
     IMouseService mouseService,
+    IPowerService powerService,
     ILogger<RemoteActionHandler> logger)
 {
     private const int MinMouseMoveDelta = -5000;
@@ -36,6 +37,9 @@ public sealed class RemoteActionHandler(
                 "mousedown" => HandleMouseButton(request, isDown: true),
                 "mouseup" => HandleMouseButton(request, isDown: false),
                 "mousescroll" => HandleMouseScroll(request),
+                "shutdown" => HandlePower(powerService.Shutdown, "shutdown"),
+                "restart" => HandlePower(powerService.Restart, "restart"),
+                "sleep" => HandlePower(powerService.Sleep, "sleep"),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -229,6 +233,16 @@ public sealed class RemoteActionHandler(
             logger.LogTrace("Executing mouseScroll action: deltaX={DeltaX}", request.DeltaX.Value);
             mouseService.ScrollHorizontal(request.DeltaX.Value);
         }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandlePower(Action execute, string actionName)
+    {
+        // Absichtlich auf Information-Level: ein Herunterfahren aendert den Rechnerzustand und
+        // soll im Standardprotokoll auffindbar sein, anders als normale Tasten-/Mausaktionen.
+        logger.LogInformation("Executing power action: {Action}", actionName);
+        execute();
 
         return RemoteActionResponse.Ok();
     }

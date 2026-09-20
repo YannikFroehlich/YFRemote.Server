@@ -138,14 +138,71 @@ public sealed class RemoteActionHandlerTests
         Assert.AreEqual("deltaX must be between -1200 and 1200.", response.Error);
     }
 
+    [TestMethod]
+    [DataRow("shutdown")]
+    [DataRow("restart")]
+    [DataRow("sleep")]
+    public void Handle_PowerAction_ForwardsToPowerService(string type)
+    {
+        var powerService = new RecordingPowerService();
+        var handler = CreateHandler(powerService: powerService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = type });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(type, powerService.LastAction);
+    }
+
+    [TestMethod]
+    public void Handle_FailingPowerAction_ReturnsFailure()
+    {
+        var handler = CreateHandler(powerService: new ThrowingPowerService());
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "shutdown" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Action failed.", response.Error);
+    }
+
+    private sealed class ThrowingPowerService : IPowerService
+    {
+        public void Shutdown() => throw new InvalidOperationException("nope");
+
+        public void Restart() => throw new InvalidOperationException("nope");
+
+        public void Sleep() => throw new InvalidOperationException("nope");
+    }
+
     private static RemoteActionHandler CreateHandler(
         IInputService? inputService = null,
-        RecordingMouseService? mouseService = null)
+        RecordingMouseService? mouseService = null,
+        IPowerService? powerService = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
             mouseService ?? new RecordingMouseService(),
+            powerService ?? new RecordingPowerService(),
             NullLogger<RemoteActionHandler>.Instance);
+    }
+
+    private sealed class RecordingPowerService : IPowerService
+    {
+        public string? LastAction { get; private set; }
+
+        public void Shutdown()
+        {
+            LastAction = "shutdown";
+        }
+
+        public void Restart()
+        {
+            LastAction = "restart";
+        }
+
+        public void Sleep()
+        {
+            LastAction = "sleep";
+        }
     }
 
     private sealed class RecordingInputService : IInputService

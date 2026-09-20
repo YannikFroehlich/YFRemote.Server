@@ -27,6 +27,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly Control uiDispatcher = new();
     private readonly string localAddress;
     private readonly string deviceAddress;
+    private readonly string? certificateUrl;
 
     private UpdateInfo? availableUpdate;
     private bool updateOperationRunning;
@@ -43,6 +44,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
         localAddress = NetworkAddressService.GetLocalAddress(port, scheme);
         deviceAddress = NetworkAddressService.GetDeviceAddress(port, scheme);
+        certificateUrl = httpsOptions.Enabled
+            ? NetworkAddressService.GetCertificateUrl(serverOptions.Port)
+            : null;
 
         uiDispatcher.CreateControl();
 
@@ -66,6 +70,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var qrCodeItem = new ToolStripMenuItem("QR-Code zum Verbinden...");
         qrCodeItem.Click += (_, _) => ShowPairingQrCode();
+
+        var certificateItem = new ToolStripMenuItem("Zertifikat installieren...")
+        {
+            Visible = certificateUrl is not null
+        };
+        certificateItem.Click += (_, _) => ShowCertificateInstallDialog();
 
         var diagnosticsItem = new ToolStripMenuItem("Diagnoseordner öffnen");
         diagnosticsItem.Click += (_, _) => OpenDiagnosticsFolder();
@@ -112,6 +122,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             openItem,
             copyAddressItem,
             qrCodeItem,
+            certificateItem,
             diagnosticsItem,
             new ToolStripSeparator(),
             pinItem,
@@ -354,6 +365,29 @@ internal sealed class TrayApplicationContext : ApplicationContext
             logger.LogError(exception, "Failed to show the pairing QR code dialog.");
             MessageBox.Show(
                 $"Der QR-Code konnte nicht angezeigt werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    private void ShowCertificateInstallDialog()
+    {
+        if (certificateUrl is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var dialog = new CertificateInstallDialog(certificateUrl);
+            dialog.ShowDialog();
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to show the certificate install dialog.");
+            MessageBox.Show(
+                $"Der QR-Code für das Zertifikat konnte nicht angezeigt werden.\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);

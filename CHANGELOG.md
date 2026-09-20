@@ -23,6 +23,7 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 ### Added
 
 - Three power buttons: "Ruhemodus", "Neustart" and "Herunterfahren" put the PC into standby, restart it or shut it down. Because none of that can be taken back from a phone, each one asks for confirmation before it is sent. On Windows they use `shutdown.exe` and the system standby call, on Linux `systemctl`; a command the machine refuses (for example for lack of privileges) is reported as an error instead of silently counting as success.
+- iOS: added to the home screen, YFRemote now starts as a standalone app without the Safari address and tab bars, under the name "YFRemote". The status bar stays transparent over the app background.
 
 ## [2.13.1] - 2026-09-19
 

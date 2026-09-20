@@ -143,12 +143,40 @@ export const MEDIA_ACTIONS: readonly RemoteButtonConfig[] = [
   },
 ];
 
+export const POWER_ACTIONS: readonly RemoteButtonConfig[] = [
+  {
+    id: 'sleep',
+    label: 'Ruhemodus',
+    ariaLabel: 'Rechner in den Ruhemodus versetzen',
+    icon: 'sleep',
+    action: { type: 'sleep' },
+    confirm: 'Rechner wirklich in den Ruhemodus versetzen?',
+  },
+  {
+    id: 'restart',
+    label: 'Neustart',
+    ariaLabel: 'Rechner neu starten',
+    icon: 'restart',
+    action: { type: 'restart' },
+    confirm: 'Rechner wirklich neu starten? Nicht gespeicherte Arbeit geht verloren.',
+  },
+  {
+    id: 'shutdown',
+    label: 'Herunterfahren',
+    ariaLabel: 'Rechner herunterfahren',
+    icon: 'power',
+    action: { type: 'shutdown' },
+    confirm: 'Rechner wirklich herunterfahren? Nicht gespeicherte Arbeit geht verloren.',
+  },
+];
+
 /** Alle eingebauten Buttons, flach, für Id-Auflösung im Layout. */
 export const BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
   ...D_PAD_ACTIONS,
   ...SYSTEM_ACTIONS,
   ...BROWSER_ACTIONS,
   ...MEDIA_ACTIONS,
+  ...POWER_ACTIONS,
 ];
 
 /** Bildet das bisherige feste Layout in Zellen-Koordinaten nach (12 Spalten). */
@@ -171,4 +199,7 @@ export const DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
   { id: 'previous-track', col: 0, row: 12, colSpan: 4, rowSpan: 2 },
   { id: 'stop', col: 4, row: 12, colSpan: 4, rowSpan: 2 },
   { id: 'next-track', col: 8, row: 12, colSpan: 4, rowSpan: 2 },
+  { id: 'sleep', col: 0, row: 14, colSpan: 4, rowSpan: 2 },
+  { id: 'restart', col: 4, row: 14, colSpan: 4, rowSpan: 2 },
+  { id: 'shutdown', col: 8, row: 14, colSpan: 4, rowSpan: 2 },
 ];

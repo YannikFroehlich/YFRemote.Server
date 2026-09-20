@@ -134,6 +134,21 @@ public sealed class YFRemoteWebSocketHandlerTests
         await AwaitHandlerAsync(handleTask);
     }
 
+    private sealed class NoOpPowerService : IPowerService
+    {
+        public void Shutdown()
+        {
+        }
+
+        public void Restart()
+        {
+        }
+
+        public void Sleep()
+        {
+        }
+    }
+
     private static YFRemoteWebSocketHandler CreateHandler(
         IInputService? inputService = null,
         IMouseService? mouseService = null,
@@ -142,6 +157,7 @@ public sealed class YFRemoteWebSocketHandlerTests
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
             mouseService ?? new RecordingMouseService(),
+            new NoOpPowerService(),
             NullLogger<RemoteActionHandler>.Instance);
 
         return new YFRemoteWebSocketHandler(

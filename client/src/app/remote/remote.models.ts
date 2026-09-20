@@ -25,6 +25,11 @@ export interface MouseScrollAction {
   readonly deltaX?: number;
 }
 
+/** Energieaktion des Rechners; ohne Rueckmeldung, da der Rechner danach weg ist. */
+export interface PowerAction {
+  readonly type: 'shutdown' | 'restart' | 'sleep';
+}
+
 export interface TextAction {
   readonly type: 'text';
   readonly text: string;
@@ -36,6 +41,7 @@ export type RemoteAction =
   | MouseClickAction
   | MouseButtonAction
   | MouseScrollAction
+  | PowerAction
   | TextAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
@@ -89,7 +95,10 @@ export type RemoteIcon =
   | 'key'
   | 'star'
   | 'plus'
-  | 'edit';
+  | 'edit'
+  | 'power'
+  | 'restart'
+  | 'sleep';
 
 export interface RemoteButtonConfig {
   readonly id: string;
@@ -99,6 +108,8 @@ export interface RemoteButtonConfig {
   readonly action?: RemoteAction;
   /** Mehrschrittige Aktionskette; nimmt Vorrang vor `action`, wenn gesetzt. */
   readonly steps?: readonly MacroStep[];
+  /** Sicherheitsabfrage vor dem Ausloesen; Text der Rueckfrage. */
+  readonly confirm?: string;
   readonly disabled?: boolean;
   readonly unavailableText?: string;
   /** Blendet die Textbeschriftung neben dem Symbol aus (z. B. die D-Pad-Pfeile). Default: true. */

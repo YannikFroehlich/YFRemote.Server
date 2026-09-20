@@ -96,6 +96,12 @@ export class ButtonCanvasComponent implements OnDestroy {
       return;
     }
 
+    // Energieaktionen sind nicht umkehrbar: lieber einmal nachfragen, als den Rechner durch
+    // einen Fehlgriff auf dem Touchscreen herunterzufahren.
+    if (item.button.confirm !== undefined && !globalThis.confirm(item.button.confirm)) {
+      return;
+    }
+
     void this.remote.runSteps(steps);
   }
 

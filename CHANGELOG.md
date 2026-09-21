@@ -28,6 +28,7 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - The install manifest now ships properly sized 192x192 and 512x512 icons plus a maskable variant, so Android/desktop installs get a crisp, adaptive-icon-compatible app icon instead of one giant PNG scaled down.
 - Settings: a "Zuletzt verbunden"/"Recently connected" list under Host/IP remembers up to 6 previously used servers (this device only) so switching between multiple PCs no longer means retyping host and port each time.
 - Every button on the Remote page — built-in or custom — can now have its own background color. Opening a button in edit mode reveals "Eigene Farbe verwenden" with a color picker; icon and label switch between black and white automatically for readable contrast. A built-in button's label/icon/action stay fixed; only its color is editable.
+- A new upload button next to the touchpad's text field sends a file from the phone to the PC (`POST /files`, same PIN/pairing gate as everything else); it's saved into `Dokumente\YFRemote`, with a Windows tray notification once it arrives. A second file with the same name gets a `(2)`-suffixed name instead of overwriting the first. Size is capped at 200 MB by default (`FileTransfer:MaxFileSizeBytes` in `appsettings.json`).
 
 ### Fixed
 

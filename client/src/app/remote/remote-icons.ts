@@ -32,6 +32,7 @@ export const REMOTE_ICON_PATHS: Readonly<Record<RemoteIcon, string>> = {
   sleep: 'M11 4a9 9 0 1 0 9 9 7 7 0 0 1-9-9Zm5-2h6v1.7L18.4 6H22v2h-6V6.3L19.6 4H16V2Z',
   edit: 'M4 17.25V20h2.75l8.11-8.11-2.75-2.75L4 17.25ZM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83Z',
   mic: 'M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z',
+  upload: 'M5 20h14v-2H5v2Zm7-16-5.5 5.5 1.41 1.41L11 7.83V16h2V7.83l3.09 3.08L17.5 9.5 12 4Z',
 };
 
 export const REMOTE_ICONS: readonly RemoteIcon[] = Object.keys(

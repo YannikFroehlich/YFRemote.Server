@@ -190,11 +190,13 @@
   padding: 0 18px;
 }
 
-.touchpad-text__mic {
+.touchpad-text__mic,
+.touchpad-text__file {
   padding: 0 11px;
 }
 
-.touchpad-text__mic svg {
+.touchpad-text__mic svg,
+.touchpad-text__file svg {
   width: 18px;
   height: 18px;
   fill: currentColor;

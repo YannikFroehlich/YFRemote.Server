@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
 using System.Net;
 using System.Text.Json;
@@ -226,6 +227,11 @@ internal static class Program
             .Get<HttpsOptions>() ?? new HttpsOptions();
         httpsOptions.Validate();
 
+        var fileTransferOptions = builder.Configuration
+            .GetSection(FileTransferOptions.SectionName)
+            .Get<FileTransferOptions>() ?? new FileTransferOptions();
+        fileTransferOptions.Validate();
+
         if (httpsOptions.Enabled)
         {
             if (!IPAddress.TryParse(serverOptions.Host, out var bindAddress))
@@ -254,6 +260,8 @@ internal static class Program
 
         builder.Services.AddSingleton(serverOptions);
         builder.Services.AddSingleton(httpsOptions);
+        builder.Services.AddSingleton(fileTransferOptions);
+        builder.Services.AddSingleton<FileTransferService>();
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
@@ -408,6 +416,82 @@ internal static class Program
                     return;
                 default:
                     throw new InvalidOperationException("Unknown pairing removal result.");
+            }
+        });
+
+        app.MapPost("/files", async context =>
+        {
+            if (!IsAllowedOrigin(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
+                return;
+            }
+
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+            var token = GetBearerToken(context.Request);
+            if (!pairingService.TryValidateToken(token, out _))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            var fileTransferOptions = context.RequestServices.GetRequiredService<FileTransferOptions>();
+
+            // Kestrel begrenzt einen Request standardmaessig auf rund 30 MB; ohne diese Anhebung
+            // wuerde ein groesserer, aber sonst gueltiger Upload schon vor unserer eigenen Pruefung
+            // unten abgewiesen.
+            context.Features.Get<IHttpMaxRequestBodySizeFeature>()!.MaxRequestBodySize =
+                fileTransferOptions.MaxFileSizeBytes;
+
+            if (context.Request.ContentLength is { } contentLength
+                && contentLength > fileTransferOptions.MaxFileSizeBytes)
+            {
+                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                await context.Response.WriteAsJsonAsync(
+                    FileUploadResponse.Fail("File is too large."),
+                    context.RequestAborted);
+                return;
+            }
+
+            if (!context.Request.HasFormContentType)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    FileUploadResponse.Fail("Expected multipart/form-data."),
+                    context.RequestAborted);
+                return;
+            }
+
+            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            var file = form.Files.Count > 0 ? form.Files[0] : null;
+            if (file is null || file.Length == 0)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    FileUploadResponse.Fail("No file was sent."),
+                    context.RequestAborted);
+                return;
+            }
+
+            var fileTransferService = context.RequestServices.GetRequiredService<FileTransferService>();
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var savedFileName = await fileTransferService.SaveFileAsync(
+                    file.FileName,
+                    stream,
+                    context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(
+                    FileUploadResponse.Ok(savedFileName),
+                    context.RequestAborted);
+            }
+            catch (FileTooLargeException)
+            {
+                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                await context.Response.WriteAsJsonAsync(
+                    FileUploadResponse.Fail("File is too large."),
+                    context.RequestAborted);
             }
         });
 

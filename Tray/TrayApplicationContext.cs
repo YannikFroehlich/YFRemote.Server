@@ -17,6 +17,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ILogger<TrayApplicationContext> logger;
     private readonly PairingService pairingService;
     private readonly WebSocketConnectionRegistry connectionRegistry;
+    private readonly FileTransferService fileTransferService;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem updateItem;
@@ -39,6 +40,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<TrayApplicationContext>();
         pairingService = app.Services.GetRequiredService<PairingService>();
         connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
+        fileTransferService = app.Services.GetRequiredService<FileTransferService>();
         var httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
         var scheme = httpsOptions.Enabled ? "https" : "http";
         var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
@@ -49,6 +51,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             : null;
 
         uiDispatcher.CreateControl();
+        fileTransferService.FileReceived += OnFileReceived;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
         {
@@ -182,6 +185,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (disposing)
         {
+            fileTransferService.FileReceived -= OnFileReceived;
             initialUpdateTimer.Dispose();
             periodicUpdateTimer.Dispose();
             notifyIcon.Visible = false;
@@ -329,6 +333,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 MessageBoxIcon.Error);
         }
     }
+
+    // Kommt vom HTTP-Request-Thread des /files-Endpoints, nicht vom UI-Thread - deshalb ueber
+    // uiDispatcher.BeginInvoke statt notifyIcon direkt anzufassen.
+    private void OnFileReceived(string fileName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(3000, "Datei empfangen", fileName, ToolTipIcon.Info));
 
     private void CopyDeviceAddress()
     {

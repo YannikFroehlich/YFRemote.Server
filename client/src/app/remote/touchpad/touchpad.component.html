@@ -38,6 +38,24 @@
         </svg>
       </button>
     }
+    <input
+      #fileInput
+      class="visually-hidden"
+      type="file"
+      (change)="onFileSelected($event)"
+    />
+    <button
+      class="snap-switch touchpad-text__file"
+      type="button"
+      [attr.title]="i18n.t('touchpad.file.title')"
+      [attr.aria-label]="i18n.t('touchpad.file.ariaLabel')"
+      [disabled]="fileSending()"
+      (click)="fileInput.click()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths.upload"></path>
+      </svg>
+    </button>
     <button
       class="snap-switch"
       type="button"
@@ -62,6 +80,12 @@
 
   @if (dictationError(); as errorKey) {
     <p class="settings-message" role="status" aria-live="polite">{{ i18n.t(errorKey) }}</p>
+  }
+
+  @if (fileStatus(); as status) {
+    <p class="settings-message" role="status" aria-live="polite">
+      {{ i18n.t(status.key, status.params) }}
+    </p>
   }
 
   <div

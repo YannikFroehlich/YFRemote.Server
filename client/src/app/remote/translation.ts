@@ -143,6 +143,13 @@ export const TRANSLATIONS = {
   },
   'touchpad.dictationError.noSpeech': { de: 'Kein Ton erkannt.', en: 'No sound detected.' },
   'touchpad.dictationError.failed': { de: 'Diktat fehlgeschlagen.', en: 'Dictation failed.' },
+  'touchpad.file.title': { de: 'Datei senden', en: 'Send file' },
+  'touchpad.file.ariaLabel': { de: 'Datei senden', en: 'Send file' },
+  'touchpad.file.success': { de: 'Datei gesendet: {{fileName}}', en: 'File sent: {{fileName}}' },
+  'touchpad.file.error': {
+    de: 'Datei konnte nicht gesendet werden.',
+    en: 'The file could not be sent.',
+  },
 
   'keyboardPad.eyebrow': { de: 'Direkte Eingabe', en: 'Direct input' },
   'keyboardPad.title': { de: 'Virtuelle Tastatur', en: 'Virtual keyboard' },

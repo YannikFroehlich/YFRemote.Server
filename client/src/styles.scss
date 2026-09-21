@@ -1008,6 +1008,22 @@ select:focus-visible {
   accent-color: var(--accent);
 }
 
+.field input.color-input {
+  width: 64px;
+  min-height: 44px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.field input.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.field input.color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(9px * var(--radius-scale));
+}
+
 .field small {
   color: var(--danger);
   font-weight: 600;
@@ -1326,6 +1342,44 @@ select:focus-visible {
   color: var(--muted);
   font-size: 0.76rem;
   line-height: 1.5;
+}
+
+.recent-servers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recent-server-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-pill);
+  background: rgba(var(--overlay-rgb), 0.6);
+  overflow: hidden;
+}
+
+.recent-server-chip__select {
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.recent-server-chip__remove {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.recent-server-chip__remove:hover,
+.recent-server-chip__remove:focus-visible {
+  color: var(--danger);
 }
 
 .confirm-row {

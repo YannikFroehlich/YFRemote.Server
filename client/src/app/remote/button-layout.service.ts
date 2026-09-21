@@ -11,6 +11,7 @@ import {
   customButtonToConfig,
   findFreeSlot,
   isCustomButtonId,
+  normalizeButtonColor,
   normalizeCustomButtonDefinition,
   parseStoredButtonLayout,
   resolveButtonLayout,
@@ -29,6 +30,7 @@ import {
 import { BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
 import { MacroStep, RemoteButtonConfig, RemoteIcon } from './remote.models';
 import { REMOTE_STORAGE } from './remote.service';
+import { TranslationService } from './translation.service';
 
 export const BUTTON_ID_FACTORY = new InjectionToken<() => string>('BUTTON_ID_FACTORY', {
   providedIn: 'root',
@@ -46,6 +48,7 @@ export interface CustomButtonDraft {
   readonly label: string;
   readonly icon: RemoteIcon | null;
   readonly steps: readonly MacroStep[];
+  readonly color?: string | null;
 }
 
 const DEFAULT_CUSTOM_SPAN = { colSpan: 3, rowSpan: 2 } as const;
@@ -57,6 +60,7 @@ export class ButtonLayoutService {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly nextId = inject(BUTTON_ID_FACTORY);
   private readonly nextProfileId = inject(PROFILE_ID_FACTORY);
+  private readonly i18n = inject(TranslationService);
   private readonly builtIns: readonly RemoteButtonConfig[] = BUILT_IN_BUTTONS;
 
   private readonly initialProfileState = this.loadProfileState();
@@ -90,6 +94,11 @@ export class ButtonLayoutService {
     return this.buttonsById().get(id);
   }
 
+  /** Eigene Hintergrundfarbe eines Buttons, oder `null` beim Theme-Standard. */
+  getButtonColor(id: string): string | null {
+    return this.layoutSignal().placements.find((placement) => placement.id === id)?.color ?? null;
+  }
+
   /** Sortiert nach (row, col), damit DOM-Reihenfolge = Lesereihenfolge = Tab-Reihenfolge. */
   readonly visibleButtons = computed<readonly PlacedButton[]>(() => {
     const buttons = this.buttonsById();
@@ -120,7 +129,7 @@ export class ButtonLayoutService {
     const profiles = this.profilesSignal();
 
     if (name === null) {
-      this.profileErrorSignal.set('Profilname darf 1 bis 40 Zeichen lang sein.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.invalidName'));
       return false;
     }
     if (
@@ -128,11 +137,13 @@ export class ButtonLayoutService {
         (profile) => profile.name.localeCompare(name, 'de-DE', { sensitivity: 'base' }) === 0,
       )
     ) {
-      this.profileErrorSignal.set('Ein Profil mit diesem Namen ist bereits vorhanden.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.duplicateName'));
       return false;
     }
     if (profiles.length >= MAX_LAYOUT_PROFILES) {
-      this.profileErrorSignal.set(`Es sind höchstens ${MAX_LAYOUT_PROFILES} Profile möglich.`);
+      this.profileErrorSignal.set(
+        this.i18n.t('buttonLayoutService.error.tooManyProfiles', { max: MAX_LAYOUT_PROFILES }),
+      );
       return false;
     }
 
@@ -148,7 +159,7 @@ export class ButtonLayoutService {
     this.profileErrorSignal.set(null);
     const profile = this.profilesSignal().find((candidate) => candidate.id === id);
     if (profile === undefined) {
-      this.profileErrorSignal.set('Das ausgewählte Profil ist nicht vorhanden.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.profileNotFound'));
       return false;
     }
 
@@ -162,11 +173,11 @@ export class ButtonLayoutService {
     this.profileErrorSignal.set(null);
     const profiles = this.profilesSignal();
     if (profiles.length <= 1) {
-      this.profileErrorSignal.set('Mindestens ein Profil muss erhalten bleiben.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.lastProfile'));
       return false;
     }
     if (!profiles.some((profile) => profile.id === id)) {
-      this.profileErrorSignal.set('Das ausgewählte Profil ist nicht vorhanden.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.profileNotFound'));
       return false;
     }
 
@@ -195,7 +206,7 @@ export class ButtonLayoutService {
     this.profileErrorSignal.set(null);
     const imported = importProfileState(rawValue);
     if (imported === null) {
-      this.profileErrorSignal.set('Die Datei enthält keine gültigen YFRemote-Layoutprofile.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.invalidImport'));
       return false;
     }
 
@@ -227,6 +238,28 @@ export class ButtonLayoutService {
       ...current,
       placements: current.placements.map((placement) => (placement.id === id ? next : placement)),
     });
+  }
+
+  /** Setzt die Hintergrundfarbe eines beliebigen Buttons (eingebaut oder eigen); `null` löscht
+   *  sie wieder auf den Theme-Standard. Für eigene Buttons deckt `updateCustomButton` das schon
+   *  mit ab - diese Methode ist der einzige Weg für eingebaute, die keine eigene Definition haben. */
+  setButtonColor(id: string, color: string | null): boolean {
+    const current = this.layoutSignal();
+
+    if (!current.placements.some((placement) => placement.id === id)) {
+      return false;
+    }
+
+    const normalizedColor = normalizeColorOrNull(color);
+
+    this.commit({
+      ...current,
+      placements: current.placements.map((placement) =>
+        placement.id === id ? { ...placement, color: normalizedColor ?? undefined } : placement,
+      ),
+    });
+
+    return true;
   }
 
   hideButton(id: string): void {
@@ -291,6 +324,7 @@ export class ButtonLayoutService {
       col: slot.col,
       row: slot.row,
       ...DEFAULT_CUSTOM_SPAN,
+      color: normalizeColorOrNull(draft.color) ?? undefined,
     };
 
     this.commit({
@@ -320,10 +354,15 @@ export class ButtonLayoutService {
       return false;
     }
 
+    const color = normalizeColorOrNull(draft.color);
+
     this.commit({
       ...current,
       customButtons: current.customButtons.map((existing) =>
         existing.id === id ? definition : existing,
+      ),
+      placements: current.placements.map((placement) =>
+        placement.id === id ? { ...placement, color: color ?? undefined } : placement,
       ),
     });
 
@@ -421,4 +460,8 @@ function computeVisibleRows(placements: readonly ButtonPlacement[]): number {
     0,
   );
   return Math.max(LAYOUT_MIN_ROWS, maxRow);
+}
+
+function normalizeColorOrNull(color: string | null | undefined): string | null {
+  return color == null ? null : normalizeButtonColor(color);
 }

@@ -37,7 +37,9 @@ export function normalizeDeviceName(name: string): string {
 }
 
 /** Grobe Geräte-Vorbelegung aus dem User-Agent; nur ein Startwert, den der Nutzer im
- *  Kopplungsformular überschreiben kann. */
+ *  Kopplungsformular überschreiben kann. Liefert einen Key ins Uebersetzungs-Dictionary fuer die
+ *  uebersetzbaren Faelle, sonst den (in beiden Sprachen gleichen) Geraetenamen direkt - der
+ *  Aufrufer laesst das immer durch TranslationService.t() laufen. */
 export function guessDeviceName(): string {
   try {
     const userAgent = globalThis.navigator?.userAgent ?? '';
@@ -51,7 +53,7 @@ export function guessDeviceName(): string {
     }
 
     if (/Android/i.test(userAgent)) {
-      return 'Android-Gerät';
+      return 'pairing.device.android';
     }
 
     if (/Macintosh/i.test(userAgent)) {
@@ -59,16 +61,16 @@ export function guessDeviceName(): string {
     }
 
     if (/Windows/i.test(userAgent)) {
-      return 'Windows-PC';
+      return 'pairing.device.windows';
     }
 
     if (/Linux/i.test(userAgent)) {
-      return 'Linux-Gerät';
+      return 'pairing.device.linux';
     }
 
-    return 'Mein Gerät';
+    return 'pairing.device.default';
   } catch {
-    return 'Mein Gerät';
+    return 'pairing.device.default';
   }
 }
 

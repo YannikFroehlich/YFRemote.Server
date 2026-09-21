@@ -21,10 +21,15 @@ import {
   parseStoredFlag,
   parseStoredMouseSensitivity,
   parseStoredScrollSpeed,
+  parseStoredServerProfiles,
   POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
+  SERVER_PROFILES_STORAGE_KEY,
+  withoutServerProfile,
+  withServerProfile,
 } from './server-config';
+import { TranslationService } from './translation.service';
 
 export interface RemoteSocket {
   readonly url: string;
@@ -92,10 +97,12 @@ export class RemoteService implements OnDestroy {
   private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly pairing = inject(PairingService);
   private readonly serverLocation = inject(SERVER_LOCATION);
+  private readonly i18n = inject(TranslationService);
 
   private readonly configSignal = signal<ServerConfig>(
     getServerConfigFromLocation(this.serverLocation),
   );
+  private readonly serverProfilesSignal = signal<ServerConfig[]>(this.loadServerProfiles());
   private readonly mouseSensitivitySignal = signal(this.loadMouseSensitivity());
   private readonly scrollSpeedSignal = signal(
     parseStoredScrollSpeed(this.readStorage(SCROLL_SPEED_STORAGE_KEY)),
@@ -124,6 +131,7 @@ export class RemoteService implements OnDestroy {
   private readonly pendingActions = new Map<string, PendingAction>();
 
   readonly config = this.configSignal.asReadonly();
+  readonly serverProfiles = this.serverProfilesSignal.asReadonly();
   readonly mouseSensitivity = this.mouseSensitivitySignal.asReadonly();
   readonly scrollSpeed = this.scrollSpeedSignal.asReadonly();
   readonly invertScroll = this.invertScrollSignal.asReadonly();
@@ -136,6 +144,8 @@ export class RemoteService implements OnDestroy {
   readonly socketUrl = computed(() => this.createSocketUrl());
 
   constructor() {
+    this.recordServerProfile(this.configSignal());
+
     if (this.autoConnect) {
       this.connect();
     }
@@ -156,7 +166,7 @@ export class RemoteService implements OnDestroy {
   async unpair(): Promise<boolean> {
     const unpaired = await this.pairing.unpair();
     if (!unpaired) {
-      this.showError(this.pairing.lastError() ?? 'Entkopplung fehlgeschlagen.');
+      this.showError(this.pairing.lastError() ?? this.i18n.t('remoteService.error.unpairFailed'));
       return false;
     }
 
@@ -173,7 +183,7 @@ export class RemoteService implements OnDestroy {
     const normalizedConfig = normalizeServerConfig(config);
 
     if (normalizedConfig === null) {
-      this.showError('Serveradresse oder Port ist ungültig.');
+      this.showError(this.i18n.t('remoteService.error.invalidServerConfig'));
       return false;
     }
 
@@ -188,10 +198,16 @@ export class RemoteService implements OnDestroy {
     }
 
     try {
-      this.serverLocation.assign(getServerPageUrl(normalizedConfig, this.serverLocation));
+      const targetUrl = getServerPageUrl(normalizedConfig, this.serverLocation);
+      this.recordServerProfile(normalizedConfig);
+      this.serverLocation.assign(targetUrl);
       return true;
     } catch (error) {
-      this.showError(`Serverwechsel fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      this.showError(
+        this.i18n.t('remoteService.error.serverChangeFailed', {
+          message: this.getErrorMessage(error),
+        }),
+      );
       return false;
     }
   }
@@ -200,7 +216,7 @@ export class RemoteService implements OnDestroy {
     const normalizedSensitivity = normalizeMouseSensitivity(sensitivity);
 
     if (normalizedSensitivity === null) {
-      this.showError('Mausgeschwindigkeit ist ungültig.');
+      this.showError(this.i18n.t('remoteService.error.invalidMouseSensitivity'));
       return false;
     }
 
@@ -213,7 +229,7 @@ export class RemoteService implements OnDestroy {
     const normalizedSpeed = normalizeScrollSpeed(speed);
 
     if (normalizedSpeed === null) {
-      this.showError('Scroll-Geschwindigkeit ist ungültig.');
+      this.showError(this.i18n.t('remoteService.error.invalidScrollSpeed'));
       return false;
     }
 
@@ -237,6 +253,12 @@ export class RemoteService implements OnDestroy {
   saveLiveTyping(enabled: boolean): void {
     this.liveTypingSignal.set(enabled);
     this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
+  }
+
+  removeServerProfile(config: ServerConfig): void {
+    const updated = withoutServerProfile(this.serverProfilesSignal(), config);
+    this.serverProfilesSignal.set(updated);
+    this.persistServerProfiles(updated);
   }
 
   /** Führt eine Aktionskette sequenziell aus und wartet neben der konfigurierten
@@ -280,7 +302,7 @@ export class RemoteService implements OnDestroy {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
         if (this.settlePendingAction(requestId, false)) {
-          this.showError('Keine Bestätigung vom Server erhalten.');
+          this.showError(this.i18n.t('remoteService.error.noConfirmation'));
         }
       }, ACTION_CONFIRMATION_TIMEOUT_MS);
 
@@ -294,7 +316,7 @@ export class RemoteService implements OnDestroy {
 
   private sendActionRequest(action: RemoteAction, requestId?: string): boolean {
     if (this.socket === null || this.socket.readyState !== SOCKET_OPEN) {
-      this.showError('Keine Verbindung zum Server.');
+      this.showError(this.i18n.t('remoteService.error.noConnection'));
       return false;
     }
 
@@ -303,7 +325,9 @@ export class RemoteService implements OnDestroy {
       this.socket.send(JSON.stringify(message));
       return true;
     } catch (error) {
-      this.showError(`Senden fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      this.showError(
+        this.i18n.t('remoteService.error.sendFailed', { message: this.getErrorMessage(error) }),
+      );
       this.closeActiveSocket();
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -332,7 +356,9 @@ export class RemoteService implements OnDestroy {
       this.bindSocket(socket);
     } catch (error) {
       this.statusSignal.set('disconnected');
-      this.showError(`Verbindung fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      this.showError(
+        this.i18n.t('remoteService.error.connectFailed', { message: this.getErrorMessage(error) }),
+      );
       this.scheduleReconnect();
     }
   }
@@ -361,7 +387,7 @@ export class RemoteService implements OnDestroy {
         return;
       }
 
-      this.showError('WebSocket-Fehler. Verbindung wird neu aufgebaut.');
+      this.showError(this.i18n.t('remoteService.error.socketError'));
     };
 
     socket.onclose = () => {
@@ -370,7 +396,7 @@ export class RemoteService implements OnDestroy {
       }
 
       this.socket = null;
-      this.failPendingActions('Verbindung zum Server wurde getrennt.');
+      this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
       this.recheckPairing();
@@ -393,7 +419,7 @@ export class RemoteService implements OnDestroy {
     const response = this.parseResponse(rawMessage);
 
     if (response === null) {
-      this.showError('Ungültige Serverantwort.');
+      this.showError(this.i18n.t('remoteService.error.invalidResponse'));
       console.warn('YFRemote: invalid server response', rawMessage);
       return;
     }
@@ -407,7 +433,7 @@ export class RemoteService implements OnDestroy {
       return;
     }
 
-    this.showError(response.error?.trim() || 'Aktion wurde vom Server abgelehnt.');
+    this.showError(response.error?.trim() || this.i18n.t('remoteService.error.actionRejected'));
   }
 
   private parseResponse(rawMessage: string): RemoteResponse | null {
@@ -554,6 +580,20 @@ export class RemoteService implements OnDestroy {
     return parseStoredMouseSensitivity(this.readStorage(MOUSE_SENSITIVITY_STORAGE_KEY));
   }
 
+  private loadServerProfiles(): ServerConfig[] {
+    return parseStoredServerProfiles(this.readStorage(SERVER_PROFILES_STORAGE_KEY));
+  }
+
+  private recordServerProfile(config: ServerConfig): void {
+    const updated = withServerProfile(this.serverProfilesSignal(), config);
+    this.serverProfilesSignal.set(updated);
+    this.persistServerProfiles(updated);
+  }
+
+  private persistServerProfiles(profiles: readonly ServerConfig[]): void {
+    this.storage?.setItem(SERVER_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+  }
+
   private readStorage(key: string): string | null {
     return this.storage?.getItem(key) ?? null;
   }
@@ -565,7 +605,7 @@ export class RemoteService implements OnDestroy {
   private getErrorMessage(error: unknown): string {
     return error instanceof Error && error.message.length > 0
       ? error.message
-      : 'Unbekannter Fehler';
+      : this.i18n.t('common.unknownError');
   }
 }
 

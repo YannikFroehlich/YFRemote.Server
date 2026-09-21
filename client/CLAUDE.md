@@ -134,7 +134,15 @@ manual `ChangeDetectorRef` calls.
      accumulated and flushed at most once per animation frame (`requestAnimationFrame`) rather than
      sent per pointer event, to avoid flooding the socket. The text field above the surface
      sends its content on submit, or with the "Live" switch on, sends every change immediately
-     as a diff against the last sent text (`BACKSPACE` keys plus a `text` action).
+     as a diff against the last sent text (`BACKSPACE` keys plus a `text` action). A microphone
+     button next to it dictates into the same field via the Web Speech API and reuses that exact
+     diff path (`onTextInput`) instead of a second send mechanism — it only ever writes
+     `input.value` and calls `onTextInput` again. The recognizer itself sits behind its own
+     `SpeechRecognizer`/`SPEECH_RECOGNIZER_FACTORY` injection token in `touchpad.component.ts`,
+     the same swap-every-browser-API convention as `RemoteService`'s tokens; the factory returns
+     `null` on a browser without support (Firefox), and the button simply does not render.
+     Recognition restarts itself on `onend` for as long as dictation is still toggled on, so
+     multiple sentences append instead of overwriting each other.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an
@@ -195,5 +203,18 @@ imported styles: hex colors and in-range numbers only, so no foreign CSS reaches
 Borders use `var(--border-width)` (never a literal `1px`), and text sizes use `rem` so
 `--font-scale` (applied to the `html` font size) scales them.
 
-**All user-facing strings are German** (labels, aria-labels, error messages like "Keine Verbindung
-zum Server."). Keep new UI text consistent with this.
+**The app is bilingual (German/English), switched at runtime.** `translation.ts` (pure - types,
+the `TRANSLATIONS` dictionary, `parseStoredLang`/`translate`) and `translation.service.ts`
+(`TranslationService`, `providedIn: 'root'`) follow the exact same shape as `theme.ts`/
+`ThemeService`: a signal for the current language, persisted under `yfremote.language` via the
+same `REMOTE_STORAGE` token every other service reuses. Default is German with no browser-language
+detection, so the existing test suite's German assertions keep working unchanged; switching is an
+explicit choice in Settings ("Sprache"). Components inject `TranslationService` as `i18n` and call
+`i18n.t('some.key', params?)` directly in templates - no pipe, same pattern as calling `theme.mode()`
+in a template today. Static config that used to hold display text (`RemoteButtonConfig.label`/
+`ariaLabel`/`confirm` in `remote-actions.ts`, `KeyGroup.label`/`KEY_LABELS` in `keyboard-keys.ts`,
+the color/font/advanced-token label arrays in `theme.ts`) now holds dictionary keys instead,
+resolved through `i18n.t()` only when rendered; `CustomButtonDefinition.label` (user-typed custom
+button names) is unaffected and stays free text. `translate()` falls back to returning the key
+itself when no entry exists, which is used deliberately for strings that are identical in both
+languages (e.g. "OK", single letter/function keys) instead of listing a redundant dictionary row.

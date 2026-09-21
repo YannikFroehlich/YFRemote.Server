@@ -1,11 +1,11 @@
 <main class="remote-shell">
-  <section class="remote-panel remote-panel--pairing" aria-label="YFRemote Kopplung">
+  <section class="remote-panel remote-panel--pairing" [attr.aria-label]="i18n.t('pairingGate.regionAriaLabel')">
     <header class="remote-header">
       <div class="brand-block brand-lockup">
         <img class="brand-mark" src="/brand-mark.png" alt="YF" width="128" height="128" />
         <div class="brand-copy">
           <span class="brand-name">Remote</span>
-          <span class="brand-subtitle">Sicher verbinden</span>
+          <span class="brand-subtitle">{{ i18n.t('pairingGate.tagline') }}</span>
         </div>
       </div>
     </header>
@@ -19,11 +19,9 @@
         </svg>
       </div>
       <div>
-        <p class="eyebrow">Einmalige Kopplung</p>
-        <h1>Mit deinem PC verbinden</h1>
-        <p class="pairing-copy">
-          Gib die sechsstellige PIN aus dem YFRemote-Symbol im Infobereich des Ziel-PCs ein.
-        </p>
+        <p class="eyebrow">{{ i18n.t('pairingGate.eyebrow') }}</p>
+        <h1>{{ i18n.t('pairingGate.title') }}</h1>
+        <p class="pairing-copy">{{ i18n.t('pairingGate.copy') }}</p>
       </div>
     </div>
 
@@ -46,12 +44,12 @@
             maxlength="6"
           />
           @if (hasFieldError('pin')) {
-            <small>PIN muss aus 6 Ziffern bestehen.</small>
+            <small>{{ i18n.t('pairingGate.pin.error') }}</small>
           }
         </label>
 
         <label class="field" for="pairing-device-name">
-          <span>Gerätename</span>
+          <span>{{ i18n.t('pairingGate.deviceName.label') }}</span>
           <input
             id="pairing-device-name"
             type="text"
@@ -59,7 +57,7 @@
             autocomplete="off"
           />
           @if (hasFieldError('deviceName')) {
-            <small>Gerätename darf nicht leer sein.</small>
+            <small>{{ i18n.t('pairingGate.deviceName.error') }}</small>
           }
         </label>
 
@@ -71,13 +69,13 @@
           (click)="toggleRemember()"
         >
           <span class="switch-indicator" aria-hidden="true"></span>
-          <span>Gerät auf diesem Browser merken</span>
+          <span>{{ i18n.t('pairingGate.remember') }}</span>
         </button>
       </div>
 
       <footer class="settings-actions pairing-actions">
         <button class="primary-button" type="submit" [disabled]="form.invalid || submitting()">
-          {{ submitting() ? 'Verbinde…' : 'Koppeln' }}
+          {{ submitting() ? i18n.t('pairingGate.connecting') : i18n.t('pairingGate.submit') }}
         </button>
       </footer>
     </form>

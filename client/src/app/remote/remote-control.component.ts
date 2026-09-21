@@ -8,6 +8,7 @@ import { ConnectionStatus } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SettingsDialogComponent } from './settings-dialog.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
+import { TranslationService } from './translation.service';
 
 type RemoteView = 'remote' | 'touchpad' | 'keyboard';
 
@@ -24,6 +25,7 @@ type RemoteView = 'remote' | 'touchpad' | 'keyboard';
 })
 export class RemoteControlComponent {
   private readonly remote = inject(RemoteService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly layout = inject(ButtonLayoutService);
   protected readonly config = this.remote.config;
@@ -101,11 +103,11 @@ export class RemoteControlComponent {
   protected statusLabel(status: ConnectionStatus): string {
     switch (status) {
       case 'connected':
-        return 'Verbunden';
+        return this.i18n.t('status.connected');
       case 'connecting':
-        return 'Verbinde';
+        return this.i18n.t('status.connecting');
       case 'disconnected':
-        return 'Getrennt';
+        return this.i18n.t('status.disconnected');
     }
   }
 }

@@ -190,6 +190,24 @@
   padding: 0 18px;
 }
 
+.touchpad-text__mic {
+  padding: 0 11px;
+}
+
+.touchpad-text__mic svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+// Gleiche Pulsanimation wie der "verbindet sich"-Punkt (styles.scss, .status-pill--connecting) -
+// hier fuer "gerade am Diktieren", keine neue Animation und keine neue Farbe.
+.touchpad-text__mic[aria-checked='true'] {
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.4);
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
 @media (hover: hover) {
   .touchpad-button:hover {
     background: var(--surface-hover);

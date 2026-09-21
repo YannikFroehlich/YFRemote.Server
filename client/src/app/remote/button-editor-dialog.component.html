@@ -1,5 +1,10 @@
 <div class="settings-layer">
-  <button class="settings-scrim" type="button" aria-label="Schließen" (click)="close()"></button>
+  <button
+    class="settings-scrim"
+    type="button"
+    [attr.aria-label]="i18n.t('common.close')"
+    (click)="close()"
+  ></button>
 
   <section
     class="settings-dialog settings-dialog--editor"
@@ -10,14 +15,22 @@
     <header class="settings-dialog__header">
       <div>
         <p class="eyebrow">
-          {{ isReadOnly() ? 'Eingebaut' : isEditing() ? 'Bearbeiten' : 'Neu' }}
+          {{
+            isReadOnly()
+              ? i18n.t('buttonEditor.eyebrow.builtin')
+              : isEditing()
+                ? i18n.t('common.edit')
+                : i18n.t('common.new')
+          }}
         </p>
-        <h2 id="button-editor-title">{{ isReadOnly() ? 'Button-Details' : 'Eigener Button' }}</h2>
+        <h2 id="button-editor-title">
+          {{ isReadOnly() ? i18n.t('buttonEditor.title.details') : i18n.t('buttonEditor.title.custom') }}
+        </h2>
       </div>
       <button
         class="round-button round-button--dialog"
         type="button"
-        aria-label="Schließen"
+        [attr.aria-label]="i18n.t('common.close')"
         (click)="close()"
       >
         <span aria-hidden="true">x</span>
@@ -27,7 +40,7 @@
     <form class="settings-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
       <div class="settings-form__scroll">
         <label class="field" for="button-label">
-          <span>Beschriftung</span>
+          <span>{{ i18n.t('buttonEditor.label.field') }}</span>
           <input
             id="button-label"
             type="text"
@@ -37,12 +50,12 @@
             spellcheck="false"
           />
           @if (hasLabelError()) {
-            <small>Beschriftung erforderlich (max. {{ maxLabelLength }} Zeichen).</small>
+            <small>{{ i18n.t('buttonEditor.label.error', { max: maxLabelLength }) }}</small>
           }
         </label>
 
         <div class="field">
-          <span>Symbol</span>
+          <span>{{ i18n.t('buttonEditor.icon.field') }}</span>
           <div class="icon-picker">
             @for (icon of icons; track icon) {
               <button
@@ -50,7 +63,7 @@
                 type="button"
                 [class.icon-picker__option--active]="form.controls.icon.value === icon"
                 [attr.aria-pressed]="form.controls.icon.value === icon"
-                [attr.aria-label]="'Symbol: ' + icon"
+                [attr.aria-label]="i18n.t('buttonEditor.icon.ariaLabel', { icon })"
                 [disabled]="isReadOnly()"
                 (click)="form.controls.icon.setValue(icon)"
               >
@@ -63,7 +76,29 @@
         </div>
 
         <div class="field">
-          <span>Schritte</span>
+          <button
+            class="snap-switch"
+            type="button"
+            role="switch"
+            [attr.aria-checked]="colorEnabled()"
+            (click)="toggleColorEnabled()"
+          >
+            <span class="switch-indicator" aria-hidden="true"></span>
+            <span>{{ i18n.t('buttonEditor.color.toggle') }}</span>
+          </button>
+          @if (colorEnabled()) {
+            <input
+              class="color-input"
+              type="color"
+              [attr.aria-label]="i18n.t('buttonEditor.color.field')"
+              [value]="colorValue()"
+              (input)="onColorInput($event)"
+            />
+          }
+        </div>
+
+        <div class="field">
+          <span>{{ i18n.t('buttonEditor.steps.field') }}</span>
 
           @if (steps().length > 0) {
             <ol class="macro-steps">
@@ -80,7 +115,7 @@
                     <span class="macro-step__actions">
                       <button
                         type="button"
-                        aria-label="Schritt nach oben"
+                        [attr.aria-label]="i18n.t('buttonEditor.step.moveUp')"
                         [disabled]="$index === 0"
                         (click)="moveStep($index, -1)"
                       >
@@ -88,7 +123,7 @@
                       </button>
                       <button
                         type="button"
-                        aria-label="Schritt nach unten"
+                        [attr.aria-label]="i18n.t('buttonEditor.step.moveDown')"
                         [disabled]="$index === steps().length - 1"
                         (click)="moveStep($index, 1)"
                       >
@@ -96,7 +131,7 @@
                       </button>
                       <button
                         type="button"
-                        aria-label="Schritt entfernen"
+                        [attr.aria-label]="i18n.t('buttonEditor.step.remove')"
                         (click)="removeStep($index)"
                       >
                         &times;
@@ -107,12 +142,12 @@
               }
             </ol>
           } @else {
-            <p class="macro-steps__empty">Noch keine Schritte hinzugefügt.</p>
+            <p class="macro-steps__empty">{{ i18n.t('buttonEditor.steps.empty') }}</p>
           }
 
           @if (!isReadOnly()) {
             <div class="macro-step-builder">
-              <div class="step-type-tabs" role="tablist" aria-label="Schritttyp">
+              <div class="step-type-tabs" role="tablist" [attr.aria-label]="i18n.t('buttonEditor.stepTypeAriaLabel')">
                 <button
                   type="button"
                   class="view-tab"
@@ -121,7 +156,7 @@
                   [attr.aria-selected]="stepType() === 'keys'"
                   (click)="setStepType('keys')"
                 >
-                  Tasten
+                  {{ i18n.t('buttonEditor.tab.keys') }}
                 </button>
                 <button
                   type="button"
@@ -141,7 +176,7 @@
                   [attr.aria-selected]="stepType() === 'mouseClick'"
                   (click)="setStepType('mouseClick')"
                 >
-                  Klick
+                  {{ i18n.t('buttonEditor.tab.click') }}
                 </button>
               </div>
 
@@ -149,7 +184,7 @@
                 <div class="key-picker">
                   @for (group of keyGroups; track group.label) {
                     <div class="key-group">
-                      <p class="key-group__label">{{ group.label }}</p>
+                      <p class="key-group__label">{{ i18n.t(group.label) }}</p>
                       <div class="key-group__keys">
                         @for (key of group.keys; track key) {
                           <button
@@ -160,7 +195,7 @@
                             [attr.aria-pressed]="isPendingKeySelected(key)"
                             (click)="togglePendingKey(key)"
                           >
-                            {{ keyLabel(key) }}
+                            {{ i18n.t(keyLabel(key)) }}
                           </button>
                         }
                       </div>
@@ -173,7 +208,7 @@
                   type="text"
                   [value]="pendingText()"
                   (input)="onPendingTextInput($event)"
-                  placeholder="Text eingeben…"
+                  [placeholder]="i18n.t('touchpad.placeholder.default')"
                   autocomplete="off"
                 />
               } @else {
@@ -185,7 +220,7 @@
                     [attr.aria-pressed]="pendingMouseButton() === 'left'"
                     (click)="pendingMouseButton.set('left')"
                   >
-                    Links
+                    {{ i18n.t('buttonEditor.mouseLeft') }}
                   </button>
                   <button
                     type="button"
@@ -194,13 +229,13 @@
                     [attr.aria-pressed]="pendingMouseButton() === 'right'"
                     (click)="pendingMouseButton.set('right')"
                   >
-                    Rechts
+                    {{ i18n.t('buttonEditor.mouseRight') }}
                   </button>
                 </div>
               }
 
               <label class="field">
-                <span>Verzögerung vor diesem Schritt (ms)</span>
+                <span>{{ i18n.t('buttonEditor.delay.label') }}</span>
                 <input
                   type="number"
                   min="0"
@@ -217,12 +252,12 @@
                 [disabled]="!canAddStep()"
                 (click)="addStep()"
               >
-                Schritt hinzufügen
+                {{ i18n.t('buttonEditor.addStep') }}
               </button>
             </div>
 
             @if (steps().length === 0) {
-              <small>Füge mindestens einen Schritt hinzu.</small>
+              <small>{{ i18n.t('buttonEditor.needStep') }}</small>
             }
           }
         </div>
@@ -230,13 +265,24 @@
 
       <footer class="settings-actions">
         @if (isReadOnly()) {
-          <button class="secondary-button" type="button" (click)="close()">Schließen</button>
+          <button class="secondary-button" type="button" (click)="close()">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button class="primary-button" type="button" (click)="save()">
+            {{ i18n.t('common.save') }}
+          </button>
         } @else {
           @if (isEditing()) {
-            <button class="secondary-button" type="button" (click)="delete()">Löschen</button>
+            <button class="secondary-button" type="button" (click)="delete()">
+              {{ i18n.t('common.delete') }}
+            </button>
           }
-          <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
-          <button class="primary-button" type="submit" [disabled]="!canSave()">Speichern</button>
+          <button class="secondary-button" type="button" (click)="close()">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button class="primary-button" type="submit" [disabled]="!canSave()">
+            {{ i18n.t('common.save') }}
+          </button>
         }
       </footer>
     </form>

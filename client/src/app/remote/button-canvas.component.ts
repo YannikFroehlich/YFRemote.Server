@@ -16,11 +16,13 @@ import {
   LAYOUT_GAP_PX,
   LAYOUT_ROW_HEIGHT_PX,
   PlacedButton,
+  readableTextColor,
   resolveButtonSteps,
 } from './button-layout';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { RemoteButtonConfig } from './remote.models';
 import { RemoteService } from './remote.service';
+import { TranslationService } from './translation.service';
 
 const DRAG_THRESHOLD_PX = 6;
 
@@ -47,6 +49,7 @@ interface DragPosition {
 })
 export class ButtonCanvasComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly layout = inject(ButtonLayoutService);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
@@ -85,6 +88,10 @@ export class ButtonCanvasComponent implements OnDestroy {
     return labelVisibleFor(button);
   }
 
+  protected textColorFor(color: string): string {
+    return readableTextColor(color);
+  }
+
   protected activate(item: PlacedButton): void {
     if (this.editMode() || item.button.disabled === true) {
       return;
@@ -98,7 +105,7 @@ export class ButtonCanvasComponent implements OnDestroy {
 
     // Energieaktionen sind nicht umkehrbar: lieber einmal nachfragen, als den Rechner durch
     // einen Fehlgriff auf dem Touchscreen herunterzufahren.
-    if (item.button.confirm !== undefined && !globalThis.confirm(item.button.confirm)) {
+    if (item.button.confirm !== undefined && !globalThis.confirm(this.i18n.t(item.button.confirm))) {
       return;
     }
 

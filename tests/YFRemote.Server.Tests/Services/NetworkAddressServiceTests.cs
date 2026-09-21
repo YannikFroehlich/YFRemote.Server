@@ -36,4 +36,13 @@ public sealed class NetworkAddressServiceTests
     {
         Assert.IsFalse(NetworkAddressService.IsUsableIpv4Address(IPAddress.Parse("::1")));
     }
+
+    [TestMethod]
+    public void GetCertificateUrl_UsesHttpAndTheGivenPort()
+    {
+        var url = NetworkAddressService.GetCertificateUrl(5050);
+
+        StringAssert.StartsWith(url, "http://");
+        StringAssert.EndsWith(url, ":5050/ca.crt");
+    }
 }

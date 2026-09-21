@@ -13,7 +13,12 @@ import {
   POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
 } from '../server-config';
-import { TouchpadComponent } from './touchpad.component';
+import {
+  SPEECH_RECOGNIZER_FACTORY,
+  SpeechRecognitionResultEvent,
+  SpeechRecognizer,
+  TouchpadComponent,
+} from './touchpad.component';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -67,6 +72,38 @@ class MockRemoteSocket implements RemoteSocket {
   close(): void {
     this.closed = true;
     this.readyState = 3;
+  }
+}
+
+class MockSpeechRecognizer implements SpeechRecognizer {
+  lang = '';
+  continuous = false;
+  interimResults = false;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null = null;
+  onerror: ((event: { readonly error: string }) => void) | null = null;
+  onend: (() => void) | null = null;
+
+  startCount = 0;
+  stopped = false;
+
+  start(): void {
+    this.startCount++;
+  }
+
+  stop(): void {
+    this.stopped = true;
+  }
+
+  result(transcript: string): void {
+    this.onresult?.({ results: { length: 1, 0: { 0: { transcript } } } });
+  }
+
+  error(error: string): void {
+    this.onerror?.({ error });
+  }
+
+  end(): void {
+    this.onend?.();
   }
 }
 
@@ -479,12 +516,131 @@ describe('TouchpadComponent', () => {
 
     expect(sockets[0].sentMessages).toEqual([]);
   });
+
+  it('hides the dictation button when the browser has no speech recognition', async () => {
+    const { fixture } = await setupTouchpad();
+
+    expect(micButton(fixture)).toBeNull();
+  });
+
+  it('starts and stops recognition when the dictation button is toggled', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const button = micButton(fixture)!;
+
+    button.click();
+    fixture.detectChanges();
+    expect(recognizer.startCount).toBe(1);
+    expect(button.getAttribute('aria-checked')).toBe('true');
+
+    button.click();
+    fixture.detectChanges();
+    expect(recognizer.stopped).toBe(true);
+    expect(button.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('sends dictated text immediately when live typing is on', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture, sockets } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const { liveSwitch } = textControls(fixture);
+
+    liveSwitch.click();
+    micButton(fixture)!.click();
+    recognizer.result('hallo welt');
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"text","text":"hallo welt"}']);
+  });
+
+  it('only fills the field, without sending, when live typing is off', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture, sockets } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const { textInput } = textControls(fixture);
+
+    micButton(fixture)!.click();
+    recognizer.result('hallo welt');
+
+    expect(textInput.value).toBe('hallo welt');
+    expect(sockets[0].sentMessages).toEqual([]);
+  });
+
+  it('appends the next utterance instead of overwriting when still dictating', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const { textInput } = textControls(fixture);
+
+    micButton(fixture)!.click();
+    recognizer.result('erster satz');
+    recognizer.end();
+    expect(recognizer.startCount).toBe(2);
+
+    recognizer.result('zweiter satz');
+    expect(textInput.value).toBe('erster satz zweiter satz');
+  });
+
+  it('does not restart recognition after the dictation button stopped it', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+
+    micButton(fixture)!.click();
+    expect(recognizer.startCount).toBe(1);
+
+    micButton(fixture)!.click();
+    recognizer.end();
+
+    expect(recognizer.startCount).toBe(1);
+  });
+
+  it('shows an error and stops dictating when recognition fails', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const button = micButton(fixture)!;
+
+    button.click();
+    recognizer.error('not-allowed');
+    fixture.detectChanges();
+
+    expect(button.getAttribute('aria-checked')).toBe('false');
+    expect(dictationErrorMessage(fixture)).toBe('Mikrofonzugriff wurde verweigert.');
+  });
+
+  it('stops a running dictation when the text is submitted', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const { form } = textControls(fixture);
+
+    micButton(fixture)!.click();
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(recognizer.stopped).toBe(true);
+  });
+
+  it('stops a running dictation when live typing is toggled', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+    const { liveSwitch } = textControls(fixture);
+
+    micButton(fixture)!.click();
+    liveSwitch.click();
+
+    expect(recognizer.stopped).toBe(true);
+  });
+
+  it('stops a running dictation when the component is destroyed', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({ dictationRecognizer: recognizer });
+
+    micButton(fixture)!.click();
+    fixture.destroy();
+
+    expect(recognizer.stopped).toBe(true);
+  });
 });
 
 async function setupTouchpad(
   options: {
     readonly sensitivity?: number;
     readonly stored?: Readonly<Record<string, string>>;
+    readonly dictationRecognizer?: MockSpeechRecognizer;
   } = {},
 ): Promise<TouchpadHarness> {
   const sockets: MockRemoteSocket[] = [];
@@ -518,6 +674,10 @@ async function setupTouchpad(
           sockets.push(socket);
           return socket;
         },
+      },
+      {
+        provide: SPEECH_RECOGNIZER_FACTORY,
+        useValue: () => options.dictationRecognizer ?? null,
       },
     ],
   }).compileComponents();
@@ -567,6 +727,20 @@ function mouseButton(
 
   stubPointerCapture(button);
   return button;
+}
+
+function micButton(
+  fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>,
+): HTMLButtonElement | null {
+  const root = fixture.nativeElement as HTMLElement;
+  return root.querySelector<HTMLButtonElement>('.touchpad-text__mic');
+}
+
+function dictationErrorMessage(
+  fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>,
+): string | null {
+  const root = fixture.nativeElement as HTMLElement;
+  return root.querySelector('.settings-message')?.textContent?.trim() ?? null;
 }
 
 function stubPointerCapture(element: HTMLElement): void {
@@ -619,7 +793,9 @@ function textControls(fixture: ReturnType<typeof TestBed.createComponent<Touchpa
 } {
   const root = fixture.nativeElement as HTMLElement;
   const textInput = root.querySelector<HTMLInputElement>('.touchpad-text__input');
-  const liveSwitch = root.querySelector<HTMLButtonElement>('.touchpad-text [role="switch"]');
+  const liveSwitch = root.querySelector<HTMLButtonElement>(
+    '.touchpad-text [role="switch"]:not(.touchpad-text__mic)',
+  );
   const form = root.querySelector<HTMLFormElement>('.touchpad-text');
 
   if (textInput === null || liveSwitch === null || form === null) {

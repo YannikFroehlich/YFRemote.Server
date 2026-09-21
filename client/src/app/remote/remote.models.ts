@@ -98,7 +98,8 @@ export type RemoteIcon =
   | 'edit'
   | 'power'
   | 'restart'
-  | 'sleep';
+  | 'sleep'
+  | 'mic';
 
 export interface RemoteButtonConfig {
   readonly id: string;

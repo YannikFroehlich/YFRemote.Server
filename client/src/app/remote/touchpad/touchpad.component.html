@@ -21,6 +21,21 @@
       (input)="onTextInput(textInput)"
       (keydown)="onTextKeydown($event, textInput)"
     />
+    @if (dictationSupported) {
+      <button
+        class="snap-switch touchpad-text__mic"
+        type="button"
+        role="switch"
+        title="Text diktieren"
+        aria-label="Diktieren"
+        [attr.aria-checked]="dictating()"
+        (click)="toggleDictation(textInput)"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.mic"></path>
+        </svg>
+      </button>
+    }
     <button
       class="snap-switch"
       type="button"
@@ -38,6 +53,10 @@
       </button>
     }
   </form>
+
+  @if (dictationError(); as message) {
+    <p class="settings-message" role="status" aria-live="polite">{{ message }}</p>
+  }
 
   <div
     class="touchpad-surface"

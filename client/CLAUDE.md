@@ -134,7 +134,15 @@ manual `ChangeDetectorRef` calls.
      accumulated and flushed at most once per animation frame (`requestAnimationFrame`) rather than
      sent per pointer event, to avoid flooding the socket. The text field above the surface
      sends its content on submit, or with the "Live" switch on, sends every change immediately
-     as a diff against the last sent text (`BACKSPACE` keys plus a `text` action).
+     as a diff against the last sent text (`BACKSPACE` keys plus a `text` action). A microphone
+     button next to it dictates into the same field via the Web Speech API and reuses that exact
+     diff path (`onTextInput`) instead of a second send mechanism — it only ever writes
+     `input.value` and calls `onTextInput` again. The recognizer itself sits behind its own
+     `SpeechRecognizer`/`SPEECH_RECOGNIZER_FACTORY` injection token in `touchpad.component.ts`,
+     the same swap-every-browser-API convention as `RemoteService`'s tokens; the factory returns
+     `null` on a browser without support (Firefox), and the button simply does not render.
+     Recognition restarts itself on `onend` for as long as dictation is still toggled on, so
+     multiple sentences append instead of overwriting each other.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an

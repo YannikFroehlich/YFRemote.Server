@@ -1,6 +1,49 @@
-import { Component, inject, OnDestroy } from '@angular/core';
+import { Component, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
 import { RemoteAction } from '../remote.models';
+import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
+
+/** Minimale eigene Abbildung der Web-Speech-API - es gibt keine offiziellen TypeScript-Typen
+ *  dafuer, und wir brauchen ohnehin nur diesen Ausschnitt. */
+export interface SpeechRecognizer {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onerror: ((event: { readonly error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+export interface SpeechRecognitionResultEvent {
+  readonly results: {
+    readonly length: number;
+    readonly [index: number]: {
+      readonly [index: number]: { readonly transcript: string };
+    };
+  };
+}
+
+export type SpeechRecognizerFactory = () => SpeechRecognizer | null;
+
+/** Wie REMOTE_WEBSOCKET_FACTORY/REMOTE_VIBRATE in remote.service.ts: jede Browser-API hinter
+ *  einem Token, damit Tests eine Fake-Erkennung einsetzen koennen. null bedeutet "Browser kann
+ *  das nicht" (z. B. Firefox) - der Diktier-Knopf bleibt dann einfach unsichtbar. */
+export const SPEECH_RECOGNIZER_FACTORY = new InjectionToken<SpeechRecognizerFactory>(
+  'SPEECH_RECOGNIZER_FACTORY',
+  { providedIn: 'root', factory: () => createBrowserSpeechRecognizer },
+);
+
+function createBrowserSpeechRecognizer(): SpeechRecognizer | null {
+  const globalWithSpeech = globalThis as unknown as {
+    SpeechRecognition?: new () => SpeechRecognizer;
+    webkitSpeechRecognition?: new () => SpeechRecognizer;
+  };
+  const RecognizerCtor = globalWithSpeech.SpeechRecognition ?? globalWithSpeech.webkitSpeechRecognition;
+
+  return RecognizerCtor ? new RecognizerCtor() : null;
+}
 
 interface PointerPosition {
   x: number;
@@ -35,6 +78,7 @@ const ACCEL_THRESHOLD_PX_PER_MS = 0.25;
 const ACCEL_GAIN = 1.5;
 const ACCEL_MAX_FACTOR = 3;
 const MIN_EVENT_INTERVAL_MS = 8;
+const DICTATION_ERROR_VISIBLE_MS = 4200;
 
 @Component({
   selector: 'app-touchpad',
@@ -43,10 +87,21 @@ const MIN_EVENT_INTERVAL_MS = 8;
 })
 export class TouchpadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
   private readonly pointers = new Map<number, PointerPosition>();
   private readonly heldButtons = new Map<MouseButtonName, number>();
 
   protected readonly liveTyping = this.remote.liveTyping;
+  protected readonly iconPaths = REMOTE_ICON_PATHS;
+  // Nur einmalig geprueft: Instanziieren allein fragt noch keine Mikrofon-Berechtigung an
+  // (das passiert erst bei start()), daher ist ein Wegwerf-Objekt zum Testen unbedenklich.
+  protected readonly dictationSupported = this.createRecognizer() !== null;
+  protected readonly dictating = signal(false);
+  protected readonly dictationError = signal<string | null>(null);
+
+  private recognizer: SpeechRecognizer | null = null;
+  private dictationBaseText = '';
+  private dictationErrorTimer: ReturnType<typeof setTimeout> | null = null;
 
   private pointerMode: PointerMode = 'idle';
   private lastScrollCenterX: number | null = null;
@@ -199,6 +254,7 @@ export class TouchpadComponent implements OnDestroy {
 
   protected submitText(event: Event, input: HTMLInputElement): void {
     event.preventDefault();
+    this.stopDictation();
 
     if (this.liveTyping()) {
       this.sendAction({ type: 'key', keys: ['ENTER'] });
@@ -217,12 +273,108 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   protected toggleLiveTyping(input: HTMLInputElement): void {
+    this.stopDictation();
     this.remote.saveLiveTyping(!this.liveTyping());
     this.clearLiveText(input);
 
     if (this.liveTyping()) {
       input.focus();
     }
+  }
+
+  protected toggleDictation(input: HTMLInputElement): void {
+    if (this.dictating()) {
+      this.stopDictation();
+    } else {
+      this.startDictation(input);
+    }
+  }
+
+  private startDictation(input: HTMLInputElement): void {
+    const recognizer = this.createRecognizer();
+
+    if (recognizer === null) {
+      return;
+    }
+
+    this.recognizer = recognizer;
+    this.dictationError.set(null);
+    recognizer.lang = 'de-DE';
+    recognizer.continuous = false;
+    recognizer.interimResults = true;
+
+    recognizer.onresult = (event) => {
+      const result = event.results[event.results.length - 1];
+      const transcript = result[0].transcript;
+      input.value = this.joinDictationText(this.dictationBaseText, transcript);
+      this.onTextInput(input);
+    };
+
+    recognizer.onerror = (event) => {
+      this.showDictationError(this.describeDictationError(event.error));
+      this.dictating.set(false);
+    };
+
+    // Eine Aeusserung endet, sobald der Browser eine Pause erkennt (continuous = false); solange
+    // der Knopf noch aktiv ist, direkt die naechste Aeusserung anhaengen statt aufzuhoeren.
+    recognizer.onend = () => {
+      if (!this.dictating()) {
+        return;
+      }
+
+      this.dictationBaseText = input.value;
+
+      try {
+        recognizer.start();
+      } catch {
+        this.showDictationError(this.describeDictationError(null));
+        this.dictating.set(false);
+      }
+    };
+
+    this.dictationBaseText = input.value;
+    this.dictating.set(true);
+    recognizer.start();
+  }
+
+  private stopDictation(): void {
+    if (!this.dictating()) {
+      return;
+    }
+
+    // Reihenfolge wichtig: erst das Flag loeschen, sonst startet onend das Diktat gleich neu.
+    this.dictating.set(false);
+    this.recognizer?.stop();
+    this.recognizer = null;
+  }
+
+  private joinDictationText(base: string, transcript: string): string {
+    if (base.length === 0 || base.endsWith(' ')) {
+      return `${base}${transcript}`;
+    }
+
+    return `${base} ${transcript}`;
+  }
+
+  private describeDictationError(error: string | null): string {
+    switch (error) {
+      case 'not-allowed':
+      case 'permission-denied':
+        return 'Mikrofonzugriff wurde verweigert.';
+      case 'no-speech':
+        return 'Kein Ton erkannt.';
+      default:
+        return 'Diktat fehlgeschlagen.';
+    }
+  }
+
+  private showDictationError(message: string): void {
+    if (this.dictationErrorTimer !== null) {
+      clearTimeout(this.dictationErrorTimer);
+    }
+
+    this.dictationError.set(message);
+    this.dictationErrorTimer = setTimeout(() => this.dictationError.set(null), DICTATION_ERROR_VISIBLE_MS);
   }
 
   /** Live-Eingabe: vergleicht das Feld mit dem zuletzt gesendeten Stand und schickt nur die
@@ -268,6 +420,11 @@ export class TouchpadComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.resetPointers();
     this.releaseAllHeldButtons();
+    this.stopDictation();
+
+    if (this.dictationErrorTimer !== null) {
+      clearTimeout(this.dictationErrorTimer);
+    }
   }
 
   private clearLiveText(input: HTMLInputElement): void {

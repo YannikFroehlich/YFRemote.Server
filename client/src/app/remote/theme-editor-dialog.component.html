@@ -1,5 +1,10 @@
 <div class="settings-layer settings-layer--stacked">
-  <button class="settings-scrim" type="button" aria-label="Schließen" (click)="close()"></button>
+  <button
+    class="settings-scrim"
+    type="button"
+    [attr.aria-label]="i18n.t('common.close')"
+    (click)="close()"
+  ></button>
 
   <section
     class="settings-dialog settings-dialog--editor"
@@ -9,13 +14,13 @@
   >
     <header class="settings-dialog__header">
       <div>
-        <p class="eyebrow">{{ isEditing() ? 'Bearbeiten' : 'Neu' }}</p>
-        <h2 id="theme-editor-title">Eigener Stil</h2>
+        <p class="eyebrow">{{ isEditing() ? i18n.t('common.edit') : i18n.t('common.new') }}</p>
+        <h2 id="theme-editor-title">{{ i18n.t('themeEditor.title') }}</h2>
       </div>
       <button
         class="round-button round-button--dialog"
         type="button"
-        aria-label="Schließen"
+        [attr.aria-label]="i18n.t('common.close')"
         (click)="close()"
       >
         <span aria-hidden="true">x</span>
@@ -25,7 +30,7 @@
     @if (draft(); as draft) {
       <form class="settings-form" (submit)="save($event)" novalidate>
         <div class="settings-form__scroll">
-          <p class="settings-hint">Änderungen sind sofort sichtbar. Abbrechen verwirft sie.</p>
+          <p class="settings-hint">{{ i18n.t('themeEditor.hint.livePreview') }}</p>
 
           <label class="field" for="theme-name">
             <span>Name</span>
@@ -38,37 +43,39 @@
               (input)="setName($event)"
             />
             @if (nameError()) {
-              <small>Bitte einen Namen mit höchstens {{ maxNameLength }} Zeichen eingeben.</small>
+              <small>{{ i18n.t('themeEditor.name.error', { max: maxNameLength }) }}</small>
             }
           </label>
 
           <div class="theme-editor__row">
             <label class="field" for="theme-base">
-              <span>Grundstil</span>
+              <span>{{ i18n.t('themeEditor.base.label') }}</span>
               <select id="theme-base" (change)="selectBase($event)">
                 <option value="standard" [selected]="draft.base === 'standard'">Standard</option>
                 <option value="futuristic" [selected]="draft.base === 'futuristic'">
-                  Futuristisch
+                  {{ i18n.t('settings.style.futuristic.name') }}
                 </option>
                 <option value="minimal" [selected]="draft.base === 'minimal'">
-                  Minimalistisch
+                  {{ i18n.t('settings.style.minimal.name') }}
                 </option>
               </select>
             </label>
             <label class="field" for="theme-base-mode">
-              <span>Grundlage</span>
+              <span>{{ i18n.t('themeEditor.baseMode.label') }}</span>
               <select id="theme-base-mode" (change)="selectMode($event)">
-                <option value="dark" [selected]="draft.mode === 'dark'">Dunkel</option>
-                <option value="light" [selected]="draft.mode === 'light'">Hell</option>
+                <option value="dark" [selected]="draft.mode === 'dark'">
+                  {{ i18n.t('settings.themeMode.dark') }}
+                </option>
+                <option value="light" [selected]="draft.mode === 'light'">
+                  {{ i18n.t('settings.themeMode.light') }}
+                </option>
               </select>
             </label>
           </div>
-          <p class="settings-hint">
-            Grundstil oder Grundlage zu ändern setzt Farben und Formen auf dessen Werte zurück.
-          </p>
+          <p class="settings-hint">{{ i18n.t('themeEditor.hint.baseChange') }}</p>
 
           <section class="settings-section" aria-labelledby="theme-colors-title">
-            <h3 id="theme-colors-title">Farben</h3>
+            <h3 id="theme-colors-title">{{ i18n.t('themeEditor.colors.title') }}</h3>
             <div class="theme-editor__colors">
               @for (color of colors; track color.key) {
                 <label class="theme-color">
@@ -77,17 +84,17 @@
                     [value]="draft.values[color.key]"
                     (input)="setColor(color.key, $event)"
                   />
-                  <span>{{ color.label }}</span>
+                  <span>{{ i18n.t(color.label) }}</span>
                 </label>
               }
             </div>
           </section>
 
           <section class="settings-section" aria-labelledby="theme-shape-title">
-            <h3 id="theme-shape-title">Form und Effekte</h3>
+            <h3 id="theme-shape-title">{{ i18n.t('themeEditor.shape.title') }}</h3>
             @for (control of shapeControls; track control.key) {
               <label class="field" [for]="'theme-' + control.key">
-                <span>{{ control.label }}</span>
+                <span>{{ i18n.t(control.label) }}</span>
                 <div class="theme-editor__range">
                   <input
                     type="range"
@@ -111,32 +118,32 @@
               (click)="togglePillCorners()"
             >
               <span class="switch-indicator" aria-hidden="true"></span>
-              <span>Runde Pillen (Status, Schalter, Hinweise)</span>
+              <span>{{ i18n.t('themeEditor.pillCorners') }}</span>
             </button>
           </section>
 
           <section class="settings-section" aria-labelledby="theme-font-title">
-            <h3 id="theme-font-title">Schrift</h3>
+            <h3 id="theme-font-title">{{ i18n.t('themeEditor.font.title') }}</h3>
             <div class="theme-editor__row">
               <label class="field" for="theme-font">
                 <span>Text</span>
                 <select id="theme-font" (change)="setFont('font', $event)">
                   @for (font of fonts; track font.value) {
                     <option [value]="font.value" [selected]="draft.values.font === font.value">
-                      {{ font.label }}
+                      {{ i18n.t(font.label) }}
                     </option>
                   }
                 </select>
               </label>
               <label class="field" for="theme-display-font">
-                <span>Überschriften</span>
+                <span>{{ i18n.t('themeEditor.font.headings.label') }}</span>
                 <select id="theme-display-font" (change)="setFont('displayFont', $event)">
                   @for (font of fonts; track font.value) {
                     <option
                       [value]="font.value"
                       [selected]="draft.values.displayFont === font.value"
                     >
-                      {{ font.label }}
+                      {{ i18n.t(font.label) }}
                     </option>
                   }
                 </select>
@@ -146,9 +153,9 @@
 
           <details class="settings-section theme-editor__advanced">
             <summary>
-              Profi: alle Farben einzeln
+              {{ i18n.t('themeEditor.advanced.summary') }}
               @if (advancedCount() > 0) {
-                ({{ advancedCount() }} geändert)
+                {{ i18n.t('themeEditor.advanced.changedCount', { count: advancedCount() }) }}
               }
             </summary>
             <div class="theme-editor__colors">
@@ -162,7 +169,7 @@
                     [value]="advancedColors()[entry.token]"
                     (input)="setAdvanced(entry.token, $event)"
                   />
-                  <span>{{ entry.label }}</span>
+                  <span>{{ i18n.t(entry.label) }}</span>
                 </label>
               }
             </div>
@@ -172,24 +179,24 @@
               [disabled]="advancedCount() === 0"
               (click)="resetAdvanced()"
             >
-              Profi-Farben zurücksetzen
+              {{ i18n.t('themeEditor.advanced.reset') }}
             </button>
           </details>
 
           @if (isEditing()) {
             @if (deletePending()) {
               <div class="confirm-row" role="alert">
-                <span>Stil wirklich löschen?</span>
+                <span>{{ i18n.t('themeEditor.confirmDelete') }}</span>
                 <button class="danger-button" type="button" (click)="confirmDelete()">
-                  Löschen
+                  {{ i18n.t('common.delete') }}
                 </button>
                 <button class="secondary-button" type="button" (click)="deletePending.set(false)">
-                  Abbrechen
+                  {{ i18n.t('common.cancel') }}
                 </button>
               </div>
             } @else {
               <button class="text-danger-button" type="button" (click)="deletePending.set(true)">
-                Stil löschen
+                {{ i18n.t('themeEditor.delete') }}
               </button>
             }
           }
@@ -200,8 +207,10 @@
         </div>
 
         <footer class="settings-actions">
-          <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
-          <button class="primary-button" type="submit">Speichern</button>
+          <button class="secondary-button" type="button" (click)="close()">
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button class="primary-button" type="submit">{{ i18n.t('common.save') }}</button>
         </footer>
       </form>
     }

@@ -17,6 +17,8 @@ const DARK_THEME_COLOR = '#070b0e';
 const LIGHT_THEME_COLOR = '#eef3f4';
 const HEX_COLOR = /^#[0-9a-f]{6}$/;
 
+// label ist ein Key ins Uebersetzungs-Dictionary (translation.ts); System/Serif/Monospace sind
+// in beiden Sprachen gleich und bleiben daher als Literal (translate() faellt darauf zurueck).
 export const THEME_FONTS: Readonly<Record<ThemeFont, { label: string; stack: string }>> = {
   system: {
     label: 'System',
@@ -24,7 +26,7 @@ export const THEME_FONTS: Readonly<Record<ThemeFont, { label: string; stack: str
       "Inter, 'Segoe UI Variable', 'Segoe UI', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
   },
   rounded: {
-    label: 'Rund',
+    label: 'themeFont.rounded',
     stack: "ui-rounded, 'SF Pro Rounded', 'Nunito', 'Varela Round', system-ui, sans-serif",
   },
   serif: { label: 'Serif', stack: "ui-serif, Georgia, 'Times New Roman', serif" },
@@ -53,55 +55,57 @@ export type CustomThemeColorKey =
   'accent' | 'background' | 'surface' | 'raised' | 'text' | 'muted' | 'line' | 'danger';
 export type CustomThemeNumberKey = keyof typeof CUSTOM_THEME_RANGES;
 
+// label ist ein Key ins Uebersetzungs-Dictionary (translation.ts), kein Anzeigetext.
 export const CUSTOM_THEME_COLORS: readonly { key: CustomThemeColorKey; label: string }[] = [
-  { key: 'accent', label: 'Akzent' },
-  { key: 'background', label: 'Hintergrund' },
-  { key: 'surface', label: 'Flächen' },
-  { key: 'raised', label: 'Knöpfe' },
+  { key: 'accent', label: 'themeColor.accent' },
+  { key: 'background', label: 'themeColor.background' },
+  { key: 'surface', label: 'themeColor.surface' },
+  { key: 'raised', label: 'themeColor.raised' },
   { key: 'text', label: 'Text' },
-  { key: 'muted', label: 'Gedämpfter Text' },
-  { key: 'line', label: 'Linien' },
-  { key: 'danger', label: 'Warnfarbe' },
+  { key: 'muted', label: 'themeColor.muted' },
+  { key: 'line', label: 'themeColor.line' },
+  { key: 'danger', label: 'themeColor.danger' },
 ];
 
-/** Alle Farb-Tokens aus styles.scss, die der Profi-Bereich einzeln überschreiben darf. */
+/** Alle Farb-Tokens aus styles.scss, die der Profi-Bereich einzeln überschreiben darf. label
+ *  ist ein Key ins Uebersetzungs-Dictionary (translation.ts), kein Anzeigetext. */
 export const ADVANCED_THEME_TOKENS: readonly { token: string; label: string }[] = [
-  { token: '--app-bg', label: 'Seitenhintergrund' },
-  { token: '--app-bg-start', label: 'Hintergrund-Verlauf Anfang' },
-  { token: '--app-bg-end', label: 'Hintergrund-Verlauf Ende' },
-  { token: '--panel-bg-mobile', label: 'Hintergrund Handy' },
-  { token: '--surface-solid', label: 'Fläche' },
-  { token: '--surface-raised', label: 'Knopf' },
-  { token: '--surface-hover', label: 'Knopf beim Überfahren' },
-  { token: '--surface-soft', label: 'Fläche gedämpft' },
-  { token: '--surface-sunken', label: 'Fläche vertieft' },
+  { token: '--app-bg', label: 'themeToken.appBg' },
+  { token: '--app-bg-start', label: 'themeToken.appBgStart' },
+  { token: '--app-bg-end', label: 'themeToken.appBgEnd' },
+  { token: '--panel-bg-mobile', label: 'themeToken.panelBgMobile' },
+  { token: '--surface-solid', label: 'themeToken.surfaceSolid' },
+  { token: '--surface-raised', label: 'themeToken.surfaceRaised' },
+  { token: '--surface-hover', label: 'themeToken.surfaceHover' },
+  { token: '--surface-soft', label: 'themeToken.surfaceSoft' },
+  { token: '--surface-sunken', label: 'themeToken.surfaceSunken' },
   { token: '--surface-dialog', label: 'Dialog' },
-  { token: '--surface-focus', label: 'Eingabefeld mit Fokus' },
-  { token: '--surface-well', label: 'Touchpad-Fläche' },
-  { token: '--surface-bar', label: 'Touchpad-Textleiste' },
+  { token: '--surface-focus', label: 'themeToken.surfaceFocus' },
+  { token: '--surface-well', label: 'themeToken.surfaceWell' },
+  { token: '--surface-bar', label: 'themeToken.surfaceBar' },
   { token: '--text', label: 'Text' },
-  { token: '--text-soft', label: 'Text weich' },
-  { token: '--muted', label: 'Gedämpft' },
-  { token: '--muted-strong', label: 'Gedämpft stark' },
-  { token: '--text-faint', label: 'Text blass' },
-  { token: '--text-disabled', label: 'Text deaktiviert' },
-  { token: '--accent', label: 'Akzent' },
-  { token: '--accent-strong', label: 'Akzent stark' },
-  { token: '--accent-text', label: 'Akzent-Text' },
-  { token: '--accent-gradient-start', label: 'Hauptknopf Verlauf Anfang' },
-  { token: '--accent-gradient-end', label: 'Hauptknopf Verlauf Ende' },
-  { token: '--on-accent', label: 'Text auf Akzent' },
-  { token: '--button-disabled-bg', label: 'Knopf deaktiviert' },
-  { token: '--button-disabled-text', label: 'Knopftext deaktiviert' },
-  { token: '--switch-track', label: 'Schalter aus' },
-  { token: '--switch-knob', label: 'Schalterknopf' },
-  { token: '--danger', label: 'Warnung' },
-  { token: '--danger-text', label: 'Warnungstext' },
-  { token: '--danger-text-hover', label: 'Warnungstext beim Überfahren' },
-  { token: '--danger-surface', label: 'Warnungsfläche' },
-  { token: '--danger-surface-hover', label: 'Warnungsfläche beim Überfahren' },
-  { token: '--warning', label: 'Hinweis' },
-  { token: '--success', label: 'Erfolg' },
+  { token: '--text-soft', label: 'themeToken.textSoft' },
+  { token: '--muted', label: 'themeToken.muted' },
+  { token: '--muted-strong', label: 'themeToken.mutedStrong' },
+  { token: '--text-faint', label: 'themeToken.textFaint' },
+  { token: '--text-disabled', label: 'themeToken.textDisabled' },
+  { token: '--accent', label: 'themeToken.accent' },
+  { token: '--accent-strong', label: 'themeToken.accentStrong' },
+  { token: '--accent-text', label: 'themeToken.accentText' },
+  { token: '--accent-gradient-start', label: 'themeToken.accentGradientStart' },
+  { token: '--accent-gradient-end', label: 'themeToken.accentGradientEnd' },
+  { token: '--on-accent', label: 'themeToken.onAccent' },
+  { token: '--button-disabled-bg', label: 'themeToken.buttonDisabledBg' },
+  { token: '--button-disabled-text', label: 'themeToken.buttonDisabledText' },
+  { token: '--switch-track', label: 'themeToken.switchTrack' },
+  { token: '--switch-knob', label: 'themeToken.switchKnob' },
+  { token: '--danger', label: 'themeToken.danger' },
+  { token: '--danger-text', label: 'themeToken.dangerText' },
+  { token: '--danger-text-hover', label: 'themeToken.dangerTextHover' },
+  { token: '--danger-surface', label: 'themeToken.dangerSurface' },
+  { token: '--danger-surface-hover', label: 'themeToken.dangerSurfaceHover' },
+  { token: '--warning', label: 'themeToken.warning' },
+  { token: '--success', label: 'themeToken.success' },
 ];
 const ADVANCED_TOKEN_NAMES = new Set(ADVANCED_THEME_TOKENS.map((entry) => entry.token));
 /** Tokens, zu denen ein *-rgb-Kanal-Token gehört, der mitziehen muss. */

@@ -2,6 +2,7 @@ import { computed, inject, Injectable, InjectionToken, signal } from '@angular/c
 import { REMOTE_STORAGE } from './remote.service';
 import { getServerHttpBaseUrl, SERVER_LOCATION } from './server-config';
 import { PAIRING_TOKEN_STORAGE_KEY, parseStoredPairingToken } from './pairing';
+import { TranslationService } from './translation.service';
 
 export const PAIRING_FETCH = new InjectionToken<typeof fetch>('PAIRING_FETCH', {
   providedIn: 'root',
@@ -29,6 +30,7 @@ export class PairingService {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly fetchFn = inject(PAIRING_FETCH);
   private readonly serverLocation = inject(SERVER_LOCATION);
+  private readonly i18n = inject(TranslationService);
 
   private readonly tokenSignal = signal<string | null>(this.loadToken());
   private readonly errorSignal = signal<string | null>(null);
@@ -55,12 +57,14 @@ export class PairingService {
       });
       body = (await response.json()) as PairResponseBody;
     } catch (error) {
-      this.errorSignal.set(`Verbindung zum Server fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      this.errorSignal.set(
+        this.i18n.t('pairingService.error.connectFailed', { message: this.getErrorMessage(error) }),
+      );
       return false;
     }
 
     if (!body.success || !body.token) {
-      this.errorSignal.set(body.error?.trim() || 'PIN wurde vom Server abgelehnt.');
+      this.errorSignal.set(body.error?.trim() || this.i18n.t('pairingService.error.pinRejected'));
       return false;
     }
 
@@ -114,7 +118,9 @@ export class PairingService {
         headers: { Authorization: `Bearer ${token}` },
       });
     } catch (error) {
-      this.errorSignal.set(`Entkopplung fehlgeschlagen: ${this.getErrorMessage(error)}`);
+      this.errorSignal.set(
+        this.i18n.t('pairingService.error.unpairFailed', { message: this.getErrorMessage(error) }),
+      );
       return false;
     }
 
@@ -130,7 +136,7 @@ export class PairingService {
       // Fehlerantworten ohne JSON verwenden den stabilen Fallback unten.
     }
 
-    this.errorSignal.set(body?.error?.trim() || 'Entkopplung wurde vom Server abgelehnt.');
+    this.errorSignal.set(body?.error?.trim() || this.i18n.t('pairingService.error.unpairRejected'));
     return false;
   }
 
@@ -150,6 +156,6 @@ export class PairingService {
   private getErrorMessage(error: unknown): string {
     return error instanceof Error && error.message.length > 0
       ? error.message
-      : 'Unbekannter Fehler';
+      : this.i18n.t('common.unknownError');
   }
 }

@@ -15,14 +15,16 @@ import {
   ThemeStyle,
 } from './theme';
 import { createThemeId, ThemeService } from './theme.service';
+import { TranslationService } from './translation.service';
 
+/** label ist ein Key ins Uebersetzungs-Dictionary (translation.ts), kein Anzeigetext. */
 const SHAPE_CONTROLS: readonly { key: CustomThemeNumberKey; label: string }[] = [
-  { key: 'borderWidth', label: 'Rahmendicke' },
-  { key: 'radius', label: 'Eckenrundung' },
-  { key: 'shadow', label: 'Schatten' },
-  { key: 'decor', label: 'Verläufe und Leuchten' },
-  { key: 'grid', label: 'Hintergrundgitter' },
-  { key: 'fontScale', label: 'Schriftgröße' },
+  { key: 'borderWidth', label: 'themeShape.borderWidth' },
+  { key: 'radius', label: 'themeShape.radius' },
+  { key: 'shadow', label: 'themeShape.shadow' },
+  { key: 'decor', label: 'themeShape.decor' },
+  { key: 'grid', label: 'themeShape.grid' },
+  { key: 'fontScale', label: 'themeShape.fontScale' },
 ];
 
 @Component({
@@ -32,6 +34,7 @@ const SHAPE_CONTROLS: readonly { key: CustomThemeNumberKey; label: string }[] = 
 export class ThemeEditorDialogComponent implements OnInit {
   private readonly theme = inject(ThemeService);
   private readonly document = inject(DOCUMENT);
+  protected readonly i18n = inject(TranslationService);
 
   /** id des zu bearbeitenden Stils; null legt einen neuen an. */
   readonly themeId = input<string | null>(null);
@@ -91,7 +94,7 @@ export class ThemeEditorDialogComponent implements OnInit {
     const base = this.theme.style();
     this.draft.set({
       id: createThemeId(),
-      name: `Eigener Stil ${this.theme.customThemes().length + 1}`,
+      name: this.i18n.t('themeEditor.defaultName', { n: this.theme.customThemes().length + 1 }),
       base,
       mode,
       values: this.theme.readBaseValues(base, mode),
@@ -187,7 +190,7 @@ export class ThemeEditorDialogComponent implements OnInit {
       return;
     }
     if (!this.theme.saveCustomTheme({ ...draft, name })) {
-      this.saveError.set(`Es sind höchstens ${MAX_CUSTOM_THEMES} eigene Stile möglich.`);
+      this.saveError.set(this.i18n.t('themeEditor.saveError', { max: MAX_CUSTOM_THEMES }));
       return;
     }
     this.theme.preview(null);

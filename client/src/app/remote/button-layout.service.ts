@@ -29,6 +29,7 @@ import {
 import { BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
 import { MacroStep, RemoteButtonConfig, RemoteIcon } from './remote.models';
 import { REMOTE_STORAGE } from './remote.service';
+import { TranslationService } from './translation.service';
 
 export const BUTTON_ID_FACTORY = new InjectionToken<() => string>('BUTTON_ID_FACTORY', {
   providedIn: 'root',
@@ -57,6 +58,7 @@ export class ButtonLayoutService {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly nextId = inject(BUTTON_ID_FACTORY);
   private readonly nextProfileId = inject(PROFILE_ID_FACTORY);
+  private readonly i18n = inject(TranslationService);
   private readonly builtIns: readonly RemoteButtonConfig[] = BUILT_IN_BUTTONS;
 
   private readonly initialProfileState = this.loadProfileState();
@@ -120,7 +122,7 @@ export class ButtonLayoutService {
     const profiles = this.profilesSignal();
 
     if (name === null) {
-      this.profileErrorSignal.set('Profilname darf 1 bis 40 Zeichen lang sein.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.invalidName'));
       return false;
     }
     if (
@@ -128,11 +130,13 @@ export class ButtonLayoutService {
         (profile) => profile.name.localeCompare(name, 'de-DE', { sensitivity: 'base' }) === 0,
       )
     ) {
-      this.profileErrorSignal.set('Ein Profil mit diesem Namen ist bereits vorhanden.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.duplicateName'));
       return false;
     }
     if (profiles.length >= MAX_LAYOUT_PROFILES) {
-      this.profileErrorSignal.set(`Es sind höchstens ${MAX_LAYOUT_PROFILES} Profile möglich.`);
+      this.profileErrorSignal.set(
+        this.i18n.t('buttonLayoutService.error.tooManyProfiles', { max: MAX_LAYOUT_PROFILES }),
+      );
       return false;
     }
 
@@ -148,7 +152,7 @@ export class ButtonLayoutService {
     this.profileErrorSignal.set(null);
     const profile = this.profilesSignal().find((candidate) => candidate.id === id);
     if (profile === undefined) {
-      this.profileErrorSignal.set('Das ausgewählte Profil ist nicht vorhanden.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.profileNotFound'));
       return false;
     }
 
@@ -162,11 +166,11 @@ export class ButtonLayoutService {
     this.profileErrorSignal.set(null);
     const profiles = this.profilesSignal();
     if (profiles.length <= 1) {
-      this.profileErrorSignal.set('Mindestens ein Profil muss erhalten bleiben.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.lastProfile'));
       return false;
     }
     if (!profiles.some((profile) => profile.id === id)) {
-      this.profileErrorSignal.set('Das ausgewählte Profil ist nicht vorhanden.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.profileNotFound'));
       return false;
     }
 
@@ -195,7 +199,7 @@ export class ButtonLayoutService {
     this.profileErrorSignal.set(null);
     const imported = importProfileState(rawValue);
     if (imported === null) {
-      this.profileErrorSignal.set('Die Datei enthält keine gültigen YFRemote-Layoutprofile.');
+      this.profileErrorSignal.set(this.i18n.t('buttonLayoutService.error.invalidImport'));
       return false;
     }
 

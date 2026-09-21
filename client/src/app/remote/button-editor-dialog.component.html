@@ -76,6 +76,28 @@
         </div>
 
         <div class="field">
+          <button
+            class="snap-switch"
+            type="button"
+            role="switch"
+            [attr.aria-checked]="colorEnabled()"
+            (click)="toggleColorEnabled()"
+          >
+            <span class="switch-indicator" aria-hidden="true"></span>
+            <span>{{ i18n.t('buttonEditor.color.toggle') }}</span>
+          </button>
+          @if (colorEnabled()) {
+            <input
+              class="color-input"
+              type="color"
+              [attr.aria-label]="i18n.t('buttonEditor.color.field')"
+              [value]="colorValue()"
+              (input)="onColorInput($event)"
+            />
+          }
+        </div>
+
+        <div class="field">
           <span>{{ i18n.t('buttonEditor.steps.field') }}</span>
 
           @if (steps().length > 0) {
@@ -244,7 +266,10 @@
       <footer class="settings-actions">
         @if (isReadOnly()) {
           <button class="secondary-button" type="button" (click)="close()">
-            {{ i18n.t('common.close') }}
+            {{ i18n.t('common.cancel') }}
+          </button>
+          <button class="primary-button" type="button" (click)="save()">
+            {{ i18n.t('common.save') }}
           </button>
         } @else {
           @if (isEditing()) {

@@ -24,6 +24,14 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 - Touchpad text field: a microphone button dictates via the browser's speech recognition instead of typing. With "Live" on, dictated text is sent as it is recognized, same as typing; with it off, it only fills the field for review before "Senden". Multiple sentences append instead of overwriting each other as long as the button stays on. Not shown on browsers without speech recognition support (e.g. Firefox).
 - The client now supports English in addition to German. Switch via the new "Sprache"/"Language" field in Settings — German stays the default, and the choice is remembered on the device.
+- The client now caches its app shell via an Angular service worker, so it loads even over a flaky connection once it has been opened once. Production builds only; a `dotnet run`/`ng serve` dev session is unaffected.
+- The install manifest now ships properly sized 192x192 and 512x512 icons plus a maskable variant, so Android/desktop installs get a crisp, adaptive-icon-compatible app icon instead of one giant PNG scaled down.
+- Settings: a "Zuletzt verbunden"/"Recently connected" list under Host/IP remembers up to 6 previously used servers (this device only) so switching between multiple PCs no longer means retyping host and port each time.
+- Every button on the Remote page — built-in or custom — can now have its own background color. Opening a button in edit mode reveals "Eigene Farbe verwenden" with a color picker; icon and label switch between black and white automatically for readable contrast. A built-in button's label/icon/action stay fixed; only its color is editable.
+
+### Fixed
+
+- A built-in button not yet present in a saved layout (e.g. "Vorheriger"/"Stopp"/"Nächster" or "Ruhemodus"/"Neustart"/"Herunterfahren" on a layout saved before they existed) was auto-placed as a tiny 1x1 cell instead of its intended size, rendering with a cut-off label. It now gets its real default size, and an existing layout already stuck with a 1x1 built-in self-heals to the correct size the next time it loads.
 
 ## [2.15.0] - 2026-09-21
 

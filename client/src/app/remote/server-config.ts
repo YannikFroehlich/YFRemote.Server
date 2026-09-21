@@ -88,6 +88,61 @@ export function normalizeServerConfig(config: ServerConfig): ServerConfig | null
   };
 }
 
+export const SERVER_PROFILES_STORAGE_KEY = 'yfremote.serverProfiles';
+export const MAX_SERVER_PROFILES = 6;
+
+export function parseStoredServerProfiles(rawValue: string | null): ServerConfig[] {
+  if (rawValue === null) {
+    return [];
+  }
+
+  try {
+    const parsedValue: unknown = JSON.parse(rawValue);
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    const normalizedProfiles: ServerConfig[] = [];
+    for (const entry of parsedValue) {
+      const normalizedProfile = isServerConfigShape(entry) ? normalizeServerConfig(entry) : null;
+      if (normalizedProfile !== null) {
+        normalizedProfiles.push(normalizedProfile);
+      }
+    }
+
+    return normalizedProfiles.slice(0, MAX_SERVER_PROFILES);
+  } catch {
+    return [];
+  }
+}
+
+/** Reiht `config` vorne ein (ein vorhandener Eintrag wird verschoben statt verdoppelt) und kappt bei MAX_SERVER_PROFILES. */
+export function withServerProfile(
+  profiles: readonly ServerConfig[],
+  config: ServerConfig,
+): ServerConfig[] {
+  const withoutExisting = profiles.filter(
+    (profile) => profile.host !== config.host || profile.port !== config.port,
+  );
+  return [config, ...withoutExisting].slice(0, MAX_SERVER_PROFILES);
+}
+
+export function withoutServerProfile(
+  profiles: readonly ServerConfig[],
+  config: ServerConfig,
+): ServerConfig[] {
+  return profiles.filter((profile) => profile.host !== config.host || profile.port !== config.port);
+}
+
+function isServerConfigShape(value: unknown): value is ServerConfig {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as ServerConfig).host === 'string' &&
+    typeof (value as ServerConfig).port === 'number'
+  );
+}
+
 export function normalizeMouseSensitivity(value: number): number | null {
   return normalizeRangeValue(value, MOUSE_SENSITIVITY_MIN, MOUSE_SENSITIVITY_MAX);
 }

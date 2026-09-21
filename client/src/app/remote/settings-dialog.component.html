@@ -63,6 +63,37 @@
           }
         </label>
 
+        @if (serverProfiles().length > 0) {
+          <div class="field">
+            <span>{{ i18n.t('settings.recentServers.label') }}</span>
+            <div class="recent-servers">
+              @for (profile of serverProfiles(); track profile.host + ':' + profile.port) {
+                <div class="recent-server-chip">
+                  <button
+                    class="recent-server-chip__select"
+                    type="button"
+                    (click)="selectServerProfile(profile)"
+                  >
+                    {{ profile.host }}:{{ profile.port }}
+                  </button>
+                  <button
+                    class="recent-server-chip__remove"
+                    type="button"
+                    [attr.aria-label]="
+                      i18n.t('settings.recentServers.removeAriaLabel', {
+                        host: profile.host + ':' + profile.port,
+                      })
+                    "
+                    (click)="removeServerProfile(profile)"
+                  >
+                    <span aria-hidden="true">x</span>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
         <label class="field" for="mouse-sensitivity">
           <span>{{ i18n.t('settings.mouseSensitivity.label') }}</span>
           <div class="range-row">

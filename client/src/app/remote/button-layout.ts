@@ -25,6 +25,8 @@ export interface ButtonPlacement {
   readonly row: number;
   readonly colSpan: number;
   readonly rowSpan: number;
+  /** Eigene Hintergrundfarbe (#rrggbb) - eingebaut oder eigen, gleich behandelt; nicht gesetzt = Theme-Standard. */
+  readonly color?: string | null;
 }
 
 export interface CustomButtonDefinition {
@@ -71,6 +73,23 @@ export function customButtonToConfig(definition: CustomButtonDefinition): Remote
   };
 }
 
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+export function normalizeButtonColor(value: unknown): string | null {
+  return typeof value === 'string' && HEX_COLOR_PATTERN.test(value) ? value.toLowerCase() : null;
+}
+
+/** Schwarz oder Weiß, je nachdem, was auf `backgroundHex` besser lesbar ist (WCAG-Luminanz). */
+export function readableTextColor(backgroundHex: string): '#000000' | '#ffffff' {
+  const hex = backgroundHex.replace('#', '');
+  const r = parseInt(hex.slice(0, 2), 16) / 255;
+  const g = parseInt(hex.slice(2, 4), 16) / 255;
+  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const channel = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  return luminance > 0.35 ? '#000000' : '#ffffff';
+}
+
 /** Liefert die auszuführenden Schritte für einen Button, egal ob er ein einfaches `action`
  *  (eingebaute Buttons) oder eine mehrschrittige `steps`-Kette (Custom-Buttons) trägt. */
 export function resolveButtonSteps(button: RemoteButtonConfig): readonly MacroStep[] {
@@ -90,7 +109,7 @@ export function clampPlacement(
   const col = clampNumber(placement.col, 0, columns - colSpan);
   const row = clampNumber(placement.row, 0, LAYOUT_MAX_ROWS - rowSpan);
 
-  return { id: placement.id, col, row, colSpan, rowSpan };
+  return { id: placement.id, col, row, colSpan, rowSpan, color: normalizeButtonColor(placement.color) ?? undefined };
 }
 
 export function snapPlacement(placement: ButtonPlacement): ButtonPlacement {
@@ -261,6 +280,7 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
 export function resolveButtonLayout(
   stored: ButtonLayout,
   builtIns: readonly RemoteButtonConfig[] = BUILT_IN_BUTTONS,
+  defaultPlacements: readonly ButtonPlacement[] = DEFAULT_PLACEMENTS,
 ): ButtonLayout {
   const customButtons = stored.customButtons
     .map((candidate) => normalizeCustomButtonDefinition(candidate))
@@ -271,6 +291,10 @@ export function resolveButtonLayout(
     ...builtIns.map((button) => button.id),
     ...customButtons.map((definition) => definition.id),
   ]);
+
+  const defaultSpanById = new Map(
+    defaultPlacements.map((placement) => [placement.id, placement] as const),
+  );
 
   const placements: ButtonPlacement[] = [];
   const seen = new Set<string>();
@@ -288,6 +312,21 @@ export function resolveButtonLayout(
       continue;
     }
 
+    // Ein eingebauter Button lässt sich in der UI nicht auf 1x1 verkleinern - so eine
+    // Platzierung stammt von einer inzwischen behobenen Notlösung, die neue eingebaute Buttons
+    // ohne ihre eigentliche Default-Größe eingesetzt hat. Hier fallen lassen, damit er unten
+    // erneut (diesmal richtig) platziert wird, statt winzig gespeichert zu bleiben.
+    const defaultSpan = defaultSpanById.get(placement.id);
+    const looksLikeStaleAutoPlacement =
+      placement.colSpan === 1 &&
+      placement.rowSpan === 1 &&
+      defaultSpan !== undefined &&
+      (defaultSpan.colSpan !== 1 || defaultSpan.rowSpan !== 1);
+
+    if (looksLikeStaleAutoPlacement) {
+      continue;
+    }
+
     seen.add(placement.id);
     placements.push(clampPlacement(placement));
   }
@@ -301,8 +340,14 @@ export function resolveButtonLayout(
       continue;
     }
 
-    const slot = findFreeSlot(placements, 1, 1);
-    placements.push({ id: builtIn.id, col: slot.col, row: slot.row, colSpan: 1, rowSpan: 1 });
+    // Ein Button, der schon eine feste Default-Platzierung hat (der Normalfall - siehe
+    // DEFAULT_PLACEMENTS), bekommt hier deren Größe statt einer winzigen 1x1-Notlösung, sonst
+    // landen neu hinzugekommene eingebaute Buttons in einer bestehenden Ablage abgeschnitten.
+    const defaultSpan = defaultSpanById.get(builtIn.id);
+    const colSpan = defaultSpan?.colSpan ?? 1;
+    const rowSpan = defaultSpan?.rowSpan ?? 1;
+    const slot = findFreeSlot(placements, colSpan, rowSpan);
+    placements.push({ id: builtIn.id, col: slot.col, row: slot.row, colSpan, rowSpan });
     seen.add(builtIn.id);
   }
 

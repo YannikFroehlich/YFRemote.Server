@@ -35,6 +35,9 @@
         [attr.aria-disabled]="item.button.disabled === true || null"
         [attr.aria-label]="i18n.t(item.button.ariaLabel)"
         [attr.title]="item.button.unavailableText ?? i18n.t(item.button.ariaLabel)"
+        [style.background]="item.placement.color ?? null"
+        [style.border-color]="item.placement.color ?? null"
+        [style.color]="item.placement.color ? textColorFor(item.placement.color) : null"
         (click)="activate(item)"
         (keydown)="slotKeydown($event, item)"
       >

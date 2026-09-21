@@ -2,6 +2,7 @@ import { Component, inject, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
+import { ServerConfig } from './remote.models';
 import { RemoteService } from './remote.service';
 import {
   hostValidator,
@@ -43,6 +44,7 @@ export class SettingsDialogComponent {
 
   protected readonly status = this.remote.status;
   protected readonly lastError = this.remote.lastError;
+  protected readonly serverProfiles = this.remote.serverProfiles;
   protected readonly mouseSensitivityMin = MOUSE_SENSITIVITY_MIN;
   protected readonly mouseSensitivityMax = MOUSE_SENSITIVITY_MAX;
   protected readonly mouseSensitivityStep = MOUSE_SENSITIVITY_STEP;
@@ -252,6 +254,17 @@ export class SettingsDialogComponent {
   ): boolean {
     const control = this.form.controls[fieldName];
     return control.invalid && (control.dirty || control.touched);
+  }
+
+  protected selectServerProfile(profile: ServerConfig): void {
+    this.form.controls.host.setValue(profile.host);
+    this.form.controls.port.setValue(profile.port);
+    this.form.controls.host.markAsDirty();
+    this.form.controls.port.markAsDirty();
+  }
+
+  protected removeServerProfile(profile: ServerConfig): void {
+    this.remote.removeServerProfile(profile);
   }
 
   protected selectProfile(event: Event): void {

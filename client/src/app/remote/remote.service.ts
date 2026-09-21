@@ -21,9 +21,13 @@ import {
   parseStoredFlag,
   parseStoredMouseSensitivity,
   parseStoredScrollSpeed,
+  parseStoredServerProfiles,
   POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
   SERVER_LOCATION,
+  SERVER_PROFILES_STORAGE_KEY,
+  withoutServerProfile,
+  withServerProfile,
 } from './server-config';
 import { TranslationService } from './translation.service';
 
@@ -98,6 +102,7 @@ export class RemoteService implements OnDestroy {
   private readonly configSignal = signal<ServerConfig>(
     getServerConfigFromLocation(this.serverLocation),
   );
+  private readonly serverProfilesSignal = signal<ServerConfig[]>(this.loadServerProfiles());
   private readonly mouseSensitivitySignal = signal(this.loadMouseSensitivity());
   private readonly scrollSpeedSignal = signal(
     parseStoredScrollSpeed(this.readStorage(SCROLL_SPEED_STORAGE_KEY)),
@@ -126,6 +131,7 @@ export class RemoteService implements OnDestroy {
   private readonly pendingActions = new Map<string, PendingAction>();
 
   readonly config = this.configSignal.asReadonly();
+  readonly serverProfiles = this.serverProfilesSignal.asReadonly();
   readonly mouseSensitivity = this.mouseSensitivitySignal.asReadonly();
   readonly scrollSpeed = this.scrollSpeedSignal.asReadonly();
   readonly invertScroll = this.invertScrollSignal.asReadonly();
@@ -138,6 +144,8 @@ export class RemoteService implements OnDestroy {
   readonly socketUrl = computed(() => this.createSocketUrl());
 
   constructor() {
+    this.recordServerProfile(this.configSignal());
+
     if (this.autoConnect) {
       this.connect();
     }
@@ -190,7 +198,9 @@ export class RemoteService implements OnDestroy {
     }
 
     try {
-      this.serverLocation.assign(getServerPageUrl(normalizedConfig, this.serverLocation));
+      const targetUrl = getServerPageUrl(normalizedConfig, this.serverLocation);
+      this.recordServerProfile(normalizedConfig);
+      this.serverLocation.assign(targetUrl);
       return true;
     } catch (error) {
       this.showError(
@@ -243,6 +253,12 @@ export class RemoteService implements OnDestroy {
   saveLiveTyping(enabled: boolean): void {
     this.liveTypingSignal.set(enabled);
     this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
+  }
+
+  removeServerProfile(config: ServerConfig): void {
+    const updated = withoutServerProfile(this.serverProfilesSignal(), config);
+    this.serverProfilesSignal.set(updated);
+    this.persistServerProfiles(updated);
   }
 
   /** Führt eine Aktionskette sequenziell aus und wartet neben der konfigurierten
@@ -562,6 +578,20 @@ export class RemoteService implements OnDestroy {
 
   private loadMouseSensitivity(): number {
     return parseStoredMouseSensitivity(this.readStorage(MOUSE_SENSITIVITY_STORAGE_KEY));
+  }
+
+  private loadServerProfiles(): ServerConfig[] {
+    return parseStoredServerProfiles(this.readStorage(SERVER_PROFILES_STORAGE_KEY));
+  }
+
+  private recordServerProfile(config: ServerConfig): void {
+    const updated = withServerProfile(this.serverProfilesSignal(), config);
+    this.serverProfilesSignal.set(updated);
+    this.persistServerProfiles(updated);
+  }
+
+  private persistServerProfiles(profiles: readonly ServerConfig[]): void {
+    this.storage?.setItem(SERVER_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
   }
 
   private readStorage(key: string): string | null {

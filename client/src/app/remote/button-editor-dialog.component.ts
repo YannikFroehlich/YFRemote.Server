@@ -14,6 +14,7 @@ import { MacroStep, RemoteAction, RemoteIcon } from './remote.models';
 import { TranslationService } from './translation.service';
 
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
+const DEFAULT_CUSTOM_COLOR = '#62e3c4';
 
 type StepType = 'keys' | 'text' | 'mouseClick';
 
@@ -58,6 +59,9 @@ export class ButtonEditorDialogComponent implements OnInit {
     icon: new FormControl<RemoteIcon>('key', { nonNullable: true }),
   });
 
+  protected readonly colorEnabled = signal(false);
+  protected readonly colorValue = signal(DEFAULT_CUSTOM_COLOR);
+
   ngOnInit(): void {
     const id = this.targetId();
 
@@ -73,6 +77,12 @@ export class ButtonEditorDialogComponent implements OnInit {
 
     this.form.patchValue({ label: this.i18n.t(button.label), icon: button.icon });
     this.steps.set(resolveButtonSteps(button));
+
+    const color = this.layout.getButtonColor(id);
+    if (color !== null) {
+      this.colorEnabled.set(true);
+      this.colorValue.set(color);
+    }
 
     if (isCustomButtonId(id)) {
       this.isEditing.set(true);
@@ -107,6 +117,14 @@ export class ButtonEditorDialogComponent implements OnInit {
 
   protected isPendingKeyDisabled(key: string): boolean {
     return !this.isPendingKeySelected(key) && this.pendingKeys().length >= this.maxKeysPerStep;
+  }
+
+  protected toggleColorEnabled(): void {
+    this.colorEnabled.update((enabled) => !enabled);
+  }
+
+  protected onColorInput(event: Event): void {
+    this.colorValue.set((event.target as HTMLInputElement).value);
   }
 
   protected onPendingTextInput(event: Event): void {
@@ -192,6 +210,12 @@ export class ButtonEditorDialogComponent implements OnInit {
   }
 
   protected canSave(): boolean {
+    // Bei eingebauten Buttons ist das Formular (Beschriftung/Symbol/Schritte) gesperrt und
+    // damit per Definition "invalid" - dort zaehlt nur, ob ueberhaupt etwas zu speichern da ist.
+    if (this.isReadOnly()) {
+      return true;
+    }
+
     return this.steps().length > 0 && this.form.valid;
   }
 
@@ -200,6 +224,19 @@ export class ButtonEditorDialogComponent implements OnInit {
   }
 
   protected save(): void {
+    const id = this.targetId();
+    const color = this.colorEnabled() ? this.colorValue() : null;
+
+    if (this.isReadOnly()) {
+      // Eingebaute Buttons haben keine eigene Definition zum Bearbeiten - nur ihre Platzierung
+      // trägt eine Farbe.
+      if (id !== null) {
+        this.layout.setButtonColor(id, color);
+      }
+      this.closed.emit();
+      return;
+    }
+
     this.form.markAllAsTouched();
     const steps = this.steps();
 
@@ -211,9 +248,9 @@ export class ButtonEditorDialogComponent implements OnInit {
       label: this.form.controls.label.value.trim(),
       icon: this.form.controls.icon.value,
       steps,
+      color,
     };
 
-    const id = this.targetId();
     const saved =
       id === null ? this.layout.addCustomButton(draft) : this.layout.updateCustomButton(id, draft);
 

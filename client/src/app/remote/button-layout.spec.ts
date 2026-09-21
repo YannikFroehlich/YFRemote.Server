@@ -76,7 +76,10 @@ describe('button-layout', () => {
       const stored = {
         version: BUTTON_LAYOUT_VERSION,
         snapToGrid: false,
-        placements: [{ id: 'up', col: 2.37, row: 1.5, colSpan: 1, rowSpan: 1 }],
+        // colSpan/rowSpan matchen 'up's echte Default-Größe: ein eingebauter Button ist in der
+        // UI nie 1x1 verkleinerbar, sonst behandelt resolveButtonLayout diese Platzierung als
+        // Altlast einer (inzwischen behobenen) Notlösung und platziert sie neu.
+        placements: [{ id: 'up', col: 2.37, row: 1.5, colSpan: 3, rowSpan: 2 }],
         customButtons: [],
         hiddenBuiltInIds: [],
       };
@@ -348,6 +351,24 @@ describe('button-layout', () => {
       const once = resolveButtonLayout(DEFAULT_BUTTON_LAYOUT);
       const twice = resolveButtonLayout(once);
       expect(twice).toEqual(once);
+    });
+
+    it('re-places a built-in stuck at a stale 1x1 auto-placement at its real default size', () => {
+      // Reproduziert den Bug: eine fruehere Notloesung platzierte neue eingebaute Buttons immer
+      // 1x1 statt mit ihrer DEFAULT_PLACEMENTS-Groesse - so ein gespeicherter Zustand muss sich
+      // beim Laden selbst heilen, nicht winzig bleiben.
+      const stored = {
+        version: BUTTON_LAYOUT_VERSION,
+        snapToGrid: true,
+        placements: [{ id: 'sleep', col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
+        customButtons: [],
+        hiddenBuiltInIds: [],
+      };
+
+      const resolved = resolveButtonLayout(stored);
+      const sleepPlacement = resolved.placements.find((placement) => placement.id === 'sleep');
+
+      expect(sleepPlacement).toMatchObject({ colSpan: 4, rowSpan: 2 });
     });
 
     it('drops duplicate placements for the same id, keeping the first', () => {

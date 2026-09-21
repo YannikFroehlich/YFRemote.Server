@@ -169,6 +169,11 @@ export const TRANSLATIONS = {
     de: 'Port muss zwischen 1 und 65535 liegen.',
     en: 'Port must be between 1 and 65535.',
   },
+  'settings.recentServers.label': { de: 'Zuletzt verbunden', en: 'Recently connected' },
+  'settings.recentServers.removeAriaLabel': {
+    de: '{{host}} aus der Liste entfernen',
+    en: 'Remove {{host}} from the list',
+  },
   'settings.mouseSensitivity.label': { de: 'Mausgeschwindigkeit', en: 'Mouse speed' },
   'settings.slow': { de: 'Langsam', en: 'Slow' },
   'settings.fast': { de: 'Schnell', en: 'Fast' },
@@ -401,6 +406,8 @@ export const TRANSLATIONS = {
   },
   'buttonEditor.icon.field': { de: 'Symbol', en: 'Icon' },
   'buttonEditor.icon.ariaLabel': { de: 'Symbol: {{icon}}', en: 'Icon: {{icon}}' },
+  'buttonEditor.color.toggle': { de: 'Eigene Farbe verwenden', en: 'Use a custom color' },
+  'buttonEditor.color.field': { de: 'Farbe', en: 'Color' },
   'buttonEditor.steps.field': { de: 'Schritte', en: 'Steps' },
   'buttonEditor.steps.empty': {
     de: 'Noch keine Schritte hinzugefügt.',

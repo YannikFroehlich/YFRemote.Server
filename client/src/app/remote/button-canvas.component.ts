@@ -16,6 +16,7 @@ import {
   LAYOUT_GAP_PX,
   LAYOUT_ROW_HEIGHT_PX,
   PlacedButton,
+  readableTextColor,
   resolveButtonSteps,
 } from './button-layout';
 import { REMOTE_ICON_PATHS } from './remote-icons';
@@ -85,6 +86,10 @@ export class ButtonCanvasComponent implements OnDestroy {
 
   protected labelVisible(button: RemoteButtonConfig): boolean {
     return labelVisibleFor(button);
+  }
+
+  protected textColorFor(color: string): string {
+    return readableTextColor(color);
   }
 
   protected activate(item: PlacedButton): void {

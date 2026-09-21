@@ -278,9 +278,32 @@ describe('ButtonEditorDialogComponent', () => {
       Array.from(root.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Löschen'),
     ).toBe(false);
     expect(
-      Array.from(root.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Schließen'),
+      Array.from(root.querySelectorAll('button')).some((b) => b.textContent?.trim() === 'Speichern'),
     ).toBe(true);
     expect(root.querySelector('.macro-step-builder')).toBeNull();
+    // Auch eingebaute Buttons lassen sich einfärben, nur Beschriftung/Symbol/Schritte bleiben fest.
+    expect(root.querySelector('.snap-switch')).not.toBeNull();
+  });
+
+  it('lets a built-in button be colored via setButtonColor, leaving its definition untouched', async () => {
+    const { root, fixture, layout } = await setupDialog('up');
+
+    const colorSwitch = root.querySelector<HTMLButtonElement>('.snap-switch');
+    colorSwitch?.click();
+    fixture.detectChanges();
+
+    const colorInput = root.querySelector<HTMLInputElement>('input.color-input');
+    expect(colorInput).not.toBeNull();
+    colorInput!.value = '#123456';
+    colorInput!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const saveButton = Array.from(root.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Speichern',
+    );
+    saveButton?.click();
+
+    expect(layout.getButtonColor('up')).toBe('#123456');
   });
 
   it('renders in edit mode with the existing steps listed and offers delete', async () => {

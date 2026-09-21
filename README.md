@@ -37,6 +37,8 @@ flowchart LR
   and export/import them as JSON to reuse on another device.
 - **Secure pairing** — connections require a PIN or a scanned QR code first;
   paired devices can be viewed and revoked at any time from the tray menu.
+- **Optional HTTPS** — a self-issued local certificate authority, installable
+  on a phone via a tray QR code, for a browser-warning-free connection.
 - **Tray integration** — device address, PIN, paired devices, and updates, all
   from the notification area, with no separate window.
 - **Automatic updates** — background update checks and one-click installation via
@@ -72,8 +74,16 @@ successful pairing. A device only receives a permanent token once its pairing
 has been safely persisted; paired devices can be viewed and individually removed
 from the tray menu. In the client, the current device can also revoke its own
 token server-side via "Unpair this device" in settings.
+
+HTTPS is optional (`Https:Enabled` in `appsettings.json`, port 5443): the
+server issues its own local certificate authority once and signs a
+certificate for every local IPv4 address. "Install certificate..." in the
+tray menu shows a QR code and instructions to trust it on Android or iOS.
+HTTP keeps serving unchanged either way; enabling HTTPS changes the page
+origin, so paired devices need to pair again.
+
 Still, only use YFRemote on a trusted private network, and don't forward port
-`5050` to the internet on your router. See
+`5050` (or `5443` with HTTPS enabled) to the internet on your router. See
 [Security](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) in
 the wiki for details.
 

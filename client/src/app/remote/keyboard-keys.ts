@@ -44,8 +44,9 @@ export interface KeyGroup {
   readonly keys: readonly string[];
 }
 
+// label ist ein Key ins Uebersetzungs-Dictionary (translation.ts), kein Anzeigetext.
 export const KEY_GROUPS: readonly KeyGroup[] = [
-  { label: 'Modifikatoren', keys: MODIFIER_KEYS },
+  { label: 'keyGroup.modifiers', keys: MODIFIER_KEYS },
   {
     label: 'Navigation',
     keys: [
@@ -67,7 +68,7 @@ export const KEY_GROUPS: readonly KeyGroup[] = [
     ],
   },
   {
-    label: 'Funktionstasten',
+    label: 'keyGroup.functionKeys',
     keys: [
       'F1',
       'F2',
@@ -83,18 +84,18 @@ export const KEY_GROUPS: readonly KeyGroup[] = [
       'F12',
     ],
   },
-  { label: 'Buchstaben', keys: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') },
-  { label: 'Zahlen', keys: '0123456789'.split('') },
+  { label: 'keyGroup.letters', keys: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('') },
+  { label: 'keyGroup.numbers', keys: '0123456789'.split('') },
 ];
 
-// Beschriftung wie auf einer deutschen Tastatur, wo der interne Name zu lang für die
-// Tastenkacheln ist.
+// Werte sind Keys ins Uebersetzungs-Dictionary fuer Tasten, deren interner Name zu lang fuer
+// die Tastenkacheln ist; BACKSPACE bleibt das sprachneutrale Symbol.
 const KEY_LABELS: Readonly<Record<string, string>> = {
-  HOME: 'Pos1',
-  END: 'Ende',
-  PAGE_UP: 'Bild ↑',
-  PAGE_DOWN: 'Bild ↓',
-  PRINT_SCREEN: 'Druck',
+  HOME: 'key.home',
+  END: 'key.end',
+  PAGE_UP: 'key.pageUp',
+  PAGE_DOWN: 'key.pageDown',
+  PRINT_SCREEN: 'key.printScreen',
   BACKSPACE: '⌫',
 };
 

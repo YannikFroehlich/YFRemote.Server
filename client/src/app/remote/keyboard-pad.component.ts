@@ -7,6 +7,7 @@ import {
   MODIFIER_KEYS,
 } from './keyboard-keys';
 import { RemoteService } from './remote.service';
+import { TranslationService } from './translation.service';
 
 @Component({
   selector: 'app-keyboard-pad',
@@ -15,6 +16,7 @@ import { RemoteService } from './remote.service';
 })
 export class KeyboardPadComponent {
   private readonly remote = inject(RemoteService);
+  protected readonly i18n = inject(TranslationService);
 
   protected readonly keyGroups = KEY_GROUPS;
   protected readonly keyLabel = keyLabel;
@@ -51,8 +53,8 @@ export class KeyboardPadComponent {
   protected summary(): string {
     const armed = this.armedModifiers();
     return armed.length > 0
-      ? `Bereit: ${armed.join(' + ')}`
-      : 'Optional: Modifikator wählen, dann Taste antippen.';
+      ? this.i18n.t('keyboardPad.armedSummary', { armed: armed.join(' + ') })
+      : this.i18n.t('keyboardPad.idleSummary');
   }
 
   private toggleModifier(modifier: string): void {

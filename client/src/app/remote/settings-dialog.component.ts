@@ -23,6 +23,8 @@ import {
 import { CustomTheme, ThemeMode, ThemeStyle } from './theme';
 import { ThemeEditorDialogComponent } from './theme-editor-dialog.component';
 import { ThemeService } from './theme.service';
+import { Lang } from './translation';
+import { TranslationService } from './translation.service';
 
 const CUSTOM_STYLE_PREFIX = 'custom:';
 
@@ -35,6 +37,7 @@ export class SettingsDialogComponent {
   private readonly remote = inject(RemoteService);
   protected readonly layout = inject(ButtonLayoutService);
   protected readonly theme = inject(ThemeService);
+  protected readonly i18n = inject(TranslationService);
 
   readonly closed = output<void>();
 
@@ -75,6 +78,7 @@ export class SettingsDialogComponent {
     invertScroll: new FormControl(this.remote.invertScroll(), { nonNullable: true }),
     pointerAcceleration: new FormControl(this.remote.pointerAcceleration(), { nonNullable: true }),
     haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
+    language: new FormControl<Lang>(this.i18n.language(), { nonNullable: true }),
     themeMode: new FormControl<ThemeMode>(this.theme.mode(), { nonNullable: true }),
     /** Eingebauter Stil oder `custom:<id>` für einen eigenen. */
     themeStyle: new FormControl<string>(this.initialStyleSelection(), { nonNullable: true }),
@@ -112,6 +116,7 @@ export class SettingsDialogComponent {
 
     this.remote.savePointerAcceleration(this.form.controls.pointerAcceleration.value);
     this.remote.saveHaptics(this.form.controls.haptics.value);
+    this.i18n.setLanguage(this.form.controls.language.value);
     this.saveTheme();
 
     // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
@@ -125,10 +130,19 @@ export class SettingsDialogComponent {
     }
   }
 
+  /** name/hint sind Keys ins Uebersetzungs-Dictionary, keine Anzeigetexte. */
   protected readonly themeStyles: readonly { value: ThemeStyle; name: string; hint: string }[] = [
-    { value: 'standard', name: 'Standard', hint: 'Weiche Verläufe, Türkis' },
-    { value: 'futuristic', name: 'Futuristisch', hint: 'Neon, Leuchten, kantig' },
-    { value: 'minimal', name: 'Minimalistisch', hint: 'Flach, schlicht, ohne Effekte' },
+    { value: 'standard', name: 'Standard', hint: 'settings.style.standard.hint' },
+    {
+      value: 'futuristic',
+      name: 'settings.style.futuristic.name',
+      hint: 'settings.style.futuristic.hint',
+    },
+    {
+      value: 'minimal',
+      name: 'settings.style.minimal.name',
+      hint: 'settings.style.minimal.hint',
+    },
   ];
 
   protected customStyleSelected(): boolean {
@@ -162,7 +176,7 @@ export class SettingsDialogComponent {
 
   protected exportCustomThemes(): void {
     this.download(this.theme.exportCustomThemes(), 'yfremote-stile.json');
-    this.showOperationMessage('Eigene Stile wurden exportiert.', true);
+    this.showOperationMessage(this.i18n.t('settings.msg.stylesExported'), true);
   }
 
   protected async importCustomThemes(event: Event): Promise<void> {
@@ -173,18 +187,21 @@ export class SettingsDialogComponent {
       return;
     }
     if (file.size > 1_000_000) {
-      this.showOperationMessage('Die Importdatei darf höchstens 1 MB groß sein.');
+      this.showOperationMessage(this.i18n.t('settings.msg.importTooLarge'));
       return;
     }
     try {
       const added = this.theme.importCustomThemes(await file.text());
       if (added === null) {
-        this.showOperationMessage('Die Datei enthält keine gültigen Stile.');
+        this.showOperationMessage(this.i18n.t('settings.msg.noValidStyles'));
       } else {
-        this.showOperationMessage(`${added} Stil(e) importiert.`, added > 0);
+        this.showOperationMessage(
+          this.i18n.t('settings.msg.stylesImported', { count: added }),
+          added > 0,
+        );
       }
     } catch {
-      this.showOperationMessage('Die Importdatei konnte nicht gelesen werden.');
+      this.showOperationMessage(this.i18n.t('settings.msg.importUnreadable'));
     }
   }
 
@@ -242,10 +259,10 @@ export class SettingsDialogComponent {
     this.profileDeletePending.set(false);
 
     if (this.layout.switchProfile(id)) {
-      this.showOperationMessage('Profil geladen.', true);
+      this.showOperationMessage(this.i18n.t('settings.msg.profileLoaded'), true);
     } else {
       this.showOperationMessage(
-        this.layout.profileError() ?? 'Profil konnte nicht geladen werden.',
+        this.layout.profileError() ?? this.i18n.t('settings.msg.profileLoadFailed'),
       );
     }
   }
@@ -259,10 +276,10 @@ export class SettingsDialogComponent {
     if (this.layout.createProfile(this.profileName.value)) {
       this.profileName.setValue('');
       this.profileName.markAsUntouched();
-      this.showOperationMessage('Profil aus dem aktuellen Layout erstellt.', true);
+      this.showOperationMessage(this.i18n.t('settings.msg.profileCreated'), true);
     } else {
       this.showOperationMessage(
-        this.layout.profileError() ?? 'Profil konnte nicht erstellt werden.',
+        this.layout.profileError() ?? this.i18n.t('settings.msg.profileCreateFailed'),
       );
     }
   }
@@ -280,8 +297,8 @@ export class SettingsDialogComponent {
     this.profileDeletePending.set(false);
     this.showOperationMessage(
       deleted
-        ? 'Profil gelöscht.'
-        : (this.layout.profileError() ?? 'Profil konnte nicht gelöscht werden.'),
+        ? this.i18n.t('settings.msg.profileDeleted')
+        : (this.layout.profileError() ?? this.i18n.t('settings.msg.profileDeleteFailed')),
       deleted,
     );
   }
@@ -295,7 +312,7 @@ export class SettingsDialogComponent {
 
     try {
       anchor.click();
-      this.showOperationMessage('Layoutprofile wurden exportiert.', true);
+      this.showOperationMessage(this.i18n.t('settings.msg.profilesExported'), true);
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -310,7 +327,7 @@ export class SettingsDialogComponent {
       return;
     }
     if (file.size > 1_000_000) {
-      this.showOperationMessage('Die Importdatei darf höchstens 1 MB groß sein.');
+      this.showOperationMessage(this.i18n.t('settings.msg.importTooLarge'));
       return;
     }
 
@@ -319,12 +336,12 @@ export class SettingsDialogComponent {
       this.profileDeletePending.set(false);
       this.showOperationMessage(
         imported
-          ? 'Layoutprofile wurden importiert.'
-          : (this.layout.profileError() ?? 'Import fehlgeschlagen.'),
+          ? this.i18n.t('settings.msg.profilesImported')
+          : (this.layout.profileError() ?? this.i18n.t('settings.msg.importFailed')),
         imported,
       );
     } catch {
-      this.showOperationMessage('Die Importdatei konnte nicht gelesen werden.');
+      this.showOperationMessage(this.i18n.t('settings.msg.importUnreadable'));
     }
   }
 
@@ -344,7 +361,7 @@ export class SettingsDialogComponent {
     if (!unpaired) {
       this.unpairPending.set(false);
       this.showOperationMessage(
-        this.lastError() ?? 'Entkopplung fehlgeschlagen. Die Kopplung bleibt erhalten.',
+        this.lastError() ?? this.i18n.t('settings.msg.unpairFailed'),
       );
     }
   }

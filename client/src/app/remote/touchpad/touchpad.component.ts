@@ -2,6 +2,7 @@ import { Component, inject, InjectionToken, OnDestroy, signal } from '@angular/c
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
+import { TranslationService } from '../translation.service';
 
 /** Minimale eigene Abbildung der Web-Speech-API - es gibt keine offiziellen TypeScript-Typen
  *  dafuer, und wir brauchen ohnehin nur diesen Ausschnitt. */
@@ -88,6 +89,7 @@ const DICTATION_ERROR_VISIBLE_MS = 4200;
 export class TouchpadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
   private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
+  protected readonly i18n = inject(TranslationService);
   private readonly pointers = new Map<number, PointerPosition>();
   private readonly heldButtons = new Map<MouseButtonName, number>();
 
@@ -356,24 +358,27 @@ export class TouchpadComponent implements OnDestroy {
     return `${base} ${transcript}`;
   }
 
+  /** Liefert einen Key ins Uebersetzungs-Dictionary, keinen Anzeigetext - das Template loest
+   *  ihn ueber i18n.t() auf, damit ein Sprachwechsel auch eine gerade sichtbare Fehlermeldung
+   *  trifft. */
   private describeDictationError(error: string | null): string {
     switch (error) {
       case 'not-allowed':
       case 'permission-denied':
-        return 'Mikrofonzugriff wurde verweigert.';
+        return 'touchpad.dictationError.notAllowed';
       case 'no-speech':
-        return 'Kein Ton erkannt.';
+        return 'touchpad.dictationError.noSpeech';
       default:
-        return 'Diktat fehlgeschlagen.';
+        return 'touchpad.dictationError.failed';
     }
   }
 
-  private showDictationError(message: string): void {
+  private showDictationError(key: string): void {
     if (this.dictationErrorTimer !== null) {
       clearTimeout(this.dictationErrorTimer);
     }
 
-    this.dictationError.set(message);
+    this.dictationError.set(key);
     this.dictationErrorTimer = setTimeout(() => this.dictationError.set(null), DICTATION_ERROR_VISIBLE_MS);
   }
 

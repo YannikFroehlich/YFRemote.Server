@@ -1,12 +1,12 @@
 <section class="touchpad-card" aria-label="Touchpad">
   <header class="touchpad-card__header">
     <div>
-      <p class="eyebrow">Präzise Steuerung</p>
+      <p class="eyebrow">{{ i18n.t('touchpad.eyebrow') }}</p>
       <h2>Touchpad</h2>
     </div>
-    <div class="touchpad-hints" aria-label="Gestenhilfe">
-      <span>1 Finger · Bewegen</span>
-      <span>2 Finger · Scrollen</span>
+    <div class="touchpad-hints" [attr.aria-label]="i18n.t('touchpad.gestureHelpAriaLabel')">
+      <span>{{ i18n.t('touchpad.hint.oneFinger') }}</span>
+      <span>{{ i18n.t('touchpad.hint.twoFinger') }}</span>
     </div>
   </header>
 
@@ -15,7 +15,9 @@
       #textInput
       class="touchpad-text__input"
       type="text"
-      [placeholder]="liveTyping() ? 'Live: Tasten gehen sofort an den PC…' : 'Text eingeben…'"
+      [placeholder]="
+        liveTyping() ? i18n.t('touchpad.placeholder.live') : i18n.t('touchpad.placeholder.default')
+      "
       autocomplete="off"
       [attr.enterkeyhint]="liveTyping() ? 'enter' : 'send'"
       (input)="onTextInput(textInput)"
@@ -26,8 +28,8 @@
         class="snap-switch touchpad-text__mic"
         type="button"
         role="switch"
-        title="Text diktieren"
-        aria-label="Diktieren"
+        [attr.title]="i18n.t('touchpad.mic.title')"
+        [attr.aria-label]="i18n.t('touchpad.mic.ariaLabel')"
         [attr.aria-checked]="dictating()"
         (click)="toggleDictation(textInput)"
       >
@@ -40,7 +42,7 @@
       class="snap-switch"
       type="button"
       role="switch"
-      title="Live-Eingabe: jede Taste sofort an den PC senden"
+      [attr.title]="i18n.t('touchpad.live.title')"
       [attr.aria-checked]="liveTyping()"
       (click)="toggleLiveTyping(textInput)"
     >
@@ -48,20 +50,24 @@
       Live
     </button>
     @if (!liveTyping()) {
-      <button class="primary-button touchpad-text__send" type="submit" aria-label="Text senden">
-        Senden
+      <button
+        class="primary-button touchpad-text__send"
+        type="submit"
+        [attr.aria-label]="i18n.t('touchpad.send.ariaLabel')"
+      >
+        {{ i18n.t('touchpad.send.label') }}
       </button>
     }
   </form>
 
-  @if (dictationError(); as message) {
-    <p class="settings-message" role="status" aria-live="polite">{{ message }}</p>
+  @if (dictationError(); as errorKey) {
+    <p class="settings-message" role="status" aria-live="polite">{{ i18n.t(errorKey) }}</p>
   }
 
   <div
     class="touchpad-surface"
     role="application"
-    aria-label="Touchpad-Fläche"
+    [attr.aria-label]="i18n.t('touchpad.surface.ariaLabel')"
     (pointerdown)="pointerDown($event)"
     (pointermove)="pointerMove($event)"
     (pointerup)="pointerUp($event)"
@@ -71,49 +77,49 @@
   >
     <div class="touchpad-surface__center" aria-hidden="true">
       <span class="touchpad-surface__gesture"></span>
-      <strong>Zum Steuern bewegen</strong>
-      <small>1 Finger: Bewegen · 2 Finger: Scrollen</small>
-      <small>Tippen: Linksklick · 2 Finger: Rechtsklick · 3 Finger: Mittelklick</small>
-      <small>Tippen, dann halten: Ziehen</small>
+      <strong>{{ i18n.t('touchpad.center.title') }}</strong>
+      <small>{{ i18n.t('touchpad.center.hint1') }}</small>
+      <small>{{ i18n.t('touchpad.center.hint2') }}</small>
+      <small>{{ i18n.t('touchpad.center.hint3') }}</small>
     </div>
   </div>
 
-  <div class="touchpad-buttons" aria-label="Maustasten">
+  <div class="touchpad-buttons" [attr.aria-label]="i18n.t('touchpad.buttons.ariaLabel')">
     <button
       class="touchpad-button"
       type="button"
-      aria-label="Linksklick"
+      [attr.aria-label]="i18n.t('touchpad.button.left')"
       [class.touchpad-button--held]="isButtonHeld('left')"
       (pointerdown)="mouseButtonDown('left', $event)"
       (pointerup)="mouseButtonRelease('left', $event)"
       (pointercancel)="mouseButtonCancel('left', $event)"
       (lostpointercapture)="mouseButtonCancel('left', $event)"
     >
-      Linksklick
+      {{ i18n.t('touchpad.button.left') }}
     </button>
     <button
       class="touchpad-button"
       type="button"
-      aria-label="Mittelklick"
+      [attr.aria-label]="i18n.t('touchpad.button.middle')"
       [class.touchpad-button--held]="isButtonHeld('middle')"
       (pointerdown)="mouseButtonDown('middle', $event)"
       (pointerup)="mouseButtonRelease('middle', $event)"
       (pointercancel)="mouseButtonCancel('middle', $event)"
       (lostpointercapture)="mouseButtonCancel('middle', $event)"
     >
-      Mittelklick
+      {{ i18n.t('touchpad.button.middle') }}
     </button>
     <button
       class="touchpad-button"
       type="button"
-      aria-label="Rechtsklick"
+      [attr.aria-label]="i18n.t('touchpad.button.right')"
       [class.touchpad-button--held]="isButtonHeld('right')"
       (pointerdown)="mouseButtonDown('right', $event)"
       (pointerup)="mouseButtonRelease('right', $event)"
       (pointercancel)="mouseButtonCancel('right', $event)"
       (lostpointercapture)="mouseButtonCancel('right', $event)"
     >
-      Rechtsklick
+      {{ i18n.t('touchpad.button.right') }}
     </button>
   </div>
 </section>

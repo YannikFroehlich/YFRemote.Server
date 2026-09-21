@@ -1,18 +1,18 @@
 <section class="keyboard-card">
   <header class="keyboard-card__header">
     <div>
-      <p class="eyebrow">Direkte Eingabe</p>
-      <h2>Virtuelle Tastatur</h2>
+      <p class="eyebrow">{{ i18n.t('keyboardPad.eyebrow') }}</p>
+      <h2>{{ i18n.t('keyboardPad.title') }}</h2>
     </div>
-    <span class="keyboard-card__hint">Modifier auswählen, dann Taste senden</span>
+    <span class="keyboard-card__hint">{{ i18n.t('keyboardPad.hint') }}</span>
   </header>
 
   <div class="field keyboard-card__body">
-    <span class="sr-only">Tastatur</span>
+    <span class="sr-only">{{ i18n.t('keyboardPad.srLabel') }}</span>
     <div class="key-picker">
       @for (group of keyGroups; track group.label) {
         <div class="key-group">
-          <p class="key-group__label">{{ group.label }}</p>
+          <p class="key-group__label">{{ i18n.t(group.label) }}</p>
           <div class="key-group__keys">
             @for (key of group.keys; track key) {
               <button
@@ -23,14 +23,14 @@
                 [attr.aria-pressed]="isKeyActive(key)"
                 (click)="onKeyTap(key)"
               >
-                {{ keyLabel(key) }}
+                {{ i18n.t(keyLabel(key)) }}
               </button>
             }
-            @if (group.label === 'Modifikatoren') {
+            @if (group.label === 'keyGroup.modifiers') {
               <button
                 class="key-chip"
                 type="button"
-                aria-label="Windows-Taste allein senden (öffnet das Startmenü)"
+                [attr.aria-label]="i18n.t('keyboardPad.winKeyAriaLabel')"
                 (click)="pressKey('WIN')"
               >
                 START
@@ -44,6 +44,8 @@
   </div>
 
   <footer class="keyboard-card__footer">
-    <button class="secondary-button" type="button" (click)="clearArmed()">Zurücksetzen</button>
+    <button class="secondary-button" type="button" (click)="clearArmed()">
+      {{ i18n.t('common.reset') }}
+    </button>
   </footer>
 </section>

@@ -58,7 +58,7 @@ describe('pairing', () => {
         },
       });
 
-      expect(guessDeviceName()).toBe('Mein Gerät');
+      expect(guessDeviceName()).toBe('pairing.device.default');
 
       if (originalDescriptor) {
         Object.defineProperty(globalThis, 'navigator', originalDescriptor);
@@ -68,11 +68,11 @@ describe('pairing', () => {
     it.each([
       ['Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)', 'iPhone'],
       ['Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)', 'iPad'],
-      ['Mozilla/5.0 (Linux; Android 14; Pixel 8)', 'Android-Gerät'],
+      ['Mozilla/5.0 (Linux; Android 14; Pixel 8)', 'pairing.device.android'],
       ['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', 'Mac'],
-      ['Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Windows-PC'],
-      ['Mozilla/5.0 (X11; Linux x86_64)', 'Linux-Gerät'],
-      ['SomeUnknownAgent/1.0', 'Mein Gerät'],
+      ['Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'pairing.device.windows'],
+      ['Mozilla/5.0 (X11; Linux x86_64)', 'pairing.device.linux'],
+      ['SomeUnknownAgent/1.0', 'pairing.device.default'],
     ])('guesses a name for %s', (userAgent, expected) => {
       const spy = vi.spyOn(globalThis.navigator, 'userAgent', 'get').mockReturnValue(userAgent);
 

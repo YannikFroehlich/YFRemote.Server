@@ -27,8 +27,8 @@
             class="round-button round-button--header"
             [class.round-button--active]="editMode()"
             type="button"
-            aria-label="Layout bearbeiten"
-            title="Layout bearbeiten"
+            [attr.aria-label]="i18n.t('shell.editLayout')"
+            [attr.title]="i18n.t('shell.editLayout')"
             (click)="toggleEditMode()"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -40,8 +40,8 @@
         <button
           class="round-button round-button--header"
           type="button"
-          aria-label="Einstellungen"
-          title="Einstellungen"
+          [attr.aria-label]="i18n.t('shell.settings')"
+          [attr.title]="i18n.t('shell.settings')"
           (click)="openSettings()"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -55,8 +55,8 @@
       <div class="server-strip">
         <div class="server-strip__identity">
           <span class="server-strip__label">
-            <span class="server-strip__label-long">Aktiver Computer</span>
-            <span class="server-strip__label-short">Aktiv</span>
+            <span class="server-strip__label-long">{{ i18n.t('shell.activeComputer') }}</span>
+            <span class="server-strip__label-short">{{ i18n.t('shell.activeShort') }}</span>
           </span>
           <strong>{{ config().host }}:{{ config().port }}</strong>
         </div>
@@ -64,8 +64,8 @@
           <button
             class="round-button round-button--small"
             type="button"
-            aria-label="Neu verbinden"
-            title="Neu verbinden"
+            [attr.aria-label]="i18n.t('shell.reconnect')"
+            [attr.title]="i18n.t('shell.reconnect')"
             (click)="reconnect()"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -75,8 +75,8 @@
           <button
             class="round-button round-button--small"
             type="button"
-            aria-label="Verbindung trennen"
-            title="Verbindung trennen"
+            [attr.aria-label]="i18n.t('shell.disconnect')"
+            [attr.title]="i18n.t('shell.disconnect')"
             (click)="disconnect()"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -86,7 +86,7 @@
         </div>
       </div>
 
-      <div class="view-tabs" role="tablist" aria-label="Ansicht">
+      <div class="view-tabs" role="tablist" [attr.aria-label]="i18n.t('shell.viewTabsAriaLabel')">
         <button
           class="view-tab"
           [class.view-tab--active]="activeView() === 'remote'"
@@ -130,7 +130,7 @@
               d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h16V7H4Zm2 2h2v2H6V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9Zm4 0h1v2h-1V9ZM6 13h2v2H6v-2Zm4 0h8v2h-8v-2Z"
             />
           </svg>
-          <span>Tastatur</span>
+          <span>{{ i18n.t('shell.tabKeyboard') }}</span>
         </button>
       </div>
     </div>
@@ -146,10 +146,12 @@
     >
       @if (activeView() === 'remote') {
         @if (editMode()) {
-          <div class="layout-toolbar" role="toolbar" aria-label="Layout bearbeiten">
-            <button class="primary-button" type="button" (click)="toggleEditMode()">Fertig</button>
+          <div class="layout-toolbar" role="toolbar" [attr.aria-label]="i18n.t('shell.editLayout')">
+            <button class="primary-button" type="button" (click)="toggleEditMode()">
+              {{ i18n.t('shell.done') }}
+            </button>
             <button class="secondary-button" type="button" (click)="openButtonEditor(null)">
-              Hinzufügen
+              {{ i18n.t('shell.add') }}
             </button>
             <button
               class="snap-switch"
@@ -158,17 +160,21 @@
               [attr.aria-checked]="layout.snapToGrid()"
               (click)="toggleSnapToGrid()"
             >
-              Raster
+              {{ i18n.t('shell.snapToGrid') }}
             </button>
             @if (resetPending()) {
               <span class="layout-toolbar__confirm">
-                Wirklich zurücksetzen?
-                <button class="secondary-button" type="button" (click)="confirmReset()">Ja</button>
-                <button class="secondary-button" type="button" (click)="cancelReset()">Nein</button>
+                {{ i18n.t('shell.confirmResetLayout') }}
+                <button class="secondary-button" type="button" (click)="confirmReset()">
+                  {{ i18n.t('common.yes') }}
+                </button>
+                <button class="secondary-button" type="button" (click)="cancelReset()">
+                  {{ i18n.t('common.no') }}
+                </button>
               </span>
             } @else {
               <button class="secondary-button" type="button" (click)="requestReset()">
-                Zurücksetzen
+                {{ i18n.t('common.reset') }}
               </button>
             }
           </div>
@@ -177,18 +183,18 @@
         <app-button-canvas [editMode]="editMode()" (editButton)="onEditButtonRequested($event)" />
 
         @if (editMode() && layout.hiddenButtons().length > 0) {
-          <div class="layout-tray" aria-label="Ausgeblendete Buttons">
+          <div class="layout-tray" [attr.aria-label]="i18n.t('shell.hiddenButtons')">
             @for (button of layout.hiddenButtons(); track button.id) {
               <button
                 class="layout-chip"
                 type="button"
-                [attr.aria-label]="'Wiederherstellen: ' + button.label"
+                [attr.aria-label]="i18n.t('shell.restoreAriaLabel', { label: i18n.t(button.label) })"
                 (click)="restoreButton(button.id)"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path [attr.d]="iconPaths[button.icon]"></path>
                 </svg>
-                <span>{{ button.label }}</span>
+                <span>{{ i18n.t(button.label) }}</span>
               </button>
             }
           </div>

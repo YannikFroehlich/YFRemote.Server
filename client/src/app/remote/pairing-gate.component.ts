@@ -11,6 +11,7 @@ import {
   pinValidator,
 } from './pairing';
 import { SERVER_LOCATION } from './server-config';
+import { TranslationService } from './translation.service';
 
 @Component({
   selector: 'app-pairing-gate',
@@ -21,6 +22,7 @@ export class PairingGateComponent {
   private readonly pairing = inject(PairingService);
   private readonly serverLocation = inject(SERVER_LOCATION);
   private readonly history = inject(PAIRING_HISTORY);
+  protected readonly i18n = inject(TranslationService);
   private readonly initialPin = getPairingPinFromHash(this.serverLocation.hash ?? '');
 
   protected readonly lastError = this.pairing.lastError;
@@ -32,7 +34,7 @@ export class PairingGateComponent {
       nonNullable: true,
       validators: [Validators.required, pinValidator],
     }),
-    deviceName: new FormControl(guessDeviceName(), {
+    deviceName: new FormControl(this.i18n.t(guessDeviceName()), {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(DEVICE_NAME_MAX_LENGTH)],
     }),

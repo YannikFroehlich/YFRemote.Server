@@ -6,7 +6,7 @@
   [style.--gap.px]="gap"
   [style.--rows]="layout.visibleRows()"
   role="group"
-  aria-label="Tastenfeld"
+  [attr.aria-label]="i18n.t('buttonCanvas.ariaLabel')"
   #canvas
 >
   @if (editMode() && layout.snapToGrid()) {
@@ -33,8 +33,8 @@
         type="button"
         [disabled]="!editMode() && item.button.disabled === true"
         [attr.aria-disabled]="item.button.disabled === true || null"
-        [attr.aria-label]="item.button.ariaLabel"
-        [attr.title]="item.button.unavailableText ?? item.button.ariaLabel"
+        [attr.aria-label]="i18n.t(item.button.ariaLabel)"
+        [attr.title]="item.button.unavailableText ?? i18n.t(item.button.ariaLabel)"
         (click)="activate(item)"
         (keydown)="slotKeydown($event, item)"
       >
@@ -42,7 +42,7 @@
           <path [attr.d]="iconPaths[item.button.icon]"></path>
         </svg>
         @if (labelVisible(item.button)) {
-          <span>{{ item.button.label }}</span>
+          <span>{{ i18n.t(item.button.label) }}</span>
         }
       </button>
 
@@ -50,7 +50,7 @@
         <button
           class="slot-remove"
           type="button"
-          [attr.aria-label]="'Entfernen: ' + item.button.label"
+          [attr.aria-label]="i18n.t('buttonCanvas.removeAriaLabel', { label: i18n.t(item.button.label) })"
           (click)="remove(item)"
           (pointerdown)="$event.stopPropagation()"
         >

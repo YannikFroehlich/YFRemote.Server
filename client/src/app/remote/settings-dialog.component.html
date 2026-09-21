@@ -1,5 +1,10 @@
 <div class="settings-layer">
-  <button class="settings-scrim" type="button" aria-label="Schließen" (click)="close()"></button>
+  <button
+    class="settings-scrim"
+    type="button"
+    [attr.aria-label]="i18n.t('common.close')"
+    (click)="close()"
+  ></button>
 
   <section
     class="settings-dialog settings-dialog--settings"
@@ -10,12 +15,12 @@
     <header class="settings-dialog__header">
       <div>
         <p class="eyebrow">Server</p>
-        <h2 id="settings-title">Einstellungen</h2>
+        <h2 id="settings-title">{{ i18n.t('shell.settings') }}</h2>
       </div>
       <button
         class="round-button round-button--dialog"
         type="button"
-        aria-label="Schließen"
+        [attr.aria-label]="i18n.t('common.close')"
         (click)="close()"
       >
         <span aria-hidden="true">x</span>
@@ -38,7 +43,7 @@
             inputmode="url"
           />
           @if (hasFieldError('host')) {
-            <small>Nur Hostname oder IPv4 ohne Protokoll/Pfad.</small>
+            <small>{{ i18n.t('settings.host.error') }}</small>
           }
         </label>
 
@@ -54,14 +59,14 @@
             inputmode="numeric"
           />
           @if (hasFieldError('port')) {
-            <small>Port muss zwischen 1 und 65535 liegen.</small>
+            <small>{{ i18n.t('settings.port.error') }}</small>
           }
         </label>
 
         <label class="field" for="mouse-sensitivity">
-          <span>Mausgeschwindigkeit</span>
+          <span>{{ i18n.t('settings.mouseSensitivity.label') }}</span>
           <div class="range-row">
-            <small>Langsam</small>
+            <small>{{ i18n.t('settings.slow') }}</small>
             <input
               id="mouse-sensitivity"
               type="range"
@@ -70,13 +75,17 @@
               [max]="mouseSensitivityMax"
               [step]="mouseSensitivityStep"
             />
-            <small>Schnell</small>
+            <small>{{ i18n.t('settings.fast') }}</small>
           </div>
           <output>{{ sensitivityLabel() }}</output>
           @if (hasFieldError('mouseSensitivity')) {
             <small>
-              Wert muss zwischen {{ mouseSensitivityMin.toFixed(1) }} und
-              {{ mouseSensitivityMax.toFixed(1) }} liegen.
+              {{
+                i18n.t('settings.rangeError', {
+                  min: mouseSensitivityMin.toFixed(1),
+                  max: mouseSensitivityMax.toFixed(1),
+                })
+              }}
             </small>
           }
         </label>
@@ -89,13 +98,13 @@
           (click)="toggleSetting('pointerAcceleration')"
         >
           <span class="switch-indicator" aria-hidden="true"></span>
-          <span>Mausbeschleunigung (schnelle Wischer bewegen weiter)</span>
+          <span>{{ i18n.t('settings.pointerAcceleration') }}</span>
         </button>
 
         <label class="field" for="scroll-speed">
-          <span>Scroll-Geschwindigkeit</span>
+          <span>{{ i18n.t('settings.scrollSpeed.label') }}</span>
           <div class="range-row">
-            <small>Langsam</small>
+            <small>{{ i18n.t('settings.slow') }}</small>
             <input
               id="scroll-speed"
               type="range"
@@ -104,13 +113,17 @@
               [max]="scrollSpeedMax"
               [step]="scrollSpeedStep"
             />
-            <small>Schnell</small>
+            <small>{{ i18n.t('settings.fast') }}</small>
           </div>
           <output>{{ scrollSpeedLabel() }}</output>
           @if (hasFieldError('scrollSpeed')) {
             <small>
-              Wert muss zwischen {{ scrollSpeedMin.toFixed(2) }} und
-              {{ scrollSpeedMax.toFixed(2) }} liegen.
+              {{
+                i18n.t('settings.rangeError', {
+                  min: scrollSpeedMin.toFixed(2),
+                  max: scrollSpeedMax.toFixed(2),
+                })
+              }}
             </small>
           }
         </label>
@@ -123,7 +136,7 @@
           (click)="toggleSetting('invertScroll')"
         >
           <span class="switch-indicator" aria-hidden="true"></span>
-          <span>Scrollrichtung umkehren</span>
+          <span>{{ i18n.t('settings.invertScroll') }}</span>
         </button>
 
         <button
@@ -134,27 +147,35 @@
           (click)="toggleSetting('haptics')"
         >
           <span class="switch-indicator" aria-hidden="true"></span>
-          <span>Vibration bei Tastendruck (Android)</span>
+          <span>{{ i18n.t('settings.haptics') }}</span>
         </button>
 
+        <label class="field" for="settings-language">
+          <span>{{ i18n.t('settings.language.label') }}</span>
+          <select id="settings-language" formControlName="language">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+
         <label class="field" for="theme-mode">
-          <span>Darstellung</span>
+          <span>{{ i18n.t('settings.themeMode.label') }}</span>
           <select
             id="theme-mode"
             formControlName="themeMode"
             [attr.disabled]="customStyleSelected() ? '' : null"
           >
-            <option value="system">Wie das Gerät (System)</option>
-            <option value="light">Hell</option>
-            <option value="dark">Dunkel</option>
+            <option value="system">{{ i18n.t('settings.themeMode.system') }}</option>
+            <option value="light">{{ i18n.t('settings.themeMode.light') }}</option>
+            <option value="dark">{{ i18n.t('settings.themeMode.dark') }}</option>
           </select>
           @if (customStyleSelected()) {
-            <p class="settings-hint">Ein eigener Stil legt Hell oder Dunkel selbst fest.</p>
+            <p class="settings-hint">{{ i18n.t('settings.themeMode.customHint') }}</p>
           }
         </label>
 
         <fieldset class="field style-picker">
-          <legend>Stil</legend>
+          <legend>{{ i18n.t('settings.style.legend') }}</legend>
           <div class="style-picker__options">
             @for (style of themeStyles; track style.value) {
               <label class="style-option">
@@ -163,8 +184,8 @@
                   class="style-option__preview style-option__preview--{{ style.value }}"
                   aria-hidden="true"
                 ></span>
-                <strong>{{ style.name }}</strong>
-                <small>{{ style.hint }}</small>
+                <strong>{{ i18n.t(style.name) }}</strong>
+                <small>{{ i18n.t(style.hint) }}</small>
               </label>
             }
             @for (custom of theme.customThemes(); track custom.id) {
@@ -185,10 +206,10 @@
                 <button
                   class="style-option__edit"
                   type="button"
-                  [attr.aria-label]="'Stil ' + custom.name + ' bearbeiten'"
+                  [attr.aria-label]="i18n.t('settings.style.editAriaLabel', { name: custom.name })"
                   (click)="openThemeEditor(custom.id)"
                 >
-                  Bearbeiten
+                  {{ i18n.t('common.edit') }}
                 </button>
               </div>
             }
@@ -198,7 +219,7 @@
               (click)="openThemeEditor(null)"
             >
               <span aria-hidden="true">+</span>
-              <strong>Neuer Stil</strong>
+              <strong>{{ i18n.t('settings.style.new') }}</strong>
             </button>
           </div>
           <div class="profile-actions">
@@ -208,10 +229,10 @@
               [disabled]="theme.customThemes().length === 0"
               (click)="exportCustomThemes()"
             >
-              Stile exportieren
+              {{ i18n.t('settings.style.export') }}
             </button>
             <button class="secondary-button" type="button" (click)="themeImport.click()">
-              Stile importieren
+              {{ i18n.t('settings.style.import') }}
             </button>
             <input
               #themeImport
@@ -227,13 +248,13 @@
           <div class="settings-section__heading">
             <div>
               <p class="eyebrow">Layouts</p>
-              <h3 id="profiles-title">Profile und Sicherung</h3>
+              <h3 id="profiles-title">{{ i18n.t('settings.profiles.title') }}</h3>
             </div>
             <span>{{ layout.profiles().length }}/20</span>
           </div>
 
           <label class="field" for="layout-profile">
-            <span>Aktives Profil</span>
+            <span>{{ i18n.t('settings.profiles.active.label') }}</span>
             <select
               id="layout-profile"
               [value]="layout.activeProfileId()"
@@ -247,18 +268,18 @@
 
           <div class="profile-create-row">
             <label class="field" for="profile-name">
-              <span>Neues Profil</span>
+              <span>{{ i18n.t('settings.profiles.new.label') }}</span>
               <input
                 id="profile-name"
                 type="text"
                 maxlength="40"
-                placeholder="z. B. Präsentation"
+                [placeholder]="i18n.t('settings.profiles.new.placeholder')"
                 autocomplete="off"
                 [formControl]="profileName"
                 (keydown.enter)="createProfile(); $event.preventDefault()"
               />
               @if (profileName.invalid && profileName.touched) {
-                <small>Bitte einen Namen mit höchstens 40 Zeichen eingeben.</small>
+                <small>{{ i18n.t('settings.profiles.new.error') }}</small>
               }
             </label>
             <button
@@ -267,16 +288,16 @@
               [disabled]="profileName.invalid"
               (click)="createProfile()"
             >
-              Erstellen
+              {{ i18n.t('settings.profiles.create') }}
             </button>
           </div>
 
           <div class="profile-actions">
             <button class="secondary-button" type="button" (click)="exportProfiles()">
-              JSON exportieren
+              {{ i18n.t('settings.profiles.exportJson') }}
             </button>
             <button class="secondary-button" type="button" (click)="profileImport.click()">
-              JSON importieren
+              {{ i18n.t('settings.profiles.importJson') }}
             </button>
             <input
               #profileImport
@@ -287,18 +308,16 @@
             />
           </div>
 
-          <p class="settings-hint">
-            Der Import ersetzt alle lokalen Profile. Eigene Buttons und Makros sind enthalten.
-          </p>
+          <p class="settings-hint">{{ i18n.t('settings.profiles.importHint') }}</p>
 
           @if (profileDeletePending()) {
             <div class="confirm-row" role="alert">
-              <span>Aktives Profil wirklich löschen?</span>
+              <span>{{ i18n.t('settings.profiles.confirmDelete') }}</span>
               <button class="danger-button" type="button" (click)="confirmProfileDeletion()">
-                Löschen
+                {{ i18n.t('common.delete') }}
               </button>
               <button class="secondary-button" type="button" (click)="cancelProfileDeletion()">
-                Abbrechen
+                {{ i18n.t('common.cancel') }}
               </button>
             </div>
           } @else {
@@ -308,7 +327,7 @@
               [disabled]="layout.profiles().length <= 1"
               (click)="requestProfileDeletion()"
             >
-              Aktives Profil löschen
+              {{ i18n.t('settings.profiles.delete') }}
             </button>
           }
         </section>
@@ -316,25 +335,22 @@
         <section class="settings-section settings-section--danger" aria-labelledby="device-title">
           <div class="settings-section__heading">
             <div>
-              <p class="eyebrow">Kopplung</p>
-              <h3 id="device-title">Dieses Gerät</h3>
+              <p class="eyebrow">{{ i18n.t('settings.device.eyebrow') }}</p>
+              <h3 id="device-title">{{ i18n.t('settings.device.title') }}</h3>
             </div>
           </div>
-          <p class="settings-hint">
-            Der Server widerruft die Kopplung dauerhaft. Für eine erneute Verbindung ist eine neue
-            PIN erforderlich.
-          </p>
+          <p class="settings-hint">{{ i18n.t('settings.device.hint') }}</p>
 
           @if (unpairPending()) {
             <div class="confirm-row" role="alert">
-              <span>Dieses Gerät wirklich entkoppeln?</span>
+              <span>{{ i18n.t('settings.device.confirmUnpair') }}</span>
               <button
                 class="danger-button"
                 type="button"
                 [disabled]="unpairing()"
                 (click)="confirmUnpair()"
               >
-                {{ unpairing() ? 'Entkopple…' : 'Entkoppeln' }}
+                {{ unpairing() ? i18n.t('settings.device.unpairing') : i18n.t('settings.device.unpair') }}
               </button>
               <button
                 class="secondary-button"
@@ -342,12 +358,12 @@
                 [disabled]="unpairing()"
                 (click)="cancelUnpair()"
               >
-                Abbrechen
+                {{ i18n.t('common.cancel') }}
               </button>
             </div>
           } @else {
             <button class="danger-button" type="button" (click)="requestUnpair()">
-              Dieses Gerät entkoppeln
+              {{ i18n.t('settings.device.requestUnpair') }}
             </button>
           }
         </section>
@@ -365,8 +381,12 @@
       </div>
 
       <footer class="settings-actions">
-        <button class="secondary-button" type="button" (click)="close()">Abbrechen</button>
-        <button class="primary-button" type="submit" [disabled]="form.invalid">Speichern</button>
+        <button class="secondary-button" type="button" (click)="close()">
+          {{ i18n.t('common.cancel') }}
+        </button>
+        <button class="primary-button" type="submit" [disabled]="form.invalid">
+          {{ i18n.t('common.save') }}
+        </button>
       </footer>
     </form>
   </section>

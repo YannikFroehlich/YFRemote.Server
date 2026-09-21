@@ -11,6 +11,7 @@ import { ButtonLayoutService } from './button-layout.service';
 import { KEY_GROUPS, keyLabel, keysToAction, MAX_HOTKEY_KEYS } from './keyboard-keys';
 import { REMOTE_ICON_PATHS, REMOTE_ICONS } from './remote-icons';
 import { MacroStep, RemoteAction, RemoteIcon } from './remote.models';
+import { TranslationService } from './translation.service';
 
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
 
@@ -23,6 +24,7 @@ type StepType = 'keys' | 'text' | 'mouseClick';
 })
 export class ButtonEditorDialogComponent implements OnInit {
   private readonly layout = inject(ButtonLayoutService);
+  protected readonly i18n = inject(TranslationService);
 
   readonly targetId = input<string | null>(null);
   readonly closed = output<void>();
@@ -69,7 +71,7 @@ export class ButtonEditorDialogComponent implements OnInit {
       return;
     }
 
-    this.form.patchValue({ label: button.label, icon: button.icon });
+    this.form.patchValue({ label: this.i18n.t(button.label), icon: button.icon });
     this.steps.set(resolveButtonSteps(button));
 
     if (isCustomButtonId(id)) {
@@ -169,16 +171,20 @@ export class ButtonEditorDialogComponent implements OnInit {
   protected describeStep(action: RemoteAction): string {
     switch (action.type) {
       case 'key':
-        return `Taste: ${keyLabel(action.keys[0])}`;
+        return this.i18n.t('buttonEditor.describeStep.key', { key: this.i18n.t(keyLabel(action.keys[0])) });
 
       case 'hotkey':
-        return `Hotkey: ${action.keys.map(keyLabel).join(' + ')}`;
+        return this.i18n.t('buttonEditor.describeStep.hotkey', {
+          keys: action.keys.map((key) => this.i18n.t(keyLabel(key))).join(' + '),
+        });
 
       case 'text':
         return `Text: "${truncate(action.text, MAX_TEXT_STEP_PREVIEW_LENGTH)}"`;
 
       case 'mouseClick':
-        return action.button === 'left' ? 'Klick: links' : 'Klick: rechts';
+        return action.button === 'left'
+          ? this.i18n.t('buttonEditor.describeStep.mouseLeft')
+          : this.i18n.t('buttonEditor.describeStep.mouseRight');
 
       default:
         return '';

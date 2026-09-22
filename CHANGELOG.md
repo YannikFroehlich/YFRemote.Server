@@ -20,6 +20,10 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- Experimenteller Android-Server-Prototyp unter `android/` (Kotlin + Ktor): dieselbe Pairing-/WebSocket-API wie der Windows/Linux-Server, plus `AccessibilityService`-basierte Zeigersteuerung, eine eigene Tastatur (IME) fuers Tippen, Datei- und Zwischenablage-Uebertragung. Noch kein Bestandteil der Windows/Linux-App-Erfahrung und noch nicht auf echter Hardware verifiziert - siehe `android/PLAN.md`. Die Release-Pipeline baut ab jetzt zusaetzlich eine signierte APK (siehe `release-android`-Job in `release.yml`), sobald die dafuer noetigen Signing-Secrets hinterlegt sind.
+
 ## [2.17.0] - 2026-09-22
 
 ### Added

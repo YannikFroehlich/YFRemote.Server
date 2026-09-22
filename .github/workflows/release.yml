@@ -381,6 +381,10 @@ jobs:
       # beim sdkmanager-Aufruf mit exit code 1 ab (neue "Android SDK Preview"-Lizenz, die die
       # Action nicht automatisch akzeptiert - beobachtet 2026-09-22). Direktes Setup von Googles
       # eigenen Command-Line-Tools stattdessen, inkl. expliziter Lizenz-Akzeptanz.
+      # "(yes || true) | sdkmanager" statt "yes | sdkmanager": sdkmanager schliesst stdin, sobald
+      # alle Lizenzen abgefragt sind, wodurch "yes" mit SIGPIPE (exit 141) endet - mit "pipefail"
+      # (Standard fuer bash-Steps) reisst das den ganzen Schritt trotz Erfolg von sdkmanager mit
+      # in den Fehlschlag (beobachtet 2026-09-22, Run 35779526923).
       - name: Android-SDK einrichten
         if: steps.signing.outputs.configured == 'true'
         shell: bash
@@ -398,7 +402,7 @@ jobs:
           echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
 
-          yes | "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          (yes || true) | "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Gradle einrichten

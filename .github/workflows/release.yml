@@ -336,10 +336,10 @@ jobs:
   # hinterlegen - ohne sie wird dieser Job uebersprungen statt den gesamten Release fehlschlagen
   # zu lassen.
   #
-  # UNVERIFIZIERT: dieser Job wurde noch nie real ausgefuehrt (keine Android-Gradle-Toolchain auf
-  # der Entwicklungsmaschine verfuegbar, kein Signing-Keystore hinterlegt). Vor dem ersten
-  # echten Release pruefen: Gradle-/AGP-Kompatibilitaet, ob die App tatsaechlich baut, und ob
-  # "gh release upload" das APK sauber an den vom release-Job bereits veroeffentlichten Tag haengt.
+  # UNVERIFIZIERT: bislang ein einziger echter Lauf (v2.18.0, 2026-09-22) - der ist am
+  # Android-SDK-Setup gescheitert (siehe Kommentar dort), der Rest des Jobs (Keystore, Gradle-
+  # Build, Release-Upload) also noch nicht real durchlaufen. Windows/Linux-Assets desselben
+  # Release-Laufs blieben davon unberuehrt, da release-android ein eigenstaendiger Job ist.
   release-android:
     needs: release
     permissions:
@@ -377,9 +377,29 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Nicht android-actions/setup-android@v3: die Action bricht auf aktuellen Ubuntu-Runnern
+      # beim sdkmanager-Aufruf mit exit code 1 ab (neue "Android SDK Preview"-Lizenz, die die
+      # Action nicht automatisch akzeptiert - beobachtet 2026-09-22). Direktes Setup von Googles
+      # eigenen Command-Line-Tools stattdessen, inkl. expliziter Lizenz-Akzeptanz.
       - name: Android-SDK einrichten
         if: steps.signing.outputs.configured == 'true'
-        uses: android-actions/setup-android@v3
+        shell: bash
+        run: |
+          set -e
+          sdk_root="$HOME/android-sdk"
+          mkdir -p "$sdk_root/cmdline-tools"
+          curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip"
+          unzip -q cmdline-tools.zip -d "$sdk_root/cmdline-tools"
+          mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
+          rm cmdline-tools.zip
+
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          echo "$sdk_root/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+
+          yes | "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Gradle einrichten
         if: steps.signing.outputs.configured == 'true'

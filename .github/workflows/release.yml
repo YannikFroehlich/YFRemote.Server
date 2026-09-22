@@ -326,3 +326,93 @@ jobs:
             note=$'\n\n---\n**Linux (Beta):** uinput-Eingabepfad auf x86_64 verifiziert; arm64 und das installierte Paket sind noch ungetestet. Probleme bitte als Issue melden.'
             gh release edit "$tag" --repo "${{ github.repository }}" --notes "${current_body}${note}"
           fi
+
+  # Ergaenzt den Release additiv um eine signierte Android-APK (siehe android/PLAN.md, Stufe 5),
+  # analog zu release-linux fuer die Linux-Pakete. Laeuft nur, wenn die vier Signing-Secrets
+  # gesetzt sind - vor dem allerersten Android-Release einmalig einen Keystore erzeugen
+  # (`keytool -genkeypair -v -keystore yfremote-release.keystore -keyalg RSA -keysize 2048
+  # -validity 10000 -alias yfremote`), base64-kodieren und als ANDROID_KEYSTORE_BASE64/
+  # ANDROID_KEYSTORE_PASSWORD/ANDROID_KEY_ALIAS/ANDROID_KEY_PASSWORD in den Repository-Secrets
+  # hinterlegen - ohne sie wird dieser Job uebersprungen statt den gesamten Release fehlschlagen
+  # zu lassen.
+  #
+  # UNVERIFIZIERT: dieser Job wurde noch nie real ausgefuehrt (keine Android-Gradle-Toolchain auf
+  # der Entwicklungsmaschine verfuegbar, kein Signing-Keystore hinterlegt). Vor dem ersten
+  # echten Release pruefen: Gradle-/AGP-Kompatibilitaet, ob die App tatsaechlich baut, und ob
+  # "gh release upload" das APK sauber an den vom release-Job bereits veroeffentlichten Tag haengt.
+  release-android:
+    needs: release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Pruefen, ob Android-Signing konfiguriert ist
+        id: signing
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Android-Signing-Secrets fehlen (siehe android/PLAN.md, Stufe 5) - ueberspringe Android-Build."
+          fi
+
+      - name: Client-Build vom Windows-Job laden
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/download-artifact@v5
+        with:
+          name: wwwroot
+          path: android/app/src/main/assets/www
+
+      - name: JDK einrichten
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android-SDK einrichten
+        if: steps.signing.outputs.configured == 'true'
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle einrichten
+        if: steps.signing.outputs.configured == 'true'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Keystore aus Secret wiederherstellen
+        if: steps.signing.outputs.configured == 'true'
+        shell: bash
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/yfremote-release.keystore"
+
+      - name: APK bauen und signieren
+        if: steps.signing.outputs.configured == 'true'
+        shell: bash
+        env:
+          YFREMOTE_KEYSTORE_PATH: ${{ runner.temp }}/yfremote-release.keystore
+          YFREMOTE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          YFREMOTE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          YFREMOTE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          version_code=$(echo "${{ needs.release.outputs.version }}" | awk -F. '{print ($1 * 10000) + ($2 * 100) + $3}')
+          gradle -p android assembleRelease \
+            -PappVersionName=${{ needs.release.outputs.version }} \
+            -PappVersionCode=$version_code
+
+      - name: APK an GitHub Release anhaengen
+        if: steps.signing.outputs.configured == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apk=$(find android/app/build/outputs/apk/release -name '*.apk' | head -n1)
+          gh release upload "v${{ needs.release.outputs.version }}" \
+            "$apk#YFRemote-Android-v${{ needs.release.outputs.version }}.apk" \
+            --repo "${{ github.repository }}"

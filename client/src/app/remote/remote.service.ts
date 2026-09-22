@@ -5,10 +5,12 @@ import {
   RemoteAction,
   RemoteResponse,
   ServerConfig,
+  ServerPlatform,
 } from './remote.models';
-import { PairingService } from './pairing.service';
+import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
   getServerConfigFromLocation,
+  getServerHttpBaseUrl,
   getServerPageUrl,
   getServerWebSocketBaseUrl,
   HAPTICS_STORAGE_KEY,
@@ -96,6 +98,7 @@ export class RemoteService implements OnDestroy {
   private readonly autoConnect = inject(REMOTE_AUTO_CONNECT);
   private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly pairing = inject(PairingService);
+  private readonly fetchFn = inject(PAIRING_FETCH);
   private readonly serverLocation = inject(SERVER_LOCATION);
   private readonly i18n = inject(TranslationService);
 
@@ -122,6 +125,7 @@ export class RemoteService implements OnDestroy {
   private readonly statusSignal = signal<ConnectionStatus>('disconnected');
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly manualDisconnectSignal = signal(false);
+  private readonly serverPlatformSignal = signal<ServerPlatform | null>(null);
 
   private socket: RemoteSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -139,6 +143,8 @@ export class RemoteService implements OnDestroy {
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
+  /** Plattform der Gegenstelle laut `GET /health`; `null`, solange sie unbekannt ist. */
+  readonly serverPlatform = this.serverPlatformSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -372,6 +378,7 @@ export class RemoteService implements OnDestroy {
       this.reconnectAttempt = 0;
       this.statusSignal.set('connected');
       this.clearError();
+      void this.detectServerPlatform();
     };
 
     socket.onmessage = (event: MessageEvent<string>) => {
@@ -473,6 +480,23 @@ export class RemoteService implements OnDestroy {
       response.success === false &&
       (response.error === undefined || typeof response.error === 'string')
     );
+  }
+
+  // Einziger Zweck: der Remote-Tab muss wissen, ob am anderen Ende ein Telefon oder ein PC
+  // haengt - ein Android-Server kann weder Browser-Tab-Hotkeys noch Herunterfahren. Schlaegt der
+  // Aufruf fehl, bleibt die Plattform unbekannt und das Layout unveraendert.
+  private async detectServerPlatform(): Promise<void> {
+    try {
+      const response = await this.fetchFn(`${getServerHttpBaseUrl(this.serverLocation)}/health`);
+      const body = (await response.json()) as { readonly platform?: unknown };
+      this.serverPlatformSignal.set(
+        body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
+          ? body.platform
+          : null,
+      );
+    } catch {
+      this.serverPlatformSignal.set(null);
+    }
   }
 
   private scheduleReconnect(): void {

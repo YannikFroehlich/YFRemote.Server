@@ -172,6 +172,32 @@ export const POWER_ACTIONS: readonly RemoteButtonConfig[] = [
   },
 ];
 
+/** Nur fuer einen Android-Server: Home, Uebersicht und Sperren gibt es auf dem PC nicht, und
+ *  der Server bildet sie auf `performGlobalAction` ab (siehe android/PLAN.md, Stufe 4). */
+export const ANDROID_ACTIONS: readonly RemoteButtonConfig[] = [
+  {
+    id: 'home',
+    label: 'button.home.label',
+    ariaLabel: 'button.home.ariaLabel',
+    icon: 'home',
+    action: { type: 'key', keys: ['WIN'] },
+  },
+  {
+    id: 'recents',
+    label: 'button.recents.label',
+    ariaLabel: 'button.recents.ariaLabel',
+    icon: 'recents',
+    action: { type: 'hotkey', keys: ['WIN', 'TAB'] },
+  },
+  {
+    id: 'lock',
+    label: 'button.lock.label',
+    ariaLabel: 'button.lock.ariaLabel',
+    icon: 'sleep',
+    action: { type: 'sleep' },
+  },
+];
+
 /** Alle eingebauten Buttons, flach, für Id-Auflösung im Layout. */
 export const BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
   ...D_PAD_ACTIONS,
@@ -179,6 +205,16 @@ export const BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
   ...BROWSER_ACTIONS,
   ...MEDIA_ACTIONS,
   ...POWER_ACTIONS,
+];
+
+/** Eingebaute Buttons fuer einen Android-Server. Browser-Tab-Hotkeys, Vollbild, Neustart und
+ *  Herunterfahren fehlen absichtlich: der Android-Server lehnt sie ab oder sie laufen ins Leere
+ *  (siehe RemoteActionRouter). Das D-Pad bleibt drin - es steuert dort den Textcursor. */
+export const ANDROID_BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
+  ...D_PAD_ACTIONS,
+  ...ANDROID_ACTIONS,
+  ...SYSTEM_ACTIONS.filter((button) => button.id === 'back'),
+  ...MEDIA_ACTIONS,
 ];
 
 /** Bildet das bisherige feste Layout in Zellen-Koordinaten nach (12 Spalten). */
@@ -204,4 +240,24 @@ export const DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
   { id: 'sleep', col: 0, row: 14, colSpan: 4, rowSpan: 2 },
   { id: 'restart', col: 4, row: 14, colSpan: 4, rowSpan: 2 },
   { id: 'shutdown', col: 8, row: 14, colSpan: 4, rowSpan: 2 },
+];
+
+/** Standard-Anordnung fuer das Android-Profil (12 Spalten), ohne die PC-Buttons. */
+export const ANDROID_DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
+  { id: 'up', col: 3, row: 0, colSpan: 3, rowSpan: 2 },
+  { id: 'left', col: 0, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'ok', col: 3, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'right', col: 6, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'down', col: 3, row: 4, colSpan: 3, rowSpan: 2 },
+  { id: 'back', col: 9, row: 0, colSpan: 3, rowSpan: 3 },
+  { id: 'home', col: 9, row: 3, colSpan: 3, rowSpan: 3 },
+  { id: 'recents', col: 0, row: 6, colSpan: 6, rowSpan: 2 },
+  { id: 'lock', col: 6, row: 6, colSpan: 6, rowSpan: 2 },
+  { id: 'play-pause', col: 0, row: 8, colSpan: 3, rowSpan: 2 },
+  { id: 'volume-down', col: 3, row: 8, colSpan: 3, rowSpan: 2 },
+  { id: 'volume-up', col: 6, row: 8, colSpan: 3, rowSpan: 2 },
+  { id: 'mute', col: 9, row: 8, colSpan: 3, rowSpan: 2 },
+  { id: 'previous-track', col: 0, row: 10, colSpan: 4, rowSpan: 2 },
+  { id: 'stop', col: 4, row: 10, colSpan: 4, rowSpan: 2 },
+  { id: 'next-track', col: 8, row: 10, colSpan: 4, rowSpan: 2 },
 ];

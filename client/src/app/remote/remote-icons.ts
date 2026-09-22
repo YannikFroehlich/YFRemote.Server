@@ -6,6 +6,8 @@ export const REMOTE_ICON_PATHS: Readonly<Record<RemoteIcon, string>> = {
   'arrow-left': 'M5 12 12 5v4h7v6h-7v4l-7-7Z',
   'arrow-right': 'M19 12 12 5v4H5v6h7v4l7-7Z',
   check: 'M9.2 16.2 4.9 12l-2 2 6.3 6L21.3 7.6l-2-1.9-10.1 10.5Z',
+  home: 'M12 3 2 12h3v9h6v-6h2v6h6v-9h3L12 3Z',
+  recents: 'M4 5h16v2H4V5Zm2 4h12v2H6V9Zm-2 4h16v6H4v-6Z',
   back: 'M9 6 4 11l5 5v-3h6.1c1.8 0 3.4 1.2 3.9 2.9l.2.8 1.9-1.1-.1-.5c-.8-2.4-3.1-4.1-5.9-4.1H9V6Z',
   'next-tab': 'M13 5 21 12l-8 7v-5H3v-4h10V5Z',
   'previous-tab': 'M11 5 3 12l8 7v-5h10v-4H11V5Z',

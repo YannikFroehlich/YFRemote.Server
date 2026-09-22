@@ -202,6 +202,87 @@ boot (`loginctl enable-linger` documented in the file for boot-time start withou
 `PairingStorageOptions`/`DiagnosticPaths`) — **unverified**, since no Linux Velopack install has
 happened yet; the path may need correcting once one has.
 
+## Android support (planned, not yet implemented)
+
+Goal: an Android APK that runs its own server, so a second device can open the same Angular
+Client and remote-control the Android device itself — the same product idea as
+[Linux support](#linux-support) (server runs *on* the target device), but for a device where
+`SendInput`/`uinput`-style raw injection isn't available without root. This is a plan only;
+nothing under `android/` exists yet. Revisit this section before writing code if it's picked
+back up, rather than re-deriving the decisions below from scratch.
+
+**Why not extend the existing multi-targeted `.csproj`.** `Microsoft.AspNetCore.App` has no
+runtime pack for `android-arm64`/`android-x64` — Kestrel is unsupported on Android TFMs
+(`dotnet/aspnetcore#35077`, `#60259`). Hosting it there requires unofficial DLL-copying hacks
+with no stability guarantee across SDK updates. The Android server is therefore a **separate
+native Kotlin + Ktor** project (`android/`, its own Gradle build, no relation to
+`YFRemote.Server.csproj`'s `TargetFrameworks`), not a third multi-target leg. It re-implements
+the pairing/action protocol against the same wire format the Windows/Linux server and the
+Angular Client already use — see `Services/PairingService.cs` and
+`Services/RemoteActionHandler.cs` for the exact semantics to match (6-digit PIN with a 10-minute
+lifetime, PIN rotates only after a successful pairing write, SHA-256-hashed device tokens, 5
+failed attempts per IP → 60s lockout). The Angular Client is reused unmodified: it derives its
+HTTP/WebSocket origin from `location.origin` (`client/src/app/remote/server-config.ts`), so
+serving the same production `client/dist` bundle from the Ktor server's assets keeps the Client
+same-origin and protocol-compatible with no Client changes.
+
+**Scope decision: remote control of a visible device, not screen mirroring.** The Android device
+is assumed to sit somewhere visible (a TV box, a mounted tablet) and is controlled the way the
+Windows/Linux server is — no `MediaProjection`/video-encoding screen capture into the browser.
+
+**Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
+system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
+way to widen it later without asking for root or an ADB-based tool like Shizuku:
+- `shutdown`/`restart` (`IPowerService.Shutdown`/`Restart`) have **no Android equivalent**
+  without root; the action must fail with a clear message rather than silently no-op.
+  `sleep` maps to `AccessibilityService.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)` (API 28+)
+  — a lock screen, not the Windows/Linux suspend-to-RAM semantics.
+- `key`/`hotkey` (`IInputService`) route through the IME for text/navigation keys
+  (`commitText`/`sendKeyEvent`), which only works while a text field has focus and the YFRemote
+  keyboard is the active input method. Volume/media keys instead go through `AudioManager` and
+  work regardless of focus. Multi-key hotkeys (Ctrl+C and friends) are IME meta-state at best —
+  unreliable across third-party apps, unlike the Windows/Linux `SendInput`/`uinput` path.
+- `mouseMove`/`mouseClick`/`mouseDown`/`mouseUp`/`mouseScroll` (`IMouseService`) route through
+  `AccessibilityService.dispatchGesture`, which only takes **absolute** screen coordinates,
+  while the Client sends **relative** deltas (`deltaX`/`deltaY`, unchanged to keep the Client
+  untouched). The Android server must therefore track a virtual cursor position itself and
+  render it via a `TYPE_ACCESSIBILITY_OVERLAY` window (no `SYSTEM_ALERT_WINDOW` permission
+  needed for that window type) so the user can see where clicks will land. Drag
+  (`mouseDown`/`mouseUp`) needs a gesture stroke left open with `willContinue` (API 26+); scroll
+  becomes a synthesized swipe gesture, not a real scroll event, so its granularity won't match
+  the Windows/Linux wheel-delta behavior.
+- `/files` (`FileTransferService`) and clipboard (`IClipboardService`) stay close to their
+  current shape: `MediaStore`/Downloads for files, `ClipboardManager` for the clipboard (Android
+  10+ restricts clipboard reads/writes to the focused app or the active IME).
+
+**Staged proof plan**, each stage gated on the previous one actually working on a real device
+(an emulator doesn't validate `AccessibilityService`/IME behavior reliably):
+0. Bare Kotlin app, `AccessibilityService` only, one button that taps screen center — proves
+   gesture injection reaches the real device before anything else is built.
+1. Ktor server serving the Client bundle + the pairing/`​/ws` protocol, every action stubbed to
+   `Fail` — proves pairing and same-origin connection work end-to-end.
+2. Virtual cursor + overlay + gesture dispatch — proves pointer control.
+3. IME for `text`/`key` — proves typing into a focused field.
+4. Remaining actions (navigation, `sleep`→lock, files, clipboard; `shutdown`/`restart` return a
+   clear error).
+5. Foreground service (Android kills a backgrounded process otherwise) + a small setup Activity
+   (address, PIN, paired devices, links to the two required system-settings screens) + APK build
+   wired into CI, attached to the GitHub Release.
+
+**Pitfalls already identified, to check again before implementing:**
+- `DefaultItemExcludes` in `YFRemote.Server.csproj` will need `;android\**` added alongside the
+  existing `client\**`, or the Web SDK's default globs will pull the Gradle tree into the
+  server's own publish output — the same failure mode `client/**` needed the exclusion for.
+- Any new CI job for the Android build must not be named `build-and-test` — that name is the
+  required status check on `main` (see "Release automation" below) and must stay pointed at the
+  Windows server job.
+- A release-signed APK cannot later replace a debug-signed one on a device without uninstalling
+  first — decide the release keystore (and store it base64-encoded in GitHub Secrets) before the
+  first real release build, not after.
+- A push to `main` triggers a full release via `auto-tag.yml` regardless of which part of the
+  repo changed (see "Release automation" below) — an Android-only change releases Windows/Linux
+  too unless `[skip release]` is used deliberately.
+
 ## Tray application
 
 The Windows notification-area application is implemented in

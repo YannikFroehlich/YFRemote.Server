@@ -20,6 +20,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-09-22
+
 ### Added
 
 - Touchpad text field: a microphone button dictates via the browser's speech recognition instead of typing. With "Live" on, dictated text is sent as it is recognized, same as typing; with it off, it only fills the field for review before "Senden". Multiple sentences append instead of overwriting each other as long as the button stays on. Not shown on browsers without speech recognition support (e.g. Firefox).

@@ -23,7 +23,9 @@
         [attr.aria-label]="i18n.t('common.close')"
         (click)="close()"
       >
-        <span aria-hidden="true">x</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths['close-tab']"></path>
+        </svg>
       </button>
     </header>
 

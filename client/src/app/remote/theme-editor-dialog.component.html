@@ -23,7 +23,9 @@
         [attr.aria-label]="i18n.t('common.close')"
         (click)="close()"
       >
-        <span aria-hidden="true">x</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths['close-tab']"></path>
+        </svg>
       </button>
     </header>
 
@@ -79,11 +81,13 @@
             <div class="theme-editor__colors">
               @for (color of colors; track color.key) {
                 <label class="theme-color">
-                  <input
-                    type="color"
-                    [value]="draft.values[color.key]"
-                    (input)="setColor(color.key, $event)"
-                  />
+                  <span class="theme-color__swatch" [style.background]="draft.values[color.key]">
+                    <input
+                      type="color"
+                      [value]="draft.values[color.key]"
+                      (input)="setColor(color.key, $event)"
+                    />
+                  </span>
                   <span>{{ i18n.t(color.label) }}</span>
                 </label>
               }
@@ -151,36 +155,45 @@
             </div>
           </section>
 
-          <details class="settings-section theme-editor__advanced">
-            <summary>
+          <details class="settings-section theme-editor__advanced" #advancedDetails>
+            <summary (click)="toggleAdvanced($event, advancedDetails, advancedBody)">
               {{ i18n.t('themeEditor.advanced.summary') }}
               @if (advancedCount() > 0) {
                 {{ i18n.t('themeEditor.advanced.changedCount', { count: advancedCount() }) }}
               }
             </summary>
-            <div class="theme-editor__colors">
-              @for (entry of advancedTokens; track entry.token) {
-                <label
-                  class="theme-color"
-                  [class.theme-color--changed]="isAdvancedOverridden(entry.token)"
+            <div class="theme-editor__advanced-body" #advancedBody>
+              <div class="theme-editor__advanced-body__inner">
+                <div class="theme-editor__colors">
+                  @for (entry of advancedTokens; track entry.token) {
+                    <label
+                      class="theme-color"
+                      [class.theme-color--changed]="isAdvancedOverridden(entry.token)"
+                    >
+                      <span
+                        class="theme-color__swatch"
+                        [style.background]="advancedColors()[entry.token]"
+                      >
+                        <input
+                          type="color"
+                          [value]="advancedColors()[entry.token]"
+                          (input)="setAdvanced(entry.token, $event)"
+                        />
+                      </span>
+                      <span>{{ i18n.t(entry.label) }}</span>
+                    </label>
+                  }
+                </div>
+                <button
+                  class="secondary-button"
+                  type="button"
+                  [disabled]="advancedCount() === 0"
+                  (click)="resetAdvanced()"
                 >
-                  <input
-                    type="color"
-                    [value]="advancedColors()[entry.token]"
-                    (input)="setAdvanced(entry.token, $event)"
-                  />
-                  <span>{{ i18n.t(entry.label) }}</span>
-                </label>
-              }
+                  {{ i18n.t('themeEditor.advanced.reset') }}
+                </button>
+              </div>
             </div>
-            <button
-              class="secondary-button"
-              type="button"
-              [disabled]="advancedCount() === 0"
-              (click)="resetAdvanced()"
-            >
-              {{ i18n.t('themeEditor.advanced.reset') }}
-            </button>
           </details>
 
           @if (isEditing()) {

@@ -206,7 +206,9 @@ internal static class Program
         }
     }
 
-    internal static WebApplication BuildApplication(string[] args)
+    internal static WebApplication BuildApplication(
+        string[] args,
+        Action<IServiceCollection>? configureServices = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -231,6 +233,11 @@ internal static class Program
             .GetSection(FileTransferOptions.SectionName)
             .Get<FileTransferOptions>() ?? new FileTransferOptions();
         fileTransferOptions.Validate();
+
+        var clipboardOptions = builder.Configuration
+            .GetSection(ClipboardOptions.SectionName)
+            .Get<ClipboardOptions>() ?? new ClipboardOptions();
+        clipboardOptions.Validate();
 
         if (httpsOptions.Enabled)
         {
@@ -262,16 +269,19 @@ internal static class Program
         builder.Services.AddSingleton(httpsOptions);
         builder.Services.AddSingleton(fileTransferOptions);
         builder.Services.AddSingleton<FileTransferService>();
+        builder.Services.AddSingleton(clipboardOptions);
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
+        builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
 #else
         builder.Services.AddSingleton<LinuxInputSender>();
         builder.Services.AddSingleton<IInputService, LinuxInputService>();
         builder.Services.AddSingleton<IMouseService, LinuxMouseService>();
         builder.Services.AddSingleton<IPowerService, LinuxPowerService>();
+        builder.Services.AddSingleton<IClipboardService, LinuxClipboardService>();
 #endif
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
@@ -282,6 +292,8 @@ internal static class Program
             .Get<PairingStorageOptions>() ?? new PairingStorageOptions();
         builder.Services.AddSingleton(pairingStorageOptions);
         builder.Services.AddSingleton<PairingService>();
+
+        configureServices?.Invoke(builder.Services);
 
         var app = builder.Build();
 
@@ -495,6 +507,135 @@ internal static class Program
             }
         });
 
+        app.MapPost("/clipboard/text", async context =>
+        {
+            if (!IsAllowedOrigin(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
+                return;
+            }
+
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+            var token = GetBearerToken(context.Request);
+            if (!pairingService.TryValidateToken(token, out _))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            ClipboardTextRequest? request;
+            try
+            {
+                request = await context.Request.ReadFromJsonAsync<ClipboardTextRequest>(context.RequestAborted);
+            }
+            catch (JsonException)
+            {
+                await context.Response.WriteAsJsonAsync(ClipboardResponse.Fail("Invalid JSON."), context.RequestAborted);
+                return;
+            }
+
+            var clipboardOptions = context.RequestServices.GetRequiredService<ClipboardOptions>();
+            var text = request?.Text;
+
+            if (string.IsNullOrEmpty(text))
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail("Text must not be empty."),
+                    context.RequestAborted);
+                return;
+            }
+
+            if (text.Length > clipboardOptions.MaxTextLength)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail($"Text must be at most {clipboardOptions.MaxTextLength} characters."),
+                    context.RequestAborted);
+                return;
+            }
+
+            var clipboardService = context.RequestServices.GetRequiredService<IClipboardService>();
+            await TrySetClipboardAsync(context, app.Logger, () => clipboardService.SetTextAsync(text));
+        });
+
+        app.MapPost("/clipboard/image", async context =>
+        {
+            if (!IsAllowedOrigin(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
+                return;
+            }
+
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+            var token = GetBearerToken(context.Request);
+            if (!pairingService.TryValidateToken(token, out _))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            var clipboardOptions = context.RequestServices.GetRequiredService<ClipboardOptions>();
+
+            context.Features.Get<IHttpMaxRequestBodySizeFeature>()!.MaxRequestBodySize =
+                clipboardOptions.MaxImageSizeBytes;
+
+            if (context.Request.ContentLength is { } contentLength
+                && contentLength > clipboardOptions.MaxImageSizeBytes)
+            {
+                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail("Image is too large."),
+                    context.RequestAborted);
+                return;
+            }
+
+            if (!context.Request.HasFormContentType)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail("Expected multipart/form-data."),
+                    context.RequestAborted);
+                return;
+            }
+
+            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            var file = form.Files.Count > 0 ? form.Files[0] : null;
+            if (file is null || file.Length == 0)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail("No image was sent."),
+                    context.RequestAborted);
+                return;
+            }
+
+            // file.Length ist nach ReadFormAsync bereits der tatsaechliche, durch das
+            // MaxRequestBodySize-Limit oben begrenzte Wert - kein weiteres manuelles
+            // Streaming-Limit noetig (anders als /files, wo gegen einen irrefuehrenden
+            // Content-Length-Header auf dem rohen Request abgesichert werden musste).
+            if (file.Length > clipboardOptions.MaxImageSizeBytes)
+            {
+                context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail("Image is too large."),
+                    context.RequestAborted);
+                return;
+            }
+
+            var clipboardService = context.RequestServices.GetRequiredService<IClipboardService>();
+            using var imageStream = new MemoryStream();
+            await using (var fileStream = file.OpenReadStream())
+            {
+                await fileStream.CopyToAsync(imageStream, context.RequestAborted);
+            }
+            imageStream.Position = 0;
+
+            await TrySetClipboardAsync(context, app.Logger, () => clipboardService.SetImageAsync(imageStream));
+        });
+
         // Keine Origin-Pruefung: Browser senden bei einem Same-Origin-GET-fetch() ueblicherweise
         // keinen Origin-Header (anders als bei POST oder beim WebSocket-Handshake), und dieser
         // Endpoint liefert ohnehin nur ein Ja/Nein zu einem Token, das der Aufrufer bereits kennen
@@ -549,6 +690,30 @@ internal static class Program
 
         var expectedOrigin = $"{request.Scheme}://{request.Host}";
         return string.Equals(origin, expectedOrigin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task TrySetClipboardAsync(HttpContext context, ILogger logger, Func<Task> operation)
+    {
+        try
+        {
+            await operation();
+            await context.Response.WriteAsJsonAsync(ClipboardResponse.Ok(), context.RequestAborted);
+        }
+        catch (NotSupportedException exception)
+        {
+            context.Response.StatusCode = StatusCodes.Status501NotImplemented;
+            await context.Response.WriteAsJsonAsync(
+                ClipboardResponse.Fail(exception.Message),
+                context.RequestAborted);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to write to the clipboard.");
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsJsonAsync(
+                ClipboardResponse.Fail("Clipboard operation failed."),
+                context.RequestAborted);
+        }
     }
 
     private static string? GetBearerToken(HttpRequest request)

@@ -150,6 +150,14 @@ export const TRANSLATIONS = {
     de: 'Datei konnte nicht gesendet werden.',
     en: 'The file could not be sent.',
   },
+  'touchpad.clipboard.title': { de: 'Zwischenablage senden', en: 'Send clipboard' },
+  'touchpad.clipboard.ariaLabel': { de: 'Zwischenablage senden', en: 'Send clipboard' },
+  'touchpad.clipboard.hint': { de: 'Jetzt einfügen', en: 'Paste now' },
+  'touchpad.clipboard.success': { de: 'Zwischenablage gesendet.', en: 'Clipboard sent.' },
+  'touchpad.clipboard.error': {
+    de: 'Zwischenablage konnte nicht gesendet werden.',
+    en: 'The clipboard could not be sent.',
+  },
 
   'keyboardPad.eyebrow': { de: 'Direkte Eingabe', en: 'Direct input' },
   'keyboardPad.title': { de: 'Virtuelle Tastatur', en: 'Virtual keyboard' },

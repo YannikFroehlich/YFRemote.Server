@@ -191,15 +191,30 @@
 }
 
 .touchpad-text__mic,
-.touchpad-text__file {
+.touchpad-text__file,
+.touchpad-text__clipboard {
   padding: 0 11px;
 }
 
 .touchpad-text__mic svg,
-.touchpad-text__file svg {
+.touchpad-text__file svg,
+.touchpad-text__clipboard svg {
   width: 18px;
   height: 18px;
   fill: currentColor;
+}
+
+.clipboard-paste-target {
+  margin: 0 10px 9px;
+  padding: 10px 14px;
+  border: var(--border-width) dashed var(--line-strong);
+  border-radius: calc(13px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.clipboard-paste-target:focus-visible {
+  outline: 3px solid rgba(var(--accent-rgb), 0.12);
 }
 
 // Gleiche Pulsanimation wie der "verbindet sich"-Punkt (styles.scss, .status-pill--connecting) -

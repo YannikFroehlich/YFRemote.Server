@@ -57,6 +57,17 @@
       </svg>
     </button>
     <button
+      class="snap-switch touchpad-text__clipboard"
+      type="button"
+      [attr.title]="i18n.t('touchpad.clipboard.title')"
+      [attr.aria-label]="i18n.t('touchpad.clipboard.ariaLabel')"
+      (click)="showClipboardPasteTarget()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths.clipboard"></path>
+      </svg>
+    </button>
+    <button
       class="snap-switch"
       type="button"
       role="switch"
@@ -78,6 +89,20 @@
     }
   </form>
 
+  @if (clipboardPasteTargetVisible()) {
+    <div
+      class="clipboard-paste-target"
+      contenteditable="true"
+      role="textbox"
+      autofocus
+      [attr.aria-label]="i18n.t('touchpad.clipboard.hint')"
+      (paste)="onClipboardPaste($event)"
+      (blur)="hideClipboardPasteTarget()"
+    >
+      {{ i18n.t('touchpad.clipboard.hint') }}
+    </div>
+  }
+
   @if (dictationError(); as errorKey) {
     <p class="settings-message" role="status" aria-live="polite">{{ i18n.t(errorKey) }}</p>
   }
@@ -86,6 +111,10 @@
     <p class="settings-message" role="status" aria-live="polite">
       {{ i18n.t(status.key, status.params) }}
     </p>
+  }
+
+  @if (clipboardStatus(); as statusKey) {
+    <p class="settings-message" role="status" aria-live="polite">{{ i18n.t(statusKey) }}</p>
   }
 
   <div

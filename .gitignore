@@ -7,3 +7,15 @@ wwwroot/
 .claude/
 .codex-remote-attachments/
 publish-linux/
+
+# Android (android/) - Build-Artefakte und maschinenspezifische Android-Studio-Dateien.
+# gradlew/gradlew.bat und gradle/wrapper/gradle-wrapper.jar bleiben getrackt (Standardpraxis).
+android/local.properties
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/*.iml
+android/app/*.iml
+# Angular-Production-Build, analog zu wwwroot/ oben - wird lokal/in CI hineinkopiert.
+android/app/src/main/assets/www/

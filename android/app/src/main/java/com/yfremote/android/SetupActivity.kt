@@ -15,6 +15,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.yfremote.android.accessibility.YFRemoteAccessibilityService
+import com.yfremote.android.ime.YFRemoteInputMethodService
 import com.yfremote.android.server.KtorServer
 import com.yfremote.android.service.YFRemoteForegroundService
 import java.net.Inet4Address
@@ -29,6 +31,8 @@ class SetupActivity : Activity() {
     private lateinit var addressText: TextView
     private lateinit var pinText: TextView
     private lateinit var toggleButton: Button
+    private lateinit var accessibilityStatusText: TextView
+    private lateinit var keyboardStatusText: TextView
     private lateinit var devicesContainer: LinearLayout
 
     private val refreshHandler = Handler(Looper.getMainLooper())
@@ -91,16 +95,34 @@ class SetupActivity : Activity() {
         root.addView(toggleButton)
 
         root.addView(sectionLabel("Berechtigungen", dp(24)))
+
+        accessibilityStatusText = TextView(this).apply { textSize = 16f }
+        root.addView(accessibilityStatusText)
         root.addView(
             Button(this).apply {
                 text = "Bedienungshilfe aktivieren"
                 setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             },
         )
+
+        keyboardStatusText = TextView(this).apply { textSize = 16f }
+        root.addView(keyboardStatusText)
         root.addView(
             Button(this).apply {
                 text = "Tastatur aktivieren"
                 setOnClickListener { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
+            },
+        )
+
+        // Haeufigster Grund fuer eine dauerhaft inaktive Bedienungshilfe: die App wurde per APK
+        // installiert, dann sperrt Android 13+ den Schalter als "eingeschraenkte Einstellung".
+        root.addView(
+            TextView(this).apply {
+                textSize = 13f
+                text = "Bleibt der Schalter in den Bedienungshilfen grau (per APK installiert): " +
+                    "Einstellungen > Apps > YFRemote > Menue oben rechts > " +
+                    "\"Eingeschraenkte Einstellungen zulassen\"."
+                setPadding(0, dp(8), 0, 0)
             },
         )
 
@@ -117,6 +139,13 @@ class SetupActivity : Activity() {
         setPadding(0, topPadding, 0, 0)
         gravity = Gravity.START
     }
+
+    // Settings.Secure statt nur der IME-Singleton-Instanz: Android erzeugt die IME erst, wenn sie
+    // als Tastatur ausgewaehlt ist und ein Textfeld den Fokus bekommt - vorher waere "inaktiv"
+    // irrefuehrend, obwohl der Nutzer alles richtig gemacht hat.
+    private fun isYFRemoteDefaultIme(): Boolean =
+        Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+            ?.startsWith("$packageName/") == true
 
     private fun ensureServiceRunning() {
         ContextCompat.startForegroundService(this, Intent(this, YFRemoteForegroundService::class.java))
@@ -137,6 +166,14 @@ class SetupActivity : Activity() {
         val service = YFRemoteForegroundService.instance
         pinText.text = service?.pairing?.getCurrentPin()?.first ?: "Dienst nicht aktiv"
         toggleButton.text = if (YFRemoteForegroundService.isRunning) "Dienst stoppen" else "Dienst starten"
+
+        accessibilityStatusText.text =
+            "Bedienungshilfe: " + (if (YFRemoteAccessibilityService.instance != null) "aktiv" else "inaktiv")
+        keyboardStatusText.text = "Tastatur: " + when {
+            YFRemoteInputMethodService.instance != null -> "aktiv"
+            isYFRemoteDefaultIme() -> "ausgewaehlt, startet beim ersten Tippen"
+            else -> "inaktiv"
+        }
 
         devicesContainer.removeAllViews()
         service?.pairing?.getPairedDevices()?.forEach { device ->

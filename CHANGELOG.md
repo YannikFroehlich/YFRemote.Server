@@ -23,7 +23,12 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 ### Added
 
 - Experimenteller Android-Server-Prototyp unter `android/` (Kotlin + Ktor): dieselbe Pairing-/WebSocket-API wie der Windows/Linux-Server, plus `AccessibilityService`-basierte Zeigersteuerung, eine eigene Tastatur (IME) fuers Tippen, Datei- und Zwischenablage-Uebertragung. Noch kein Bestandteil der Windows/Linux-App-Erfahrung und noch nicht auf echter Hardware verifiziert - siehe `android/PLAN.md`. Die Release-Pipeline baut ab jetzt zusaetzlich eine signierte APK (siehe `release-android`-Job in `release.yml`), sobald die dafuer noetigen Signing-Secrets hinterlegt sind.
-- Android-App: Die Setup-Seite zeigt jetzt pro Berechtigung eine Statuszeile ("Bedienungshilfe: aktiv/inaktiv", "Tastatur: aktiv/inaktiv") statt den fehlenden Schalter erst als Fehler pro Aktion auf dem steuernden Geraet sichtbar zu machen, plus einen Hinweis auf "Eingeschraenkte Einstellungen zulassen", das Android 13+ bei per APK installierten Apps fuer Bedienungshilfen verlangt.
+- Android-App: Die Setup-Seite zeigt jetzt pro Berechtigung eine Statuszeile statt den fehlenden Schalter erst als Fehler pro Aktion auf dem steuernden Geraet sichtbar zu machen. Die Tastatur-Zeile unterscheidet dabei "aktiviert, aber nicht ausgewaehlt" von "inaktiv" - Android braucht beide Schritte -, ein Button "Tastatur auswaehlen" oeffnet den System-Auswahldialog direkt, und ein Hinweis nennt "Eingeschraenkte Einstellungen zulassen", das Android 13+ bei per APK installierten Apps fuer Bedienungshilfen verlangt.
+- Android-App: Die YFRemote-Tastatur zeigt beim Tippen am Telefon selbst eine Leiste mit einem "Andere Tastatur"-Button. Vorher war sie eine unsichtbare 1x1-View, dadurch stand waehrend ihrer Auswahl gar keine bedienbare Tastatur mehr zur Verfuegung und der Weg zurueck fuehrte nur ueber die Systemeinstellungen.
+
+### Fixed
+
+- Android-App: Taps und Wischgesten landeten um die Hoehe der Statusleiste neben dem sichtbaren Cursor, weil das Overlay-Fenster ohne `FLAG_LAYOUT_IN_SCREEN` unterhalb der Statusleiste positioniert wird, `dispatchGesture()` aber in Display-Koordinaten arbeitet. Getippte Buttons wurden dadurch verfehlt.
 
 ## [2.17.0] - 2026-09-22
 

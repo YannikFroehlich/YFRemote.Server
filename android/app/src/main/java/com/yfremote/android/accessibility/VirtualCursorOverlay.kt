@@ -34,7 +34,13 @@ class VirtualCursorOverlay(private val service: AccessibilityService) {
                 markerSizePx,
                 markerSizePx,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                // FLAG_LAYOUT_IN_SCREEN/NO_LIMITS: ohne sie liegt der Fensterursprung unter der
+                // Statusleiste, der Marker sitzt dann um deren Hoehe unter dem Punkt, auf den
+                // dispatchGesture() tatsaechlich tippt - Gesten laufen immer in Display-Koordinaten.
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT,
             ).apply { gravity = Gravity.TOP or Gravity.START }
 

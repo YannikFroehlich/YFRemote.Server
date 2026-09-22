@@ -36,6 +36,7 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - A built-in button not yet present in a saved layout (e.g. "Vorheriger"/"Stopp"/"Nächster" or "Ruhemodus"/"Neustart"/"Herunterfahren" on a layout saved before they existed) was auto-placed as a tiny 1x1 cell instead of its intended size, rendering with a cut-off label. It now gets its real default size, and an existing layout already stuck with a 1x1 built-in self-heals to the correct size the next time it loads.
 - Color swatches in the custom style editor ("Eigener Stil") had square corners despite the app's rounded design language — most visibly on Android, where the native color-picker preview ignores CSS styling entirely. Swatches now show the picked color as their own clipped background instead of relying on the browser to round it. The "Profi: alle Farben einzeln" section also now animates open/closed with a rotating arrow instead of snapping instantly.
 - Dialog close buttons (Settings, "Eigener Stil", Button-Editor) showed a plain "x" character instead of an icon; they now use the same X icon as the rest of the app.
+- File transfer: a Windows-style path-traversal filename (`..\..\evil.exe`) sent by a client was only sanitized on Windows, since `Path.GetFileName` doesn't treat `\` as a separator on Linux. Filenames are now trimmed at the last `/` or `\` regardless of the server's OS.
 
 ## [2.15.0] - 2026-09-21
 

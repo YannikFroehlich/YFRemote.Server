@@ -37,12 +37,18 @@ public sealed class FileTransferService(FileTransferOptions options, ILogger<Fil
         return savedFileName;
     }
 
-    // Path.GetFileName wirft jeglichen Verzeichnisanteil weg (auch "..\..\evil.exe"), das ist die
-    // eigentliche Absicherung gegen Pfad-Traversal - der Zeichen-Ersatz danach macht den Namen nur
-    // auf Windows gültig.
+    // Schneidet selbst am letzten '/' oder '\' ab, statt Path.GetFileName zu vertrauen: das
+    // erkennt unter Linux nur '/' als Trennzeichen, ein von einem beliebigen Client eingeschickter
+    // Windows-Pfad wie "..\..\evil.exe" (Backslash ist unter Linux ein ganz normales
+    // Dateinamenszeichen) käme sonst dort unveraendert durch. Der Zeichen-Ersatz danach macht den
+    // Namen zusaetzlich auf dem jeweils aktuellen Betriebssystem gueltig.
     private static string SanitizeFileName(string requestedFileName)
     {
-        var fileName = Path.GetFileName(requestedFileName);
+        var lastSeparatorIndex = requestedFileName.LastIndexOfAny(['/', '\\']);
+        var fileName = lastSeparatorIndex >= 0
+            ? requestedFileName[(lastSeparatorIndex + 1)..]
+            : requestedFileName;
+
         if (string.IsNullOrWhiteSpace(fileName))
         {
             fileName = "Datei";

@@ -1,4 +1,6 @@
 import { Component, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
+import { ClipboardService } from '../clipboard.service';
+import { FileTransferService } from '../file-transfer.service';
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
@@ -80,6 +82,11 @@ const ACCEL_GAIN = 1.5;
 const ACCEL_MAX_FACTOR = 3;
 const MIN_EVENT_INTERVAL_MS = 8;
 const DICTATION_ERROR_VISIBLE_MS = 4200;
+const FILE_STATUS_VISIBLE_MS = 4200;
+const CLIPBOARD_STATUS_VISIBLE_MS = 4200;
+// Genug Zeit, um nach dem Fokussieren zum System-"Einfügen" zu greifen; ohne Paste blendet sich
+// das Feld danach wieder aus, statt dauerhaft im Weg zu stehen.
+const CLIPBOARD_PASTE_TARGET_TIMEOUT_MS = 15000;
 
 @Component({
   selector: 'app-touchpad',
@@ -88,6 +95,8 @@ const DICTATION_ERROR_VISIBLE_MS = 4200;
 })
 export class TouchpadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  private readonly fileTransfer = inject(FileTransferService);
+  private readonly clipboard = inject(ClipboardService);
   private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
   protected readonly i18n = inject(TranslationService);
   private readonly pointers = new Map<number, PointerPosition>();
@@ -100,10 +109,19 @@ export class TouchpadComponent implements OnDestroy {
   protected readonly dictationSupported = this.createRecognizer() !== null;
   protected readonly dictating = signal(false);
   protected readonly dictationError = signal<string | null>(null);
+  protected readonly fileSending = this.fileTransfer.sending;
+  protected readonly fileStatus = signal<{ key: string; params?: Record<string, string> } | null>(
+    null,
+  );
+  protected readonly clipboardPasteTargetVisible = signal(false);
+  protected readonly clipboardStatus = signal<string | null>(null);
 
   private recognizer: SpeechRecognizer | null = null;
   private dictationBaseText = '';
   private dictationErrorTimer: ReturnType<typeof setTimeout> | null = null;
+  private fileStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private clipboardStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private clipboardPasteTargetTimer: ReturnType<typeof setTimeout> | null = null;
 
   private pointerMode: PointerMode = 'idle';
   private lastScrollCenterX: number | null = null;
@@ -292,6 +310,93 @@ export class TouchpadComponent implements OnDestroy {
     }
   }
 
+  protected async onFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+
+    if (file === undefined) {
+      return;
+    }
+
+    const result = await this.fileTransfer.sendFile(file);
+
+    if (result.success) {
+      this.showFileStatus('touchpad.file.success', { fileName: result.fileName ?? file.name });
+    } else {
+      this.showFileStatus('touchpad.file.error');
+    }
+  }
+
+  private showFileStatus(key: string, params?: Record<string, string>): void {
+    if (this.fileStatusTimer !== null) {
+      clearTimeout(this.fileStatusTimer);
+    }
+
+    this.fileStatus.set({ key, params });
+    this.fileStatusTimer = setTimeout(() => this.fileStatus.set(null), FILE_STATUS_VISIBLE_MS);
+  }
+
+  /** Zeigt das Einfüge-Feld (der eigentliche Fokus kommt vom nativen autofocus-Attribut im
+   *  Template, sobald @if es einfügt), statt selbst die - durch den sicheren Kontext gesperrte -
+   *  Async-Clipboard-API zu lesen. Der Nutzer löst das eigentliche Einfügen über die native
+   *  Geste seines Geräts aus. */
+  protected showClipboardPasteTarget(): void {
+    this.clipboardPasteTargetVisible.set(true);
+
+    if (this.clipboardPasteTargetTimer !== null) {
+      clearTimeout(this.clipboardPasteTargetTimer);
+    }
+
+    this.clipboardPasteTargetTimer = setTimeout(
+      () => this.hideClipboardPasteTarget(),
+      CLIPBOARD_PASTE_TARGET_TIMEOUT_MS,
+    );
+  }
+
+  protected hideClipboardPasteTarget(): void {
+    this.clipboardPasteTargetVisible.set(false);
+
+    if (this.clipboardPasteTargetTimer !== null) {
+      clearTimeout(this.clipboardPasteTargetTimer);
+      this.clipboardPasteTargetTimer = null;
+    }
+  }
+
+  protected async onClipboardPaste(event: ClipboardEvent): Promise<void> {
+    event.preventDefault();
+    this.hideClipboardPasteTarget();
+    (event.currentTarget as HTMLElement).textContent = '';
+
+    const items = Array.from(event.clipboardData?.items ?? []);
+    const imageItem = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'));
+    const textItem = items.find((item) => item.kind === 'string' && item.type === 'text/plain');
+
+    if (imageItem) {
+      const file = imageItem.getAsFile();
+      const result = file ? await this.clipboard.sendImage(file) : { success: false };
+      this.showClipboardStatus(result.success);
+      return;
+    }
+
+    if (textItem) {
+      const text = await new Promise<string>((resolve) => textItem.getAsString(resolve));
+      this.showClipboardStatus((await this.clipboard.sendText(text)).success);
+    }
+  }
+
+  private showClipboardStatus(success: boolean): void {
+    if (this.clipboardStatusTimer !== null) {
+      clearTimeout(this.clipboardStatusTimer);
+    }
+
+    this.clipboardStatus.set(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error');
+    this.clipboardStatusTimer = setTimeout(
+      () => this.clipboardStatus.set(null),
+      CLIPBOARD_STATUS_VISIBLE_MS,
+    );
+  }
+
   private startDictation(input: HTMLInputElement): void {
     const recognizer = this.createRecognizer();
 
@@ -429,6 +534,18 @@ export class TouchpadComponent implements OnDestroy {
 
     if (this.dictationErrorTimer !== null) {
       clearTimeout(this.dictationErrorTimer);
+    }
+
+    if (this.fileStatusTimer !== null) {
+      clearTimeout(this.fileStatusTimer);
+    }
+
+    if (this.clipboardStatusTimer !== null) {
+      clearTimeout(this.clipboardStatusTimer);
+    }
+
+    if (this.clipboardPasteTargetTimer !== null) {
+      clearTimeout(this.clipboardPasteTargetTimer);
     }
   }
 

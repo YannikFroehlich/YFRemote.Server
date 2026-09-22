@@ -1,5 +1,6 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, effect, inject, input, OnInit, output, signal } from '@angular/core';
+import { REMOTE_ICON_PATHS } from './remote-icons';
 import {
   ADVANCED_THEME_TOKENS,
   CUSTOM_THEME_COLORS,
@@ -41,6 +42,7 @@ export class ThemeEditorDialogComponent implements OnInit {
   readonly closed = output<void>();
   readonly saved = output<string>();
 
+  protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly colors = CUSTOM_THEME_COLORS;
   protected readonly shapeControls = SHAPE_CONTROLS;
   protected readonly ranges = CUSTOM_THEME_RANGES;
@@ -163,6 +165,57 @@ export class ThemeEditorDialogComponent implements OnInit {
 
   protected resetAdvanced(): void {
     this.update((draft) => ({ ...draft, advanced: {} }));
+  }
+
+  /** Native <details> koennen ihren Inhalt nicht animiert auf-/zuklappen, und rein CSS-basierte
+   *  Tricks dafuer (grid-template-rows 0fr/1fr, max-height mit fester Deckelung) loesen sich in
+   *  der Praxis unzuverlaessig auf. Deshalb hier bewusst per JS: die eigentliche Toggle-Aktion
+   *  wird abgefangen (preventDefault), die echte Inhaltshoehe gemessen und explizit von/auf genau
+   *  diesen Pixelwert animiert - das funktioniert unabhaengig vom Browser. */
+  protected toggleAdvanced(
+    event: Event,
+    details: HTMLDetailsElement,
+    body: HTMLDivElement,
+  ): void {
+    event.preventDefault();
+
+    if (details.open) {
+      this.collapseAdvanced(details, body);
+    } else {
+      this.expandAdvanced(details, body);
+    }
+  }
+
+  private expandAdvanced(details: HTMLDetailsElement, body: HTMLDivElement): void {
+    details.open = true;
+    const targetHeight = body.scrollHeight;
+    body.style.height = '0px';
+    body.getBoundingClientRect(); // erzwingt einen Reflow, damit 0px als Startwert "committed" wird
+    body.style.height = `${targetHeight}px`;
+
+    body.addEventListener(
+      'transitionend',
+      () => {
+        // "auto" statt der zuletzt gemessenen Pixelhoehe, damit sich spaeterer Inhalt (z. B.
+        // nach einem Fenster-Resize) nicht in einer zu klein gewordenen Box verklemmt.
+        body.style.height = 'auto';
+      },
+      { once: true },
+    );
+  }
+
+  private collapseAdvanced(details: HTMLDetailsElement, body: HTMLDivElement): void {
+    body.style.height = `${body.scrollHeight}px`;
+    body.getBoundingClientRect(); // erzwingt einen Reflow, siehe expandAdvanced
+    body.style.height = '0px';
+
+    body.addEventListener(
+      'transitionend',
+      () => {
+        details.open = false;
+      },
+      { once: true },
+    );
   }
 
   protected isAdvancedOverridden(token: string): boolean {

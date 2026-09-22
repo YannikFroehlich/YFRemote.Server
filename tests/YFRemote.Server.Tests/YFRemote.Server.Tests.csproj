@@ -6,6 +6,10 @@
          dieses ebenfalls crosstargeted Projekts auf einem echten Linux Build Host nicht mit
          NETSDK1100 abbricht, auch wenn nur das net10.0 Ziel gebraucht wird. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Nur fuer WindowsClipboardServiceTests (System.Windows.Forms.Clipboard/System.Drawing.Bitmap) -
+         spiegelt UseWindowsForms aus YFRemote.Server.csproj, das per ProjectReference nicht
+         mituebernommen wird. -->
+    <UseWindowsForms Condition="'$(TargetFramework)' == 'net10.0-windows'">true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>

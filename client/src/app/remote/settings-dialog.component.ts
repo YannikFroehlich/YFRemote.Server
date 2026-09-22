@@ -2,6 +2,7 @@ import { Component, inject, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
+import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ServerConfig } from './remote.models';
 import { RemoteService } from './remote.service';
 import {
@@ -39,6 +40,7 @@ export class SettingsDialogComponent {
   protected readonly layout = inject(ButtonLayoutService);
   protected readonly theme = inject(ThemeService);
   protected readonly i18n = inject(TranslationService);
+  protected readonly iconPaths = REMOTE_ICON_PATHS;
 
   readonly closed = output<void>();
 

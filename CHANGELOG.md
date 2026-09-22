@@ -28,10 +28,15 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - The install manifest now ships properly sized 192x192 and 512x512 icons plus a maskable variant, so Android/desktop installs get a crisp, adaptive-icon-compatible app icon instead of one giant PNG scaled down.
 - Settings: a "Zuletzt verbunden"/"Recently connected" list under Host/IP remembers up to 6 previously used servers (this device only) so switching between multiple PCs no longer means retyping host and port each time.
 - Every button on the Remote page — built-in or custom — can now have its own background color. Opening a button in edit mode reveals "Eigene Farbe verwenden" with a color picker; icon and label switch between black and white automatically for readable contrast. A built-in button's label/icon/action stay fixed; only its color is editable.
+- A new upload button next to the touchpad's text field sends a file from the phone to the PC (`POST /files`, same PIN/pairing gate as everything else); it's saved into `Dokumente\YFRemote`, with a Windows tray notification once it arrives. A second file with the same name gets a `(2)`-suffixed name instead of overwriting the first. Size is capped at 200 MB by default (`FileTransfer:MaxFileSizeBytes` in `appsettings.json`).
+- A new clipboard button next to the touchpad's text field sends text or an image from the phone's clipboard straight into the PC's clipboard: tap the button, then paste (the browser's own paste gesture — reading the clipboard directly isn't possible without HTTPS). Windows only for now; capped at 200,000 characters / 20 MB by default (`Clipboard:MaxTextLength`/`Clipboard:MaxImageSizeBytes` in `appsettings.json`).
 
 ### Fixed
 
 - A built-in button not yet present in a saved layout (e.g. "Vorheriger"/"Stopp"/"Nächster" or "Ruhemodus"/"Neustart"/"Herunterfahren" on a layout saved before they existed) was auto-placed as a tiny 1x1 cell instead of its intended size, rendering with a cut-off label. It now gets its real default size, and an existing layout already stuck with a 1x1 built-in self-heals to the correct size the next time it loads.
+- Color swatches in the custom style editor ("Eigener Stil") had square corners despite the app's rounded design language — most visibly on Android, where the native color-picker preview ignores CSS styling entirely. Swatches now show the picked color as their own clipped background instead of relying on the browser to round it. The "Profi: alle Farben einzeln" section also now animates open/closed with a rotating arrow instead of snapping instantly.
+- Dialog close buttons (Settings, "Eigener Stil", Button-Editor) showed a plain "x" character instead of an icon; they now use the same X icon as the rest of the app.
+- File transfer: a Windows-style path-traversal filename (`..\..\evil.exe`) sent by a client was only sanitized on Windows, since `Path.GetFileName` doesn't treat `\` as a separator on Linux. Filenames are now trimmed at the last `/` or `\` regardless of the server's OS.
 
 ## [2.15.0] - 2026-09-21
 

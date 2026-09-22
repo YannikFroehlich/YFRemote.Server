@@ -1159,14 +1159,32 @@ select:focus-visible {
   font-weight: 650;
 }
 
-.theme-color input {
+// Rundet per Zuschnitt statt per ::-webkit-color-swatch: auf Android Chrome ist der native
+// Farb-Vorschau-Swatch ein Plattform-Widget, das diese Pseudo-Elemente ignoriert (Desktop-Chrome
+// wuerde sie respektieren, Telefone - der Hauptfall hier - nicht). Der Wrapper schneidet den
+// eckigen Swatch stattdessen einfach ab, unabhaengig davon, wie der Browser ihn zeichnet.
+.theme-color__swatch {
+  display: block;
   width: 38px;
   height: 32px;
   flex: none;
-  padding: 2px;
+  overflow: hidden;
   border: var(--border-width) solid var(--line);
   border-radius: calc(8px * var(--radius-scale));
   background: var(--surface-soft);
+  cursor: pointer;
+}
+
+// Der native Swatch selbst bleibt unsichtbar (opacity, nicht visibility - sonst kein Klick mehr
+// moeglich); die sichtbare Farbe kommt stattdessen vom background-Inline-Style des Wrappers oben,
+// der Input dient nur noch als transparente Klickflaeche fuer den OS-Farbwaehler.
+.theme-color__swatch input {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
   cursor: pointer;
 }
 
@@ -1185,20 +1203,80 @@ select:focus-visible {
   text-align: right;
 }
 
-.theme-editor__advanced > .theme-editor__colors {
-  margin-top: 12px;
-}
-
-/* details gibt seinem Inhalt eine eigene Box, das grid-gap der Section greift dort nicht. */
-.theme-editor__advanced > .secondary-button {
-  margin-top: 12px;
+// gap:0 statt des settings-section-Grid-Gaps: details behandelt jedes direkte Kind als eigene
+// Grid-Zeile, auch das (bis auf grid-template-rows: 0fr zusammengefaltete) Body-Element - mit dem
+// section-Gap bliebe sonst ungewollter Leerraum zwischen Summary und Body stehen, wenn er
+// eingeklappt ist (das war der ungleichmaessige Abstand). Doppelte Klasse noetig, damit das die
+// gleich spezifische .settings-section-Regel (die im Stylesheet spaeter kommt) sicher schlaegt.
+.settings-section.theme-editor__advanced {
+  gap: 0;
 }
 
 .theme-editor__advanced summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-soft);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+  list-style: none;
+}
+
+.theme-editor__advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+// Handgezeichnetes CSS-Dreieck statt des nativen Browser-Pfeils - der sieht je nach Browser
+// unterschiedlich aus und laesst sich nicht animieren. Zeigt nach rechts (zu) und dreht sich beim
+// Oeffnen auf "nach unten".
+.theme-editor__advanced summary::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 5px 0 5px 7px;
+  border-color: transparent transparent transparent currentColor;
+  transition: transform 0.2s ease;
+}
+
+.theme-editor__advanced[open] summary::before {
+  transform: rotate(90deg);
+}
+
+// Native <details> koennen ihren Inhalt nicht animiert ein-/ausblenden, und rein CSS-basierte
+// Tricks dafuer (grid-template-rows 0fr/1fr, max-height mit fester Deckelung) loesen sich in der
+// Praxis unzuverlaessig auf. ThemeEditorDialogComponent.toggleAdvanced() setzt height deshalb
+// gezielt per JS auf die tatsaechlich gemessene Inhaltshoehe - hier steht nur noch die eigentliche
+// Transition, der Startwert 0 ist der Zustand vor dem allerersten Aufklappen.
+.theme-editor__advanced-body {
+  height: 0;
+  margin-top: 0;
+  overflow: hidden;
+  transition:
+    height 0.22s ease,
+    margin-top 0.22s ease;
+}
+
+.theme-editor__advanced[open] .theme-editor__advanced-body {
+  margin-top: 12px;
+}
+
+.theme-editor__advanced-body__inner {
+  display: grid;
+  gap: 12px;
+}
+
+// Ausdruecklicher Wunsch: fuer genau dieses Bauteil soll die Animation auch bei aktivem
+// "Animationen reduzieren" laufen, obwohl der globale prefers-reduced-motion-Block (oben in
+// dieser Datei) transition-duration sonst ueberall auf 0.01ms zwingt. !important noetig, um
+// diese globale !important-Regel gezielt zu ueberschreiben.
+@media (prefers-reduced-motion: reduce) {
+  .theme-editor__advanced-body,
+  .theme-editor__advanced summary::before {
+    transition-duration: 0.22s !important;
+  }
 }
 
 .settings-section h3 {

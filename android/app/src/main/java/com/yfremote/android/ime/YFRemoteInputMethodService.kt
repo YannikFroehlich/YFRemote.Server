@@ -1,6 +1,5 @@
 package com.yfremote.android.ime
 
-import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.SystemClock
 import android.view.Gravity
@@ -11,6 +10,8 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import com.yfremote.android.R
 
 // Eigene IME statt Tasten-Passthrough an eine fremde Tastatur (siehe PLAN.md, Stufe 3). Der
 // Nutzer muss sie einmalig in den System-Einstellungen aktivieren und als aktive Tastatur
@@ -42,14 +43,14 @@ class YFRemoteInputMethodService : InputMethodService() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#ECEFF1"))
+            setBackgroundColor(ContextCompat.getColor(context, R.color.brand_surface))
             setPadding(dp(12), dp(8), dp(12), dp(8))
 
             addView(
                 TextView(this@YFRemoteInputMethodService).apply {
                     text = "YFRemote: Eingabe kommt vom gekoppelten Geraet"
                     textSize = 14f
-                    setTextColor(Color.parseColor("#263238"))
+                    setTextColor(ContextCompat.getColor(context, R.color.brand_text))
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 },
             )

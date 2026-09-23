@@ -51,8 +51,10 @@ internal sealed class CertificateInstallDialog : Form
             AutoSize = true,
             MaximumSize = new Size(382, 0),
             ForeColor = Color.FromArgb(167, 181, 187),
-            Text = "Der QR-Code lädt das Zertifikat auf das Gerät. Erst danach erreicht das Gerät "
-                + "YFRemote verschlüsselt und ohne Zertifikatswarnung.",
+            Text = "Der QR-Code lädt die Zertifikatsdatei nur herunter. Installiert wird sie "
+                + "danach von Hand in den Systemeinstellungen (siehe unten). Ohne Installation "
+                + "ist die Verbindung ebenfalls verschlüsselt - der Browser zeigt dann aber eine "
+                + "Zertifikatswarnung, die sich wegklicken lässt.",
             Margin = new Padding(0, 0, 0, 14)
         };
 

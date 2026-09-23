@@ -81,8 +81,12 @@ restarts YFRemote; `Https:Enabled` in `appsettings.json` still works for
 unattended setups. The server issues its own local certificate authority once
 and signs a certificate for every local IPv4 address. "Install certificate..."
 in the tray menu shows a QR code and instructions to trust it on Android or
-iOS. HTTP keeps serving unchanged either way; enabling HTTPS changes the page
-origin, so paired devices need to pair again.
+iOS. Installing it is optional: without it the connection is still encrypted,
+the browser just shows a warning you have to click through, and the service
+worker stays unregistered. Note that on Android the QR code only downloads the
+file — installing it is a separate step in the system settings. HTTP keeps
+serving unchanged either way; enabling HTTPS changes the page origin, so paired
+devices need to pair again.
 
 Without HTTPS the browser refuses the microphone, the camera, and clipboard
 access on a page served over a plain-HTTP LAN address — that is a browser rule

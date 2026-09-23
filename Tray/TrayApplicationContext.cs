@@ -563,8 +563,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var question = requestedState
             ? $"HTTPS einschalten?\n\nYFRemote ist danach zusätzlich über Port {httpsOptions.Port} "
                 + "erreichbar; Port "
-                + $"{serverOptions.Port} bleibt bestehen. Auf jedem Gerät muss einmalig das Zertifikat "
-                + "installiert werden (\"Zertifikat installieren...\" in diesem Menü).\n\n"
+                + $"{serverOptions.Port} bleibt bestehen. Der Browser zeigt dabei eine "
+                + "Zertifikatswarnung, die sich wegklicken lässt; wer sie dauerhaft los sein will, "
+                + "installiert einmalig das Zertifikat (\"Zertifikat installieren...\" in diesem "
+                + "Menü).\n\n"
                 + "Weil sich die Adresse der Seite ändert, müssen alle gekoppelten Geräte neu gekoppelt "
                 + "werden.\n\nYFRemote startet dafür neu."
             : "HTTPS ausschalten?\n\nYFRemote ist danach nur noch über HTTP erreichbar. Weil sich die "

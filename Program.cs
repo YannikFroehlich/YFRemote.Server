@@ -305,7 +305,7 @@ internal static class Program
             KeepAliveInterval = TimeSpan.FromSeconds(30)
         });
 
-        app.MapGet("/health", () => new HealthResponse("ok", "YFRemote.Server"));
+        app.MapGet("/health", () => new HealthResponse("ok", "YFRemote.Server", OperatingSystem.IsWindows() ? "windows" : "linux"));
 
         if (httpsOptions.Enabled)
         {

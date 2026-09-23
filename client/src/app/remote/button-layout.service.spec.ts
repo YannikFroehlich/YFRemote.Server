@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './button-layout';
-import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './button-layout-profiles';
+import { ANDROID_PROFILE_ID, BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './button-layout-profiles';
 import {
   BUTTON_ID_FACTORY,
   ButtonLayoutService,
   PROFILE_ID_FACTORY,
 } from './button-layout.service';
-import { BUILT_IN_BUTTONS } from './remote-actions';
+import { ANDROID_BUILT_IN_BUTTONS, BUILT_IN_BUTTONS } from './remote-actions';
 import { REMOTE_STORAGE } from './remote.service';
 
 class MemoryStorage implements Storage {
@@ -64,6 +64,37 @@ describe('ButtonLayoutService', () => {
     expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
     expect(service.snapToGrid()).toBe(true);
     expect(service.hiddenButtons()).toEqual([]);
+  });
+
+  it('switches to an Android profile for an Android server and back for a PC', () => {
+    const { service } = setupService();
+
+    service.applyServerPlatform('android');
+
+    expect(service.activeProfileId()).toBe(ANDROID_PROFILE_ID);
+    expect(service.visibleButtons().map((placed) => placed.button.id).sort()).toEqual(
+      ANDROID_BUILT_IN_BUTTONS.map((button) => button.id).sort(),
+    );
+    // Genau die Buttons, die der Android-Server ablehnt, duerfen nicht auftauchen.
+    for (const id of ['previous-tab', 'next-tab', 'close-tab', 'restore-tab', 'fullscreen', 'restart', 'shutdown']) {
+      expect(service.visibleButtons().some((placed) => placed.button.id === id)).toBe(false);
+    }
+
+    service.applyServerPlatform('windows');
+
+    expect(service.activeProfileId()).not.toBe(ANDROID_PROFILE_ID);
+    expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
+  });
+
+  it('keeps the Android profile untouched while the platform is unknown', () => {
+    const { service } = setupService();
+
+    service.applyServerPlatform('android');
+    const androidButtons = service.visibleButtons().length;
+    service.applyServerPlatform(null);
+
+    expect(service.activeProfileId()).toBe(ANDROID_PROFILE_ID);
+    expect(service.visibleButtons()).toHaveLength(androidButtons);
   });
 
   it('moves a placement and persists integer coordinates when snap is on', () => {

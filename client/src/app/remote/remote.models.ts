@@ -70,12 +70,17 @@ export interface RemoteErrorResponse {
 
 export type RemoteResponse = RemoteSuccessResponse | RemoteErrorResponse;
 
+/** Plattform der Gegenstelle, wie sie `GET /health` meldet. */
+export type ServerPlatform = 'windows' | 'linux' | 'android';
+
 export type RemoteIcon =
   | 'arrow-up'
   | 'arrow-down'
   | 'arrow-left'
   | 'arrow-right'
   | 'check'
+  | 'home'
+  | 'recents'
   | 'back'
   | 'next-tab'
   | 'previous-tab'

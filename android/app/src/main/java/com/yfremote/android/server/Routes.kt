@@ -51,7 +51,7 @@ fun Route.installRoutes(
     fileTransferOptions: FileTransferOptions,
     json: Json,
 ) {
-    get("/health") { call.respond(HealthResponse("ok", "YFRemote.Android")) }
+    get("/health") { call.respond(HealthResponse("ok", "YFRemote.Android", "android")) }
 
     webSocket("/ws") {
         if (!call.isAllowedOrigin()) {

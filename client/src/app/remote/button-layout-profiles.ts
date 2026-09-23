@@ -8,6 +8,8 @@ import {
 export const BUTTON_LAYOUT_PROFILES_STORAGE_KEY = 'yfremote.buttonLayoutProfiles';
 export const BUTTON_LAYOUT_PROFILES_VERSION = 1;
 export const DEFAULT_PROFILE_ID = 'profile:standard';
+/** Profil fuer einen Android-Server; wird bei der ersten Android-Verbindung angelegt. */
+export const ANDROID_PROFILE_ID = 'profile:android';
 export const MAX_LAYOUT_PROFILES = 20;
 export const MAX_PROFILE_NAME_LENGTH = 40;
 

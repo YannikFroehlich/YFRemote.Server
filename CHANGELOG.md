@@ -38,6 +38,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 - Build: `tests/` und lokale Publish-Ausgaben (`publish/`, `publish-linux/`) sind jetzt aus den Default-Globs des Server-Projekts ausgeschlossen. Vorher landeten sie im Output-Ordner (`bin/Release/net10.0/tests/...`), der beim naechsten Build wieder mitgeglobt wurde - die Verschachtelung wuchs mit jedem `dotnet build`/`dotnet test`, bis allein die Projektauswertung Minuten dauerte. Sauberer Build danach: 14 s, Rebuild 4 s, keine verschachtelten Ordner. Die CI war nicht betroffen, weil sie jedes Mal frisch startet.
 
+- Linux: Nach dem Start des Servers gingen die ersten Tastendruecke beziehungsweise Mausbewegungen verloren - das virtuelle Geraet wird erst beim ersten Sendevorgang angelegt und X11/libinput oeffnet es einen Moment spaeter (auf einer Linux-Mint-VM fehlte der komplette erste Text). Der Server wartet jetzt nach dem Anlegen jedes Geraets 500 ms, bevor er die ersten Events schreibt; nur der allererste Tastendruck bzw. die erste Mausbewegung nach dem Start ist dadurch minimal verzoegert.
+
 ## [2.17.0] - 2026-09-22
 
 ### Added

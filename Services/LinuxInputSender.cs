@@ -108,6 +108,10 @@ public sealed class LinuxInputSender : IDisposable
         private const int UinputUserDevSize = UinputMaxNameSize + 8 + 4 + (4 * AbsCnt * 4);
         private const ushort BusUsb = 0x03;
 
+        // ponytail: fester Wert statt auf das Erscheinen des Geraets zu warten (waere
+        // inotify auf /dev/input); reicht die Zeit auf einem traegen Desktop nicht, hier erhoehen.
+        private const int DeviceSettleMilliseconds = 500;
+
         // struct input_event auf 64-Bit-Linux (x64/arm64): timeval{long,long} + u16 type +
         // u16 code + s32 value = 24 Byte, ohne zusaetzliches Padding.
         private const int InputEventSize = 24;
@@ -153,6 +157,10 @@ public sealed class LinuxInputSender : IDisposable
 
                 device.WriteDeviceDescriptor(name);
                 device.CheckedIoctl(UiDevCreate, 0, "Geraet konnte nicht angelegt werden");
+                // X11/libinput oeffnen ein neues Geraet erst einen Moment nach UI_DEV_CREATE;
+                // Events, die sofort danach kommen, gehen verloren (auf einer Mint-VM fehlte der
+                // ganze erste Text nach dem Serverstart). Gilt nur fuer den ersten Sendevorgang.
+                Thread.Sleep(DeviceSettleMilliseconds);
             }
             catch
             {

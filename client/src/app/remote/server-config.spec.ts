@@ -3,6 +3,7 @@ import {
   getServerHttpBaseUrl,
   getServerPageUrl,
   getServerWebSocketBaseUrl,
+  isTrustworthyOrigin,
   parseStoredFlag,
   parseStoredScrollSpeed,
   ServerLocation,
@@ -57,5 +58,16 @@ describe('stored input preferences', () => {
     expect(parseStoredFlag(null, true)).toBe(true);
     expect(parseStoredFlag('false', true)).toBe(false);
     expect(parseStoredFlag('true', false)).toBe(true);
+  });
+});
+
+describe('trustworthy origin', () => {
+  it('accepts HTTPS and the local host names, but not a plain-HTTP LAN address', () => {
+    expect(isTrustworthyOrigin(createLocation('https://192.168.178.41:5443/'))).toBe(true);
+    expect(isTrustworthyOrigin(createLocation('http://localhost:5050/'))).toBe(true);
+    expect(isTrustworthyOrigin(createLocation('http://127.0.0.1:5050/'))).toBe(true);
+    expect(isTrustworthyOrigin(createLocation('http://[::1]:5050/'))).toBe(true);
+    expect(isTrustworthyOrigin(createLocation('http://192.168.178.41:5050/'))).toBe(false);
+    expect(isTrustworthyOrigin(createLocation('http://desk.local:5050/'))).toBe(false);
   });
 });

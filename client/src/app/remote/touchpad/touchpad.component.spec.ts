@@ -12,6 +12,8 @@ import {
   MOUSE_SENSITIVITY_STORAGE_KEY,
   POINTER_ACCELERATION_STORAGE_KEY,
   SCROLL_SPEED_STORAGE_KEY,
+  SERVER_LOCATION,
+  ServerLocation,
 } from '../server-config';
 import {
   SPEECH_RECOGNIZER_FACTORY,
@@ -539,6 +541,22 @@ describe('TouchpadComponent', () => {
     expect(button.getAttribute('aria-checked')).toBe('false');
   });
 
+  it('explains that dictation needs HTTPS instead of starting it on a plain-HTTP LAN address', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({
+      dictationRecognizer: recognizer,
+      pageUrl: 'http://192.168.178.41:5050/',
+    });
+    const button = micButton(fixture)!;
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(recognizer.startCount).toBe(0);
+    expect(button.getAttribute('aria-checked')).toBe('false');
+    expect(fixture.nativeElement.textContent).toContain('Diktieren geht nur über HTTPS');
+  });
+
   it('sends dictated text immediately when live typing is on', async () => {
     const recognizer = new MockSpeechRecognizer();
     const { fixture, sockets } = await setupTouchpad({ dictationRecognizer: recognizer });
@@ -636,11 +654,24 @@ describe('TouchpadComponent', () => {
   });
 });
 
+function fakeLocation(url: string): ServerLocation {
+  const parsedUrl = new URL(url);
+
+  return {
+    protocol: parsedUrl.protocol,
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port,
+    origin: parsedUrl.origin,
+    assign: () => undefined,
+  };
+}
+
 async function setupTouchpad(
   options: {
     readonly sensitivity?: number;
     readonly stored?: Readonly<Record<string, string>>;
     readonly dictationRecognizer?: MockSpeechRecognizer;
+    readonly pageUrl?: string;
   } = {},
 ): Promise<TouchpadHarness> {
   const sockets: MockRemoteSocket[] = [];
@@ -678,6 +709,10 @@ async function setupTouchpad(
       {
         provide: SPEECH_RECOGNIZER_FACTORY,
         useValue: () => options.dictationRecognizer ?? null,
+      },
+      {
+        provide: SERVER_LOCATION,
+        useValue: fakeLocation(options.pageUrl ?? 'http://localhost:5050/'),
       },
     ],
   }).compileComponents();

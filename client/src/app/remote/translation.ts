@@ -150,6 +150,10 @@ export const TRANSLATIONS = {
     de: 'Mikrofonzugriff wurde verweigert.',
     en: 'Microphone access was denied.',
   },
+  'touchpad.dictationError.insecureOrigin': {
+    de: 'Diktieren geht nur über HTTPS. Setze dafür in der appsettings.json des Servers "Https": { "Enabled": true } und starte ihn neu.',
+    en: 'Dictation needs HTTPS. Set "Https": { "Enabled": true } in the server\'s appsettings.json and restart it.',
+  },
   'touchpad.dictationError.noSpeech': { de: 'Kein Ton erkannt.', en: 'No sound detected.' },
   'touchpad.dictationError.failed': { de: 'Diktat fehlgeschlagen.', en: 'Dictation failed.' },
   'touchpad.file.title': { de: 'Datei senden', en: 'Send file' },

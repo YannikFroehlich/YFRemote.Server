@@ -20,6 +20,13 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Fixed
+
+- Release-Pipeline: Der Download der Android-cmdline-tools von Google laeuft jetzt mit `--retry 5 --retry-all-errors`. Ein einzelner Netzwerkaussetzer hatte den `release-android`-Job und damit den ganzen Release-Lauf von v2.20.0 abreissen lassen (`curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR`); Windows- und Linux-Assets waren da bereits veroeffentlicht, nur die APK fehlte bis zum manuellen Neustart des Jobs.
+- Release-Pipeline: Die APK haengt jetzt als `YFRemote-Android-vX.Y.Z.apk` am Release statt als `app-release.apk` (so in v2.18.2 bis v2.20.0). Das `#...`-Suffix von `gh release upload` setzt nur das Label des Assets, nicht seinen Namen - die Datei wird vor dem Upload umbenannt. Ausserdem `--clobber`, damit ein erneuter Lauf desselben Jobs nicht an einem bereits hochgeladenen Asset scheitert.
+
+## [2.20.0] - 2026-09-23
+
 ### Added
 
 - Infobereich-Menue: "HTTPS verwenden" schaltet HTTPS ohne Bearbeiten der appsettings.json ein und aus. Die Wahl landet in `%LOCALAPPDATA%\YFRemote\settings.json` - also neben `devices.json` und nicht im `current`-Ordner, den Velopack bei jedem Update ersetzt - und YFRemote startet danach auf Nachfrage selbst neu. Der Dialog nennt vorher beide Folgen: alle gekoppelten Geraete muessen neu gekoppelt werden (die Seite bekommt eine neue Adresse), und auf jedem Geraet ist einmalig das Zertifikat zu installieren. Steht unter `Server:Host` ein Name statt einer IP, lehnt der Schalter mit Begruendung ab, statt den Neustart im Startfehler enden zu lassen. `Https:Enabled` in der appsettings.json und Umgebungsvariablen funktionieren unveraendert; ausdrueckliche Kommandozeilenargumente haben weiterhin Vorrang vor der gespeicherten Einstellung.

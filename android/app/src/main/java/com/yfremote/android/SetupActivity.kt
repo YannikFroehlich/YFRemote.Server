@@ -14,6 +14,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.ime.YFRemoteInputMethodService
@@ -113,6 +114,14 @@ class SetupActivity : Activity() {
                 setOnClickListener { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
             },
         )
+        // Aktivieren allein genuegt nicht: Android tippt nur ueber die *ausgewaehlte* IME, und die
+        // Auswahl geht nur ueber diesen System-Dialog.
+        root.addView(
+            Button(this).apply {
+                text = "Tastatur auswaehlen"
+                setOnClickListener { inputMethodManager().showInputMethodPicker() }
+            },
+        )
 
         // Haeufigster Grund fuer eine dauerhaft inaktive Bedienungshilfe: die App wurde per APK
         // installiert, dann sperrt Android 13+ den Schalter als "eingeschraenkte Einstellung".
@@ -142,10 +151,18 @@ class SetupActivity : Activity() {
 
     // Settings.Secure statt nur der IME-Singleton-Instanz: Android erzeugt die IME erst, wenn sie
     // als Tastatur ausgewaehlt ist und ein Textfeld den Fokus bekommt - vorher waere "inaktiv"
-    // irrefuehrend, obwohl der Nutzer alles richtig gemacht hat.
-    private fun isYFRemoteDefaultIme(): Boolean =
+    // irrefuehrend, obwohl der Nutzer alles richtig gemacht hat. "Aktiviert" und "ausgewaehlt" sind
+    // zwei getrennte Schritte, deshalb zwei Abfragen.
+    private fun isYFRemoteImeSelected(): Boolean =
         Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
             ?.startsWith("$packageName/") == true
+
+    // Nicht ueber Settings.Secure.ENABLED_INPUT_METHODS: der Key ist ab targetSdk 34 gesperrt und
+    // wirft eine SecurityException. InputMethodManager liefert dieselbe Liste offiziell.
+    private fun isYFRemoteImeEnabled(): Boolean =
+        inputMethodManager().enabledInputMethodList.any { it.packageName == packageName }
+
+    private fun inputMethodManager() = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 
     private fun ensureServiceRunning() {
         ContextCompat.startForegroundService(this, Intent(this, YFRemoteForegroundService::class.java))
@@ -171,7 +188,8 @@ class SetupActivity : Activity() {
             "Bedienungshilfe: " + (if (YFRemoteAccessibilityService.instance != null) "aktiv" else "inaktiv")
         keyboardStatusText.text = "Tastatur: " + when {
             YFRemoteInputMethodService.instance != null -> "aktiv"
-            isYFRemoteDefaultIme() -> "ausgewaehlt, startet beim ersten Tippen"
+            isYFRemoteImeSelected() -> "ausgewaehlt, startet beim ersten Tippen"
+            isYFRemoteImeEnabled() -> "aktiviert, aber nicht ausgewaehlt"
             else -> "inaktiv"
         }
 

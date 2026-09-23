@@ -1,6 +1,7 @@
 package com.yfremote.android.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
 import android.os.Build
@@ -71,7 +72,7 @@ class YFRemoteAccessibilityService : AccessibilityService() {
     fun mouseDown() {
         val stroke = GestureDescription.StrokeDescription(cursorPath(), 0, TAP_DURATION_MS, true)
         activeStroke = stroke
-        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+        dispatch(GestureDescription.Builder().addStroke(stroke).build())
     }
 
     fun mouseUp() = continueDragStroke(willContinue = false)
@@ -80,7 +81,7 @@ class YFRemoteAccessibilityService : AccessibilityService() {
         val stroke = activeStroke ?: return
         val continued = stroke.continueStroke(cursorPath(), 0, TAP_DURATION_MS, willContinue)
         activeStroke = if (willContinue) continued else null
-        dispatchGesture(GestureDescription.Builder().addStroke(continued).build(), null, null)
+        dispatch(GestureDescription.Builder().addStroke(continued).build())
     }
 
     fun scroll(deltaX: Int?, deltaY: Int?) {
@@ -118,6 +119,18 @@ class YFRemoteAccessibilityService : AccessibilityService() {
 
     private fun dispatchStroke(path: Path, durationMs: Long) {
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
-        dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+        dispatch(GestureDescription.Builder().addStroke(stroke).build())
+    }
+
+    // dispatchGesture() meldet Fehler nur ueber Rueckgabewert und Callback - ohne das Log ist eine
+    // abgelehnte oder abgebrochene Geste auf dem steuernden Geraet nicht von "Erfolg" zu
+    // unterscheiden, weil die Antwort schon raus ist, bevor die Geste laeuft.
+    private fun dispatch(gesture: GestureDescription) {
+        val accepted = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCancelled(description: GestureDescription?) {
+                Log.w(TAG, "Geste abgebrochen (x=$cursorX, y=$cursorY).")
+            }
+        }, null)
+        if (!accepted) Log.w(TAG, "Geste abgelehnt (x=$cursorX, y=$cursorY).")
     }
 }

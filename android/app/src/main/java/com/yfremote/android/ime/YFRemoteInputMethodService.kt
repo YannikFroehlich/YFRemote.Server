@@ -1,10 +1,16 @@
 package com.yfremote.android.ime
 
+import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.SystemClock
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 
 // Eigene IME statt Tasten-Passthrough an eine fremde Tastatur (siehe PLAN.md, Stufe 3). Der
 // Nutzer muss sie einmalig in den System-Einstellungen aktivieren und als aktive Tastatur
@@ -26,10 +32,42 @@ class YFRemoteInputMethodService : InputMethodService() {
         super.onDestroy()
     }
 
-    // Steuerung erfolgt ausschliesslich fernab vom Geraet selbst - eine 1x1-View reicht, es gibt
-    // keine sichtbare Tastatur zu bedienen.
-    override fun onCreateInputView(): View =
-        View(this).apply { layoutParams = ViewGroup.LayoutParams(1, 1) }
+    // Tippen kommt vom gekoppelten Geraet, es gibt also keine Tasten zu zeichnen. Trotzdem keine
+    // 1x1-View mehr: solange diese IME ausgewaehlt ist, haette das Telefon sonst gar keine
+    // bedienbare Tastatur mehr, und der Weg zurueck fuehrt nur ueber die Systemeinstellungen.
+    override fun onCreateInputView(): View {
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor("#ECEFF1"))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+
+            addView(
+                TextView(this@YFRemoteInputMethodService).apply {
+                    text = "YFRemote: Eingabe kommt vom gekoppelten Geraet"
+                    textSize = 14f
+                    setTextColor(Color.parseColor("#263238"))
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                },
+            )
+            addView(
+                Button(this@YFRemoteInputMethodService).apply {
+                    text = "Andere Tastatur"
+                    setOnClickListener { switchAwayFromThisIme() }
+                },
+            )
+        }
+    }
+
+    // switchToPreviousInputMethod() springt direkt zur zuletzt genutzten Tastatur zurueck; gibt es
+    // keine (erste Nutzung nach dem Aktivieren), bleibt nur der System-Auswahldialog.
+    private fun switchAwayFromThisIme() {
+        if (switchToPreviousInputMethod()) return
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+    }
 
     fun commitText(text: String): Boolean = currentInputConnection?.commitText(text, 1) ?: false
 

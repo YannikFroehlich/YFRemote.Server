@@ -19,8 +19,12 @@
     <Description>Lokaler Server fuer YFRemote</Description>
     <!-- Der Angular-Client und das Android-Gradle-Projekt liegen im selben Repo. Ohne diesen
          Ausschluss saugen die Default-Globs des Web-SDK (**/*.json &amp; Co.) den kompletten
-         client- bzw. Gradle-Baum inklusive node_modules/.gradle in den Publish-Output. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);client\**;android\**</DefaultItemExcludes>
+         client- bzw. Gradle-Baum inklusive node_modules/.gradle in den Publish-Output.
+         Dasselbe gilt fuer das Testprojekt und lokale Publish-Ausgaben: deren bin/obj-JSONs
+         landeten im Output dieses Projekts, der wiederum das naechste Mal mitgeglobt wurde -
+         die Verschachtelung (bin/.../tests/.../bin/...) wuchs mit jedem Build, bis schon die
+         Projektauswertung Minuten brauchte. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);client\**;android\**;tests\**;publish\**;publish-linux\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- Tray, Updates und die Windows-Input-/Startup-Dienste haengen an WinForms/Velopack und
@@ -42,10 +46,6 @@
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="tests\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

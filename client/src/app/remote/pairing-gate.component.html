@@ -23,10 +23,8 @@
       </div>
       <div>
         <p class="eyebrow">{{ i18n.t('pairingGate.eyebrow') }}</p>
-        <h1>{{ i18n.t(serverIsAndroid() ? 'pairingGate.title.android' : 'pairingGate.title') }}</h1>
-        <p class="pairing-copy">
-          {{ i18n.t(serverIsAndroid() ? 'pairingGate.copy.android' : 'pairingGate.copy') }}
-        </p>
+        <h1>{{ i18n.t(titleKey()) }}</h1>
+        <p class="pairing-copy">{{ i18n.t(copyKey()) }}</p>
       </div>
     </div>
 

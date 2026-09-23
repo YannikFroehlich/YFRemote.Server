@@ -40,6 +40,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 - Linux: Nach dem Start des Servers gingen die ersten Tastendruecke beziehungsweise Mausbewegungen verloren - das virtuelle Geraet wird erst beim ersten Sendevorgang angelegt und X11/libinput oeffnet es einen Moment spaeter (auf einer Linux-Mint-VM fehlte der komplette erste Text). Der Server wartet jetzt nach dem Anlegen jedes Geraets 500 ms, bevor er die ersten Events schreibt; nur der allererste Tastendruck bzw. die erste Mausbewegung nach dem Start ist dadurch minimal verzoegert.
 
+- Kopplungsseite des Clients: Bei einem Linux-Server steht dort jetzt "Gib die sechsstellige PIN ein, die YFRemote im Terminal des Ziel-PCs ausgibt" (als Dienst: im Journal) statt des Hinweises auf das Infobereich-Symbol - Linux hat kein Tray. Der Client merkt sich dafuer die Plattform aus `GET /health` als `serverPlatform` (windows/linux/android) statt nur "Android ja/nein".
+
 ## [2.17.0] - 2026-09-22
 
 ### Added

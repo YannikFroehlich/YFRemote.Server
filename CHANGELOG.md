@@ -36,6 +36,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 - Android-App: Drag (Antippen, Halten, Ziehen im Touchpad) funktionierte nicht - jede Fortsetzung der Geste wurde von Android abgebrochen ("Geste abgebrochen" im Log), weil die fortgesetzte Stroke nicht am Endpunkt der vorherigen begann. Sie startet jetzt dort und zieht eine Linie zum Cursor; auf einem Samsung SM-S938B mit 25 Moves im 16-ms-Takt geprueft (Liste scrollt, keine Abbrueche, kein haengender Finger).
 
+- Build: `tests/` und lokale Publish-Ausgaben (`publish/`, `publish-linux/`) sind jetzt aus den Default-Globs des Server-Projekts ausgeschlossen. Vorher landeten sie im Output-Ordner (`bin/Release/net10.0/tests/...`), der beim naechsten Build wieder mitgeglobt wurde - die Verschachtelung wuchs mit jedem `dotnet build`/`dotnet test`, bis allein die Projektauswertung Minuten dauerte. Sauberer Build danach: 14 s, Rebuild 4 s, keine verschachtelten Ordner. Die CI war nicht betroffen, weil sie jedes Mal frisch startet.
+
 ## [2.17.0] - 2026-09-22
 
 ### Added

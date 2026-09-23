@@ -58,6 +58,12 @@ export const TRANSLATIONS = {
     de: 'Geschlossenen Tab wiederherstellen',
     en: 'Restore closed tab',
   },
+  'button.home.label': { de: 'Home', en: 'Home' },
+  'button.home.ariaLabel': { de: 'Zum Startbildschirm', en: 'Go to home screen' },
+  'button.recents.label': { de: 'Übersicht', en: 'Overview' },
+  'button.recents.ariaLabel': { de: 'Zuletzt genutzte Apps', en: 'Recent apps' },
+  'button.lock.label': { de: 'Sperren', en: 'Lock' },
+  'button.lock.ariaLabel': { de: 'Bildschirm sperren', en: 'Lock the screen' },
   'button.back.label': { de: 'Zurück', en: 'Back' },
   'button.back.ariaLabel': { de: 'Zurück', en: 'Back' },
   'button.fullscreen.label': { de: 'Vollbild', en: 'Fullscreen' },
@@ -76,7 +82,10 @@ export const TRANSLATIONS = {
   'button.next-track.label': { de: 'Nächster', en: 'Next' },
   'button.next-track.ariaLabel': { de: 'Nächster Titel', en: 'Next track' },
   'button.sleep.label': { de: 'Ruhemodus', en: 'Sleep' },
-  'button.sleep.ariaLabel': { de: 'Rechner in den Ruhemodus versetzen', en: 'Put the computer to sleep' },
+  'button.sleep.ariaLabel': {
+    de: 'Rechner in den Ruhemodus versetzen',
+    en: 'Put the computer to sleep',
+  },
   'button.sleep.confirm': {
     de: 'Rechner wirklich in den Ruhemodus versetzen?',
     en: 'Really put the computer to sleep?',
@@ -110,15 +119,15 @@ export const TRANSLATIONS = {
   'touchpad.hint.oneFinger': { de: '1 Finger · Bewegen', en: '1 finger · Move' },
   'touchpad.hint.twoFinger': { de: '2 Finger · Scrollen', en: '2 fingers · Scroll' },
   'touchpad.placeholder.live': {
-    de: 'Live: Tasten gehen sofort an den PC…',
-    en: 'Live: keys go straight to the PC…',
+    de: 'Live: Tasten gehen sofort an das Gerät…',
+    en: 'Live: keys go straight to the device…',
   },
   'touchpad.placeholder.default': { de: 'Text eingeben…', en: 'Enter text…' },
   'touchpad.mic.title': { de: 'Text diktieren', en: 'Dictate text' },
   'touchpad.mic.ariaLabel': { de: 'Diktieren', en: 'Dictate' },
   'touchpad.live.title': {
-    de: 'Live-Eingabe: jede Taste sofort an den PC senden',
-    en: 'Live typing: send every key to the PC immediately',
+    de: 'Live-Eingabe: jede Taste sofort an das Gerät senden',
+    en: 'Live typing: send every key to the device immediately',
   },
   'touchpad.send.ariaLabel': { de: 'Text senden', en: 'Send text' },
   'touchpad.send.label': { de: 'Senden', en: 'Send' },
@@ -458,6 +467,18 @@ export const TRANSLATIONS = {
     de: 'Gib die sechsstellige PIN aus dem YFRemote-Symbol im Infobereich des Ziel-PCs ein.',
     en: "Enter the six-digit PIN from the YFRemote icon in the target PC's system tray.",
   },
+  'pairingGate.title.android': {
+    de: 'Mit deinem Android-Gerät verbinden',
+    en: 'Connect to your Android device',
+  },
+  'pairingGate.copy.android': {
+    de: 'Gib die sechsstellige PIN aus der YFRemote-App auf dem Ziel-Gerät ein.',
+    en: 'Enter the six-digit PIN shown in the YFRemote app on the target device.',
+  },
+  'pairingGate.copy.linux': {
+    de: 'Gib die sechsstellige PIN ein, die YFRemote im Terminal des Ziel-PCs ausgibt. Läuft YFRemote als Dienst, steht sie im Journal: journalctl --user -u yfremote.',
+    en: 'Enter the six-digit PIN that YFRemote prints in the terminal of the target PC. If YFRemote runs as a service, it is in the journal: journalctl --user -u yfremote.',
+  },
   'pairingGate.pin.error': {
     de: 'PIN muss aus 6 Ziffern bestehen.',
     en: 'PIN must consist of 6 digits.',
@@ -479,7 +500,10 @@ export const TRANSLATIONS = {
   'pairing.device.linux': { de: 'Linux-Gerät', en: 'Linux device' },
   'pairing.device.default': { de: 'Mein Gerät', en: 'My device' },
 
-  'remoteService.error.unpairFailed': { de: 'Entkopplung fehlgeschlagen.', en: 'Unpairing failed.' },
+  'remoteService.error.unpairFailed': {
+    de: 'Entkopplung fehlgeschlagen.',
+    en: 'Unpairing failed.',
+  },
   'remoteService.error.invalidServerConfig': {
     de: 'Serveradresse oder Port ist ungültig.',
     en: 'Server address or port is invalid.',

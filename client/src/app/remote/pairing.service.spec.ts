@@ -122,6 +122,41 @@ describe('PairingService', () => {
     expect(fakeFetch.calls).toHaveLength(0);
   });
 
+  it('detects an Android server from /health before pairing', async () => {
+    const { pairing, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'android' });
+
+    await pairing.detectServerPlatform();
+
+    expect(fakeFetch.calls[0].url).toBe('http://192.168.1.44:5050/health');
+    expect(pairing.serverPlatform()).toBe('android');
+  });
+
+  it('reports the platform of a Windows or Linux server from /health', async () => {
+    const { pairing, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'windows' });
+    await pairing.detectServerPlatform();
+    expect(pairing.serverPlatform()).toBe('windows');
+
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'linux' });
+    await pairing.detectServerPlatform();
+    expect(pairing.serverPlatform()).toBe('linux');
+  });
+
+  it('leaves the platform unknown after a failed /health call or an unknown platform', async () => {
+    const { pairing, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'linux' });
+    await pairing.detectServerPlatform();
+
+    fakeFetch.queueRejection();
+    await pairing.detectServerPlatform();
+    expect(pairing.serverPlatform()).toBeNull();
+
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'plan9' });
+    await pairing.detectServerPlatform();
+    expect(pairing.serverPlatform()).toBeNull();
+  });
+
   it('pairs successfully and persists the token when remembered', async () => {
     const { pairing, storage, fakeFetch } = setupPairingService();
     fakeFetch.queueJson({ success: true, token: 'tok-123' });

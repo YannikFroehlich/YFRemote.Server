@@ -470,6 +470,25 @@ describe('App', () => {
     expect(compiled.querySelector('.status-pill')).toBeNull();
   });
 
+  it.each([
+    ['windows', 'Mit deinem PC verbinden', 'Infobereich'],
+    ['linux', 'Mit deinem PC verbinden', 'Terminal'],
+    ['android', 'Mit deinem Android-Gerät verbinden', 'YFRemote-App'],
+  ])('shows the pairing text for a %s server', async (platform, title, hint) => {
+    const healthFetch = async (input: RequestInfo | URL): Promise<Response> =>
+      String(input).endsWith('/health')
+        ? new Response(JSON.stringify({ status: 'ok', platform }), { status: 200 })
+        : new Response('{}', { status: 200 });
+
+    const { fixture } = await setupApp({ paired: false, pairingFetch: healthFetch });
+    const compiled = fixture.nativeElement as HTMLElement;
+    await new Promise((resolve) => setTimeout(resolve));
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('h1')?.textContent).toContain(title);
+    expect(compiled.querySelector('.pairing-copy')?.textContent).toContain(hint);
+  });
+
   it('prefills the pairing PIN from a QR-code fragment', async () => {
     const { fixture, pairingHistory } = await setupApp({
       paired: false,
@@ -508,7 +527,7 @@ describe('App', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(fetchCalls).toEqual(['http://localhost:5050/pair']);
+    expect(fetchCalls).toEqual(['http://localhost:5050/health', 'http://localhost:5050/pair']);
     expect(compiled.querySelector('#pairing-pin')).toBeNull();
     expect(queryButton(compiled, 'Nächster Tab')).not.toBeNull();
     expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBe('fresh-token');

@@ -86,6 +86,19 @@ manual `ChangeDetectorRef` calls.
      12-column grid. Adding a new built-in button means adding a `RemoteButtonConfig` to the
      right array *and* a `DEFAULT_PLACEMENTS` entry for it — otherwise it has no default position
      (it will still auto-place itself once, via the merge logic below).
+   - **The set of built-in buttons depends on the server's platform.** `RemoteService` reads
+     `GET /health` on every successful connect and exposes the reported platform as
+     `serverPlatform()` (`windows`/`linux`/`android`, `null` while unknown).
+     `RemoteControlComponent` feeds that signal into `ButtonLayoutService.applyServerPlatform`,
+     which switches to a dedicated `profile:android` layout profile (created on first use from
+     `ANDROID_BUTTON_LAYOUT`) and back to the previously active profile for a PC. The Android
+     profile uses `ANDROID_BUILT_IN_BUTTONS`/`ANDROID_DEFAULT_PLACEMENTS` instead of
+     `BUILT_IN_BUTTONS`/`DEFAULT_PLACEMENTS`: no browser-tab hotkeys, no fullscreen, no
+     restart/shutdown (the Android server rejects them or they do nothing), plus `home`,
+     `recents` and `lock`. Which set applies is derived from the *active profile id*, not from
+     the live connection - otherwise a `commit()` in the Android profile while disconnected
+     would drop its Android-only placements as unknown ids. A new Android-only button therefore
+     needs an entry in `ANDROID_ACTIONS` *and* in `ANDROID_DEFAULT_PLACEMENTS`.
    - `button-layout.ts` is the pure, side-effect-free module for the layout: types
      (`ButtonPlacement`, `CustomButtonDefinition`, `ButtonLayout`), the storage key
      (`yfremote.buttonLayout`), geometry helpers (`clampPlacement`, `snapPlacement`,

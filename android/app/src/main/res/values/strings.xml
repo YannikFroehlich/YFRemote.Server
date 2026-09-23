@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">YFRemote</string>
-    <string name="accessibility_service_description">Erlaubt YFRemote, Taps, Wischgesten und Bildschirmnavigation auszufuehren, die von einem gekoppelten Geraet gesendet werden.</string>
+    <string name="accessibility_service_description">Erlaubt YFRemote, Taps, Wischgesten und Bildschirmnavigation auszuführen, die von einem gekoppelten Gerät gesendet werden.</string>
     <string name="ime_label">YFRemote-Tastatur</string>
     <string name="notification_channel_name">YFRemote-Dienst</string>
-    <string name="notification_title">YFRemote laeuft</string>
+    <string name="notification_title">YFRemote läuft</string>
     <string name="notification_text">PIN: %1$s</string>
     <string name="notification_stop">Stoppen</string>
 </resources>

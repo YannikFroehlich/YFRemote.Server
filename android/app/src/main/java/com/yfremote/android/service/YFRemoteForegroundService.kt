@@ -116,7 +116,7 @@ class YFRemoteForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(getString(R.string.notification_text, pin))
-            .setSmallIcon(android.R.drawable.ic_menu_manage)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(contentIntent)
             .addAction(0, getString(R.string.notification_stop), stopIntent)
             .setOngoing(true)

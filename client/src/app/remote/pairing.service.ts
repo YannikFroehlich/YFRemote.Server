@@ -2,6 +2,7 @@ import { computed, inject, Injectable, InjectionToken, signal } from '@angular/c
 import { REMOTE_STORAGE } from './remote.service';
 import { getServerHttpBaseUrl, SERVER_LOCATION } from './server-config';
 import { PAIRING_TOKEN_STORAGE_KEY, parseStoredPairingToken } from './pairing';
+import { ServerPlatform } from './remote.models';
 import { TranslationService } from './translation.service';
 
 export const PAIRING_FETCH = new InjectionToken<typeof fetch>('PAIRING_FETCH', {
@@ -39,9 +40,28 @@ export class PairingService {
   readonly isPaired = computed(() => this.tokenSignal() !== null);
   readonly lastError = this.errorSignal.asReadonly();
 
+  private readonly serverPlatformSignal = signal<ServerPlatform | null>(null);
+  readonly serverPlatform = this.serverPlatformSignal.asReadonly();
+
   constructor() {
     if (this.tokenSignal() !== null) {
       void this.verify();
+    }
+  }
+
+  /** Die Kopplungsseite steht vor dem WebSocket, /health ist aber schon offen - so kann sie
+   *  Windows-PC, Linux-PC und Android-Gerät unterscheiden. Schlägt der Aufruf fehl, bleibt die
+   *  Plattform unbekannt und die Seite zeigt den Windows-Text. */
+  async detectServerPlatform(): Promise<void> {
+    try {
+      const response = await this.fetchFn(`${this.getHttpBaseUrl()}/health`);
+      const body = (await response.json()) as { readonly platform?: unknown };
+      const platform = body.platform;
+      this.serverPlatformSignal.set(
+        platform === 'windows' || platform === 'linux' || platform === 'android' ? platform : null,
+      );
+    } catch {
+      this.serverPlatformSignal.set(null);
     }
   }
 

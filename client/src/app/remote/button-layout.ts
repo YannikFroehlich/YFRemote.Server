@@ -1,4 +1,4 @@
-import { BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
+import { ANDROID_DEFAULT_PLACEMENTS, BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
 import { REMOTE_ICONS } from './remote-icons';
 import { keysToAction } from './keyboard-keys';
 import { MacroStep, RemoteAction, RemoteButtonConfig, RemoteIcon } from './remote.models';
@@ -55,6 +55,15 @@ export const DEFAULT_BUTTON_LAYOUT: ButtonLayout = {
   version: BUTTON_LAYOUT_VERSION,
   snapToGrid: true,
   placements: DEFAULT_PLACEMENTS,
+  customButtons: [],
+  hiddenBuiltInIds: [],
+};
+
+/** Startlayout des Android-Profils - siehe ANDROID_BUILT_IN_BUTTONS fuer die Auswahl. */
+export const ANDROID_BUTTON_LAYOUT: ButtonLayout = {
+  version: BUTTON_LAYOUT_VERSION,
+  snapToGrid: true,
+  placements: ANDROID_DEFAULT_PLACEMENTS,
   customButtons: [],
   hiddenBuiltInIds: [],
 };

@@ -1,5 +1,6 @@
 import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import {
+  ANDROID_BUTTON_LAYOUT,
   BUTTON_LAYOUT_STORAGE_KEY,
   ButtonLayout,
   ButtonPlacement,
@@ -19,6 +20,7 @@ import {
   snapPlacement,
 } from './button-layout';
 import {
+  ANDROID_PROFILE_ID,
   BUTTON_LAYOUT_PROFILES_STORAGE_KEY,
   LayoutProfileState,
   MAX_LAYOUT_PROFILES,
@@ -27,8 +29,13 @@ import {
   parseStoredProfileState,
   serializeProfileState,
 } from './button-layout-profiles';
-import { BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
-import { MacroStep, RemoteButtonConfig, RemoteIcon } from './remote.models';
+import {
+  ANDROID_BUILT_IN_BUTTONS,
+  ANDROID_DEFAULT_PLACEMENTS,
+  BUILT_IN_BUTTONS,
+  DEFAULT_PLACEMENTS,
+} from './remote-actions';
+import { MacroStep, RemoteButtonConfig, RemoteIcon, ServerPlatform } from './remote.models';
 import { REMOTE_STORAGE } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -61,7 +68,6 @@ export class ButtonLayoutService {
   private readonly nextId = inject(BUTTON_ID_FACTORY);
   private readonly nextProfileId = inject(PROFILE_ID_FACTORY);
   private readonly i18n = inject(TranslationService);
-  private readonly builtIns: readonly RemoteButtonConfig[] = BUILT_IN_BUTTONS;
 
   private readonly initialProfileState = this.loadProfileState();
   private readonly profilesSignal = signal(this.initialProfileState.profiles);
@@ -71,6 +77,19 @@ export class ButtonLayoutService {
   );
   private readonly profileErrorSignal = signal<string | null>(null);
 
+  // Welche eingebauten Buttons gelten, haengt am aktiven Profil, nicht an der laufenden
+  // Verbindung: sonst wuerfe der naechste commit() im Android-Profil ohne Verbindung dessen
+  // Home-/Uebersicht-Buttons als "unbekannte Id" weg.
+  private readonly builtIns = computed<readonly RemoteButtonConfig[]>(() =>
+    this.activeProfileIdSignal() === ANDROID_PROFILE_ID ? ANDROID_BUILT_IN_BUTTONS : BUILT_IN_BUTTONS,
+  );
+  private readonly defaultPlacements = computed<readonly ButtonPlacement[]>(() =>
+    this.activeProfileIdSignal() === ANDROID_PROFILE_ID ? ANDROID_DEFAULT_PLACEMENTS : DEFAULT_PLACEMENTS,
+  );
+
+  /** Profil, das vor dem Wechsel ins Android-Profil aktiv war - nur fuer diese Sitzung. */
+  private profileBeforeAndroid: string | null = null;
+
   readonly layout = this.layoutSignal.asReadonly();
   readonly snapToGrid = computed(() => this.layoutSignal().snapToGrid);
   readonly profiles = this.profilesSignal.asReadonly();
@@ -79,7 +98,7 @@ export class ButtonLayoutService {
 
   private readonly buttonsById = computed<ReadonlyMap<string, RemoteButtonConfig>>(() => {
     const map = new Map<string, RemoteButtonConfig>(
-      this.builtIns.map((button) => [button.id, button]),
+      this.builtIns().map((button) => [button.id, button]),
     );
 
     for (const custom of this.layoutSignal().customButtons) {
@@ -167,6 +186,48 @@ export class ButtonLayoutService {
     this.layoutSignal.set(profile.layout);
     this.persistProfileState();
     return true;
+  }
+
+  /** Schaltet das Layout auf die Plattform der Gegenstelle um: ein Android-Server bekommt ein
+   *  eigenes Profil (Home/Uebersicht/Sperren statt Browser-Tabs, Vollbild und Herunterfahren),
+   *  ein PC das zuletzt genutzte. `null` (Plattform unbekannt) laesst alles, wie es ist. */
+  applyServerPlatform(platform: ServerPlatform | null): void {
+    if (platform === null) {
+      return;
+    }
+
+    if (platform === 'android') {
+      if (this.activeProfileIdSignal() === ANDROID_PROFILE_ID) {
+        return;
+      }
+
+      this.profileBeforeAndroid = this.activeProfileIdSignal();
+
+      if (!this.profilesSignal().some((profile) => profile.id === ANDROID_PROFILE_ID)) {
+        this.profilesSignal.update((profiles) => [
+          ...profiles,
+          { id: ANDROID_PROFILE_ID, name: 'Android', layout: ANDROID_BUTTON_LAYOUT },
+        ]);
+      }
+
+      this.switchProfile(ANDROID_PROFILE_ID);
+      return;
+    }
+
+    if (this.activeProfileIdSignal() !== ANDROID_PROFILE_ID) {
+      return;
+    }
+
+    // Nach einem Neuladen ist das vorherige Profil unbekannt - dann irgendein Nicht-Android-Profil,
+    // damit der Remote-Tab nicht mit Android-Buttons an einem PC haengen bleibt.
+    const profiles = this.profilesSignal();
+    const target =
+      profiles.find((profile) => profile.id === this.profileBeforeAndroid) ??
+      profiles.find((profile) => profile.id !== ANDROID_PROFILE_ID);
+
+    if (target !== undefined) {
+      this.switchProfile(target.id);
+    }
   }
 
   deleteProfile(id: string): boolean {
@@ -284,7 +345,7 @@ export class ButtonLayoutService {
       return;
     }
 
-    const defaultSpan = DEFAULT_PLACEMENTS.find((placement) => placement.id === id);
+    const defaultSpan = this.defaultPlacements().find((placement) => placement.id === id);
     const colSpan = defaultSpan?.colSpan ?? DEFAULT_CUSTOM_SPAN.colSpan;
     const rowSpan = defaultSpan?.rowSpan ?? DEFAULT_CUSTOM_SPAN.rowSpan;
     const slot = findFreeSlot(current.placements, colSpan, rowSpan);
@@ -382,7 +443,7 @@ export class ButtonLayoutService {
 
   resetLayout(): void {
     const current = this.layoutSignal();
-    const placements: ButtonPlacement[] = [...DEFAULT_PLACEMENTS];
+    const placements: ButtonPlacement[] = [...this.defaultPlacements()];
 
     for (const custom of current.customButtons) {
       const slot = findFreeSlot(
@@ -403,7 +464,7 @@ export class ButtonLayoutService {
   }
 
   private commit(next: ButtonLayout): void {
-    const resolved = resolveButtonLayout(next, this.builtIns);
+    const resolved = resolveButtonLayout(next, this.builtIns(), this.defaultPlacements());
     this.layoutSignal.set(resolved);
     this.profilesSignal.update((profiles) =>
       profiles.map((profile) =>

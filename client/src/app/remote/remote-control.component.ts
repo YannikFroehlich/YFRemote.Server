@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
@@ -28,6 +28,12 @@ export class RemoteControlComponent {
   protected readonly i18n = inject(TranslationService);
 
   protected readonly layout = inject(ButtonLayoutService);
+
+  // Ein Android-Server kann andere Aktionen als ein PC, deshalb haengt das Button-Profil an der
+  // Plattform der Gegenstelle (siehe ButtonLayoutService.applyServerPlatform).
+  private readonly platformEffect = effect(() =>
+    this.layout.applyServerPlatform(this.remote.serverPlatform()),
+  );
   protected readonly config = this.remote.config;
   protected readonly status = this.remote.status;
   protected readonly lastError = this.remote.lastError;

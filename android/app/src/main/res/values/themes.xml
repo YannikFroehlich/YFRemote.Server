@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Kein AppCompat im Projekt (siehe gradle.properties) - deshalb das Plattform-Theme. -->
+    <style name="Theme.YFRemote" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+        <item name="android:statusBarColor">@color/brand_background</item>
+        <item name="android:navigationBarColor">@color/brand_background</item>
+        <item name="android:colorAccent">@color/brand_accent</item>
+        <item name="android:textColorPrimary">@color/brand_text</item>
+        <item name="android:textColorSecondary">@color/brand_text_muted</item>
+    </style>
+</resources>

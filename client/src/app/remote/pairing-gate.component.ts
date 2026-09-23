@@ -26,6 +26,7 @@ export class PairingGateComponent {
   private readonly initialPin = getPairingPinFromHash(this.serverLocation.hash ?? '');
 
   protected readonly lastError = this.pairing.lastError;
+  protected readonly serverIsAndroid = this.pairing.serverIsAndroid;
   protected readonly remember = signal(true);
   protected readonly submitting = signal(false);
 
@@ -41,6 +42,8 @@ export class PairingGateComponent {
   });
 
   constructor() {
+    void this.pairing.detectServerPlatform();
+
     if (this.initialPin.length > 0) {
       const cleanUrl = `${this.serverLocation.pathname ?? '/'}${this.serverLocation.search ?? ''}`;
       this.history.replaceState(null, '', cleanUrl);

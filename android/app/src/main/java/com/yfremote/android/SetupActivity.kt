@@ -101,7 +101,7 @@ class SetupActivity : Activity() {
                 addView(
                     mutedText().apply {
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                        text = "PIN im Browser des steuernden Geraets eingeben"
+                        text = "PIN im Browser des steuernden Geräts eingeben"
                         setPadding(0, 0, 0, dp(14))
                     },
                 )
@@ -136,7 +136,7 @@ class SetupActivity : Activity() {
                 // Aktivieren allein genuegt nicht: Android tippt nur ueber die *ausgewaehlte* IME,
                 // und die Auswahl geht nur ueber diesen System-Dialog.
                 addView(
-                    secondaryButton("Tastatur auswaehlen") {
+                    secondaryButton("Tastatur auswählen") {
                         inputMethodManager().showInputMethodPicker()
                     },
                 )
@@ -148,8 +148,8 @@ class SetupActivity : Activity() {
                     mutedText().apply {
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                         text = "Bleibt der Schalter in den Bedienungshilfen grau (per APK " +
-                            "installiert): Einstellungen > Apps > YFRemote > Menue oben rechts > " +
-                            "\"Eingeschraenkte Einstellungen zulassen\"."
+                            "installiert): Einstellungen > Apps > YFRemote > Menü oben rechts > " +
+                            "\"Eingeschränkte Einstellungen zulassen\"."
                         setPadding(0, dp(14), 0, 0)
                     },
                 )
@@ -157,7 +157,7 @@ class SetupActivity : Activity() {
         )
 
         root.addView(
-            card("Gekoppelte Geraete").apply {
+            card("Gekoppelte Geräte").apply {
                 devicesContainer = column()
                 addView(devicesContainer)
             },
@@ -335,7 +335,7 @@ class SetupActivity : Activity() {
         pinText.text = service?.pairing?.getCurrentPin()?.first ?: "------"
         toggleButton.text = if (running) "Dienst stoppen" else "Dienst starten"
         serviceStatus.set(
-            if (running) "Dienst laeuft" else "Dienst gestoppt",
+            if (running) "Dienst läuft" else "Dienst gestoppt",
             if (running) color(R.color.brand_ok) else color(R.color.brand_error),
         )
 
@@ -350,10 +350,10 @@ class SetupActivity : Activity() {
                 keyboardStatus.set("Tastatur aktiv", color(R.color.brand_ok))
 
             isYFRemoteImeSelected() ->
-                keyboardStatus.set("Tastatur ausgewaehlt, startet beim Tippen", color(R.color.brand_ok))
+                keyboardStatus.set("Tastatur ausgewählt, startet beim Tippen", color(R.color.brand_ok))
 
             isYFRemoteImeEnabled() ->
-                keyboardStatus.set("Tastatur aktiviert, nicht ausgewaehlt", color(R.color.brand_warn))
+                keyboardStatus.set("Tastatur aktiviert, nicht ausgewählt", color(R.color.brand_warn))
 
             else -> keyboardStatus.set("Tastatur inaktiv", color(R.color.brand_error))
         }
@@ -362,7 +362,7 @@ class SetupActivity : Activity() {
         val devices = service?.pairing?.getPairedDevices().orEmpty()
 
         if (devices.isEmpty()) {
-            devicesContainer.addView(mutedText().apply { text = "Noch kein Geraet gekoppelt." })
+            devicesContainer.addView(mutedText().apply { text = "Noch kein Gerät gekoppelt." })
             return
         }
 

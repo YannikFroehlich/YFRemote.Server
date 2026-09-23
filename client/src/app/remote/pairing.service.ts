@@ -39,9 +39,24 @@ export class PairingService {
   readonly isPaired = computed(() => this.tokenSignal() !== null);
   readonly lastError = this.errorSignal.asReadonly();
 
+  private readonly serverIsAndroidSignal = signal(false);
+  readonly serverIsAndroid = this.serverIsAndroidSignal.asReadonly();
+
   constructor() {
     if (this.tokenSignal() !== null) {
       void this.verify();
+    }
+  }
+
+  /** Die Kopplungsseite steht vor dem WebSocket, /health ist aber schon offen - so kann sie
+   *  "PC" und "Android-Gerät" unterscheiden. Schlägt der Aufruf fehl, bleibt der PC-Text. */
+  async detectServerPlatform(): Promise<void> {
+    try {
+      const response = await this.fetchFn(`${this.getHttpBaseUrl()}/health`);
+      const body = (await response.json()) as { readonly platform?: unknown };
+      this.serverIsAndroidSignal.set(body.platform === 'android');
+    } catch {
+      this.serverIsAndroidSignal.set(false);
     }
   }
 

@@ -41,7 +41,7 @@ class PairingRepository(private val filesDir: File) {
         private const val PIN_LENGTH = 6
         private const val MAX_FAILED_ATTEMPTS = 5
         private const val MAX_DEVICE_NAME_LENGTH = 60
-        private const val DEFAULT_DEVICE_NAME = "Unbekanntes Geraet"
+        private const val DEFAULT_DEVICE_NAME = "Unbekanntes Gerät"
         private val PIN_LIFETIME: Duration = Duration.ofMinutes(10)
         private val LOCKOUT_DURATION: Duration = Duration.ofSeconds(60)
         private val LAST_SEEN_PERSISTENCE_INTERVAL: Duration = Duration.ofMinutes(5)
@@ -99,7 +99,7 @@ class PairingRepository(private val filesDir: File) {
 
             if (trimmedPin != pin) {
                 registerFailedAttempt(clientIp, now)
-                return PairResponse.fail("PIN ungueltig.")
+                return PairResponse.fail("PIN ungültig.")
             }
 
             failedAttemptsByIp.remove(clientIp)

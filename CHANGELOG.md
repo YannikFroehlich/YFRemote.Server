@@ -22,7 +22,6 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Added
 
-- Experimenteller Android-Server-Prototyp unter `android/` (Kotlin + Ktor): dieselbe Pairing-/WebSocket-API wie der Windows/Linux-Server, plus `AccessibilityService`-basierte Zeigersteuerung, eine eigene Tastatur (IME) fuers Tippen, Datei- und Zwischenablage-Uebertragung. Noch kein Bestandteil der Windows/Linux-App-Erfahrung und noch nicht auf echter Hardware verifiziert - siehe `android/PLAN.md`. Die Release-Pipeline baut ab jetzt zusaetzlich eine signierte APK (siehe `release-android`-Job in `release.yml`), sobald die dafuer noetigen Signing-Secrets hinterlegt sind.
 - Android-App: Die Setup-Seite zeigt jetzt pro Berechtigung eine Statuszeile statt den fehlenden Schalter erst als Fehler pro Aktion auf dem steuernden Geraet sichtbar zu machen. Die Tastatur-Zeile unterscheidet dabei "aktiviert, aber nicht ausgewaehlt" von "inaktiv" - Android braucht beide Schritte -, ein Button "Tastatur auswaehlen" oeffnet den System-Auswahldialog direkt, und ein Hinweis nennt "Eingeschraenkte Einstellungen zulassen", das Android 13+ bei per APK installierten Apps fuer Bedienungshilfen verlangt.
 - Android-App: Die YFRemote-Tastatur zeigt beim Tippen am Telefon selbst eine Leiste mit einem "Andere Tastatur"-Button. Vorher war sie eine unsichtbare 1x1-View, dadurch stand waehrend ihrer Auswahl gar keine bedienbare Tastatur mehr zur Verfuegung und der Weg zurueck fuehrte nur ueber die Systemeinstellungen.
 - Android-App: eigenes Erscheinungsbild statt der Android-Standardansicht - das Logo aus `client/public/brand-mark-*.png` ist jetzt App-Icon (adaptiv, mit eigenem Hintergrund) und Kopfzeile der Setup-Seite, dazu ein dunkles Theme in den Farben des Web-Clients, Karten statt loser Buttons, farbige Statuspunkte fuer Dienst/Bedienungshilfe/Tastatur und ein eigenes Benachrichtigungs-Icon statt des generischen System-Icons.
@@ -33,14 +32,28 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - Android-App: Taps und Wischgesten landeten um die Hoehe der Statusleiste neben dem sichtbaren Cursor, weil das Overlay-Fenster ohne `FLAG_LAYOUT_IN_SCREEN` unterhalb der Statusleiste positioniert wird, `dispatchGesture()` aber in Display-Koordinaten arbeitet. Getippte Buttons wurden dadurch verfehlt.
 - Android-App: Texte der Setup-Seite, der Benachrichtigung und der Fehlermeldungen zeigen jetzt echte Umlaute ("Gerät", "läuft", "möglich") statt "Geraet"/"laeuft"/"moeglich".
 - Kopplungsseite des Clients: Bei einem Android-Server steht dort jetzt "Mit deinem Android-Gerät verbinden" samt Hinweis auf die YFRemote-App statt "Mit deinem PC verbinden" und dem Infobereich-Hinweis; die Plattform kommt vorab aus `GET /health`. Auch der Live-Eingabe-Hinweis im Touchpad-Textfeld sagt jetzt "Gerät" statt "PC".
-
 - Android-App: Drag (Antippen, Halten, Ziehen im Touchpad) funktionierte nicht - jede Fortsetzung der Geste wurde von Android abgebrochen ("Geste abgebrochen" im Log), weil die fortgesetzte Stroke nicht am Endpunkt der vorherigen begann. Sie startet jetzt dort und zieht eine Linie zum Cursor; auf einem Samsung SM-S938B mit 25 Moves im 16-ms-Takt geprueft (Liste scrollt, keine Abbrueche, kein haengender Finger).
-
 - Build: `tests/` und lokale Publish-Ausgaben (`publish/`, `publish-linux/`) sind jetzt aus den Default-Globs des Server-Projekts ausgeschlossen. Vorher landeten sie im Output-Ordner (`bin/Release/net10.0/tests/...`), der beim naechsten Build wieder mitgeglobt wurde - die Verschachtelung wuchs mit jedem `dotnet build`/`dotnet test`, bis allein die Projektauswertung Minuten dauerte. Sauberer Build danach: 14 s, Rebuild 4 s, keine verschachtelten Ordner. Die CI war nicht betroffen, weil sie jedes Mal frisch startet.
-
 - Linux: Nach dem Start des Servers gingen die ersten Tastendruecke beziehungsweise Mausbewegungen verloren - das virtuelle Geraet wird erst beim ersten Sendevorgang angelegt und X11/libinput oeffnet es einen Moment spaeter (auf einer Linux-Mint-VM fehlte der komplette erste Text). Der Server wartet jetzt nach dem Anlegen jedes Geraets 500 ms, bevor er die ersten Events schreibt; nur der allererste Tastendruck bzw. die erste Mausbewegung nach dem Start ist dadurch minimal verzoegert.
-
 - Kopplungsseite des Clients: Bei einem Linux-Server steht dort jetzt "Gib die sechsstellige PIN ein, die YFRemote im Terminal des Ziel-PCs ausgibt" (als Dienst: im Journal) statt des Hinweises auf das Infobereich-Symbol - Linux hat kein Tray. Der Client merkt sich dafuer die Plattform aus `GET /health` als `serverPlatform` (windows/linux/android) statt nur "Android ja/nein".
+
+## [2.18.2] - 2026-09-22
+
+### Fixed
+
+- Release-Pipeline: Das Akzeptieren der Android-SDK-Lizenzen im `release-android`-Job scheiterte an `pipefail`. Keine Aenderung an Server, Client oder App.
+
+## [2.18.1] - 2026-09-22
+
+### Fixed
+
+- Release-Pipeline: `android-actions/setup-android` im `release-android`-Job durch ein direktes Setup der Android-cmdline-tools ersetzt. Keine Aenderung an Server, Client oder App.
+
+## [2.18.0] - 2026-09-22
+
+### Added
+
+- Experimenteller Android-Server-Prototyp unter `android/` (Kotlin + Ktor): dieselbe Pairing-/WebSocket-API wie der Windows/Linux-Server, plus `AccessibilityService`-basierte Zeigersteuerung, eine eigene Tastatur (IME) fuers Tippen, Datei- und Zwischenablage-Uebertragung. Noch kein Bestandteil der Windows/Linux-App-Erfahrung und noch nicht auf echter Hardware verifiziert - siehe `android/PLAN.md`. Die Release-Pipeline baut ab jetzt zusaetzlich eine signierte APK (siehe `release-android`-Job in `release.yml`), sobald die dafuer noetigen Signing-Secrets hinterlegt sind.
 
 ## [2.17.0] - 2026-09-22
 

@@ -48,7 +48,7 @@ class YFRemoteInputMethodService : InputMethodService() {
 
             addView(
                 TextView(this@YFRemoteInputMethodService).apply {
-                    text = "YFRemote: Eingabe kommt vom gekoppelten Geraet"
+                    text = "YFRemote: Eingabe kommt vom gekoppelten Gerät"
                     textSize = 14f
                     setTextColor(ContextCompat.getColor(context, R.color.brand_text))
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)

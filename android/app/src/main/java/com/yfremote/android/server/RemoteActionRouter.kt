@@ -52,7 +52,7 @@ class RemoteActionRouter(
                     "mouseup" -> handleMouseButton(request, isDown = false)
                     "mousescroll" -> handleMouseScroll(request)
                     "sleep" -> handleSleep()
-                    "shutdown", "restart" -> fail("Auf Android ohne Root nicht moeglich.")
+                    "shutdown", "restart" -> fail("Auf Android ohne Root nicht möglich.")
                     null, "" -> fail("Missing action type.")
                     else -> fail("Unsupported action type: ${request.type}")
                 }
@@ -75,15 +75,15 @@ class RemoteActionRouter(
             }
 
             key == "WIN" -> withAccessibility { service ->
-                if (service.goHome()) ok() else fail("Aktion nicht moeglich.")
+                if (service.goHome()) ok() else fail("Aktion nicht möglich.")
             }
 
             key == "ESC" -> withAccessibility { service ->
-                if (service.goBack()) ok() else fail("Aktion nicht moeglich.")
+                if (service.goBack()) ok() else fail("Aktion nicht möglich.")
             }
 
             else -> withIme { ime ->
-                if (ime.sendKey(key)) ok() else fail("Taste nicht unterstuetzt: $key")
+                if (ime.sendKey(key)) ok() else fail("Taste nicht unterstützt: $key")
             }
         }
     }
@@ -95,15 +95,15 @@ class RemoteActionRouter(
         val keySet = keys.toSet()
         if (keySet == setOf("TAB", "WIN")) {
             return withAccessibility { service ->
-                if (service.openRecents()) ok() else fail("Aktion nicht moeglich.")
+                if (service.openRecents()) ok() else fail("Aktion nicht möglich.")
             }
         }
 
         return withIme { ime ->
             editorActionFor(keySet)?.let { actionId ->
-                return@withIme if (ime.performEditorAction(actionId)) ok() else fail("Aktion im Textfeld nicht moeglich.")
+                return@withIme if (ime.performEditorAction(actionId)) ok() else fail("Aktion im Textfeld nicht möglich.")
             }
-            if (ime.sendHotkeyBestEffort(keys)) ok() else fail("Hotkey wird nicht unterstuetzt (Plattformgrenze).")
+            if (ime.sendHotkeyBestEffort(keys)) ok() else fail("Hotkey wird nicht unterstützt (Plattformgrenze).")
         }
     }
 
@@ -197,7 +197,7 @@ class RemoteActionRouter(
     }
 
     private fun handleSleep(): RemoteActionResponse = withAccessibility { service ->
-        if (service.lockScreen()) ok() else fail("Sperren wird auf dieser Android-Version nicht unterstuetzt (ab API 28).")
+        if (service.lockScreen()) ok() else fail("Sperren wird auf dieser Android-Version nicht unterstützt (ab API 28).")
     }
 
     private fun pressAudioKey(key: String) {

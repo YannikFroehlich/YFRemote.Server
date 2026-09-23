@@ -31,6 +31,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 ### Fixed
 
 - Android-App: Taps und Wischgesten landeten um die Hoehe der Statusleiste neben dem sichtbaren Cursor, weil das Overlay-Fenster ohne `FLAG_LAYOUT_IN_SCREEN` unterhalb der Statusleiste positioniert wird, `dispatchGesture()` aber in Display-Koordinaten arbeitet. Getippte Buttons wurden dadurch verfehlt.
+- Android-App: Texte der Setup-Seite, der Benachrichtigung und der Fehlermeldungen zeigen jetzt echte Umlaute ("Gerät", "läuft", "möglich") statt "Geraet"/"laeuft"/"moeglich".
+- Kopplungsseite des Clients: Bei einem Android-Server steht dort jetzt "Mit deinem Android-Gerät verbinden" samt Hinweis auf die YFRemote-App statt "Mit deinem PC verbinden" und dem Infobereich-Hinweis; die Plattform kommt vorab aus `GET /health`. Auch der Live-Eingabe-Hinweis im Touchpad-Textfeld sagt jetzt "Gerät" statt "PC".
 
 ## [2.17.0] - 2026-09-22
 

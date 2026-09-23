@@ -508,7 +508,7 @@ describe('App', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(fetchCalls).toEqual(['http://localhost:5050/pair']);
+    expect(fetchCalls).toEqual(['http://localhost:5050/health', 'http://localhost:5050/pair']);
     expect(compiled.querySelector('#pairing-pin')).toBeNull();
     expect(queryButton(compiled, 'Nächster Tab')).not.toBeNull();
     expect(storage.getItem(PAIRING_TOKEN_STORAGE_KEY)).toBe('fresh-token');

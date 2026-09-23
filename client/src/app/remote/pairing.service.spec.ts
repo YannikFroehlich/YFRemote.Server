@@ -122,6 +122,27 @@ describe('PairingService', () => {
     expect(fakeFetch.calls).toHaveLength(0);
   });
 
+  it('detects an Android server from /health before pairing', async () => {
+    const { pairing, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'android' });
+
+    await pairing.detectServerPlatform();
+
+    expect(fakeFetch.calls[0].url).toBe('http://192.168.1.44:5050/health');
+    expect(pairing.serverIsAndroid()).toBe(true);
+  });
+
+  it('keeps the PC wording for a Windows server or a failed /health call', async () => {
+    const { pairing, fakeFetch } = setupPairingService();
+    fakeFetch.queueJson({ status: 'ok', service: 'YFRemote.Server', platform: 'windows' });
+    await pairing.detectServerPlatform();
+    expect(pairing.serverIsAndroid()).toBe(false);
+
+    fakeFetch.queueRejection();
+    await pairing.detectServerPlatform();
+    expect(pairing.serverIsAndroid()).toBe(false);
+  });
+
   it('pairs successfully and persists the token when remembered', async () => {
     const { pairing, storage, fakeFetch } = setupPairingService();
     fakeFetch.queueJson({ success: true, token: 'tok-123' });

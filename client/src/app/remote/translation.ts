@@ -82,7 +82,10 @@ export const TRANSLATIONS = {
   'button.next-track.label': { de: 'Nächster', en: 'Next' },
   'button.next-track.ariaLabel': { de: 'Nächster Titel', en: 'Next track' },
   'button.sleep.label': { de: 'Ruhemodus', en: 'Sleep' },
-  'button.sleep.ariaLabel': { de: 'Rechner in den Ruhemodus versetzen', en: 'Put the computer to sleep' },
+  'button.sleep.ariaLabel': {
+    de: 'Rechner in den Ruhemodus versetzen',
+    en: 'Put the computer to sleep',
+  },
   'button.sleep.confirm': {
     de: 'Rechner wirklich in den Ruhemodus versetzen?',
     en: 'Really put the computer to sleep?',
@@ -116,15 +119,15 @@ export const TRANSLATIONS = {
   'touchpad.hint.oneFinger': { de: '1 Finger · Bewegen', en: '1 finger · Move' },
   'touchpad.hint.twoFinger': { de: '2 Finger · Scrollen', en: '2 fingers · Scroll' },
   'touchpad.placeholder.live': {
-    de: 'Live: Tasten gehen sofort an den PC…',
-    en: 'Live: keys go straight to the PC…',
+    de: 'Live: Tasten gehen sofort an das Gerät…',
+    en: 'Live: keys go straight to the device…',
   },
   'touchpad.placeholder.default': { de: 'Text eingeben…', en: 'Enter text…' },
   'touchpad.mic.title': { de: 'Text diktieren', en: 'Dictate text' },
   'touchpad.mic.ariaLabel': { de: 'Diktieren', en: 'Dictate' },
   'touchpad.live.title': {
-    de: 'Live-Eingabe: jede Taste sofort an den PC senden',
-    en: 'Live typing: send every key to the PC immediately',
+    de: 'Live-Eingabe: jede Taste sofort an das Gerät senden',
+    en: 'Live typing: send every key to the device immediately',
   },
   'touchpad.send.ariaLabel': { de: 'Text senden', en: 'Send text' },
   'touchpad.send.label': { de: 'Senden', en: 'Send' },
@@ -464,6 +467,14 @@ export const TRANSLATIONS = {
     de: 'Gib die sechsstellige PIN aus dem YFRemote-Symbol im Infobereich des Ziel-PCs ein.',
     en: "Enter the six-digit PIN from the YFRemote icon in the target PC's system tray.",
   },
+  'pairingGate.title.android': {
+    de: 'Mit deinem Android-Gerät verbinden',
+    en: 'Connect to your Android device',
+  },
+  'pairingGate.copy.android': {
+    de: 'Gib die sechsstellige PIN aus der YFRemote-App auf dem Ziel-Gerät ein.',
+    en: 'Enter the six-digit PIN shown in the YFRemote app on the target device.',
+  },
   'pairingGate.pin.error': {
     de: 'PIN muss aus 6 Ziffern bestehen.',
     en: 'PIN must consist of 6 digits.',
@@ -485,7 +496,10 @@ export const TRANSLATIONS = {
   'pairing.device.linux': { de: 'Linux-Gerät', en: 'Linux device' },
   'pairing.device.default': { de: 'Mein Gerät', en: 'My device' },
 
-  'remoteService.error.unpairFailed': { de: 'Entkopplung fehlgeschlagen.', en: 'Unpairing failed.' },
+  'remoteService.error.unpairFailed': {
+    de: 'Entkopplung fehlgeschlagen.',
+    en: 'Unpairing failed.',
+  },
   'remoteService.error.invalidServerConfig': {
     de: 'Serveradresse oder Port ist ungültig.',
     en: 'Server address or port is invalid.',

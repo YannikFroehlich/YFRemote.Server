@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Configuration.CommandLine;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.FileProviders;
 using System.Net;
 using System.Text.Json;
@@ -19,6 +21,12 @@ namespace YFRemote.Server;
 internal static class Program
 {
     private const string SingleInstanceMutexName = "YFRemote.Server.SingleInstance";
+
+    // Mit diesem Argument startet YFRemote sich nach einer Einstellungsaenderung selbst neu. Der
+    // Nachfolger wartet dann auf das Einzelinstanz-Mutex, statt sofort "laeuft bereits" zu melden.
+    internal const string RestartWaitArgument = "--wait-for-previous-instance";
+
+    private static readonly TimeSpan RestartWaitTimeout = TimeSpan.FromSeconds(30);
 
     [STAThread]
     private static void Main(string[] args)
@@ -49,6 +57,11 @@ internal static class Program
 
         using var singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out var isFirstInstance);
 
+        if (!isFirstInstance && args.Contains(RestartWaitArgument))
+        {
+            isFirstInstance = WaitForPreviousInstance(singleInstanceMutex);
+        }
+
         if (!isFirstInstance)
         {
             MessageBox.Show(
@@ -65,7 +78,7 @@ internal static class Program
 
         try
         {
-            app = BuildApplication(args);
+            app = BuildApplication([.. args.Where(argument => argument != RestartWaitArgument)]);
             app.StartAsync().GetAwaiter().GetResult();
             app.Logger.LogInformation(
                 "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
@@ -87,7 +100,7 @@ internal static class Program
 
             WriteStartupError(exception);
             MessageBox.Show(
-                $"YFRemote konnte nicht gestartet werden.\n\n{exception.Message}",
+                $"YFRemote konnte nicht gestartet werden.\n\n{exception.Message}{DescribeUserSettingsRecovery()}",
                 "YFRemote - Startfehler",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
@@ -100,6 +113,30 @@ internal static class Program
                 StopAndDisposeApplication(app);
             }
         }
+    }
+    // Der Vorgaenger gibt das Mutex erst beim Beenden frei. Ein vom Betriebssystem freigegebenes
+    // Mutex kommt als AbandonedMutexException zurueck - der Besitz geht dabei trotzdem ueber.
+    private static bool WaitForPreviousInstance(Mutex singleInstanceMutex)
+    {
+        try
+        {
+            return singleInstanceMutex.WaitOne(RestartWaitTimeout);
+        }
+        catch (AbandonedMutexException)
+        {
+            return true;
+        }
+    }
+
+    // Eine im Infobereich umgeschaltete Einstellung kann den Start verhindern (zum Beispiel HTTPS
+    // mit beschaedigter CA-Datei). Dann kommt man ohne diesen Hinweis nicht mehr an den Schalter.
+    private static string DescribeUserSettingsRecovery()
+    {
+        var filePath = UserSettingsStore.FilePath;
+
+        return File.Exists(filePath)
+            ? $"\n\nFalls es an einer Einstellung aus dem Infobereich-Menü liegt: Lösche\n{filePath}\nund starte YFRemote erneut."
+            : string.Empty;
     }
 #else
     // Kein Tray, kein Velopack-Lifecycle, kein Mutex: ein fehlgeschlagenes Port-Binding sagt
@@ -206,6 +243,40 @@ internal static class Program
         }
     }
 
+    // Reihenfolge der Quellen: Kommandozeile schlaegt die im Infobereich gespeicherte Einstellung,
+    // diese wiederum Umgebungsvariablen und appsettings.json. Ein "dotnet run -- Https:Enabled=true"
+    // bleibt damit auch dann wirksam, wenn der Schalter etwas anderes gespeichert hat.
+    internal static void AddUserSettings(IConfigurationBuilder configuration, string filePath)
+    {
+        var directoryPath = Path.GetDirectoryName(filePath);
+
+        if (!string.IsNullOrEmpty(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
+        var source = new JsonConfigurationSource
+        {
+            Path = filePath,
+            Optional = true,
+            ReloadOnChange = false
+        };
+        source.ResolveFileProvider();
+
+        var insertIndex = configuration.Sources.Count;
+
+        for (var index = 0; index < configuration.Sources.Count; index++)
+        {
+            if (configuration.Sources[index] is CommandLineConfigurationSource)
+            {
+                insertIndex = index;
+                break;
+            }
+        }
+
+        configuration.Sources.Insert(insertIndex, source);
+    }
+
     internal static WebApplication BuildApplication(
         string[] args,
         Action<IServiceCollection>? configureServices = null)
@@ -217,6 +288,7 @@ internal static class Program
             WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
         });
 
+        AddUserSettings(builder.Configuration, UserSettingsStore.FilePath);
         DiagnosticLogging.Configure(builder);
 
         var serverOptions = builder.Configuration

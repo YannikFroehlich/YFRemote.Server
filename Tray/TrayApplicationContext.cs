@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using Velopack;
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Diagnostics;
@@ -29,6 +30,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly string localAddress;
     private readonly string deviceAddress;
     private readonly string? certificateUrl;
+    private readonly ServerOptions serverOptions;
+    private readonly HttpsOptions httpsOptions;
 
     private UpdateInfo? availableUpdate;
     private bool updateOperationRunning;
@@ -36,12 +39,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     public TrayApplicationContext(WebApplication app)
     {
-        var serverOptions = app.Services.GetRequiredService<ServerOptions>();
+        serverOptions = app.Services.GetRequiredService<ServerOptions>();
         logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger<TrayApplicationContext>();
         pairingService = app.Services.GetRequiredService<PairingService>();
         connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
         fileTransferService = app.Services.GetRequiredService<FileTransferService>();
-        var httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
+        httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
         var scheme = httpsOptions.Enabled ? "https" : "http";
         var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
         localAddress = NetworkAddressService.GetLocalAddress(port, scheme);
@@ -73,6 +76,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var qrCodeItem = new ToolStripMenuItem("QR-Code zum Verbinden...");
         qrCodeItem.Click += (_, _) => ShowPairingQrCode();
+
+        var httpsItem = new ToolStripMenuItem("HTTPS verwenden")
+        {
+            CheckOnClick = true,
+            Checked = httpsOptions.Enabled
+        };
+        httpsItem.Click += (_, _) => HandleHttpsClick(httpsItem);
 
         var certificateItem = new ToolStripMenuItem("Zertifikat installieren...")
         {
@@ -125,6 +135,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             openItem,
             copyAddressItem,
             qrCodeItem,
+            httpsItem,
             certificateItem,
             diagnosticsItem,
             new ToolStripSeparator(),
@@ -529,6 +540,94 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
+    }
+
+    private void HandleHttpsClick(ToolStripMenuItem menuItem)
+    {
+        var requestedState = menuItem.Checked;
+
+        // Mit HTTPS bindet Kestrel die Ports selbst und braucht dafuer eine IP statt eines Namens.
+        // Ohne diese Pruefung wuerde der Neustart im Startfehler enden.
+        if (requestedState && !IPAddress.TryParse(serverOptions.Host, out _))
+        {
+            menuItem.Checked = false;
+            MessageBox.Show(
+                $"HTTPS braucht unter \"Server:Host\" eine IP-Adresse (zum Beispiel 0.0.0.0). "
+                    + $"Eingetragen ist \"{serverOptions.Host}\".",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
+        var question = requestedState
+            ? $"HTTPS einschalten?\n\nYFRemote ist danach zusätzlich über Port {httpsOptions.Port} "
+                + "erreichbar; Port "
+                + $"{serverOptions.Port} bleibt bestehen. Auf jedem Gerät muss einmalig das Zertifikat "
+                + "installiert werden (\"Zertifikat installieren...\" in diesem Menü).\n\n"
+                + "Weil sich die Adresse der Seite ändert, müssen alle gekoppelten Geräte neu gekoppelt "
+                + "werden.\n\nYFRemote startet dafür neu."
+            : "HTTPS ausschalten?\n\nYFRemote ist danach nur noch über HTTP erreichbar. Weil sich die "
+                + "Adresse der Seite ändert, müssen alle über HTTPS gekoppelten Geräte neu gekoppelt "
+                + "werden.\n\nYFRemote startet dafür neu.";
+
+        if (MessageBox.Show(
+                question,
+                "YFRemote",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) != DialogResult.Yes)
+        {
+            menuItem.Checked = !requestedState;
+            return;
+        }
+
+        try
+        {
+            UserSettingsStore.SetHttpsEnabled(requestedState);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to store the HTTPS setting.");
+            menuItem.Checked = !requestedState;
+            MessageBox.Show(
+                $"Die HTTPS-Einstellung konnte nicht gespeichert werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return;
+        }
+
+        RestartApplication();
+    }
+
+    private void RestartApplication()
+    {
+        var executablePath = Environment.ProcessPath;
+
+        if (executablePath is not null)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(executablePath)
+                {
+                    Arguments = Program.RestartWaitArgument,
+                    UseShellExecute = true
+                });
+
+                ExitApplication();
+                return;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Failed to restart YFRemote after a settings change.");
+            }
+        }
+
+        MessageBox.Show(
+            "Die Einstellung ist gespeichert. Beende YFRemote und starte es neu, damit sie wirksam wird.",
+            "YFRemote",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     private static void ShowUpdateError(string message, Exception exception)

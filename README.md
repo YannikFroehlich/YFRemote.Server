@@ -75,12 +75,19 @@ has been safely persisted; paired devices can be viewed and individually removed
 from the tray menu. In the client, the current device can also revoke its own
 token server-side via "Unpair this device" in settings.
 
-HTTPS is optional (`Https:Enabled` in `appsettings.json`, port 5443): the
-server issues its own local certificate authority once and signs a
-certificate for every local IPv4 address. "Install certificate..." in the
-tray menu shows a QR code and instructions to trust it on Android or iOS.
-HTTP keeps serving unchanged either way; enabling HTTPS changes the page
+HTTPS is optional (port 5443) and switched on with "Use HTTPS" in the tray
+menu, which stores the choice in `%LOCALAPPDATA%\YFRemote\settings.json` and
+restarts YFRemote; `Https:Enabled` in `appsettings.json` still works for
+unattended setups. The server issues its own local certificate authority once
+and signs a certificate for every local IPv4 address. "Install certificate..."
+in the tray menu shows a QR code and instructions to trust it on Android or
+iOS. HTTP keeps serving unchanged either way; enabling HTTPS changes the page
 origin, so paired devices need to pair again.
+
+Without HTTPS the browser refuses the microphone, the camera, and clipboard
+access on a page served over a plain-HTTP LAN address — that is a browser rule
+for insecure origins, not a setting, so dictation in the touchpad's text field
+needs HTTPS (or the phone keyboard's own dictation, which is plain typing).
 
 Still, only use YFRemote on a trusted private network, and don't forward port
 `5050` (or `5443` with HTTPS enabled) to the internet on your router. See

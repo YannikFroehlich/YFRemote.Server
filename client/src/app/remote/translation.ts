@@ -475,6 +475,10 @@ export const TRANSLATIONS = {
     de: 'Gib die sechsstellige PIN aus der YFRemote-App auf dem Ziel-Gerät ein.',
     en: 'Enter the six-digit PIN shown in the YFRemote app on the target device.',
   },
+  'pairingGate.copy.linux': {
+    de: 'Gib die sechsstellige PIN ein, die YFRemote im Terminal des Ziel-PCs ausgibt. Läuft YFRemote als Dienst, steht sie im Journal: journalctl --user -u yfremote.',
+    en: 'Enter the six-digit PIN that YFRemote prints in the terminal of the target PC. If YFRemote runs as a service, it is in the journal: journalctl --user -u yfremote.',
+  },
   'pairingGate.pin.error': {
     de: 'PIN muss aus 6 Ziffern bestehen.',
     en: 'PIN must consist of 6 digits.',

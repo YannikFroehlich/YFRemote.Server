@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PairingService } from './pairing.service';
 import {
@@ -11,6 +11,7 @@ import {
   pinValidator,
 } from './pairing';
 import { SERVER_LOCATION } from './server-config';
+import { TranslationKey } from './translation';
 import { TranslationService } from './translation.service';
 
 @Component({
@@ -26,7 +27,20 @@ export class PairingGateComponent {
   private readonly initialPin = getPairingPinFromHash(this.serverLocation.hash ?? '');
 
   protected readonly lastError = this.pairing.lastError;
-  protected readonly serverIsAndroid = this.pairing.serverIsAndroid;
+  private readonly serverPlatform = this.pairing.serverPlatform;
+  protected readonly titleKey = computed<TranslationKey>(() =>
+    this.serverPlatform() === 'android' ? 'pairingGate.title.android' : 'pairingGate.title',
+  );
+  protected readonly copyKey = computed<TranslationKey>(() => {
+    switch (this.serverPlatform()) {
+      case 'android':
+        return 'pairingGate.copy.android';
+      case 'linux':
+        return 'pairingGate.copy.linux';
+      default:
+        return 'pairingGate.copy';
+    }
+  });
   protected readonly remember = signal(true);
   protected readonly submitting = signal(false);
 

@@ -208,6 +208,18 @@ export function getServerWebSocketBaseUrl(location: ServerLocation): string {
   return `${socketProtocol}//${httpOrigin.host}`;
 }
 
+/** "Potentially trustworthy origin" nach der Browser-Regel: nur ein sicherer Kontext darf
+ *  Mikrofon, Kamera und Zwischenablage benutzen. Ueber die LAN-IP per HTTP ist das nicht
+ *  gegeben, und der Nutzer kann das in den Browser-Einstellungen auch nicht freischalten. */
+export function isTrustworthyOrigin(location: ServerLocation): boolean {
+  if (location.protocol === 'https:') {
+    return true;
+  }
+
+  const hostname = location.hostname.replace(/^\[|]$/g, '');
+  return hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '127.0.0.1' || hostname === '::1';
+}
+
 export function getServerPageUrl(config: ServerConfig, location: ServerLocation): string {
   const normalizedConfig = normalizeServerConfig(config);
   if (normalizedConfig === null) {

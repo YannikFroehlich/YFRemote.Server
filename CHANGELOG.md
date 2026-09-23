@@ -22,6 +22,17 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Added
 
+- Infobereich-Menue: "HTTPS verwenden" schaltet HTTPS ohne Bearbeiten der appsettings.json ein und aus. Die Wahl landet in `%LOCALAPPDATA%\YFRemote\settings.json` - also neben `devices.json` und nicht im `current`-Ordner, den Velopack bei jedem Update ersetzt - und YFRemote startet danach auf Nachfrage selbst neu. Der Dialog nennt vorher beide Folgen: alle gekoppelten Geraete muessen neu gekoppelt werden (die Seite bekommt eine neue Adresse), und auf jedem Geraet ist einmalig das Zertifikat zu installieren. Steht unter `Server:Host` ein Name statt einer IP, lehnt der Schalter mit Begruendung ab, statt den Neustart im Startfehler enden zu lassen. `Https:Enabled` in der appsettings.json und Umgebungsvariablen funktionieren unveraendert; ausdrueckliche Kommandozeilenargumente haben weiterhin Vorrang vor der gespeicherten Einstellung.
+
+### Fixed
+
+- Diktieren im Touchpad-Textfeld meldete ueber die LAN-Adresse nur "Mikrofonzugriff wurde verweigert", ohne dass sich daran etwas aendern liess: Browser geben Mikrofon, Kamera und Zwischenablage nur in einem sicheren Kontext frei, und `http://<LAN-IP>` ist keiner - die Freigabe laesst sich fuer so eine Seite in den Browser-Einstellungen auch gar nicht erteilen. Der Client erkennt das jetzt vorab und nennt den Grund samt Abhilfe ("Setze in der appsettings.json des Servers `"Https": { "Enabled": true }` und starte ihn neu"), statt den Browser erst ins Leere laufen zu lassen. Ueber `http://localhost` (Server auf demselben Rechner) und ueber HTTPS funktioniert das Diktat unveraendert.
+- Touchpad-Textfeld auf dem Handy: Mikrofon, Datei, Zwischenablage, "Live" und "Senden" standen in derselben Zeile wie das Eingabefeld und quetschten es auf wenige Zeichen zusammen (auf einem 412 px breiten Bildschirm war nur noch "Te" vom Platzhalter zu sehen). Das Eingabefeld bekommt jetzt eine eigene Zeile, die Schalter ruecken darunter; ab 540 px Breite bleibt das bisherige einzeilige Layout.
+
+## [2.19.0] - 2026-09-23
+
+### Added
+
 - Android-App: Die Setup-Seite zeigt jetzt pro Berechtigung eine Statuszeile statt den fehlenden Schalter erst als Fehler pro Aktion auf dem steuernden Geraet sichtbar zu machen. Die Tastatur-Zeile unterscheidet dabei "aktiviert, aber nicht ausgewaehlt" von "inaktiv" - Android braucht beide Schritte -, ein Button "Tastatur auswaehlen" oeffnet den System-Auswahldialog direkt, und ein Hinweis nennt "Eingeschraenkte Einstellungen zulassen", das Android 13+ bei per APK installierten Apps fuer Bedienungshilfen verlangt.
 - Android-App: Die YFRemote-Tastatur zeigt beim Tippen am Telefon selbst eine Leiste mit einem "Andere Tastatur"-Button. Vorher war sie eine unsichtbare 1x1-View, dadurch stand waehrend ihrer Auswahl gar keine bedienbare Tastatur mehr zur Verfuegung und der Weg zurueck fuehrte nur ueber die Systemeinstellungen.
 - Android-App: eigenes Erscheinungsbild statt der Android-Standardansicht - das Logo aus `client/public/brand-mark-*.png` ist jetzt App-Icon (adaptiv, mit eigenem Hintergrund) und Kopfzeile der Setup-Seite, dazu ein dunkles Theme in den Farben des Web-Clients, Karten statt loser Buttons, farbige Statuspunkte fuer Dienst/Bedienungshilfe/Tastatur und ein eigenes Benachrichtigungs-Icon statt des generischen System-Icons.

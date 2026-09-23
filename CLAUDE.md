@@ -86,6 +86,15 @@ new CA would leave every device that installed the old one on a certificate warn
 changes the page origin, so paired devices have to pair again — the pairing token lives in the
 client's `localStorage`, which is per-origin.
 
+`Https:Enabled` is normally set from the tray ("HTTPS verwenden"), which writes it via
+`UserSettingsStore` to `%LOCALAPPDATA%\YFRemote\settings.json` and restarts the process. That file
+is a config source added in `Program.AddUserSettings`, inserted *before* the command-line source:
+command line > settings.json > environment variables > `appsettings.json`. It deliberately does not
+live in the installation's `appsettings.json`, which Velopack replaces with the `current` folder on
+every update. The restart passes `Program.RestartWaitArgument`, which makes the new process wait for
+the single-instance mutex instead of reporting "läuft bereits"; that argument is filtered out before
+the args reach `BuildApplication`.
+
 ## Architecture
 
 **Process shape.** `Program.Main` is `[STAThread]` and does three things in order: (1) runs
@@ -140,8 +149,8 @@ are a fixed allowlist in `WindowsInputService.VirtualKeys`; anything else throws
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
 `NotifyIcon` context menu (version, status, device address, open-in-browser, copy-address,
-PIN display/copy/regenerate, a "Gekoppelte Geräte" submenu for revoking devices, update
-check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
+PIN display/copy/regenerate, a "Gekoppelte Geräte" submenu for revoking devices, an HTTPS
+toggle, update check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
 check ~1.5s after launch, then every 6 hours) via `UpdateService` (thin wrapper over Velopack's
 `UpdateManager`, pointed at public GitHub Releases of this repo). `CanUpdate` is
 `UpdateManager.IsInstalled` — a `dotnet run` dev build is never "installed" and update UI stays

@@ -4,6 +4,7 @@ import { FileTransferService } from '../file-transfer.service';
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
+import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
 
 /** Minimale eigene Abbildung der Web-Speech-API - es gibt keine offiziellen TypeScript-Typen
@@ -98,6 +99,7 @@ export class TouchpadComponent implements OnDestroy {
   private readonly fileTransfer = inject(FileTransferService);
   private readonly clipboard = inject(ClipboardService);
   private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
+  private readonly location = inject(SERVER_LOCATION);
   protected readonly i18n = inject(TranslationService);
   private readonly pointers = new Map<number, PointerPosition>();
   private readonly heldButtons = new Map<MouseButtonName, number>();
@@ -398,6 +400,13 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private startDictation(input: HTMLInputElement): void {
+    // Ueber http://<LAN-IP> verweigert der Browser das Mikrofon grundsaetzlich und bietet dafuer
+    // auch keine Freigabe an - ohne eigenen Hinweis stuende hier nur "Zugriff verweigert".
+    if (!isTrustworthyOrigin(this.location)) {
+      this.showDictationError('touchpad.dictationError.insecureOrigin');
+      return;
+    }
+
     const recognizer = this.createRecognizer();
 
     if (recognizer === null) {

@@ -392,7 +392,11 @@ jobs:
           set -e
           sdk_root="$HOME/android-sdk"
           mkdir -p "$sdk_root/cmdline-tools"
-          curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip"
+          # Ohne Retries reisst ein einzelner Netzwerkaussetzer bei Google den ganzen
+          # Release-Lauf mit (beobachtet 2026-09-23, Run 35909268526: "curl: (92) HTTP/2
+          # stream 1 was not closed cleanly: INTERNAL_ERROR").
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+            -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip"
           unzip -q cmdline-tools.zip -d "$sdk_root/cmdline-tools"
           mv "$sdk_root/cmdline-tools/cmdline-tools" "$sdk_root/cmdline-tools/latest"
           rm cmdline-tools.zip
@@ -437,6 +441,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           apk=$(find android/app/build/outputs/apk/release -name '*.apk' | head -n1)
-          gh release upload "v${{ needs.release.outputs.version }}" \
-            "$apk#YFRemote-Android-v${{ needs.release.outputs.version }}.apk" \
+
+          # Das "#..."-Suffix von "gh release upload" setzt nur das Label, nicht den Namen des
+          # Assets - bis v2.20.0 hing die Datei deshalb als "app-release.apk" am Release. Der
+          # gewuenschte Name muss der Dateiname sein.
+          asset="$RUNNER_TEMP/YFRemote-Android-v${{ needs.release.outputs.version }}.apk"
+          cp "$apk" "$asset"
+
+          # --clobber, damit ein erneuter Lauf desselben Release-Jobs nicht an einem bereits
+          # hochgeladenen Asset scheitert.
+          gh release upload "v${{ needs.release.outputs.version }}" "$asset" \
+            --clobber \
             --repo "${{ github.repository }}"

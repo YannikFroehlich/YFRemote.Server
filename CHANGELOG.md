@@ -34,6 +34,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 - Android-App: Texte der Setup-Seite, der Benachrichtigung und der Fehlermeldungen zeigen jetzt echte Umlaute ("Gerät", "läuft", "möglich") statt "Geraet"/"laeuft"/"moeglich".
 - Kopplungsseite des Clients: Bei einem Android-Server steht dort jetzt "Mit deinem Android-Gerät verbinden" samt Hinweis auf die YFRemote-App statt "Mit deinem PC verbinden" und dem Infobereich-Hinweis; die Plattform kommt vorab aus `GET /health`. Auch der Live-Eingabe-Hinweis im Touchpad-Textfeld sagt jetzt "Gerät" statt "PC".
 
+- Android-App: Drag (Antippen, Halten, Ziehen im Touchpad) funktionierte nicht - jede Fortsetzung der Geste wurde von Android abgebrochen ("Geste abgebrochen" im Log), weil die fortgesetzte Stroke nicht am Endpunkt der vorherigen begann. Sie startet jetzt dort und zieht eine Linie zum Cursor; auf einem Samsung SM-S938B mit 25 Moves im 16-ms-Takt geprueft (Liste scrollt, keine Abbrueche, kein haengender Finger).
+
 ## [2.17.0] - 2026-09-22
 
 ### Added

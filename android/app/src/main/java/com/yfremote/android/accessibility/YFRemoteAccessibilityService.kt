@@ -31,6 +31,8 @@ class YFRemoteAccessibilityService : AccessibilityService() {
     private var cursorX = 0f
     private var cursorY = 0f
     private var activeStroke: GestureDescription.StrokeDescription? = null
+    private var dragEndX = 0f
+    private var dragEndY = 0f
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -72,14 +74,24 @@ class YFRemoteAccessibilityService : AccessibilityService() {
     fun mouseDown() {
         val stroke = GestureDescription.StrokeDescription(cursorPath(), 0, TAP_DURATION_MS, true)
         activeStroke = stroke
+        dragEndX = cursorX
+        dragEndY = cursorY
         dispatch(GestureDescription.Builder().addStroke(stroke).build())
     }
 
     fun mouseUp() = continueDragStroke(willContinue = false)
 
+    // Eine fortgesetzte Stroke muss dort beginnen, wo die vorherige endete - ein blosser
+    // moveTo(Cursor) an neuer Position bricht die Geste ab (Log: "Geste abgebrochen").
     private fun continueDragStroke(willContinue: Boolean) {
         val stroke = activeStroke ?: return
-        val continued = stroke.continueStroke(cursorPath(), 0, TAP_DURATION_MS, willContinue)
+        val path = Path().apply {
+            moveTo(dragEndX, dragEndY)
+            if (dragEndX != cursorX || dragEndY != cursorY) lineTo(cursorX, cursorY)
+        }
+        dragEndX = cursorX
+        dragEndY = cursorY
+        val continued = stroke.continueStroke(path, 0, TAP_DURATION_MS, willContinue)
         activeStroke = if (willContinue) continued else null
         dispatch(GestureDescription.Builder().addStroke(continued).build())
     }

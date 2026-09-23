@@ -1,6 +1,6 @@
 # Stufe 0: Beweis, dass Gesten-Injection funktioniert
 
-Ziel dieser Stufe (siehe [`AGENTS.md`](../AGENTS.md#android-support-planned-not-yet-implemented),
+Ziel dieser Stufe (siehe [`AGENTS.md`](../AGENTS.md#android-support),
 Abschnitt "Android support"): eine nackte Kotlin-App mit `AccessibilityService`, die per Knopfdruck
 einen synthetischen Tipp auslöst — und ein zweites Element in derselben App, das diesen Tipp
 sichtbar empfängt. Kein Server, kein Netzwerk, keine IME, nichts von YFRemote selbst — nur der
@@ -385,4 +385,4 @@ Logcat `onServiceConnected` überhaupt geloggt hat.
 Kein Server, keine Netzwerkverbindung, kein Pairing, kein Tippen in echte Textfelder (IME kommt
 erst in Stufe 3), kein Scroll/Drag. Nur: der reine `dispatchGesture`-Signalweg funktioniert auf
 echter Hardware. Die nächsten Stufen (Ktor-Server + Pairing-Protokoll, virtueller Cursor +
-Overlay, IME) stehen in [`AGENTS.md`](../AGENTS.md#android-support-planned-not-yet-implemented).
+Overlay, IME) stehen in [`AGENTS.md`](../AGENTS.md#android-support).

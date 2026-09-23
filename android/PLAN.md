@@ -5,7 +5,7 @@ zweites Gerät dieselbe Angular-Oberfläche öffnet und das Android-Gerät ferns
 Produktprinzip wie [Linux support](../AGENTS.md#linux-support) (Server läuft *auf* dem Zielgerät),
 aber für eine Plattform ohne root-freie Rohtasteninjektion.
 
-Getroffene Grundsatzentscheidungen (siehe [`AGENTS.md`](../AGENTS.md#android-support-planned-not-yet-implemented)),
+Getroffene Grundsatzentscheidungen (siehe [`AGENTS.md`](../AGENTS.md#android-support)),
 hier nicht erneut zur Diskussion:
 
 1. **Sichtbares Gerät, kein Screen-Mirroring.** Reine Fernbedienung wie unter Windows/Linux.

@@ -202,14 +202,19 @@ boot (`loginctl enable-linger` documented in the file for boot-time start withou
 `PairingStorageOptions`/`DiagnosticPaths`) — **unverified**, since no Linux Velopack install has
 happened yet; the path may need correcting once one has.
 
-## Android support (planned, not yet implemented)
+## Android support
 
-Goal: an Android APK that runs its own server, so a second device can open the same Angular
-Client and remote-control the Android device itself — the same product idea as
+An Android APK that runs its own server, so a second device can open the same Angular Client and
+remote-control the Android device itself — the same product idea as
 [Linux support](#linux-support) (server runs *on* the target device), but for a device where
-`SendInput`/`uinput`-style raw injection isn't available without root. This is a plan only;
-nothing under `android/` exists yet. Revisit this section before writing code if it's picked
-back up, rather than re-deriving the decisions below from scratch.
+`SendInput`/`uinput`-style raw injection isn't available without root. Implemented under
+`android/` (native Kotlin + Ktor, its own Gradle build) and merged to `develop` — pairing, the
+virtual cursor, typing, the remaining actions, and its own branding are all in place and verified
+on real hardware. Not yet released: no CI build job, no signed APK, not wired into
+`auto-tag.yml`/`release.yml` (see "Status" below). [`android/PLAN.md`](android/PLAN.md) is the
+executable roadmap this section summarizes, including the full action-by-action
+protocol-compatibility table; read it for implementation detail beyond the decisions recorded
+here.
 
 **Why not extend the existing multi-targeted `.csproj`.** `Microsoft.AspNetCore.App` has no
 runtime pack for `android-arm64`/`android-x64` — Kestrel is unsupported on Android TFMs
@@ -255,33 +260,40 @@ way to widen it later without asking for root or an ADB-based tool like Shizuku:
   current shape: `MediaStore`/Downloads for files, `ClipboardManager` for the clipboard (Android
   10+ restricts clipboard reads/writes to the focused app or the active IME).
 
-**Staged proof plan**, each stage gated on the previous one actually working on a real device
-(an emulator doesn't validate `AccessibilityService`/IME behavior reliably):
-0. Bare Kotlin app, `AccessibilityService` only, one button that taps screen center — proves
-   gesture injection reaches the real device before anything else is built.
-1. Ktor server serving the Client bundle + the pairing/`​/ws` protocol, every action stubbed to
-   `Fail` — proves pairing and same-origin connection work end-to-end.
-2. Virtual cursor + overlay + gesture dispatch — proves pointer control.
-3. IME for `text`/`key` — proves typing into a focused field.
-4. Remaining actions (navigation, `sleep`→lock, files, clipboard; `shutdown`/`restart` return a
-   clear error).
-5. Foreground service (Android kills a backgrounded process otherwise) + a small setup Activity
-   (address, PIN, paired devices, links to the two required system-settings screens) + APK build
-   wired into CI, attached to the GitHub Release.
-
-**Pitfalls already identified, to check again before implementing:**
-- `DefaultItemExcludes` in `YFRemote.Server.csproj` will need `;android\**` added alongside the
-  existing `client\**`, or the Web SDK's default globs will pull the Gradle tree into the
-  server's own publish output — the same failure mode `client/**` needed the exclusion for.
-- Any new CI job for the Android build must not be named `build-and-test` — that name is the
-  required status check on `main` (see "Release automation" below) and must stay pointed at the
-  Windows server job.
-- A release-signed APK cannot later replace a debug-signed one on a device without uninstalling
-  first — decide the release keystore (and store it base64-encoded in GitHub Secrets) before the
-  first real release build, not after.
-- A push to `main` triggers a full release via `auto-tag.yml` regardless of which part of the
-  repo changed (see "Release automation" below) — an Android-only change releases Windows/Linux
-  too unless `[skip release]` is used deliberately.
+**Status: Stufen 0–4 done; Stufe 5 partially done — the app itself is finished, its release
+packaging is not.** Each stage was gated on the previous one actually working on a real device
+(an emulator doesn't validate `AccessibilityService`/IME behavior reliably) — verified on a
+Galaxy S25 (Android 16).
+0. ✅ Bare Kotlin app, `AccessibilityService` only, proved gesture injection reaches a real device.
+1. ✅ Ktor server: pairing/`/ws` protocol, matching `PairingService`/`RemoteActionHandler`
+   semantics exactly.
+2. ✅ Virtual cursor + overlay + gesture dispatch — including a fix for a tap-offset bug caused
+   by the overlay window's status-bar positioning.
+3. ✅ IME for `text`/`key`, including the enabled-vs-selected keyboard status and an "other
+   keyboard" fallback bar while the YFRemote IME is selected (Android leaves no usable keyboard
+   otherwise).
+4. ✅ Remaining actions (navigation, `sleep`→lock, files, clipboard; `shutdown`/`restart` return
+   a clear error) and `GET /health` reporting `platform` so the Client switches to an
+   Android-specific button layout.
+5. Foreground service, setup Activity (address, PIN, paired devices, links to the two required
+   system-settings screens) and its own branding (app icon, dark theme, card layout) are done.
+   **Still open:**
+   - `DefaultItemExcludes` in `YFRemote.Server.csproj` still only excludes `client\**`, not
+     `android\**` — without it the Web SDK's default globs can pull the Gradle tree into the
+     server's own publish output once `android/` is checked out locally, the same failure mode
+     `client/**` needed the exclusion for.
+   - Gradle task to copy `client/dist` into `app/src/main/assets/www/` automatically (still a
+     manual step).
+   - Release-signing keystore not yet created; store it base64-encoded in GitHub Secrets before
+     the first real release build — a release-signed APK cannot replace a debug-signed one on a
+     device without uninstalling first.
+   - No CI job builds `assembleRelease` yet. Must not be named `build-and-test` — that name is
+     the required status check on `main` (see "Release automation" below) and must stay pointed
+     at the Windows server job.
+   - Not yet wired into `auto-tag.yml`/`release.yml` — a push to `main` triggers a full release
+     regardless of which part of the repo changed (see "Release automation" below), so an
+     Android-only change will release Windows/Linux too unless `[skip release]` is used
+     deliberately, until this wiring exists.
 
 ## Tray application
 

@@ -20,6 +20,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-09-23
+
 ### Added
 
 - Android-App: Die Setup-Seite zeigt jetzt pro Berechtigung eine Statuszeile statt den fehlenden Schalter erst als Fehler pro Aktion auf dem steuernden Geraet sichtbar zu machen. Die Tastatur-Zeile unterscheidet dabei "aktiviert, aber nicht ausgewaehlt" von "inaktiv" - Android braucht beide Schritte -, ein Button "Tastatur auswaehlen" oeffnet den System-Auswahldialog direkt, und ein Hinweis nennt "Eingeschraenkte Einstellungen zulassen", das Android 13+ bei per APK installierten Apps fuer Bedienungshilfen verlangt.

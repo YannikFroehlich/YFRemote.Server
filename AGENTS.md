@@ -498,9 +498,14 @@ longer a separate repository, so there is no ordering constraint and no manual s
 5. `auto-tag.yml` fires automatically on the merge, computes the next version, and invokes
    `release.yml`. No manual tagging step is needed.
 6. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
-   assets, then rename `[Unreleased]` in `CHANGELOG.md` to the version/date that was just
-   published and start a fresh empty `[Unreleased]` section above it — on a feature branch
-   and through a pull request into `develop`, like any other change.
+   assets. The `changelog-pr` job in `release.yml` then opens a pull request into `develop`
+   that renames `[Unreleased]` in `CHANGELOG.md` to the version/date just published, with a
+   fresh empty `[Unreleased]` above it, and starts `ci.yml` for it via `workflow_dispatch`
+   (a PR opened with `GITHUB_TOKEN` does not trigger `pull_request` workflows, so the
+   required `build-and-test` check would otherwise never run). Review and merge that PR.
+   The job skips with a notice if `develop` already has the version heading or `[Unreleased]`
+   was empty, and with a warning if `[Unreleased]` in `develop` changed after the release
+   commit (new entries merged meanwhile) — then do the rename by hand, as before.
 
 Fallback if the automated workflow is unavailable: tag the intended `main` commit by hand
 and push the tag, which triggers `release.yml` directly.

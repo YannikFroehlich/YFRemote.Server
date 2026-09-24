@@ -61,6 +61,12 @@ jobs:
 
   release:
     needs: determine-version
+    # Mehr Rechte als oben: der Job changelog-pr in release.yml oeffnet einen PR nach develop
+    # und startet dafuer die CI (siehe dort). Ein aufgerufener Workflow erbt hoechstens diese.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     uses: ./.github/workflows/release.yml
     with:
       version: ${{ needs.determine-version.outputs.version }}

@@ -11,7 +11,7 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Integration;
 
-// Deckt die /clipboard/*-Verdrahtung in Program.cs ab (Origin-Pruefung, Bearer-Token,
+// Deckt die /clipboard/*-Verdrahtung (Endpoints/ClipboardEndpoints.cs) ab (Origin-Pruefung, Bearer-Token,
 // Laengen-/Groessenlimit, Fehlerabbildung). IClipboardService wird ueber
 // Program.BuildApplication's configureServices-Hook durch FakeClipboardService ersetzt, damit
 // kein Test die echte Systemzwischenablage der Maschine veraendert.

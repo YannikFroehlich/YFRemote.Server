@@ -20,6 +20,8 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+## [2.21.1] - 2026-09-24
+
 ### Fixed
 
 - Windows: Getippter Text kam im Windows-11-Editor (Notepad) verstuemmelt an - ab einem Leerzeichen oder direkt nach ENTER wurde jedes Zeichen durch das zuletzt gesendete ersetzt ("123 456" wurde "123 666"). Der Editor verarbeitet die per `SendInput` als Unicode gesendeten Zeichen verspaetet und liest dann nur noch das letzte; in anderen Programmen (z. B. einem normalen Windows-Textfeld) trat das nicht auf. Der Server sendet die Zeichen jetzt mit 30 ms Abstand und gibt die Eingabesperre zwischen zwei Zeichen frei, damit Mausbewegungen anderer Geraete waehrend eines langen Textes nicht haengen. Ein Text mit 100 Zeichen braucht dadurch rund 3 Sekunden.

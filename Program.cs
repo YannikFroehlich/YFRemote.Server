@@ -708,6 +708,51 @@ internal static class Program
             await TrySetClipboardAsync(context, app.Logger, () => clipboardService.SetImageAsync(imageStream));
         });
 
+        // Origin nur pruefen, wenn einer mitkommt: Browser senden bei einem Same-Origin-GET-fetch()
+        // keinen (siehe /pair/status). Den Schutz traegt hier das Bearer-Token - eine fremde Seite
+        // kennt es nicht und koennte den Authorization-Header ohne CORS-Freigabe gar nicht senden.
+        app.MapGet("/clipboard/text", async context =>
+        {
+            if (context.Request.Headers.Origin.Count > 0 && !IsAllowedOrigin(context.Request))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Origin not allowed.");
+                return;
+            }
+
+            var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+            var token = GetBearerToken(context.Request);
+            if (!pairingService.TryValidateToken(token, out var deviceId))
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                return;
+            }
+
+            // Die Antwort enthaelt den Inhalt der PC-Zwischenablage (ggf. Passwoerter) - nie cachen.
+            context.Response.Headers.CacheControl = "no-store";
+
+            var clipboardOptions = context.RequestServices.GetRequiredService<ClipboardOptions>();
+            var clipboardService = context.RequestServices.GetRequiredService<IClipboardService>();
+            await RunClipboardOperationAsync(context, app.Logger, async () =>
+            {
+                var text = await clipboardService.GetTextAsync();
+                if (string.IsNullOrEmpty(text))
+                {
+                    return ClipboardResponse.WithText(null);
+                }
+
+                if (text.Length > clipboardOptions.MaxTextLength)
+                {
+                    context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+                    return ClipboardResponse.Fail(
+                        $"Clipboard text is longer than {clipboardOptions.MaxTextLength} characters.");
+                }
+
+                app.Logger.LogInformation("Clipboard text sent to paired device {DeviceId}.", deviceId);
+                return ClipboardResponse.WithText(text);
+            });
+        });
+
         // Keine Origin-Pruefung: Browser senden bei einem Same-Origin-GET-fetch() ueblicherweise
         // keinen Origin-Header (anders als bei POST oder beim WebSocket-Handshake), und dieser
         // Endpoint liefert ohnehin nur ein Ja/Nein zu einem Token, das der Aufrufer bereits kennen
@@ -764,28 +809,36 @@ internal static class Program
         return string.Equals(origin, expectedOrigin, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task TrySetClipboardAsync(HttpContext context, ILogger logger, Func<Task> operation)
-    {
-        try
+    private static Task TrySetClipboardAsync(HttpContext context, ILogger logger, Func<Task> operation) =>
+        RunClipboardOperationAsync(context, logger, async () =>
         {
             await operation();
-            await context.Response.WriteAsJsonAsync(ClipboardResponse.Ok(), context.RequestAborted);
+            return ClipboardResponse.Ok();
+        });
+
+    private static async Task RunClipboardOperationAsync(
+        HttpContext context,
+        ILogger logger,
+        Func<Task<ClipboardResponse>> operation)
+    {
+        ClipboardResponse response;
+        try
+        {
+            response = await operation();
         }
         catch (NotSupportedException exception)
         {
             context.Response.StatusCode = StatusCodes.Status501NotImplemented;
-            await context.Response.WriteAsJsonAsync(
-                ClipboardResponse.Fail(exception.Message),
-                context.RequestAborted);
+            response = ClipboardResponse.Fail(exception.Message);
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Failed to write to the clipboard.");
+            logger.LogWarning(exception, "Clipboard operation failed.");
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(
-                ClipboardResponse.Fail("Clipboard operation failed."),
-                context.RequestAborted);
+            response = ClipboardResponse.Fail("Clipboard operation failed.");
         }
+
+        await context.Response.WriteAsJsonAsync(response, context.RequestAborted);
     }
 
     private static string? GetBearerToken(HttpRequest request)

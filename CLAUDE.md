@@ -128,9 +128,14 @@ crashing silently.
   "Datei empfangen" balloon via its `FileReceived` event.
 - `POST /clipboard/text` (JSON, `Clipboard:MaxTextLength` 200 000) and `POST /clipboard/image`
   (multipart, `Clipboard:MaxImageSizeBytes` 20 MB) → write the PC clipboard via
-  `IClipboardService`. Write-only: nothing reads the PC clipboard back. `LinuxClipboardService`
-  deliberately throws `NotSupportedException`, which becomes `501`.
-- `/files` and `/clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
+  `IClipboardService`.
+- `GET /clipboard/text` → reads the PC clipboard's text back (`{ text: null }` when it holds
+  none, `422` beyond `Clipboard:MaxTextLength`), sent with `Cache-Control: no-store`. Unlike the
+  POST endpoints it only rejects a *mismatching* `Origin`: browsers send none on a same-origin
+  GET `fetch()`, so the `Bearer` token is the real gate here. Only the Windows service can read;
+  `LinuxClipboardService` throws `NotSupportedException` for every clipboard call, which becomes
+  `501`, and the Client offers "Vom PC holen" only for `platform: windows`.
+- `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over
   plain HTTP, because it has to be installable before a device trusts the server.

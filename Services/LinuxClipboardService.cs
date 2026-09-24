@@ -9,6 +9,8 @@ public sealed class LinuxClipboardService : IClipboardService
 
     public Task SetImageAsync(Stream imageStream) => throw NotSupported();
 
+    public Task<string?> GetTextAsync() => throw NotSupported();
+
     private static NotSupportedException NotSupported() =>
         new("Clipboard sync is not supported on Linux yet.");
 }

@@ -59,9 +59,18 @@
     <button
       class="snap-switch touchpad-text__clipboard"
       type="button"
-      [attr.title]="i18n.t('touchpad.clipboard.title')"
-      [attr.aria-label]="i18n.t('touchpad.clipboard.ariaLabel')"
-      (click)="showClipboardPasteTarget()"
+      [attr.title]="
+        i18n.t(pcClipboardReadable() ? 'touchpad.clipboard.menuTitle' : 'touchpad.clipboard.title')
+      "
+      [attr.aria-label]="
+        i18n.t(
+          pcClipboardReadable() ? 'touchpad.clipboard.menuTitle' : 'touchpad.clipboard.ariaLabel'
+        )
+      "
+      [attr.aria-expanded]="pcClipboardReadable() ? clipboardMenuOpen() : null"
+      [attr.aria-controls]="pcClipboardReadable() ? 'touchpad-clipboard-menu' : null"
+      [disabled]="pcClipboardLoading()"
+      (click)="onClipboardButton()"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path [attr.d]="iconPaths.clipboard"></path>
@@ -89,6 +98,36 @@
     }
   </form>
 
+  @if (clipboardMenuOpen()) {
+    <div
+      id="touchpad-clipboard-menu"
+      class="clipboard-menu"
+      role="group"
+      [attr.aria-label]="i18n.t('touchpad.clipboard.menuTitle')"
+    >
+      <button
+        class="secondary-button clipboard-menu__option"
+        type="button"
+        (click)="chooseSendClipboard()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.upload"></path>
+        </svg>
+        {{ i18n.t('touchpad.clipboard.sendOption') }}
+      </button>
+      <button
+        class="secondary-button clipboard-menu__option"
+        type="button"
+        (click)="fetchPcClipboard()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.download"></path>
+        </svg>
+        {{ i18n.t('touchpad.pcClipboard.title') }}
+      </button>
+    </div>
+  }
+
   @if (clipboardPasteTargetVisible()) {
     <div
       class="clipboard-paste-target"
@@ -100,6 +139,37 @@
       (blur)="hideClipboardPasteTarget()"
     >
       {{ i18n.t('touchpad.clipboard.hint') }}
+    </div>
+  }
+
+  @if (pcClipboardText(); as text) {
+    <div
+      class="pc-clipboard"
+      role="group"
+      [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel')"
+    >
+      <textarea
+        #pcClipboardField
+        class="pc-clipboard__text"
+        readonly
+        rows="3"
+        [value]="text"
+        [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel')"
+        (focus)="pcClipboardField.select()"
+      ></textarea>
+      @if (!canCopyToDevice) {
+        <p class="pc-clipboard__hint">{{ i18n.t('touchpad.pcClipboard.manualHint') }}</p>
+      }
+      <div class="pc-clipboard__actions">
+        @if (canCopyToDevice) {
+          <button class="primary-button" type="button" (click)="copyPcClipboard(text)">
+            {{ i18n.t('touchpad.pcClipboard.copy') }}
+          </button>
+        }
+        <button class="secondary-button" type="button" (click)="closePcClipboard()">
+          {{ i18n.t('touchpad.pcClipboard.close') }}
+        </button>
+      </div>
     </div>
   }
 

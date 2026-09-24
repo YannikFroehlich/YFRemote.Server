@@ -1,5 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import {
+  CLIPBOARD_FETCH,
+  DEVICE_CLIPBOARD_WRITER,
+  DeviceClipboardWriter,
+} from '../clipboard.service';
+import { PAIRING_TOKEN_STORAGE_KEY } from '../pairing';
+import { PAIRING_FETCH } from '../pairing.service';
+import { ServerPlatform } from '../remote.models';
+import {
   REMOTE_AUTO_CONNECT,
   REMOTE_STORAGE,
   REMOTE_WEBSOCKET_FACTORY,
@@ -652,7 +660,131 @@ describe('TouchpadComponent', () => {
 
     expect(recognizer.stopped).toBe(true);
   });
+
+  it('opens the paste field directly unless the server is Windows', async () => {
+    const { fixture } = await setupTouchpad({ serverPlatform: 'android' });
+    const root = fixture.nativeElement as HTMLElement;
+
+    root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage senden"]')!.click();
+    fixture.detectChanges();
+
+    expect(root.querySelector('.clipboard-menu')).toBeNull();
+    expect(root.querySelector('.clipboard-paste-target')).not.toBeNull();
+  });
+
+  it('asks for the direction on Windows and sends via the paste field', async () => {
+    const { fixture } = await setupTouchpad({ serverPlatform: 'windows' });
+    const root = fixture.nativeElement as HTMLElement;
+    const clipboardButton = root.querySelector<HTMLButtonElement>(
+      'button[aria-label="Zwischenablage"]',
+    )!;
+
+    clipboardButton.click();
+    fixture.detectChanges();
+
+    expect(clipboardButton.getAttribute('aria-expanded')).toBe('true');
+    expect(root.querySelector('.clipboard-paste-target')).toBeNull();
+
+    menuOption(fixture, 'An PC senden').click();
+    fixture.detectChanges();
+
+    expect(root.querySelector('.clipboard-menu')).toBeNull();
+    expect(root.querySelector('.clipboard-paste-target')).not.toBeNull();
+  });
+
+  it('shows the PC clipboard text and copies it to the device clipboard', async () => {
+    const writes: string[] = [];
+    const { fixture } = await setupTouchpad({
+      serverPlatform: 'windows',
+      pcClipboardResponse: { success: true, text: 'Hallo vom PC' },
+      deviceClipboardWriter: async (text) => {
+        writes.push(text);
+      },
+    });
+
+    await fetchPcClipboard(fixture);
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector<HTMLTextAreaElement>('.pc-clipboard__text')!.value).toBe(
+      'Hallo vom PC',
+    );
+    expect(root.querySelector('.pc-clipboard__hint')).toBeNull();
+
+    root.querySelector<HTMLButtonElement>('.pc-clipboard .primary-button')!.click();
+    await settle(fixture);
+
+    expect(writes).toEqual(['Hallo vom PC']);
+    expect(root.querySelector('.pc-clipboard')).toBeNull();
+    expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
+      'In die Zwischenablage kopiert.',
+    );
+  });
+
+  it('offers only manual copying where the device clipboard is not writable', async () => {
+    const { fixture } = await setupTouchpad({
+      serverPlatform: 'windows',
+      pcClipboardResponse: { success: true, text: 'Hallo vom PC' },
+      deviceClipboardWriter: null,
+    });
+
+    await fetchPcClipboard(fixture);
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.pc-clipboard__hint')).not.toBeNull();
+    expect(root.querySelector('.pc-clipboard .primary-button')).toBeNull();
+  });
+
+  it('tells the user when the PC clipboard holds no text', async () => {
+    const { fixture } = await setupTouchpad({
+      serverPlatform: 'windows',
+      pcClipboardResponse: { success: true, text: null },
+    });
+
+    await fetchPcClipboard(fixture);
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.pc-clipboard')).toBeNull();
+    expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
+      'Die Zwischenablage am PC enthält keinen Text.',
+    );
+  });
 });
+
+function menuOption(
+  fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>,
+  label: string,
+): HTMLButtonElement {
+  const option = Array.from(
+    (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+      '.clipboard-menu button',
+    ),
+  ).find((button) => button.textContent?.trim() === label);
+
+  if (option === undefined) {
+    throw new Error(`Clipboard menu option "${label}" not found`);
+  }
+
+  return option;
+}
+
+async function fetchPcClipboard(
+  fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>,
+): Promise<void> {
+  (fixture.nativeElement as HTMLElement)
+    .querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage"]')!
+    .click();
+  fixture.detectChanges();
+  menuOption(fixture, 'Vom PC holen').click();
+  await settle(fixture);
+}
+
+async function settle(
+  fixture: ReturnType<typeof TestBed.createComponent<TouchpadComponent>>,
+): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve));
+  fixture.detectChanges();
+  await fixture.whenStable();
+}
 
 function fakeLocation(url: string): ServerLocation {
   const parsedUrl = new URL(url);
@@ -672,11 +804,18 @@ async function setupTouchpad(
     readonly stored?: Readonly<Record<string, string>>;
     readonly dictationRecognizer?: MockSpeechRecognizer;
     readonly pageUrl?: string;
+    readonly serverPlatform?: ServerPlatform;
+    readonly pcClipboardResponse?: { readonly success: boolean; readonly text?: string | null };
+    readonly deviceClipboardWriter?: DeviceClipboardWriter | null;
   } = {},
 ): Promise<TouchpadHarness> {
   const sockets: MockRemoteSocket[] = [];
   const storage = new MemoryStorage();
   const rafCallbacks: FrameRequestCallback[] = [];
+
+  if (options.pcClipboardResponse !== undefined) {
+    storage.setItem(PAIRING_TOKEN_STORAGE_KEY, 'tok-123');
+  }
 
   if (options.sensitivity !== undefined) {
     storage.setItem(MOUSE_SENSITIVITY_STORAGE_KEY, String(options.sensitivity));
@@ -714,6 +853,21 @@ async function setupTouchpad(
         provide: SERVER_LOCATION,
         useValue: fakeLocation(options.pageUrl ?? 'http://localhost:5050/'),
       },
+      {
+        provide: PAIRING_FETCH,
+        useValue: async () =>
+          options.serverPlatform
+            ? new Response(JSON.stringify({ platform: options.serverPlatform }))
+            : new Response(null, { status: 500 }),
+      },
+      {
+        provide: CLIPBOARD_FETCH,
+        useValue: async () => new Response(JSON.stringify(options.pcClipboardResponse ?? {})),
+      },
+      {
+        provide: DEVICE_CLIPBOARD_WRITER,
+        useValue: options.deviceClipboardWriter ?? null,
+      },
     ],
   }).compileComponents();
 
@@ -724,6 +878,9 @@ async function setupTouchpad(
   const fixture = TestBed.createComponent(TouchpadComponent);
   fixture.detectChanges();
   await fixture.whenStable();
+  // Die Plattformerkennung (/health) laeuft asynchron nach dem Verbindungsaufbau.
+  await new Promise((resolve) => setTimeout(resolve));
+  fixture.detectChanges();
 
   const surface = fixture.nativeElement.querySelector('.touchpad-surface') as HTMLElement | null;
 

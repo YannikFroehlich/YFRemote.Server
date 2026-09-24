@@ -106,6 +106,7 @@ export type RemoteIcon =
   | 'sleep'
   | 'mic'
   | 'upload'
+  | 'download'
   | 'clipboard';
 
 export interface RemoteButtonConfig {

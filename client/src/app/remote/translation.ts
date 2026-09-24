@@ -166,10 +166,36 @@ export const TRANSLATIONS = {
   'touchpad.clipboard.title': { de: 'Zwischenablage senden', en: 'Send clipboard' },
   'touchpad.clipboard.ariaLabel': { de: 'Zwischenablage senden', en: 'Send clipboard' },
   'touchpad.clipboard.hint': { de: 'Jetzt einfügen', en: 'Paste now' },
+  'touchpad.clipboard.menuTitle': { de: 'Zwischenablage', en: 'Clipboard' },
+  'touchpad.clipboard.sendOption': { de: 'An PC senden', en: 'Send to PC' },
   'touchpad.clipboard.success': { de: 'Zwischenablage gesendet.', en: 'Clipboard sent.' },
   'touchpad.clipboard.error': {
     de: 'Zwischenablage konnte nicht gesendet werden.',
     en: 'The clipboard could not be sent.',
+  },
+  'touchpad.pcClipboard.title': { de: 'Vom PC holen', en: 'Get from PC' },
+  'touchpad.pcClipboard.panelLabel': { de: 'Zwischenablage des PCs', en: "PC's clipboard" },
+  'touchpad.pcClipboard.manualHint': {
+    de: 'Text markieren und über das Menü des Geräts kopieren.',
+    en: "Select the text and copy it via your device's menu.",
+  },
+  'touchpad.pcClipboard.copy': { de: 'Kopieren', en: 'Copy' },
+  'touchpad.pcClipboard.close': { de: 'Schließen', en: 'Close' },
+  'touchpad.pcClipboard.copied': {
+    de: 'In die Zwischenablage kopiert.',
+    en: 'Copied to clipboard.',
+  },
+  'touchpad.pcClipboard.copyError': {
+    de: 'Kopieren fehlgeschlagen - Text bitte manuell markieren.',
+    en: 'Copying failed - please select the text manually.',
+  },
+  'touchpad.pcClipboard.empty': {
+    de: 'Die Zwischenablage am PC enthält keinen Text.',
+    en: "The PC's clipboard contains no text.",
+  },
+  'touchpad.pcClipboard.error': {
+    de: 'Zwischenablage konnte nicht vom PC geholt werden.',
+    en: "The PC's clipboard could not be retrieved.",
   },
 
   'keyboardPad.eyebrow': { de: 'Direkte Eingabe', en: 'Direct input' },

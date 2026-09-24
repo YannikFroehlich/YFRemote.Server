@@ -20,12 +20,17 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Added
+
+- Touchpad: Die Zwischenablage geht jetzt auch vom PC aufs Geraet (`GET /clipboard/text`) - bisher nur in die andere Richtung. Mit einem Windows-Server fragt der Zwischenablage-Knopf nach der Richtung ("An PC senden" / "Vom PC holen"), statt einen weiteren Knopf in die Zeile zu setzen, die auf einem 375 px breiten Handy sonst "Senden" in eine dritte Zeile gedraengt haette. Der geholte Text erscheint in einem Feld; ueber HTTPS kopiert "Kopieren" ihn direkt in die Zwischenablage des Geraets, ueber `http://<LAN-IP>` gibt der Browser diese Funktion nicht frei, dann wird der Text zum manuellen Markieren angezeigt. Linux kann die Zwischenablage noch nicht lesen und der Android-Server kennt den Endpunkt nicht - dort fuehrt der Knopf wie bisher direkt zum Einfuege-Feld. Die Antwort wird nie zwischengespeichert (`Cache-Control: no-store`), da sie Passwoerter enthalten kann.
+
 ### Changed
 
 - Release-Assets: Setup.exe und MSI heissen jetzt `YFRemote-win-Setup-X.Y.Z.exe` bzw. `YFRemote-win-X.Y.Z.msi` statt ohne Versionsnummer - wer direkt von GitHub Releases laedt, sieht so beim Speichern welche Version es ist. Die portable ZIP entfaellt (`--noPortable`): Setup.exe deckt den Installationsfall ab, ein zusaetzliches Format ohne echten Anwendungsfall spart Build-Zeit und Release-Groesse.
 
 ### Fixed
 
+- Touchpad: Solange das Einfuege-Feld der Zwischenablage oder eine Statusmeldung (z. B. "Datei gesendet") eingeblendet war, rutschte die Touchpad-Flaeche in die Zeile der Maustasten und ueberdeckte Links-/Mittel-/Rechtsklick. Die Karte war ein Raster mit genau vier festen Zeilen, jedes zusaetzlich eingeblendete Element verschob die Zuordnung. Die Flaeche nimmt jetzt den Restplatz ein, egal wie viel darueber steht.
 - Zertifikatsdialog: Der Einleitungssatz behauptete, der QR-Code lade das Zertifikat auf das Geraet und erst danach sei die Verbindung verschluesselt. Beides war falsch: Auf Android laedt der QR-Code nur die Datei herunter, installiert wird sie separat ueber die Systemeinstellungen (der Weg dorthin stand schon im selben Dialog, nur unter einem Satz, der die Installation als erledigt darstellte). Und verschluesselt ist die Verbindung auch ohne installiertes Zertifikat - die Warnung betrifft die Echtheit des Servers, nicht die Verschluesselung.
 - Infobereich-Menue: Die Rueckfrage beim Einschalten von HTTPS sagte, auf jedem Geraet muesse einmalig das Zertifikat installiert werden. Noetig ist das nicht - ohne Installation erscheint lediglich eine wegklickbare Zertifikatswarnung. Diktieren und Steuern funktionieren auch dann, weil ein Browser den sicheren Kontext am Schema (`https:`) festmacht und nicht an der Gueltigkeit des Zertifikats.
 - Release-Pipeline: Der Download der Android-cmdline-tools von Google laeuft jetzt mit `--retry 5 --retry-all-errors`. Ein einzelner Netzwerkaussetzer hatte den `release-android`-Job und damit den ganzen Release-Lauf von v2.20.0 abreissen lassen (`curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR`); Windows- und Linux-Assets waren da bereits veroeffentlicht, nur die APK fehlte bis zum manuellen Neustart des Jobs.

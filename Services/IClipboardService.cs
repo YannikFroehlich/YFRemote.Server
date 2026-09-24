@@ -5,4 +5,6 @@ public interface IClipboardService
     Task SetTextAsync(string text);
 
     Task SetImageAsync(Stream imageStream);
+
+    Task<string?> GetTextAsync();
 }

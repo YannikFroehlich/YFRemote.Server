@@ -156,6 +156,48 @@ describe('ClipboardService', () => {
     expect(result).toEqual({ success: false, error: 'Text must not be empty.' });
   });
 
+  it('reads the PC clipboard via GET with a bearer token and without a body', async () => {
+    const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
+    fakeFetch.queueJson({ success: true, text: 'Hallo vom PC' });
+
+    const result = await clipboard.readText();
+
+    expect(result).toEqual({ success: true, text: 'Hallo vom PC' });
+    expect(fakeFetch.calls[0].url).toBe('http://192.168.1.44:5050/clipboard/text');
+    expect(fakeFetch.calls[0].init?.method).toBe('GET');
+    expect(fakeFetch.calls[0].init?.body).toBeUndefined();
+    expect(new Headers(fakeFetch.calls[0].init?.headers).get('Authorization')).toBe(
+      'Bearer tok-123',
+    );
+  });
+
+  it('reports an empty PC clipboard as success without text', async () => {
+    const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
+    fakeFetch.queueJson({ success: true, text: null });
+
+    const result = await clipboard.readText();
+
+    expect(result).toEqual({ success: true, text: null });
+  });
+
+  it('surfaces the server error when reading the PC clipboard is rejected', async () => {
+    const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
+    fakeFetch.queueJson({ success: false, error: 'Clipboard sync is not supported.' }, 501);
+
+    const result = await clipboard.readText();
+
+    expect(result).toEqual({ success: false, error: 'Clipboard sync is not supported.' });
+  });
+
+  it('does not read the PC clipboard when the device is not paired', async () => {
+    const { clipboard, fakeFetch } = setupClipboardService();
+
+    const result = await clipboard.readText();
+
+    expect(result.success).toBe(false);
+    expect(fakeFetch.calls).toHaveLength(0);
+  });
+
   it('reports failure without a server error when the request throws outright', async () => {
     const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
     fakeFetch.queueRejection('boom');

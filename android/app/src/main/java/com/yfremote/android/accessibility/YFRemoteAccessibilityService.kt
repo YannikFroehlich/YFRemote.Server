@@ -97,10 +97,11 @@ class YFRemoteAccessibilityService : AccessibilityService() {
     }
 
     fun scroll(deltaX: Int?, deltaY: Int?) {
-        val dx = (deltaX ?: 0) * SCROLL_PIXELS_PER_UNIT
-        // Ein positives Scroll-Delta bedeutet "Inhalt nach unten scrollen" -> der Finger wischt
-        // nach oben, daher das Vorzeichen drehen (gleiche Konvention wie touchpad.component.ts).
-        val dy = -(deltaY ?: 0) * SCROLL_PIXELS_PER_UNIT
+        // Gleiche Bedeutung wie das Mausrad unter Windows (WindowsMouseService): positives delta
+        // scrollt nach oben, positives deltaX nach rechts. Der Finger wischt jeweils in die
+        // Gegenrichtung - nach unten, um nach oben zu scrollen, nach links, um nach rechts zu scrollen.
+        val dx = -(deltaX ?: 0) * SCROLL_PIXELS_PER_UNIT
+        val dy = (deltaY ?: 0) * SCROLL_PIXELS_PER_UNIT
 
         val distance = kotlin.math.hypot(dx, dy).coerceIn(MIN_SCROLL_DISTANCE_PX, MAX_SCROLL_DISTANCE_PX)
         if (distance <= 0f) return

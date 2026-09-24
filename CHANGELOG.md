@@ -20,6 +20,10 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Changed
+
+- Release-Assets: Setup.exe und MSI heissen jetzt `YFRemote-win-Setup-X.Y.Z.exe` bzw. `YFRemote-win-X.Y.Z.msi` statt ohne Versionsnummer - wer direkt von GitHub Releases laedt, sieht so beim Speichern welche Version es ist. Die portable ZIP entfaellt (`--noPortable`): Setup.exe deckt den Installationsfall ab, ein zusaetzliches Format ohne echten Anwendungsfall spart Build-Zeit und Release-Groesse.
+
 ### Fixed
 
 - Zertifikatsdialog: Der Einleitungssatz behauptete, der QR-Code lade das Zertifikat auf das Geraet und erst danach sei die Verbindung verschluesselt. Beides war falsch: Auf Android laedt der QR-Code nur die Datei herunter, installiert wird sie separat ueber die Systemeinstellungen (der Weg dorthin stand schon im selben Dialog, nur unter einem Satz, der die Installation als erledigt darstellte). Und verschluesselt ist die Verbindung auch ohne installiertes Zertifikat - die Warnung betrifft die Echtheit des Servers, nicht die Verschluesselung.

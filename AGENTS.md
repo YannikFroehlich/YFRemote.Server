@@ -453,17 +453,19 @@ The workflow:
 5. creates `release-manifest.json` with the version and the repository SHA and includes
    it in the packaged application;
 6. downloads the previous release when available so Velopack can create a delta;
-7. creates the installer, portable archive, full package, and delta package;
-8. publishes a GitHub Release and uploads the manifest as a separate release asset.
+7. creates the installer, full package, and delta package (`--noPortable`: no portable
+   archive, since Setup.exe already covers the installation case and it added no real use
+   case, just build time and release size);
+8. renames Setup.exe/msi to include the version (`vpk pack` names them without one) and
+   publishes a GitHub Release, uploading the manifest as a separate release asset.
 
 Both entry points behave identically — there is no Client input to pass between workflows
 any more.
 
 Typical release assets are:
 
-- `YFRemote-win-Setup.exe`
-- `YFRemote-win.msi` (wizard installer with selectable install location)
-- `YFRemote-win-Portable.zip`
+- `YFRemote-win-Setup-X.Y.Z.exe`
+- `YFRemote-win-X.Y.Z.msi` (wizard installer with selectable install location)
 - `YFRemote-X.Y.Z-full.nupkg`
 - `YFRemote-X.Y.Z-delta.nupkg` when a previous release exists
 - `RELEASES`

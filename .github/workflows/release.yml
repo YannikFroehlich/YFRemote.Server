@@ -156,8 +156,20 @@ jobs:
           --packAuthors YannikFroehlich
           --icon client/public/favicon.ico
           --msi
+          --noPortable
           --instLocation Either
           --shortcuts StartMenuRoot
+
+      # vpk benennt Setup/MSI ohne Versionsnummer (YFRemote-win-Setup.exe, YFRemote-win.msi) -
+      # fuer Nutzer, die manuell von GitHub Releases laden, ist die Version im Dateinamen aber
+      # hilfreich. Die nupkg-Feed-Dateien (RELEASES, releases.win.json) referenzieren diese
+      # beiden Dateien nicht, daher ist eine Umbenennung nach "vpk pack" gefahrlos.
+      - name: Version in Setup- und MSI-Dateinamen aufnehmen
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Rename-Item "Releases/YFRemote-win-Setup.exe" "YFRemote-win-Setup-$version.exe"
+          Rename-Item "Releases/YFRemote-win.msi" "YFRemote-win-$version.msi"
 
       - name: GitHub Release veroeffentlichen
         shell: pwsh

@@ -163,6 +163,110 @@ public sealed class ClipboardEndpointTests
         Assert.IsFalse(body!.Success);
     }
 
+    [TestMethod]
+    public async Task ReadText_WithoutBearerToken_IsUnauthorized()
+    {
+        fakeClipboard.TextToReturn = "geheim";
+
+        var response = await GetTextAsync(token: null);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task ReadText_WithMismatchedOrigin_IsRejected()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.TextToReturn = "geheim";
+
+        var response = await GetTextAsync(token, origin: "http://evil.example.com");
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // Browser senden bei einem Same-Origin-GET keinen Origin-Header - das muss durchgehen.
+    [TestMethod]
+    public async Task ReadText_WithValidTokenAndNoOrigin_ReturnsClipboardTextWithoutCaching()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.TextToReturn = "Hallo vom PC";
+
+        var response = await GetTextAsync(token);
+        var body = await response.Content.ReadFromJsonAsync<ClipboardResponse>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(body!.Success);
+        Assert.AreEqual("Hallo vom PC", body.Text);
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+    }
+
+    [TestMethod]
+    public async Task ReadText_WithMatchingOrigin_ReturnsClipboardText()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.TextToReturn = "Hallo vom PC";
+
+        var response = await GetTextAsync(token, origin: baseUrl);
+        var body = await response.Content.ReadFromJsonAsync<ClipboardResponse>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("Hallo vom PC", body!.Text);
+    }
+
+    [TestMethod]
+    public async Task ReadText_WhenClipboardHasNoText_ReturnsSuccessWithoutText()
+    {
+        var token = await PairAndGetTokenAsync();
+
+        var response = await GetTextAsync(token);
+        var body = await response.Content.ReadFromJsonAsync<ClipboardResponse>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(body!.Success);
+        Assert.IsNull(body.Text);
+    }
+
+    [TestMethod]
+    public async Task ReadText_ExceedingConfiguredMaxLength_IsRejected()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.TextToReturn = new string('x', 21);
+
+        var response = await GetTextAsync(token);
+        var body = await response.Content.ReadFromJsonAsync<ClipboardResponse>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.IsFalse(body!.Success);
+        Assert.IsNull(body.Text);
+    }
+
+    [TestMethod]
+    public async Task ReadText_WhenClipboardServiceThrowsNotSupported_ReturnsNotImplemented()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.ThrowOnNextCall = new NotSupportedException("Clipboard sync is not supported on Linux yet.");
+
+        var response = await GetTextAsync(token);
+
+        Assert.AreEqual(HttpStatusCode.NotImplemented, response.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> GetTextAsync(string? token, string? origin = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/clipboard/text");
+        if (origin is not null)
+        {
+            request.Headers.Add("Origin", origin);
+        }
+
+        if (token is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
+        return await httpClient.SendAsync(request);
+    }
+
     private async Task<string> PairAndGetTokenAsync()
     {
         var pin = app.Services.GetRequiredService<PairingService>().GetCurrentPin().Pin;

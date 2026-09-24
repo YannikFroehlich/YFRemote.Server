@@ -13,6 +13,19 @@ public sealed class FakeClipboardService : IClipboardService
 
     public Exception? ThrowOnNextCall { get; set; }
 
+    public string? TextToReturn { get; set; }
+
+    public Task<string?> GetTextAsync()
+    {
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        return Task.FromResult(TextToReturn);
+    }
+
     public Task SetTextAsync(string text)
     {
         if (ThrowOnNextCall is { } exception)

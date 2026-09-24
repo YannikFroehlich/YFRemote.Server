@@ -134,7 +134,9 @@ crashing silently.
   POST endpoints it only rejects a *mismatching* `Origin`: browsers send none on a same-origin
   GET `fetch()`, so the `Bearer` token is the real gate here. Only the Windows service can read;
   `LinuxClipboardService` throws `NotSupportedException` for every clipboard call, which becomes
-  `501`, and the Client offers "Vom PC holen" only for `platform: windows`.
+  `501`, and the Client offers "Vom PC holen" only for `platform: windows`. Every successful
+  read calls `ClipboardReadNotifier.NotifyTextRead(deviceName)`, which the tray turns into a
+  "Zwischenablage gesendet" balloon so an unexpected read is visible at the PC.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over

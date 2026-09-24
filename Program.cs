@@ -342,6 +342,7 @@ internal static class Program
         builder.Services.AddSingleton(fileTransferOptions);
         builder.Services.AddSingleton<FileTransferService>();
         builder.Services.AddSingleton(clipboardOptions);
+        builder.Services.AddSingleton<ClipboardReadNotifier>();
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
@@ -748,7 +749,10 @@ internal static class Program
                         $"Clipboard text is longer than {clipboardOptions.MaxTextLength} characters.");
                 }
 
-                app.Logger.LogInformation("Clipboard text sent to paired device {DeviceId}.", deviceId);
+                var deviceName = pairingService.GetPairedDevices()
+                    .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
+                app.Logger.LogInformation("Clipboard text sent to paired device {DeviceName}.", deviceName);
+                context.RequestServices.GetRequiredService<ClipboardReadNotifier>().NotifyTextRead(deviceName);
                 return ClipboardResponse.WithText(text);
             });
         });

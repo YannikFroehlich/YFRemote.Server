@@ -201,6 +201,33 @@ public sealed class ClipboardEndpointTests
     }
 
     [TestMethod]
+    public async Task ReadText_WithText_NotifiesWithTheRequestingDeviceName()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.TextToReturn = "Hallo vom PC";
+        var notifiedDevices = new List<string>();
+        app.Services.GetRequiredService<ClipboardReadNotifier>().TextRead += notifiedDevices.Add;
+
+        await GetTextAsync(token);
+
+        CollectionAssert.AreEqual(new[] { "Testgerät" }, notifiedDevices);
+    }
+
+    [TestMethod]
+    public async Task ReadText_WithoutText_DoesNotNotify()
+    {
+        var token = await PairAndGetTokenAsync();
+        var notifiedDevices = new List<string>();
+        app.Services.GetRequiredService<ClipboardReadNotifier>().TextRead += notifiedDevices.Add;
+
+        await GetTextAsync(token);
+        fakeClipboard.TextToReturn = new string('x', 21);
+        await GetTextAsync(token);
+
+        Assert.AreEqual(0, notifiedDevices.Count);
+    }
+
+    [TestMethod]
     public async Task ReadText_WithMatchingOrigin_ReturnsClipboardText()
     {
         var token = await PairAndGetTokenAsync();

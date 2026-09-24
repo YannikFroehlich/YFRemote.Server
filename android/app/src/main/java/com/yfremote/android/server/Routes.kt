@@ -38,8 +38,8 @@ import java.io.IOException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
-// Bewusst als eine Datei fuer alle Endpunkte, wie Program.cs' MapGet/MapPost-Kette - ein
-// RemoteActionRouter/eine PairingRepository-Instanz pro Prozess, keine eigene Klasse pro Route.
+// Bewusst als eine Datei fuer alle Endpunkte - ein RemoteActionRouter/eine PairingRepository-
+// Instanz pro Prozess, keine eigene Klasse pro Route.
 fun Route.installRoutes(
     context: Context,
     pairing: PairingRepository,
@@ -107,7 +107,7 @@ fun Route.installRoutes(
     get("/pair/status") {
         // Keine Origin-Pruefung: ein Same-Origin-GET-fetch() sendet ueblicherweise keinen
         // Origin-Header, und der Endpoint liefert ohnehin nur ein Ja/Nein zu einem Token, das
-        // der Aufrufer bereits kennen muss (siehe Program.cs).
+        // der Aufrufer bereits kennen muss (siehe Endpoints/PairingEndpoints.cs).
         val token = call.request.queryParameters["token"]
         call.respond(PairStatusResponse(pairing.isValidToken(token)))
     }

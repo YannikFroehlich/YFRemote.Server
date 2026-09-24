@@ -136,7 +136,7 @@ tippt in die Bildschirmmitte, eine `TextView` in derselben App bestätigt sichtb
   kopieren — manuell für die ersten Stufen, als Gradle-Task automatisiert erst in Stufe 5 (siehe
   dort). Statisches Ausliefern mit SPA-Fallback auf `index.html` (Ktor `staticFiles` +
   `intercept`/`default` für unbekannte Pfade), analog zu `app.UseStaticFiles()` +
-  `app.MapFallbackToFile("index.html")` in `Program.cs:300`/`652`.
+  `app.MapFallbackToFile("index.html")` in `Program.BuildApplication`.
 - `GET /health` → `{"status":"ok","service":"YFRemote.Android"}`.
 - `PairingRepository`: 6-stellige PIN (`RandomNumberGenerator`-Äquivalent: `SecureRandom`),
   10-Minuten-Lebensdauer, SHA-256-gehashte Device-Tokens, Geräteliste als JSON in
@@ -147,7 +147,8 @@ tippt in die Bildschirmmitte, eine `TextView` in derselben App bestätigt sichtb
   nachbilden). 5 Fehlversuche pro IP → 60s Sperre, in-memory (`PairingService.cs:245-272`).
 - Endpunkte: `POST /pair` (Request-Body `{pin, deviceName}` → `PairRequest`), `GET /pair/status`,
   `DELETE /pair` (Bearer-Token). Fehlermeldungen auf Deutsch, wie im .NET-Server.
-- Origin-Check wie `Program.cs:683` (`IsAllowedOrigin`) für `/ws` und die schreibenden Endpunkte.
+- Origin-Check wie `RequestGuards.IsAllowedOrigin` (`Endpoints/RequestGuards.cs`) für `/ws` und
+  die schreibenden Endpunkte.
 - `/ws`: Origin-Check, dann `?token=`-Check gegen `PairingRepository`, dann Ktor-WebSocket-Session,
   die Text-Frames bis 16 KB liest (`YFRemoteWebSocketHandler.cs:17`), als `RemoteActionRequest`
   parst, an `RemoteActionRouter` gibt (jeder Zweig → `RemoteActionResponse.Fail("Not implemented yet.")`,
@@ -224,7 +225,7 @@ Fehlermeldung statt eines stillen No-Ops.
 - **Entschieden:** Home/Back/Recents haben keine Windows-Entsprechung im heutigen Protokoll —
   bestehende, unter Android sonst nutzlose Windows-Tasten werden pragmatisch umgewidmet:
   `WIN`→Home, `ESC`→Back, `TAB`+`WIN`→Recents. Keine Client-Änderung nötig.
-- `/files`: Multipart-Empfang wie `Program.cs:434-508`, Ablage über `MediaStore.Downloads` (Android
+- `/files`: Multipart-Empfang wie `Endpoints/FileEndpoints.cs`, Ablage über `MediaStore.Downloads` (Android
   10+, scoped storage) statt direktem Dateisystempfad. Dieselbe Sanitizing-Logik wie
   `FileTransferService.SanitizeFileName` (Zeilen 45–63: auf letzten `/`/`\` abschneiden, ungültige
   Zeichen ersetzen) nachbauen — die dort behobene Pfad-Traversal-Lücke (Commit `c2f5d82`) gilt hier

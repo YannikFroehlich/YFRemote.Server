@@ -12,7 +12,8 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Integration;
 
-// Deckt die Verdrahtung in Program.cs ab (Origin-Pruefung, Bearer-Token, Endpoint-Routing), die
+// Deckt die Verdrahtung aus Program.BuildApplication und Endpoints/ ab (Origin-Pruefung,
+// Bearer-Token, Endpoint-Routing), die
 // von keinem der Service-Unittests beruehrt wird: PairingService, YFRemoteWebSocketHandler und
 // WebSocketConnectionRegistry sind dort einzeln getestet, aber nicht ihre Verschaltung über den
 // echten HTTP-Stack.

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "yfremote-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client", "run", "start", "--", "--port", "4301"],
+      "port": 4301
+    },
+    {
+      "name": "yfremote-server",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--configuration", "Release", "--framework", "net10.0-windows"],
+      "port": 5050
+    }
+  ]
+}

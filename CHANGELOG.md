@@ -20,6 +20,14 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows: Getippter Text kam im Windows-11-Editor (Notepad) verstuemmelt an - ab einem Leerzeichen oder direkt nach ENTER wurde jedes Zeichen durch das zuletzt gesendete ersetzt ("123 456" wurde "123 666"). Der Editor verarbeitet die per `SendInput` als Unicode gesendeten Zeichen verspaetet und liest dann nur noch das letzte; in anderen Programmen (z. B. einem normalen Windows-Textfeld) trat das nicht auf. Der Server sendet die Zeichen jetzt mit 30 ms Abstand und gibt die Eingabesperre zwischen zwei Zeichen frei, damit Mausbewegungen anderer Geraete waehrend eines langen Textes nicht haengen. Ein Text mit 100 Zeichen braucht dadurch rund 3 Sekunden.
+- WebSocket: Lehnte der Server eine Nachricht wegen des Rate-Limits (120 Nachrichten pro Sekunde) ab, fehlte in der Antwort die mitgeschickte `requestId`. Der Client konnte die Ablehnung so keinem Makro-Schritt zuordnen, wartete 5 Sekunden und meldete dann eine fehlende Bestaetigung statt des eigentlichen Grundes. Windows-, Linux- und Android-Server geben die `requestId` jetzt auch in dieser Antwort zurueck.
+- Android-App: Scrollen mit zwei Fingern auf dem Touchpad lief in die entgegengesetzte Richtung wie mit einem Windows- oder Linux-Server - dieselbe Geste scrollte je nach Zielgeraet nach oben oder nach unten. Die App wertet `delta`/`deltaX` von `mouseScroll` jetzt wie das Mausrad unter Windows aus (positiv = nach oben bzw. nach rechts), auch mit der Einstellung "Scrollrichtung umkehren" verhalten sich beide Server damit gleich.
+
+## [2.21.0] - 2026-09-24
+
 ### Added
 
 - Touchpad: Die Zwischenablage geht jetzt auch vom PC aufs Geraet (`GET /clipboard/text`) - bisher nur in die andere Richtung. Mit einem Windows-Server fragt der Zwischenablage-Knopf nach der Richtung ("An PC senden" / "Vom PC holen"), statt einen weiteren Knopf in die Zeile zu setzen, die auf einem 375 px breiten Handy sonst "Senden" in eine dritte Zeile gedraengt haette. Der geholte Text erscheint in einem Feld; ueber HTTPS kopiert "Kopieren" ihn direkt in die Zwischenablage des Geraets, ueber `http://<LAN-IP>` gibt der Browser diese Funktion nicht frei, dann wird der Text zum manuellen Markieren angezeigt. Linux kann die Zwischenablage noch nicht lesen und der Android-Server kennt den Endpunkt nicht - dort fuehrt der Knopf wie bisher direkt zum Einfuege-Feld. Die Antwort wird nie zwischengespeichert (`Cache-Control: no-store`), da sie Passwoerter enthalten kann.
@@ -31,15 +39,22 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 
 ### Fixed
 
-- Windows: Getippter Text kam im Windows-11-Editor (Notepad) verstuemmelt an - ab einem Leerzeichen oder direkt nach ENTER wurde jedes Zeichen durch das zuletzt gesendete ersetzt ("123 456" wurde "123 666"). Der Editor verarbeitet die per `SendInput` als Unicode gesendeten Zeichen verspaetet und liest dann nur noch das letzte; in anderen Programmen (z. B. einem normalen Windows-Textfeld) trat das nicht auf. Der Server sendet die Zeichen jetzt mit 30 ms Abstand und gibt die Eingabesperre zwischen zwei Zeichen frei, damit Mausbewegungen anderer Geraete waehrend eines langen Textes nicht haengen. Ein Text mit 100 Zeichen braucht dadurch rund 3 Sekunden.
 - Release-Pipeline: Setup.exe und MSI werden jetzt erst nach dem Hochladen umbenannt, per GitHub-API. Vorher benannte ein Schritt die Dateien vor `vpk upload github` um - `vpk` laedt aber die beim Packen erfassten Dateinamen hoch und fand `YFRemote-win-Setup.exe` nicht mehr, der erste Release-Lauf fuer diese Version brach deshalb ab (es blieb nur ein unveroeffentlichter Entwurf, das Auto-Update war nicht betroffen).
 - Touchpad: Solange das Einfuege-Feld der Zwischenablage oder eine Statusmeldung (z. B. "Datei gesendet") eingeblendet war, rutschte die Touchpad-Flaeche in die Zeile der Maustasten und ueberdeckte Links-/Mittel-/Rechtsklick. Die Karte war ein Raster mit genau vier festen Zeilen, jedes zusaetzlich eingeblendete Element verschob die Zuordnung. Die Flaeche nimmt jetzt den Restplatz ein, egal wie viel darueber steht.
+
+## [2.20.2] - 2026-09-23
+
+### Fixed
+
 - Zertifikatsdialog: Der Einleitungssatz behauptete, der QR-Code lade das Zertifikat auf das Geraet und erst danach sei die Verbindung verschluesselt. Beides war falsch: Auf Android laedt der QR-Code nur die Datei herunter, installiert wird sie separat ueber die Systemeinstellungen (der Weg dorthin stand schon im selben Dialog, nur unter einem Satz, der die Installation als erledigt darstellte). Und verschluesselt ist die Verbindung auch ohne installiertes Zertifikat - die Warnung betrifft die Echtheit des Servers, nicht die Verschluesselung.
-- WebSocket: Lehnte der Server eine Nachricht wegen des Rate-Limits (120 Nachrichten pro Sekunde) ab, fehlte in der Antwort die mitgeschickte `requestId`. Der Client konnte die Ablehnung so keinem Makro-Schritt zuordnen, wartete 5 Sekunden und meldete dann eine fehlende Bestaetigung statt des eigentlichen Grundes. Windows-, Linux- und Android-Server geben die `requestId` jetzt auch in dieser Antwort zurueck.
 - Infobereich-Menue: Die Rueckfrage beim Einschalten von HTTPS sagte, auf jedem Geraet muesse einmalig das Zertifikat installiert werden. Noetig ist das nicht - ohne Installation erscheint lediglich eine wegklickbare Zertifikatswarnung. Diktieren und Steuern funktionieren auch dann, weil ein Browser den sicheren Kontext am Schema (`https:`) festmacht und nicht an der Gueltigkeit des Zertifikats.
+
+## [2.20.1] - 2026-09-23
+
+### Fixed
+
 - Release-Pipeline: Der Download der Android-cmdline-tools von Google laeuft jetzt mit `--retry 5 --retry-all-errors`. Ein einzelner Netzwerkaussetzer hatte den `release-android`-Job und damit den ganzen Release-Lauf von v2.20.0 abreissen lassen (`curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR`); Windows- und Linux-Assets waren da bereits veroeffentlicht, nur die APK fehlte bis zum manuellen Neustart des Jobs.
 - Release-Pipeline: Die APK haengt jetzt als `YFRemote-Android-vX.Y.Z.apk` am Release statt als `app-release.apk` (so in v2.18.2 bis v2.20.0). Das `#...`-Suffix von `gh release upload` setzt nur das Label des Assets, nicht seinen Namen - die Datei wird vor dem Upload umbenannt. Ausserdem `--clobber`, damit ein erneuter Lauf desselben Jobs nicht an einem bereits hochgeladenen Asset scheitert.
-- Android-App: Scrollen mit zwei Fingern auf dem Touchpad lief in die entgegengesetzte Richtung wie mit einem Windows- oder Linux-Server - dieselbe Geste scrollte je nach Zielgeraet nach oben oder nach unten. Die App wertet `delta`/`deltaX` von `mouseScroll` jetzt wie das Mausrad unter Windows aus (positiv = nach oben bzw. nach rechts), auch mit der Einstellung "Scrollrichtung umkehren" verhalten sich beide Server damit gleich.
 
 ## [2.20.0] - 2026-09-23
 

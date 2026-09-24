@@ -4,7 +4,10 @@ publish/
 Releases/
 wwwroot/
 .tools/
-.claude/
+# Lokale Claude-Code-Dateien ignorieren, nur die gemeinsamen Startkonfigurationen
+# (Dev-Server fuer Client und Server) versionieren.
+.claude/*
+!.claude/launch.json
 .codex-remote-attachments/
 publish-linux/
 

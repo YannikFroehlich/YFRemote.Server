@@ -457,8 +457,12 @@ The workflow:
 7. creates the installer, full package, and delta package (`--noPortable`: no portable
    archive, since Setup.exe already covers the installation case and it added no real use
    case, just build time and release size);
-8. renames Setup.exe/msi to include the version (`vpk pack` names them without one) and
-   publishes a GitHub Release, uploading the manifest as a separate release asset.
+8. publishes a GitHub Release (`vpk upload github`), then renames the uploaded Setup.exe/msi
+   assets via the GitHub API to include the version (`vpk pack` names them without one), and
+   uploads the manifest as a separate release asset. The rename must happen *after* the upload:
+   `vpk upload` uploads the file names recorded by `vpk pack`, not whatever is in `Releases/`,
+   so renaming the files on disk first makes the upload fail (that is how the first v2.21.0
+   run broke).
 
 Both entry points behave identically — there is no Client input to pass between workflows
 any more.

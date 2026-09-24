@@ -180,7 +180,7 @@ describe('TouchpadComponent', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","delta":-60}']);
   });
 
-  it('scrolls horizontally when two fingers move sideways', async () => {
+  it('scrolls horizontally so the content follows the fingers', async () => {
     const { surface, sockets, flushRaf } = await setupTouchpad();
 
     dispatchPointer(surface, 'pointerdown', { pointerId: 1, clientX: 100, clientY: 100 });
@@ -189,7 +189,9 @@ describe('TouchpadComponent', () => {
     dispatchPointer(surface, 'pointermove', { pointerId: 2, clientX: 90, clientY: 140 });
     flushRaf();
 
-    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","deltaX":-60}']);
+    // Finger nach links -> Inhalt nach links -> nach rechts scrollen (positives deltaX, wie das
+    // horizontale Mausrad unter Windows).
+    expect(sockets[0].sentMessages).toEqual(['{"type":"mouseScroll","deltaX":60}']);
   });
 
   it('applies the stored scroll speed and inverted direction', async () => {

@@ -90,21 +90,25 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
-    public async Task HandleAsync_ExceedsRateLimit_RejectsExtraMessage()
+    public async Task HandleAsync_ExceedsRateLimit_RejectsExtraMessageAndEchoesRequestId()
     {
         await using var pair = await WebSocketPair.CreateAsync();
         var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
         var handleTask = CreateHandler(timeProvider: timeProvider).HandleAsync(pair.Server, "test-client", CancellationToken.None);
 
-        RemoteActionResponse response = null!;
-        for (var i = 0; i < YFRemoteWebSocketHandler.MaxMessagesPerRateLimitWindow + 1; i++)
+        for (var i = 0; i < YFRemoteWebSocketHandler.MaxMessagesPerRateLimitWindow; i++)
         {
             await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"]}""");
-            response = await ReceiveResponseAsync(pair.Client);
+            await ReceiveResponseAsync(pair.Client);
         }
+
+        await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"],"requestId":"step-7"}""");
+        var response = await ReceiveResponseAsync(pair.Client);
 
         Assert.IsFalse(response.Success);
         Assert.AreEqual("Rate limit exceeded.", response.Error);
+        // Ohne die requestId kann der Client einen abgelehnten Makro-Schritt keinem Schritt zuordnen.
+        Assert.AreEqual("step-7", response.RequestId);
 
         await CloseClientAsync(pair.Client);
         await AwaitHandlerAsync(handleTask);

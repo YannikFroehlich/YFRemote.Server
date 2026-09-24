@@ -2,6 +2,8 @@ namespace YFRemote.Server.Services;
 
 public sealed class WindowsInputService(WindowsInputSender inputSender) : IInputService
 {
+    private static readonly TimeSpan TypeTextCharacterDelay = TimeSpan.FromMilliseconds(30);
+
     private static readonly IReadOnlyDictionary<string, ushort> VirtualKeys =
         new Dictionary<string, ushort>(StringComparer.OrdinalIgnoreCase)
         {
@@ -145,14 +147,20 @@ public sealed class WindowsInputService(WindowsInputSender inputSender) : IInput
     {
         // Zeichen statt Tasten senden (KEYEVENTF_UNICODE): deckt Satzzeichen, Umlaute und
         // Groß-/Kleinschreibung ab, die die VirtualKeys-Allowlist oben nicht abbilden kann.
-        inputSender.ExecuteSynchronized(() =>
+        // Die Pause pro Zeichen braucht der Windows-11-Editor: Er uebersetzt aufgestaute VK_PACKET-
+        // Nachrichten verspaetet und setzt dann ueberall das zuletzt gesendete Zeichen ein ("123 456"
+        // wird "123 666"); 20 ms reichten direkt nach ENTER nicht, 30 ms schon. Die Sperre gilt je
+        // Zeichen, damit Mauseingaben anderer Geraete nicht bis zum Ende des Textes warten.
+        // ponytail: feste Pause statt Rueckmeldung der Zielanwendung, bei langsamen PCs erhoehen.
+        foreach (var character in text)
         {
-            foreach (var character in text)
+            inputSender.ExecuteSynchronized(() =>
             {
                 inputSender.SendUnicodeInput(character, keyUp: false);
                 inputSender.SendUnicodeInput(character, keyUp: true);
-            }
-        });
+            });
+            Thread.Sleep(TypeTextCharacterDelay);
+        }
     }
 
     public void KeyDown(string key)

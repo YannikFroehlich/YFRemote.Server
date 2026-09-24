@@ -1,6 +1,7 @@
 package com.yfremote.android.ime
 
 import android.inputmethodservice.InputMethodService
+import android.text.InputType
 import android.os.SystemClock
 import android.view.Gravity
 import android.view.KeyEvent
@@ -70,7 +71,13 @@ class YFRemoteInputMethodService : InputMethodService() {
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
     }
 
-    fun commitText(text: String): Boolean = currentInputConnection?.commitText(text, 1) ?: false
+    // Ohne fokussiertes Textfeld liefert Android trotzdem eine InputConnection des Fensters, deren
+    // commitText() den Text verwirft und true meldet - der Client haette sonst "Erfolg" gezeigt.
+    fun commitText(text: String): Boolean {
+        val hasTextField = currentInputStarted &&
+            (currentInputEditorInfo?.inputType ?: InputType.TYPE_NULL) != InputType.TYPE_NULL
+        return hasTextField && currentInputConnection?.commitText(text, 1) == true
+    }
 
     fun sendKey(key: String): Boolean {
         val keyCode = KeyEventMap.toKeyCode(key) ?: return false

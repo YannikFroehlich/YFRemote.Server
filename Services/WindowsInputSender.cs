@@ -166,4 +166,6 @@ internal static class WindowsInputFlags
     public const uint MouseEventMiddleUp = 0x0040;
     public const uint MouseEventWheel = 0x0800;
     public const uint MouseEventHWheel = 0x1000;
+    public const uint MouseEventVirtualDesk = 0x4000;
+    public const uint MouseEventAbsolute = 0x8000;
 }

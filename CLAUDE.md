@@ -15,13 +15,16 @@ the server project's globs via `DefaultItemExcludes`; its production build is co
 `wwwroot/` (gitignored) and served as static files. Server and client are therefore versioned
 and released from a single commit.
 
-The Server project multi-targets `net10.0-windows;net10.0` so build/test/publish portability
-onto Linux can be proven without breaking the shipped Windows build — see AGENTS.md's
-"Linux support" section. Only the Windows target is released today; the Linux `uinput` input
-backend has now been manually verified end-to-end on a real x86_64 Linux kernel (Linux Mint
-Cinnamon VM), though only as a bare `dotnet publish` output, not an installed package — see
-AGENTS.md's "Linux support" section for what's still unverified (arm64, the Velopack-installed
-path, `release-linux` CI).
+The Server project multi-targets `net10.0-windows;net10.0`. Windows is the stable release; every
+release also ships Linux x64/arm64 packages on separate `-beta` Velopack channels
+(`release-linux` job). The Linux `uinput` input backend is manually verified end-to-end on a real
+x86_64 kernel, but only as a bare `dotnet publish` output — arm64 on real hardware and the
+Velopack-installed path are still unverified, see AGENTS.md's "Linux support" section.
+
+[`android/`](android) holds a separate native Kotlin/Ktor server app (not .NET) that serves the
+same Angular client and speaks the same protocol; `release-android` attaches its signed APK to
+every release. Its plan and verification status are in [`android/PLAN.md`](android/PLAN.md) and
+AGENTS.md's "Android support" section.
 
 **Merging to `main` is release-related.** A push to `main` automatically triggers
 `auto-tag.yml`, which computes the next semantic version from commit messages and invokes
@@ -109,7 +112,8 @@ console UI — `OutputType=WinExe`. Startup exceptions are caught, written to
 crashing silently.
 
 **Web layer.** Minimal-API endpoints registered in `Program.BuildApplication`:
-- `GET /health` → `HealthResponse`.
+- `GET /health` → `HealthResponse`, including the server platform (`windows`/`linux`), from
+  which the Client picks its built-in button set.
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -118,6 +122,15 @@ crashing silently.
 - `DELETE /pair` → removes the device identified by the `Bearer` token
   (`PairingService.RemoveDeviceByToken`) and force-closes any open `/ws` connection for that
   device via `WebSocketConnectionRegistry.CloseConnections`.
+- `POST /files` → multipart upload from the device, saved by `FileTransferService` to
+  `FileTransfer:TargetDirectory` (default `Documents\YFRemote`, 200 MB cap counted on the actual
+  bytes read, not `Content-Length`) under a sanitized, collision-free name; the tray shows a
+  "Datei empfangen" balloon via its `FileReceived` event.
+- `POST /clipboard/text` (JSON, `Clipboard:MaxTextLength` 200 000) and `POST /clipboard/image`
+  (multipart, `Clipboard:MaxImageSizeBytes` 20 MB) → write the PC clipboard via
+  `IClipboardService`. Write-only: nothing reads the PC clipboard back. `LinuxClipboardService`
+  deliberately throws `NotSupportedException`, which becomes `501`.
+- `/files` and `/clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over
   plain HTTP, because it has to be installable before a device trusts the server.
@@ -163,9 +176,9 @@ stub next to it). `NetworkAddressService` picks the LAN-facing IPv4 address (pre
 interfaces with a default gateway, skipping loopback/link-local) shown as the "device address"
 for connecting from another device on the network.
 
-**Pairing.** `PairingService` (singleton) is the only gate in front of `/ws`, `/pair`, and
-`/pair/status`. It generates a 6-digit PIN (10-minute lifetime, shown in the tray, manually
-regenerable), exchanges a correct PIN for an opaque per-device token, and persists *hashed*
+**Pairing.** `PairingService` (singleton) is the only gate in front of `/ws`, `/pair`,
+`/pair/status`, `/files`, and `/clipboard/*`. It generates a 6-digit PIN (10-minute lifetime,
+shown in the tray, manually regenerable), exchanges a correct PIN for an opaque per-device token, and persists *hashed*
 (SHA-256) tokens plus a device name and timestamps to `%LOCALAPPDATA%\YFRemote\devices.json`
 (same base folder as `Logs\startup-error.log`, never inside the Velopack `current\` directory
 that gets replaced on update). Persistence uses a flushed temporary file plus atomic replacement;

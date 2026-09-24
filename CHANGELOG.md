@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+## [2.21.2] - 2026-09-24
+
 ### Changed
 
 - Release-Pipeline: Nach jedem Release oeffnet `release.yml` selbst einen PR nach `develop`, der `[Unreleased]` im CHANGELOG in die gerade veroeffentlichte Version samt Datum umbenennt, und startet dafuer die CI. Bisher war das nach jedem Release ein eigener Handgriff. Kamen seit dem Release schon neue Eintraege nach `develop`, legt der Job nichts an und meldet eine Warnung - dann wie bisher von Hand umbenennen.

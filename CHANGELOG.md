@@ -23,6 +23,7 @@ new version number and its release date, and start a fresh empty `[Unreleased]` 
 ### Added
 
 - Touchpad: Die Zwischenablage geht jetzt auch vom PC aufs Geraet (`GET /clipboard/text`) - bisher nur in die andere Richtung. Mit einem Windows-Server fragt der Zwischenablage-Knopf nach der Richtung ("An PC senden" / "Vom PC holen"), statt einen weiteren Knopf in die Zeile zu setzen, die auf einem 375 px breiten Handy sonst "Senden" in eine dritte Zeile gedraengt haette. Der geholte Text erscheint in einem Feld; ueber HTTPS kopiert "Kopieren" ihn direkt in die Zwischenablage des Geraets, ueber `http://<LAN-IP>` gibt der Browser diese Funktion nicht frei, dann wird der Text zum manuellen Markieren angezeigt. Linux kann die Zwischenablage noch nicht lesen und der Android-Server kennt den Endpunkt nicht - dort fuehrt der Knopf wie bisher direkt zum Einfuege-Feld. Die Antwort wird nie zwischengespeichert (`Cache-Control: no-store`), da sie Passwoerter enthalten kann.
+- Infobereich: Jedes Mal, wenn ein gekoppeltes Geraet die Zwischenablage des PCs abholt, erscheint die Sprechblase "Zwischenablage gesendet" mit dem Namen des Geraets - so faellt am PC auf, wenn jemand unerwartet mitliest. Keine Meldung, wenn die Zwischenablage leer oder der Text zu lang war, denn dann wurde nichts uebertragen.
 
 ### Changed
 

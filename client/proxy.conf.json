@@ -9,6 +9,16 @@
     "changeOrigin": false,
     "secure": false
   },
+  "/files": {
+    "target": "http://localhost:5050",
+    "changeOrigin": false,
+    "secure": false
+  },
+  "/clipboard": {
+    "target": "http://localhost:5050",
+    "changeOrigin": false,
+    "secure": false
+  },
   "/ws": {
     "target": "http://localhost:5050",
     "changeOrigin": false,

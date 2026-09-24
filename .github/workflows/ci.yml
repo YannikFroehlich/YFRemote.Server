@@ -9,12 +9,14 @@ name: CI
 
 on:
   pull_request:
+  # Fuer PRs, die release.yml mit dem GITHUB_TOKEN oeffnet - die loesen pull_request nicht aus.
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:

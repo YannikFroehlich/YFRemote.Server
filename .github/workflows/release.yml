@@ -488,3 +488,86 @@ jobs:
           gh release upload "v${{ needs.release.outputs.version }}" "$asset" \
             --clobber \
             --repo "${{ github.repository }}"
+
+  # Benennt nach dem Release [Unreleased] in develop in [X.Y.Z] um. develop ist geschuetzt,
+  # daher als PR statt Push. Er enthaelt nur die Umbenennung und muss nur noch gemergt werden.
+  changelog-pr:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: develop auschecken
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: CHANGELOG umbenennen und PR oeffnen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+          RELEASED_SHA: ${{ needs.release.outputs.server_sha }}
+        run: |
+          branch="docs/changelog-$VERSION"
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "::notice::$branch existiert bereits - kein neuer PR."
+            exit 0
+          fi
+
+          git show "$RELEASED_SHA:CHANGELOG.md" > "$RUNNER_TEMP/released-changelog.md"
+          python3 - <<'PY'
+          import datetime, os, re
+
+          version = os.environ["VERSION"]
+
+          def section(text, heading):
+              return re.search(r"(?ms)^## \[" + re.escape(heading) + r"\][^\n]*\n(.*?)(?=^## \[|\Z)", text)
+
+          def normalized(match):
+              return match.group(1).replace("\r\n", "\n").strip()
+
+          with open("CHANGELOG.md", encoding="utf-8", newline="") as f:
+              develop = f.read()
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "released-changelog.md"), encoding="utf-8", newline="") as f:
+              released = f.read()
+
+          develop_unreleased = section(develop, "Unreleased")
+          released_unreleased = section(released, "Unreleased")
+          if section(develop, version):
+              print(f"::notice::CHANGELOG in develop hat bereits [{version}].")
+          elif not released_unreleased or not released_unreleased.group(1).strip():
+              print("::notice::[Unreleased] war beim Release leer - nichts umzubenennen.")
+          elif not develop_unreleased or normalized(develop_unreleased) != normalized(released_unreleased):
+              # Seit dem Release kamen neue Eintraege nach develop. Welche davon zu diesem
+              # Release gehoeren, soll ein Mensch entscheiden, nicht ein Textabgleich.
+              print(f"::warning::[Unreleased] in develop weicht vom Release-Stand ab - [{version}] bitte von Hand anlegen.")
+          else:
+              newline = "\r\n" if "\r\n" in develop else "\n"
+              date = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+              start = develop_unreleased.start(1)
+              develop = develop[:start] + newline + f"## [{version}] - {date}" + newline + develop[start:]
+              with open("CHANGELOG.md", "w", encoding="utf-8", newline="") as f:
+                  f.write(develop)
+          PY
+
+          if git diff --quiet -- CHANGELOG.md; then
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "docs: CHANGELOG - v$VERSION benennen"
+          git push origin "$branch"
+
+          gh pr create --base develop --head "$branch" \
+            --title "docs: CHANGELOG - v$VERSION benennen" \
+            --body "Automatisch nach dem Release v$VERSION: \`[Unreleased]\` in \`[$VERSION]\` umbenannt, darueber ein neuer leerer \`[Unreleased]\`-Abschnitt. Reine Doku - geht dieser Commit allein nach \`main\`, gehoert \`[skip release]\` in den Merge-Commit."
+
+          # Ein PR vom GITHUB_TOKEN startet keine pull_request-Workflows, ohne CI-Lauf fehlt
+          # der Pflicht-Check build-and-test. workflow_dispatch ist von dieser Sperre ausgenommen.
+          gh workflow run ci.yml --ref "$branch"

@@ -15,10 +15,15 @@ source change, and are noted as such instead of inventing a changelog entry for 
 ## Keeping this file up to date
 
 Add an entry under **[Unreleased]** in the same commit/PR that makes the change. Once that
-change reaches `main` and the release pipeline tags a new version, rename `[Unreleased]` to the
-new version number and its release date, and start a fresh empty `[Unreleased]` above it.
+change reaches `main` and the release pipeline tags a new version, `release.yml` opens a pull
+request into `develop` that renames `[Unreleased]` to the new version number and its release
+date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
+
+### Changed
+
+- Release-Pipeline: Nach jedem Release oeffnet `release.yml` selbst einen PR nach `develop`, der `[Unreleased]` im CHANGELOG in die gerade veroeffentlichte Version samt Datum umbenennt, und startet dafuer die CI. Bisher war das nach jedem Release ein eigener Handgriff. Kamen seit dem Release schon neue Eintraege nach `develop`, legt der Job nichts an und meldet eine Warnung - dann wie bisher von Hand umbenennen.
 
 ## [2.21.1] - 2026-09-24
 

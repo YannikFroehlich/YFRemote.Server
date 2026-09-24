@@ -27,18 +27,26 @@ public sealed class WindowsClipboardService : IClipboardService, IDisposable
         Clipboard.SetImage(image);
     });
 
+    public Task<string?> GetTextAsync() =>
+        RunOnStaThread(() => Clipboard.ContainsText() ? Clipboard.GetText() : null);
+
     public void Dispose() => workItems.CompleteAdding();
 
-    private Task RunOnStaThread(Action action)
+    private Task RunOnStaThread(Action action) => RunOnStaThread<object?>(() =>
     {
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        action();
+        return null;
+    });
+
+    private Task<T> RunOnStaThread<T>(Func<T> action)
+    {
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         workItems.Add(() =>
         {
             try
             {
-                action();
-                completion.SetResult();
+                completion.SetResult(action());
             }
             catch (Exception exception)
             {

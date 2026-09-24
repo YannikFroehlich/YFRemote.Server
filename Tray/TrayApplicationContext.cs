@@ -19,6 +19,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly PairingService pairingService;
     private readonly WebSocketConnectionRegistry connectionRegistry;
     private readonly FileTransferService fileTransferService;
+    private readonly ClipboardReadNotifier clipboardReadNotifier;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem updateItem;
@@ -44,6 +45,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         pairingService = app.Services.GetRequiredService<PairingService>();
         connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
         fileTransferService = app.Services.GetRequiredService<FileTransferService>();
+        clipboardReadNotifier = app.Services.GetRequiredService<ClipboardReadNotifier>();
         httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
         var scheme = httpsOptions.Enabled ? "https" : "http";
         var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
@@ -55,6 +57,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         uiDispatcher.CreateControl();
         fileTransferService.FileReceived += OnFileReceived;
+        clipboardReadNotifier.TextRead += OnClipboardTextRead;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
         {
@@ -197,6 +200,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (disposing)
         {
             fileTransferService.FileReceived -= OnFileReceived;
+            clipboardReadNotifier.TextRead -= OnClipboardTextRead;
             initialUpdateTimer.Dispose();
             periodicUpdateTimer.Dispose();
             notifyIcon.Visible = false;
@@ -350,6 +354,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OnFileReceived(string fileName) =>
         uiDispatcher.BeginInvoke(() =>
             notifyIcon.ShowBalloonTip(3000, "Datei empfangen", fileName, ToolTipIcon.Info));
+
+    // Wie OnFileReceived vom HTTP-Request-Thread aufgerufen, daher ueber den uiDispatcher.
+    private void OnClipboardTextRead(string deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(
+                3000,
+                "Zwischenablage gesendet",
+                $"Die Zwischenablage wurde an \"{deviceName}\" gesendet.",
+                ToolTipIcon.Info));
 
     private void CopyDeviceAddress()
     {

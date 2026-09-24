@@ -6,7 +6,7 @@ import io.ktor.server.plugins.origin
 
 // WebSocket-Handshakes und schreibende HTTP-Endpunkte unterliegen nicht der Same-Origin-Policy
 // des Browsers - der Origin-Header muss deshalb selbst geprueft werden. Direkte Spiegelung von
-// Program.cs' IsAllowedOrigin: reiner String-Vergleich Scheme+Host-Header gegen Origin-Header,
+// RequestGuards.IsAllowedOrigin (Endpoints/RequestGuards.cs): reiner String-Vergleich Scheme+Host-Header gegen Origin-Header,
 // keine feste Allowlist.
 fun ApplicationCall.isAllowedOrigin(): Boolean {
     val origin = request.headers[HttpHeaders.Origin]

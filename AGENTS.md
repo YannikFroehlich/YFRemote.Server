@@ -104,8 +104,9 @@ kernel. Still open: `linux-arm64` has not been run on real hardware/VM (only cro
 unit-tested); non-ASCII `TypeText` input was not exercised (only an ASCII string); the actual
 Velopack-installed path (`~/.local/share/YFRemote/current/...`, `packaging/linux/yfremote.service`
 systemd autostart) was not exercised — the manual test ran a bare `dotnet publish` output
-directly, not an installed package; and the `release-linux` CI job that would produce that
-installable package has still never run (see below). Two other things surfaced by this manual
+directly, not an installed package (the `release-linux` CI job does produce that package on every
+release since v2.9.0, see below — it just hasn't been installed and exercised). Two other things
+surfaced by this manual
 run, independent of the input backend itself: the target user account needs to be in the
 kernel's `input` group (via the udev rule in `packaging/linux/99-yfremote-uinput.rules`) *and*
 that group membership only takes effect in a new login session (`newgrp <group>` works as a
@@ -453,17 +454,19 @@ The workflow:
 5. creates `release-manifest.json` with the version and the repository SHA and includes
    it in the packaged application;
 6. downloads the previous release when available so Velopack can create a delta;
-7. creates the installer, portable archive, full package, and delta package;
-8. publishes a GitHub Release and uploads the manifest as a separate release asset.
+7. creates the installer, full package, and delta package (`--noPortable`: no portable
+   archive, since Setup.exe already covers the installation case and it added no real use
+   case, just build time and release size);
+8. renames Setup.exe/msi to include the version (`vpk pack` names them without one) and
+   publishes a GitHub Release, uploading the manifest as a separate release asset.
 
 Both entry points behave identically — there is no Client input to pass between workflows
 any more.
 
 Typical release assets are:
 
-- `YFRemote-win-Setup.exe`
-- `YFRemote-win.msi` (wizard installer with selectable install location)
-- `YFRemote-win-Portable.zip`
+- `YFRemote-win-Setup-X.Y.Z.exe`
+- `YFRemote-win-X.Y.Z.msi` (wizard installer with selectable install location)
 - `YFRemote-X.Y.Z-full.nupkg`
 - `YFRemote-X.Y.Z-delta.nupkg` when a previous release exists
 - `RELEASES`

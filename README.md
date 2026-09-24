@@ -92,6 +92,8 @@ Without HTTPS the browser refuses the microphone, the camera, and clipboard
 access on a page served over a plain-HTTP LAN address — that is a browser rule
 for insecure origins, not a setting, so dictation in the touchpad's text field
 needs HTTPS (or the phone keyboard's own dictation, which is plain typing).
+Likewise, text fetched from the PC's clipboard can only be copied with one tap
+over HTTPS; over plain HTTP it is shown for you to select and copy manually.
 
 Still, only use YFRemote on a trusted private network, and don't forward port
 `5050` (or `5443` with HTTPS enabled) to the internet on your router. See

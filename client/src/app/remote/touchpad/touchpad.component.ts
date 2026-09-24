@@ -1,5 +1,5 @@
-import { Component, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
-import { ClipboardService } from '../clipboard.service';
+import { Component, computed, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
+import { ClipboardService, DEVICE_CLIPBOARD_WRITER } from '../clipboard.service';
 import { FileTransferService } from '../file-transfer.service';
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
@@ -98,6 +98,7 @@ export class TouchpadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
   private readonly fileTransfer = inject(FileTransferService);
   private readonly clipboard = inject(ClipboardService);
+  private readonly writeDeviceClipboard = inject(DEVICE_CLIPBOARD_WRITER);
   private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
   private readonly location = inject(SERVER_LOCATION);
   protected readonly i18n = inject(TranslationService);
@@ -117,6 +118,15 @@ export class TouchpadComponent implements OnDestroy {
   );
   protected readonly clipboardPasteTargetVisible = signal(false);
   protected readonly clipboardStatus = signal<string | null>(null);
+  // Nur der Windows-Server kann die Zwischenablage lesen: Linux antwortet 501, der
+  // Android-Server kennt den Endpunkt gar nicht.
+  protected readonly pcClipboardReadable = computed(() => this.remote.serverPlatform() === 'windows');
+  // Nur wenn beide Richtungen moeglich sind, fragt der Zwischenablage-Knopf nach der Richtung -
+  // sonst fuehrt er wie bisher direkt zum Einfuege-Feld, ohne zusaetzlichen Tipp.
+  protected readonly clipboardMenuOpen = signal(false);
+  protected readonly pcClipboardLoading = signal(false);
+  protected readonly pcClipboardText = signal<string | null>(null);
+  protected readonly canCopyToDevice = this.writeDeviceClipboard !== null;
 
   private recognizer: SpeechRecognizer | null = null;
   private dictationBaseText = '';
@@ -377,22 +387,70 @@ export class TouchpadComponent implements OnDestroy {
     if (imageItem) {
       const file = imageItem.getAsFile();
       const result = file ? await this.clipboard.sendImage(file) : { success: false };
-      this.showClipboardStatus(result.success);
+      this.showSendStatus(result.success);
       return;
     }
 
     if (textItem) {
       const text = await new Promise<string>((resolve) => textItem.getAsString(resolve));
-      this.showClipboardStatus((await this.clipboard.sendText(text)).success);
+      this.showSendStatus((await this.clipboard.sendText(text)).success);
     }
   }
 
-  private showClipboardStatus(success: boolean): void {
+  protected onClipboardButton(): void {
+    if (!this.pcClipboardReadable()) {
+      this.showClipboardPasteTarget();
+      return;
+    }
+
+    this.clipboardMenuOpen.update((open) => !open);
+  }
+
+  protected chooseSendClipboard(): void {
+    this.clipboardMenuOpen.set(false);
+    this.showClipboardPasteTarget();
+  }
+
+  protected async fetchPcClipboard(): Promise<void> {
+    this.clipboardMenuOpen.set(false);
+    this.pcClipboardLoading.set(true);
+    const result = await this.clipboard.readText();
+    this.pcClipboardLoading.set(false);
+
+    if (!result.success) {
+      this.showClipboardStatus('touchpad.pcClipboard.error');
+    } else if (!result.text) {
+      this.pcClipboardText.set(null);
+      this.showClipboardStatus('touchpad.pcClipboard.empty');
+    } else {
+      this.pcClipboardText.set(result.text);
+    }
+  }
+
+  protected async copyPcClipboard(text: string): Promise<void> {
+    try {
+      await this.writeDeviceClipboard!(text);
+      this.pcClipboardText.set(null);
+      this.showClipboardStatus('touchpad.pcClipboard.copied');
+    } catch {
+      this.showClipboardStatus('touchpad.pcClipboard.copyError');
+    }
+  }
+
+  protected closePcClipboard(): void {
+    this.pcClipboardText.set(null);
+  }
+
+  private showSendStatus(success: boolean): void {
+    this.showClipboardStatus(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error');
+  }
+
+  private showClipboardStatus(key: string): void {
     if (this.clipboardStatusTimer !== null) {
       clearTimeout(this.clipboardStatusTimer);
     }
 
-    this.clipboardStatus.set(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error');
+    this.clipboardStatus.set(key);
     this.clipboardStatusTimer = setTimeout(
       () => this.clipboardStatus.set(null),
       CLIPBOARD_STATUS_VISIBLE_MS,

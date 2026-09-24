@@ -3,15 +3,16 @@
   min-height: 0;
 }
 
+// Flex-Spalte statt Grid mit festen Zeilen: Einfuege-Feld, PC-Zwischenablage und Statusmeldungen
+// erscheinen nur zeitweise zwischen Eingabe und Flaeche - in einem festen Zeilenraster rutschte
+// die Flaeche dadurch in die Zeile der Maustasten und ueberdeckte sie.
 .touchpad-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   min-height: 0;
   flex: 1;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) 66px;
-  gap: 0;
   overflow: hidden;
   border: var(--border-width) solid var(--line);
   border-radius: var(--radius-lg);
@@ -46,6 +47,7 @@
 .touchpad-surface {
   position: relative;
   display: grid;
+  flex: 1 1 0;
   min-height: 200px;
   place-items: center;
   overflow: hidden;
@@ -69,6 +71,13 @@
   -webkit-user-drag: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+// Die Karte ist auf die Fensterhoehe begrenzt; waehrend etwas eingeblendet ist, gibt die Flaeche
+// ihre Mindesthoehe auf, statt die Maustasten aus der Karte zu schieben.
+.touchpad-card:has(.clipboard-menu, .pc-clipboard, .clipboard-paste-target, .settings-message)
+  .touchpad-surface {
+  min-height: 0;
 }
 
 .touchpad-surface::after {
@@ -220,6 +229,61 @@
   outline: 3px solid rgba(var(--accent-rgb), 0.12);
 }
 
+.clipboard-menu {
+  display: flex;
+  gap: 8px;
+  margin: 0 10px 9px;
+}
+
+.clipboard-menu__option {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.clipboard-menu__option svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: currentColor;
+}
+
+.pc-clipboard {
+  display: grid;
+  gap: 8px;
+  margin: 0 10px 9px;
+}
+
+.pc-clipboard__text {
+  width: 100%;
+  padding: 10px 14px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(13px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.pc-clipboard__text:focus-visible {
+  border-color: var(--line-strong);
+  outline: 3px solid rgba(var(--accent-rgb), 0.12);
+}
+
+.pc-clipboard__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.pc-clipboard__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 // Gleiche Pulsanimation wie der "verbindet sich"-Punkt (styles.scss, .status-pill--connecting) -
 // hier fuer "gerade am Diktieren", keine neue Animation und keine neue Farbe.
 .touchpad-text__mic[aria-checked='true'] {
@@ -236,10 +300,6 @@
 }
 
 @media (max-width: 540px) {
-  .touchpad-card {
-    grid-template-rows: auto auto minmax(0, 1fr) 52px;
-  }
-
   .touchpad-card__header {
     align-items: center;
     gap: 12px;
@@ -295,10 +355,6 @@
 }
 
 @media (max-height: 700px) {
-  .touchpad-card {
-    grid-template-rows: auto auto minmax(0, 1fr) 52px;
-  }
-
   .touchpad-surface {
     min-height: 160px;
   }

@@ -11,7 +11,7 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Integration;
 
-// Deckt die /files-Verdrahtung in Program.cs ab (Origin-Pruefung, Bearer-Token, Groessenlimit,
+// Deckt die /files-Verdrahtung (Endpoints/FileEndpoints.cs) ab (Origin-Pruefung, Bearer-Token, Groessenlimit,
 // Routing) ueber den echten HTTP-Stack; SaveFile selbst (Sanitizing, Dedup, Streaming-Limit) ist
 // bereits in FileTransferServiceTests isoliert abgedeckt.
 [TestClass]

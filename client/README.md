@@ -9,10 +9,11 @@ Endnutzer müssen dieses Repository nicht herunterladen und benötigen weder Nod
 noch Angular. Die fertige Anwendung inklusive Client befindet sich im
 [`YFRemote.Server`-Release](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest).
 
-Direkte Downloads:
+Auf der Release-Seite liegen zwei Varianten (Dateiname trägt die Versionsnummer, z. B.
+`YFRemote-win-Setup-2.20.2.exe`, daher kein fester Direktlink):
 
-- [`YFRemote-win-Setup.exe`](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest/download/YFRemote-win-Setup.exe) – schnelle One-Click-Installation
-- [`YFRemote-win.msi`](https://github.com/YannikFroehlich/YFRemote.Server/releases/latest/download/YFRemote-win.msi) – Installationsassistent mit auswählbarem Installationsort
+- `YFRemote-win-Setup-X.Y.Z.exe` – schnelle One-Click-Installation
+- `YFRemote-win-X.Y.Z.msi` – Installationsassistent mit auswählbarem Installationsort
 
 Die vollständige Anleitung für Installation, Tray-Menü, Verbindung per Smartphone,
 Updates und Fehlerbehebung steht im

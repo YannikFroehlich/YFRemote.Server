@@ -156,8 +156,20 @@ jobs:
           --packAuthors YannikFroehlich
           --icon client/public/favicon.ico
           --msi
+          --noPortable
           --instLocation Either
           --shortcuts StartMenuRoot
+
+      # vpk benennt Setup/MSI ohne Versionsnummer (YFRemote-win-Setup.exe, YFRemote-win.msi) -
+      # fuer Nutzer, die manuell von GitHub Releases laden, ist die Version im Dateinamen aber
+      # hilfreich. Die nupkg-Feed-Dateien (RELEASES, releases.win.json) referenzieren diese
+      # beiden Dateien nicht, daher ist eine Umbenennung nach "vpk pack" gefahrlos.
+      - name: Version in Setup- und MSI-Dateinamen aufnehmen
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Rename-Item "Releases/YFRemote-win-Setup.exe" "YFRemote-win-Setup-$version.exe"
+          Rename-Item "Releases/YFRemote-win.msi" "YFRemote-win-$version.msi"
 
       - name: GitHub Release veroeffentlichen
         shell: pwsh
@@ -215,11 +227,9 @@ jobs:
   # cross-packen (unklar, ob vpk das unterstuetzt) - ubuntu-24.04-arm ist fuer oeffentliche
   # Repos kostenlos.
   #
-  # UNVERIFIZIERT: Dieser Job wurde noch nie real ausgefuehrt (kein Release seit seiner
-  # Einfuehrung). Vor dem ersten echten Release pruefen: vpk-Kanaltrennung, ob "vpk upload
-  # --publish" Pakete sauber in einen von einem anderen Job bereits veroeffentlichten Tag
-  # nachtraegt statt ihn zu duplizieren, und ob der ubuntu-24.04-arm-Runner wie erwartet
-  # verfuegbar ist.
+  # Seit v2.20.x real bestaetigt (z. B. Run 35914562456): beide Matrix-Beine laufen durch, die
+  # Pakete landen ueber --merge im selben Tag statt in einem Duplikat, und releases.win.json
+  # bleibt von den Linux-Kanaelen unberuehrt.
   release-linux:
     needs: release
     permissions:
@@ -228,8 +238,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Kanal traegt "-beta": der uinput-Eingabepfad ist nie gegen echte Hardware
-          # gelaufen (siehe AGENTS.md "Linux support"). Eigener Kanalname statt eines
+          # Kanal traegt "-beta": der uinput-Eingabepfad ist nur auf x86_64 als nacktes
+          # "dotnet publish" verifiziert, arm64 und das installierte Paket nicht (siehe
+          # AGENTS.md "Linux support"). Eigener Kanalname statt eines
           # nachtraeglichen Labels, damit ein spaeterer Wechsel auf "linux-x64"/"linux-arm64"
           # (stabil) ein sauberer Kanalwechsel ist, keine rueckwirkende Umbenennung.
           - rid: linux-x64
@@ -336,10 +347,9 @@ jobs:
   # hinterlegen - ohne sie wird dieser Job uebersprungen statt den gesamten Release fehlschlagen
   # zu lassen.
   #
-  # UNVERIFIZIERT: bislang ein einziger echter Lauf (v2.18.0, 2026-09-22) - der ist am
-  # Android-SDK-Setup gescheitert (siehe Kommentar dort), der Rest des Jobs (Keystore, Gradle-
-  # Build, Release-Upload) also noch nicht real durchlaufen. Windows/Linux-Assets desselben
-  # Release-Laufs blieben davon unberuehrt, da release-android ein eigenstaendiger Job ist.
+  # Laeuft seit v2.18.2 komplett durch (Keystore, Gradle-Build, Upload), zuletzt Run 35914562456.
+  # Scheitert der Job, bleiben die Windows/Linux-Assets desselben Laufs unberuehrt, da
+  # release-android ein eigenstaendiger Job ist - dann nur diesen Job neu starten.
   release-android:
     needs: release
     permissions:

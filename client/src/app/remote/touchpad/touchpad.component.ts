@@ -669,7 +669,10 @@ export class TouchpadComponent implements OnDestroy {
 
     const scale = SCROLL_SCALE * this.remote.scrollSpeed() * (this.remote.invertScroll() ? -1 : 1);
 
-    this.pendingScrollDeltaX += deltaX * scale;
+    // Der Inhalt folgt den Fingern: Wischen nach unten scrollt nach oben (positives Mausrad), nach
+    // links wischen scrollt nach rechts - dort ist das positive Vorzeichen das Gegenteil der
+    // Fingerbewegung, daher nur X umdrehen. Vorher lief horizontal der Inhalt den Fingern entgegen.
+    this.pendingScrollDeltaX -= deltaX * scale;
     this.pendingScrollDeltaY += deltaY * scale;
     this.scheduleFlush();
   }

@@ -160,17 +160,6 @@ jobs:
           --instLocation Either
           --shortcuts StartMenuRoot
 
-      # vpk benennt Setup/MSI ohne Versionsnummer (YFRemote-win-Setup.exe, YFRemote-win.msi) -
-      # fuer Nutzer, die manuell von GitHub Releases laden, ist die Version im Dateinamen aber
-      # hilfreich. Die nupkg-Feed-Dateien (RELEASES, releases.win.json) referenzieren diese
-      # beiden Dateien nicht, daher ist eine Umbenennung nach "vpk pack" gefahrlos.
-      - name: Version in Setup- und MSI-Dateinamen aufnehmen
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          Rename-Item "Releases/YFRemote-win-Setup.exe" "YFRemote-win-Setup-$version.exe"
-          Rename-Item "Releases/YFRemote-win.msi" "YFRemote-win-$version.msi"
-
       - name: GitHub Release veroeffentlichen
         shell: pwsh
         run: >-
@@ -181,6 +170,42 @@ jobs:
           --releaseName "YFRemote v${{ steps.version.outputs.version }}"
           --tag "v${{ steps.version.outputs.version }}"
           --targetCommitish "${{ steps.sources.outputs.server_sha }}"
+
+      # vpk benennt Setup/MSI ohne Versionsnummer; fuer manuelle Downloads gehoert sie in den
+      # Namen. Erst NACH dem Upload umbenennen: "vpk upload" laedt nicht den Ordnerinhalt, sondern
+      # die in "vpk pack" erfassten Dateinamen - eine vorher umbenannte Datei findet es nicht mehr
+      # (so gescheitert bei v2.21.0). Die Update-Feeds verweisen nur auf die nupkgs.
+      - name: Version in Setup- und MSI-Dateinamen aufnehmen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $repo = "${{ github.repository }}"
+          $renames = [ordered]@{
+            "YFRemote-win-Setup.exe" = "YFRemote-win-Setup-$version.exe"
+            "YFRemote-win.msi" = "YFRemote-win-$version.msi"
+          }
+
+          # Zeilen "id<TAB>name" statt eines jq-Filters mit eingebetteten Anfuehrungszeichen, deren
+          # Weitergabe an native Programme sich zwischen PowerShell-Versionen unterscheidet.
+          $assetLines = gh api "repos/$repo/releases/tags/v$version" --jq '.assets[] | [.id, .name] | @tsv'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release v$version nicht gefunden."
+          }
+
+          foreach ($oldName in $renames.Keys) {
+            $match = $assetLines | Where-Object { ($_ -split "`t", 2)[1] -eq $oldName } | Select-Object -First 1
+            if (-not $match) {
+              throw "Asset $oldName nicht im Release v$version gefunden."
+            }
+
+            $assetId = ($match -split "`t", 2)[0]
+            gh api -X PATCH "repos/$repo/releases/assets/$assetId" -f "name=$($renames[$oldName])" --jq .name
+            if ($LASTEXITCODE -ne 0) {
+              throw "Umbenennen von $oldName fehlgeschlagen."
+            }
+          }
 
       - name: Release-Manifest hochladen
         shell: pwsh

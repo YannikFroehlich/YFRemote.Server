@@ -75,11 +75,7 @@ fun Route.installRoutes(
             for (frame in incoming) {
                 if (frame !is Frame.Text) continue
 
-                val response = if (!rateLimiter.tryAcquire()) {
-                    RemoteActionResponse.fail("Rate limit exceeded.")
-                } else {
-                    handleActionMessage(frame.readText(), router, json)
-                }
+                val response = handleActionMessage(frame.readText(), router, json, rateLimited = !rateLimiter.tryAcquire())
 
                 send(Frame.Text(json.encodeToString(RemoteActionResponse.serializer(), response)))
             }
@@ -261,14 +257,23 @@ fun Route.installRoutes(
     get("/{...}") { serveWebClientAsset(call, context) }
 }
 
-private suspend fun handleActionMessage(text: String, router: RemoteActionRouter, json: Json): RemoteActionResponse {
+// Auch die Ablehnung wegen Rate-Limit traegt die requestId, sonst wartet der Client auf die Antwort
+// zu einem Makro-Schritt, die nie kommt (wie YFRemoteWebSocketHandler.cs).
+private suspend fun handleActionMessage(
+    text: String,
+    router: RemoteActionRouter,
+    json: Json,
+    rateLimited: Boolean,
+): RemoteActionResponse {
     return try {
         val request = json.decodeFromString(RemoteActionRequest.serializer(), text)
-        router.handle(request)
+        if (rateLimited) RemoteActionResponse.fail(RATE_LIMIT_ERROR).copy(requestId = request.requestId) else router.handle(request)
     } catch (e: SerializationException) {
-        RemoteActionResponse.fail("Invalid JSON.")
+        RemoteActionResponse.fail(if (rateLimited) RATE_LIMIT_ERROR else "Invalid JSON.")
     }
 }
+
+private const val RATE_LIMIT_ERROR = "Rate limit exceeded."
 
 private fun ApplicationCall.contentLengthOrNull(): Long? =
     request.headers["Content-Length"]?.toLongOrNull()

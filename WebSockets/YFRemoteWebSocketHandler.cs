@@ -48,7 +48,10 @@ public sealed class YFRemoteWebSocketHandler(
                 if (!rateLimiter.TryAcquire())
                 {
                     logger.LogWarning("WebSocket client {Client} exceeded the message rate limit.", client);
-                    response = RemoteActionResponse.Fail("Rate limit exceeded.");
+                    response = RemoteActionResponse.Fail("Rate limit exceeded.") with
+                    {
+                        RequestId = TryReadRequestId(receivedMessage.Payload)
+                    };
                 }
                 else
                 {
@@ -98,6 +101,25 @@ public sealed class YFRemoteWebSocketHandler(
         {
             logger.LogWarning(ex, "Invalid WebSocket JSON payload.");
             return RemoteActionResponse.Fail("Invalid JSON.");
+        }
+    }
+
+    // Die requestId gehoert auch in die Ablehnung, sonst wartet der Client auf die Antwort zu
+    // einem Makro-Schritt, die nie kommt.
+    private static string? TryReadRequestId(ReadOnlyMemory<byte>? payload)
+    {
+        if (payload is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<RemoteActionRequest>(payload.Value.Span, JsonOptions)?.RequestId;
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 

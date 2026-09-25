@@ -134,7 +134,7 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(app).toBeTruthy();
-    expect(compiled.querySelector('.brand-name')?.textContent?.trim()).toBe('Remote');
+    expect(compiled.querySelector('.brand-name')?.textContent?.trim()).toBe('YFRemote');
     expect(compiled.textContent).toContain('localhost:5050');
   });
 

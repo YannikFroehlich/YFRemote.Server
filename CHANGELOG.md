@@ -23,7 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Changed
 
-- Neues Logo: ein Mauszeiger mit Funkwellen auf dunkler Kachel statt des detailreichen YF-Rasterbilds, das im Tray bei 16 px nicht mehr zu erkennen war. Es ersetzt Favicon, Tray- und Installer-Icon, die PWA-Icons, die Android-App-Icons und das Android-Benachrichtigungs-Icon. Alle Dateien entstehen aus `branding/render_icons.py`, die 16-px-Stufe hat einen eigenen, kraeftigeren Bogen.
+- Neues Logo: ein Mauszeiger mit Funkwellen auf dunkler Kachel statt des detailreichen YF-Rasterbilds, das im Tray bei 16 px nicht mehr zu erkennen war. Es ersetzt Favicon, Tray- und Installer-Icon, das Icon der `YFRemote.Server.exe` (bisher das Standard-Symbol), die PWA-Icons, die Android-App-Icons und das Android-Benachrichtigungs-Icon. Alle Dateien entstehen aus `branding/render_icons.py`, die 16-px-Stufe hat einen eigenen, kraeftigeren Bogen.
 
 ## [2.21.2] - 2026-09-24
 

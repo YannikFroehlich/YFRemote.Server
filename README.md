@@ -47,6 +47,8 @@ flowchart LR
   or typed text, reachable directly from the tray menu.
 - **Controller mode (Windows)** — turns the phone into a virtual Xbox 360
   controller for games; every connected device becomes its own player (up to 4).
+  Presets for Xbox, PlayStation, Nintendo Switch and Retro (SNES) labels and
+  layouts; every button and stick can be moved, resized or hidden.
   Needs the free [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
   driver once; the tray menu links to it while it is missing.
 - **Linux support (beta)** — a `uinput`-based input backend, verified end-to-end

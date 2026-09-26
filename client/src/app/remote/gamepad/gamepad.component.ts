@@ -9,8 +9,22 @@ import {
   signal,
 } from '@angular/core';
 import { GamepadState } from '../remote.models';
-import { REMOTE_VIBRATE, RemoteService } from '../remote.service';
+import { REMOTE_STORAGE, REMOTE_VIBRATE, RemoteService } from '../remote.service';
 import { TranslationService } from '../translation.service';
+import {
+  clampPlacement,
+  GAMEPAD_CONTROL_IDS,
+  GAMEPAD_LAYOUT_STORAGE_KEY,
+  GAMEPAD_PRESET_IDS,
+  GAMEPAD_PRESETS,
+  GamepadControlId,
+  GamepadControlPlacement,
+  GamepadLabelKey,
+  GamepadLayout,
+  GamepadPresetId,
+  parseStoredGamepadLayout,
+  presetLayout,
+} from './gamepad-layout';
 
 /** XInput-Bitmaske (XINPUT_GAMEPAD_*), dieselben Werte wie Xbox360Button auf dem Server. */
 export const GAMEPAD_BUTTONS = {
@@ -33,6 +47,48 @@ export const GAMEPAD_BUTTONS = {
 
 export type GamepadButton = keyof typeof GAMEPAD_BUTTONS;
 type Side = 'left' | 'right';
+
+type ControlView =
+  | { readonly id: GamepadControlId; readonly kind: 'stick' | 'trigger'; readonly side: Side }
+  | { readonly id: GamepadControlId; readonly kind: 'dpad' | 'face' }
+  | {
+      readonly id: GamepadControlId;
+      readonly kind: 'button';
+      readonly button: GamepadButton & GamepadLabelKey;
+      readonly keyClass: string;
+    };
+
+interface Drag {
+  readonly pointerId: number;
+  readonly id: GamepadControlId;
+  readonly area: DOMRect;
+  readonly startX: number;
+  readonly startY: number;
+  readonly origin: GamepadControlPlacement;
+}
+
+const CONTROL_VIEWS: readonly ControlView[] = GAMEPAD_CONTROL_IDS.map((id): ControlView => {
+  switch (id) {
+    case 'leftStick':
+    case 'rightStick':
+      return { id, kind: 'stick', side: id === 'leftStick' ? 'left' : 'right' };
+    case 'leftTrigger':
+    case 'rightTrigger':
+      return { id, kind: 'trigger', side: id === 'leftTrigger' ? 'left' : 'right' };
+    case 'dpad':
+    case 'face':
+      return { id, kind: id };
+    case 'leftShoulder':
+    case 'rightShoulder':
+      return { id, kind: 'button', button: id, keyClass: 'gp-key--shoulder' };
+    case 'guide':
+      return { id, kind: 'button', button: id, keyClass: 'gp-key--guide' };
+    default:
+      return { id, kind: 'button', button: id, keyClass: 'gp-key--small' };
+  }
+});
+
+const SCALE_STEP = 0.1;
 
 type HeldControl =
   | { readonly kind: 'button'; readonly button: GamepadButton }
@@ -88,7 +144,20 @@ const RUMBLE_MAX_MS = 10000;
 export class GamepadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
   private readonly vibrate = inject(REMOTE_VIBRATE);
+  private readonly storage = inject(REMOTE_STORAGE);
   protected readonly i18n = inject(TranslationService);
+
+  protected readonly presetIds = GAMEPAD_PRESET_IDS;
+  protected readonly presets = GAMEPAD_PRESETS;
+  protected readonly controlViews = CONTROL_VIEWS;
+  protected readonly layout = signal<GamepadLayout>(
+    parseStoredGamepadLayout(this.storage?.getItem(GAMEPAD_LAYOUT_STORAGE_KEY) ?? null),
+  );
+  protected readonly labels = computed(() => GAMEPAD_PRESETS[this.layout().preset].labels);
+  protected readonly editing = signal(false);
+  protected readonly selectedId = signal<GamepadControlId | null>(null);
+  protected readonly resetPending = signal(false);
+  private drag: Drag | null = null;
 
   readonly closed = output<void>();
 
@@ -132,7 +201,70 @@ export class GamepadComponent implements OnDestroy {
     this.hold(event, stick);
   }
 
+  protected label(key: GamepadLabelKey): string {
+    return this.labels()[key];
+  }
+
+  protected startEditing(): void {
+    this.releaseAll();
+    this.editing.set(true);
+  }
+
+  protected stopEditing(): void {
+    this.editing.set(false);
+    this.selectedId.set(null);
+    this.resetPending.set(false);
+  }
+
+  protected selectPreset(preset: string): void {
+    const id = GAMEPAD_PRESET_IDS.find((candidate) => candidate === preset);
+    if (id) {
+      this.saveLayout(presetLayout(id));
+    }
+  }
+
+  protected confirmReset(): void {
+    this.saveLayout(presetLayout(this.layout().preset));
+    this.resetPending.set(false);
+  }
+
+  protected resize(direction: 1 | -1): void {
+    this.updateSelected((placement) => ({
+      ...placement,
+      scale: placement.scale + direction * SCALE_STEP,
+    }));
+  }
+
+  protected toggleHidden(): void {
+    this.updateSelected((placement) => ({ ...placement, hidden: !placement.hidden }));
+  }
+
+  protected grabControl(event: PointerEvent, id: GamepadControlId): void {
+    event.preventDefault();
+    const target = event.currentTarget as HTMLElement;
+    target.setPointerCapture?.(event.pointerId);
+    this.selectedId.set(id);
+    this.drag = {
+      pointerId: event.pointerId,
+      id,
+      area: (target.closest('.gamepad') ?? target).getBoundingClientRect(),
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: this.layout().controls[id],
+    };
+  }
+
   protected onPointerMove(event: PointerEvent): void {
+    const drag = this.drag;
+    if (drag?.pointerId === event.pointerId) {
+      this.setPlacement(drag.id, {
+        ...drag.origin,
+        x: drag.origin.x + ((event.clientX - drag.startX) / Math.max(drag.area.width, 1)) * 100,
+        y: drag.origin.y + ((event.clientY - drag.startY) / Math.max(drag.area.height, 1)) * 100,
+      });
+      return;
+    }
+
     const control = this.held.get(event.pointerId);
     if (control?.kind !== 'stick') {
       return;
@@ -143,6 +275,10 @@ export class GamepadComponent implements OnDestroy {
   }
 
   protected release(event: PointerEvent): void {
+    if (this.drag?.pointerId === event.pointerId) {
+      this.drag = null;
+    }
+
     if (this.held.delete(event.pointerId)) {
       this.update();
     }
@@ -185,6 +321,30 @@ export class GamepadComponent implements OnDestroy {
 
     this.vibrate(0);
     exitFullscreen();
+  }
+
+  private updateSelected(
+    change: (placement: GamepadControlPlacement) => GamepadControlPlacement,
+  ): void {
+    const id = this.selectedId();
+    if (id !== null) {
+      this.setPlacement(id, change(this.layout().controls[id]));
+    }
+  }
+
+  private setPlacement(id: GamepadControlId, placement: GamepadControlPlacement): void {
+    const layout = this.layout();
+    this.saveLayout({
+      ...layout,
+      controls: { ...layout.controls, [id]: clampPlacement(placement) },
+    });
+  }
+
+  // ponytail: speichert bei jeder Ziehbewegung - localStorage ist synchron und schnell genug;
+  // bei Rucklern erst beim Loslassen speichern.
+  private saveLayout(layout: GamepadLayout): void {
+    this.layout.set(layout);
+    this.storage?.setItem(GAMEPAD_LAYOUT_STORAGE_KEY, JSON.stringify(layout));
   }
 
   private hold(event: PointerEvent, control: HeldControl): void {
@@ -328,8 +488,7 @@ async function enterLandscapeFullscreen(): Promise<void> {
   try {
     await document.documentElement.requestFullscreen?.();
     const orientation = globalThis.screen?.orientation as
-      | { lock?: (orientation: string) => Promise<void> }
-      | undefined;
+      { lock?: (orientation: string) => Promise<void> } | undefined;
     await orientation?.lock?.('landscape');
   } catch {
     // Kein Vollbild/keine Ausrichtungssperre moeglich - der Hinweis "quer halten" bleibt.

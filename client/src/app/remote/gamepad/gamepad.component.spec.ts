@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { GamepadComponent } from './gamepad.component';
+import { GAMEPAD_LAYOUT_STORAGE_KEY, presetLayout } from './gamepad-layout';
 import {
   REMOTE_AUTO_CONNECT,
   REMOTE_STORAGE,
@@ -147,6 +148,64 @@ describe('GamepadComponent', () => {
     expect(pad.vibrations.at(-1)).toBe(0);
   });
 
+  it('labels the face buttons by preset but sends them by position', async () => {
+    const playstation = await setupGamepad({ layout: presetLayout('playstation') });
+    pointer(playstation.button('✕'), 'pointerdown', 1, 0, 0);
+    expect(playstation.sent().at(-1)).toEqual({
+      type: 'gamepad',
+      gamepad: { ...neutral, buttons: 0x1000 },
+    });
+
+    TestBed.resetTestingModule();
+    // Nintendo: unten steht B, gesendet wird trotzdem XInput-A.
+    const nintendo = await setupGamepad({ layout: presetLayout('nintendo') });
+    pointer(nintendo.button('B'), 'pointerdown', 1, 0, 0);
+    expect(nintendo.sent().at(-1)).toEqual({
+      type: 'gamepad',
+      gamepad: { ...neutral, buttons: 0x1000 },
+    });
+  });
+
+  it('moves a control in edit mode, stores it and sends no input meanwhile', async () => {
+    const pad = await setupGamepad();
+    pad.button('✎').click();
+    pad.flushEffects();
+    const grab = pad.root.querySelectorAll<HTMLElement>('.gp-slot__grab')[0];
+    grab.closest('.gamepad')!.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 500);
+
+    pointer(grab, 'pointerdown', 1, 100, 100);
+    pointer(grab, 'pointermove', 1, 200, 150);
+    pointer(grab, 'pointerup', 1, 200, 150);
+
+    expect(pad.storedLayout()?.controls.leftTrigger).toEqual({
+      x: 19,
+      y: 20,
+      scale: 1,
+      hidden: false,
+    });
+    expect(pad.sent()).toEqual([]);
+  });
+
+  it('hides a control once editing is done', async () => {
+    const pad = await setupGamepad();
+    pad.button('✎').click();
+    pad.flushEffects();
+    pointer(pad.root.querySelectorAll<HTMLElement>('.gp-slot__grab')[0], 'pointerdown', 1, 0, 0);
+    pad.flushEffects();
+    pad.button('+').click();
+    pad.button('Ausblenden').click();
+    pad.button('Fertig').click();
+    pad.flushEffects();
+
+    expect(pad.root.textContent).not.toContain('LT');
+    expect(pad.storedLayout()?.controls.leftTrigger).toEqual({
+      x: 9,
+      y: 10,
+      scale: 1.1,
+      hidden: true,
+    });
+  });
+
   it('unplugs the controller when it is closed', async () => {
     const pad = await setupGamepad();
 
@@ -166,7 +225,16 @@ const neutral = {
   rightTrigger: 0,
 };
 
-async function setupGamepad() {
+async function setupGamepad(options: { layout?: unknown } = {}) {
+  const stored = new Map<string, string>();
+  if (options.layout) {
+    stored.set(GAMEPAD_LAYOUT_STORAGE_KEY, JSON.stringify(options.layout));
+  }
+  const storage = {
+    getItem: (key: string) => stored.get(key) ?? null,
+    setItem: (key: string, value: string) => stored.set(key, value),
+    removeItem: (key: string) => stored.delete(key),
+  } as unknown as Storage;
   const sockets: MockRemoteSocket[] = [];
   const frames: FrameRequestCallback[] = [];
   const vibrations: number[] = [];
@@ -181,7 +249,7 @@ async function setupGamepad() {
     imports: [GamepadComponent],
     providers: [
       RemoteService,
-      { provide: REMOTE_STORAGE, useValue: null },
+      { provide: REMOTE_STORAGE, useValue: storage },
       { provide: REMOTE_AUTO_CONNECT, useValue: false },
       { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
       {
@@ -223,6 +291,10 @@ async function setupGamepad() {
     },
     sent: () => sockets[0].sentMessages.map((message) => JSON.parse(message) as unknown),
     destroy: () => fixture.destroy(),
+    storedLayout: () => {
+      const raw = stored.get(GAMEPAD_LAYOUT_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as ReturnType<typeof presetLayout>) : null;
+    },
   };
 }
 

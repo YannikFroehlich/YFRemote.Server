@@ -12,47 +12,108 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  --gp-stick: min(40vh, 24vw);
-  --gp-key: min(13vh, 8.5vw);
+  --gp-stick-base: min(40vh, 24vw);
+  --gp-key-base: min(13vh, 8.5vw);
 }
 
+/* Jedes Element sitzt mit seinem Mittelpunkt an x/y (Prozent der Flaeche) aus dem Layout. */
 .gamepad {
-  display: grid;
-  height: 100%;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 2vw;
-  padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
+  position: absolute;
+  inset: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
     calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
-  box-sizing: border-box;
 }
 
-.gamepad__side {
+.gp-slot {
+  position: absolute;
+  --gp-key: calc(var(--gp-key-base) * var(--gp-scale, 1));
+  --gp-stick: calc(var(--gp-stick-base) * var(--gp-scale, 1));
+  transform: translate(-50%, -50%);
+}
+
+.gp-slot--hidden {
+  opacity: 0.35;
+}
+
+.gp-slot__grab {
+  position: absolute;
+  inset: -4px;
+  border: 2px dashed var(--line-strong);
+  border-radius: calc(14px * var(--radius-scale));
+  cursor: move;
+  touch-action: none;
+}
+
+.gp-slot--selected {
+  z-index: 1;
+}
+
+.gp-slot--selected .gp-slot__grab {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.gp-slot__tools {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+}
+
+.gp-slot__tools--above {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.gp-slot__tools,
+.gp-toolbar {
   display: flex;
-  min-height: 0;
+  width: max-content;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: var(--border-width) solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-dialog);
+  box-shadow: var(--shadow-lg);
+}
+
+.gp-slot__tools .secondary-button,
+.gp-toolbar .secondary-button,
+.gp-toolbar .primary-button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+.gamepad__bar {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  width: max-content;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 2vh;
+  gap: 6px;
+  transform: translateX(-50%);
 }
 
-.gamepad__shoulders {
+.gamepad__actions {
   display: flex;
-  width: 100%;
+  align-items: center;
   gap: 8px;
 }
 
-.gamepad__center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3vh;
-}
-
-.gamepad__menu {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.gp-toolbar__preset {
+  height: 34px;
+  padding: 0 8px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(10px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
 }
 
 .gamepad__status {
@@ -65,12 +126,15 @@
   text-align: center;
 }
 
-.gamepad__rotate-hint {
-  display: none;
+.gamepad__hint {
   margin: 0;
   color: var(--muted);
   font-size: 0.78rem;
   text-align: center;
+}
+
+.gamepad__rotate-hint {
+  display: none;
 }
 
 @media (orientation: portrait) {
@@ -105,13 +169,14 @@
 }
 
 .gp-key--shoulder {
-  flex: 1;
+  min-width: calc(var(--gp-key) * 1.5);
   height: calc(var(--gp-key) * 0.85);
 }
 
 .gp-key--small {
   height: calc(var(--gp-key) * 0.7);
   font-size: 0.74rem;
+  white-space: nowrap;
 }
 
 .gp-key--guide {
@@ -126,6 +191,11 @@
   border-radius: var(--radius-pill);
   color: var(--accent);
   font-size: 1.05rem;
+}
+
+/* Die PlayStation-Symbole wirken in Textgroesse zu klein neben Buchstaben. */
+[data-preset='playstation'] .gp-key--face {
+  font-size: 1.3rem;
 }
 
 .gp-cross {

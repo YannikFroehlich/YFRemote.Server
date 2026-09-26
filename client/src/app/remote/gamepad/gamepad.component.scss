@@ -294,10 +294,11 @@
   stroke-width: 2.4;
 }
 
-/* Xbox und PlayStation: Aktions-, Menue- und Leuchttaste dunkel glaenzend wie am echten Pad,
-   unabhaengig vom Theme. Gedrueckt wird aufgehellt statt eingefaerbt, damit die Tastenfarbe bleibt. */
+/* Xbox, PlayStation und Switch: Aktions-, Menue- und Leuchttaste dunkel glaenzend wie am echten
+   Pad, unabhaengig vom Theme. Gedrueckt wird aufgehellt statt eingefaerbt, damit die Farbe bleibt. */
 [data-preset='xbox'],
-[data-preset='playstation'] {
+[data-preset='playstation'],
+[data-preset='nintendo'] {
   .gp-key--face,
   .gp-key--guide,
   [data-button='back'],
@@ -311,13 +312,6 @@
     color: var(--pad-button-text);
   }
 
-  .gp-key--face.gp-key--pressed,
-  .gp-key--guide.gp-key--pressed,
-  [data-button='back'].gp-key--pressed,
-  [data-button='start'].gp-key--pressed {
-    filter: brightness(1.5);
-  }
-
   .gp-stick__knob {
     border-color: var(--pad-button-line);
     background: radial-gradient(circle, var(--pad-stick-cap) 0 56%, var(--pad-stick-rim) 58% 100%);
@@ -329,6 +323,82 @@
   .gp-key--face {
     font-size: 1.3rem;
     font-weight: 800;
+  }
+}
+
+[data-preset='xbox'],
+[data-preset='playstation'],
+[data-preset='nintendo'],
+[data-preset='retro'] {
+  .gp-key--face.gp-key--pressed,
+  .gp-key--guide.gp-key--pressed,
+  [data-button='back'].gp-key--pressed,
+  [data-button='start'].gp-key--pressed {
+    filter: brightness(1.5);
+  }
+}
+
+/* Xbox und Switch: gewoelbte Bumper, hohe Trigger, runde Menuetasten. */
+[data-preset='xbox'],
+[data-preset='nintendo'] {
+  .gp-key--shoulder:not(.gp-key--trigger) {
+    border-radius: calc(var(--gp-key) * 0.5) calc(var(--gp-key) * 0.5) 8px 8px;
+  }
+
+  .gp-key--trigger {
+    height: calc(var(--gp-key) * 1.05);
+    border-radius: 45% 45% 14px 14px / 70% 70% 14px 14px;
+  }
+
+  [data-button='back'],
+  [data-button='start'] {
+    width: calc(var(--gp-key) * 0.62);
+    min-width: 0;
+    height: calc(var(--gp-key) * 0.62);
+    padding: 0;
+    border-radius: 50%;
+  }
+}
+
+/* Durchgehendes Kreuz statt vier einzelner Tasten. */
+[data-preset='xbox'],
+[data-preset='nintendo'],
+[data-preset='retro'] {
+  .gp-cross:not(.gp-cross--face) {
+    gap: 0;
+    filter: drop-shadow(0 4px 10px rgba(var(--shadow-rgb), calc(0.3 * var(--shadow-strength))));
+
+    &::before {
+      grid-area: 2 / 2;
+      background: var(--gp-dpad-bg, var(--surface-raised));
+      content: '';
+    }
+
+    .gp-key {
+      border: 0;
+      background: var(--gp-dpad-bg, var(--surface-raised));
+      box-shadow: none;
+    }
+
+    .gp-key--pressed {
+      filter: brightness(1.4);
+    }
+
+    .gp-cross__up {
+      border-radius: 10px 10px 0 0;
+    }
+
+    .gp-cross__down {
+      border-radius: 0 0 10px 10px;
+    }
+
+    .gp-cross__left {
+      border-radius: 10px 0 0 10px;
+    }
+
+    .gp-cross__right {
+      border-radius: 0 10px 10px 0;
+    }
   }
 }
 
@@ -358,57 +428,6 @@
       inset 0 0 0 calc(var(--gp-key) * 0.16) var(--pad-button-bottom),
       inset 0 0 0 calc(var(--gp-key) * 0.22) rgba(var(--pad-glow-rgb), 0.85),
       0 0 18px rgba(var(--pad-glow-rgb), 0.3);
-  }
-
-  [data-button='back'],
-  [data-button='start'] {
-    width: calc(var(--gp-key) * 0.62);
-    min-width: 0;
-    height: calc(var(--gp-key) * 0.62);
-    padding: 0;
-    border-radius: 50%;
-  }
-
-  .gp-key--shoulder:not(.gp-key--trigger) {
-    border-radius: calc(var(--gp-key) * 0.5) calc(var(--gp-key) * 0.5) 8px 8px;
-  }
-
-  .gp-key--trigger {
-    height: calc(var(--gp-key) * 1.05);
-    border-radius: 45% 45% 14px 14px / 70% 70% 14px 14px;
-  }
-
-  /* Durchgehendes Kreuz statt vier einzelner Tasten. */
-  .gp-cross:not(.gp-cross--face) {
-    gap: 0;
-    filter: drop-shadow(0 4px 10px rgba(var(--shadow-rgb), calc(0.3 * var(--shadow-strength))));
-
-    &::before {
-      grid-area: 2 / 2;
-      background: var(--surface-raised);
-      content: '';
-    }
-
-    .gp-key {
-      border: 0;
-      box-shadow: none;
-    }
-
-    .gp-cross__up {
-      border-radius: 10px 10px 0 0;
-    }
-
-    .gp-cross__down {
-      border-radius: 0 0 10px 10px;
-    }
-
-    .gp-cross__left {
-      border-radius: 10px 0 0 10px;
-    }
-
-    .gp-cross__right {
-      border-radius: 0 10px 10px 0;
-    }
   }
 }
 
@@ -475,5 +494,83 @@
     .gp-cross__right {
       clip-path: polygon(38% 0, 100% 0, 100% 100%, 38% 100%, 0 50%);
     }
+  }
+}
+
+/* Switch Pro Controller: helle Buchstaben, Home mit Haus und schwachem Leuchtring. */
+[data-preset='nintendo'] {
+  .gp-key--guide {
+    box-shadow:
+      inset 0 0 0 2px rgba(var(--pad-glow-rgb), 0.35),
+      0 0 12px rgba(var(--pad-glow-rgb), 0.18);
+  }
+
+  [data-button='back'],
+  [data-button='start'] {
+    font-size: 1.1rem;
+    font-weight: 800;
+  }
+}
+
+/* SNES: bunte Aktionstasten, graue schraege Select/Start, graue L/R. Die Buchstaben stehen nach
+   Nintendo-Position, also unten B (gelb), rechts A (rot), links Y (gruen), oben X (blau). */
+[data-preset='retro'] {
+  --gp-dpad-bg: var(--snes-dpad);
+
+  .gp-cross:not(.gp-cross--face) .gp-key {
+    color: var(--snes-grey);
+  }
+
+  .gp-key--face {
+    border: 0;
+    color: var(--snes-letter);
+    font-size: 1.2rem;
+    font-weight: 800;
+    box-shadow:
+      inset 0 -4px 8px rgba(var(--shadow-rgb), 0.3),
+      0 4px 12px rgba(var(--shadow-rgb), calc(0.3 * var(--shadow-strength)));
+  }
+
+  .gp-key--face[data-button='a'] {
+    background: var(--snes-b);
+    color: var(--snes-letter-dark);
+  }
+
+  .gp-key--face[data-button='b'] {
+    background: var(--snes-a);
+  }
+
+  .gp-key--face[data-button='x'] {
+    background: var(--snes-y);
+  }
+
+  .gp-key--face[data-button='y'] {
+    background: var(--snes-x);
+  }
+
+  [data-button='back'],
+  [data-button='start'] {
+    min-width: calc(var(--gp-key) * 1.1);
+    height: calc(var(--gp-key) * 0.38);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--snes-grey);
+    color: var(--snes-grey-text);
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transform: rotate(-25deg);
+  }
+
+  [data-button='back'].gp-key--pressed,
+  [data-button='start'].gp-key--pressed {
+    transform: rotate(-25deg) scale(0.94);
+  }
+
+  .gp-key--shoulder {
+    border: 0;
+    border-radius: calc(var(--gp-key) * 0.5) calc(var(--gp-key) * 0.5) 8px 8px;
+    background: var(--snes-grey);
+    color: var(--snes-grey-text);
   }
 }

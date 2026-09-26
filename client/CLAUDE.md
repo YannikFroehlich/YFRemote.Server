@@ -178,12 +178,11 @@ manual `ChangeDetectorRef` calls.
      smaller/larger/hide buttons. With `snapToGrid` (default on) the dragged center snaps to square
      cells of `GRID_CELLS` per height; the grid lines are drawn with `cqh` on `.gamepad::before`,
      since container query units on the container element itself resolve against its ancestor.
-     Switching the preset resets the layout to it but keeps the grid setting. Xbox and PlayStation
-     also look like their pads: a preset's `icons` render stroke SVGs from `GAMEPAD_ICON_PATHS`
+     Switching the preset resets the layout to it but keeps the grid setting. Every preset also looks like its pad (Switch = Pro Controller, Retro = SNES): a preset's `icons` render stroke SVGs from `GAMEPAD_ICON_PATHS`
      (the label becomes the `aria-label`), and `[data-preset]` rules in the component SCSS shape
-     the keys. Their brand colors are `--pad-*`/`--xbox-*`/`--ps-*` tokens in `:root` with no
+     the keys. Their brand colors are `--pad-*`/`--xbox-*`/`--ps-*`/`--snes-*` tokens in `:root` with no
      light-mode override on purpose - the buttons stay dark like on the real pad. That styling is
-     why the `anyComponentStyle` budget in `angular.json` is 12/16 kB.
+     why the `anyComponentStyle` budget in `angular.json` is 16/20 kB.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an

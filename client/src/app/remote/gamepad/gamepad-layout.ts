@@ -54,7 +54,7 @@ export type GamepadLabelKey =
   | 'leftThumb'
   | 'rightThumb';
 
-export type GamepadIcon = 'cross' | 'circle' | 'square' | 'triangle' | 'view' | 'menu';
+export type GamepadIcon = 'cross' | 'circle' | 'square' | 'triangle' | 'view' | 'menu' | 'home';
 
 /** Strich-Pfade (viewBox 24x24): Symbole statt Schriftzeichen, weil z. B. □ je nach Schrift winzig ist. */
 export const GAMEPAD_ICON_PATHS: Readonly<Record<GamepadIcon, string>> = {
@@ -64,6 +64,7 @@ export const GAMEPAD_ICON_PATHS: Readonly<Record<GamepadIcon, string>> = {
   triangle: 'M12 5.5 18.5 17h-13Z',
   view: 'M9 8.5V6h10v8h-2.5M5 9h11v9H5Z',
   menu: 'M5 7.5h14M5 12h14M5 16.5h14',
+  home: 'M5 11.5 12 5.5l7 6M7.5 10v8h9v-8',
 };
 
 export interface GamepadPreset {
@@ -169,6 +170,7 @@ export const GAMEPAD_PRESETS: Readonly<Record<GamepadPresetId, GamepadPreset>> =
       leftThumb: 'LS',
       rightThumb: 'RS',
     },
+    icons: { guide: 'home' },
     controls: OFFSET_CONTROLS,
   },
   retro: {

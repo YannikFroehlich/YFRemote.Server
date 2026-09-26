@@ -52,6 +52,15 @@ export const TRANSLATIONS = {
   },
   'gamepad.close': { de: 'Controller schließen', en: 'Close controller' },
   'gamepad.rotateHint': { de: 'Handy quer halten', en: 'Turn your phone sideways' },
+  'gamepad.gyro': { de: 'Neigungssteuerung (rechter Stick)', en: 'Tilt control (right stick)' },
+  'gamepad.gyroInsecureOrigin': {
+    de: 'Neigungssteuerung braucht HTTPS - im Tray "HTTPS verwenden" einschalten.',
+    en: 'Tilt control needs HTTPS - turn on "HTTPS verwenden" in the tray.',
+  },
+  'gamepad.gyroDenied': {
+    de: 'Zugriff auf die Bewegungssensoren wurde verweigert.',
+    en: 'Access to the motion sensors was denied.',
+  },
   'gamepad.leftStick': { de: 'Linker Stick', en: 'Left stick' },
   'gamepad.rightStick': { de: 'Rechter Stick', en: 'Right stick' },
   'gamepad.dpad': { de: 'Steuerkreuz', en: 'D-pad' },

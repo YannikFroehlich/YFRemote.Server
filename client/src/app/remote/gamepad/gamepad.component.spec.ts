@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GamepadComponent } from './gamepad.component';
+import { GAMEPAD_GYRO_STORAGE_KEY, GamepadComponent, tiltToStick } from './gamepad.component';
 import { GAMEPAD_LAYOUT_STORAGE_KEY, presetLayout } from './gamepad-layout';
 import {
   REMOTE_AUTO_CONNECT,
@@ -9,6 +9,7 @@ import {
   RemoteService,
   RemoteSocket,
 } from '../remote.service';
+import { SERVER_LOCATION } from '../server-config';
 
 class MockRemoteSocket implements RemoteSocket {
   readonly sentMessages: string[] = [];
@@ -236,6 +237,72 @@ describe('GamepadComponent', () => {
 
     expect(pad.sent()).toEqual([{ type: 'gamepadDisconnect' }]);
   });
+
+  it('maps tilt since the reference to stick axes for every screen rotation', () => {
+    const reference = { beta: 40, gamma: 0 };
+
+    // Hochformat: obere Kante zu sich = hoch, rechte Kante runter = rechts.
+    expect(tiltToStick({ beta: 65, gamma: 0 }, reference, 0)).toEqual({ x: 0, y: 32767 });
+    expect(tiltToStick({ beta: 40, gamma: 25 }, reference, 0)).toEqual({ x: 32767, y: 0 });
+    // Querformat (90 Grad gegen den Uhrzeigersinn): die obere Geraetekante liegt links.
+    expect(tiltToStick({ beta: 65, gamma: 0 }, reference, 90)).toEqual({ x: 32767, y: 0 });
+    expect(tiltToStick({ beta: 40, gamma: 25 }, reference, 90)).toEqual({ x: 0, y: -32767 });
+    expect(tiltToStick({ beta: 65, gamma: 0 }, reference, 270)).toEqual({ x: -32767, y: 0 });
+    // Kleines Wackeln bleibt in der Totzone.
+    expect(tiltToStick({ beta: 41, gamma: -1 }, reference, 0)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('moves the right stick by tilt once switched on, and a finger on the stick wins', async () => {
+    const pad = await setupGamepad();
+
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.tilt(40, 0);
+    pad.tilt(65, 0);
+    pad.nextFrame(100);
+
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, rightY: 32767 } });
+    expect(pad.stored.get(GAMEPAD_GYRO_STORAGE_KEY)).toBe('true');
+
+    const rightStick = pad.root.querySelectorAll<HTMLElement>('.gp-stick')[1];
+    rightStick.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
+    pointer(rightStick, 'pointerdown', 1, 100, 50);
+    pad.nextFrame(200);
+
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, rightX: 32767 } });
+  });
+
+  it('ignores tilt while switched off and centers the stick when switched off', async () => {
+    const pad = await setupGamepad();
+
+    pad.tilt(40, 0);
+    pad.tilt(65, 0);
+    pad.nextFrame(100);
+    expect(pad.sent()).toEqual([]);
+
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.tilt(40, 0);
+    pad.tilt(65, 0);
+    pad.nextFrame(200);
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.nextFrame(300);
+
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: neutral });
+    expect(pad.stored.get(GAMEPAD_GYRO_STORAGE_KEY)).toBe('false');
+  });
+
+  it('explains that tilt control needs HTTPS instead of switching on over plain http', async () => {
+    const pad = await setupGamepad({ pageUrl: 'http://192.168.1.44:5050/' });
+
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.flushEffects();
+
+    expect(pad.root.querySelector('.gamepad__status')?.textContent).toContain('braucht HTTPS');
+    expect(pad.stored.has(GAMEPAD_GYRO_STORAGE_KEY)).toBe(false);
+  });
 });
 
 const neutral = {
@@ -248,7 +315,7 @@ const neutral = {
   rightTrigger: 0,
 };
 
-async function setupGamepad(options: { layout?: unknown } = {}) {
+async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}) {
   const stored = new Map<string, string>();
   if (options.layout) {
     stored.set(GAMEPAD_LAYOUT_STORAGE_KEY, JSON.stringify(options.layout));
@@ -274,6 +341,9 @@ async function setupGamepad(options: { layout?: unknown } = {}) {
       RemoteService,
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: REMOTE_AUTO_CONNECT, useValue: false },
+      ...(options.pageUrl
+        ? [{ provide: SERVER_LOCATION, useValue: new URL(options.pageUrl) }]
+        : []),
       { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
@@ -302,6 +372,12 @@ async function setupGamepad(options: { layout?: unknown } = {}) {
     receive: (message: unknown) =>
       sockets[0].onmessage?.(new MessageEvent('message', { data: JSON.stringify(message) })),
     flushEffects: () => fixture.detectChanges(),
+    stored,
+    tilt: (beta: number, gamma: number) => {
+      const event = new Event('deviceorientation');
+      Object.defineProperties(event, { beta: { value: beta }, gamma: { value: gamma } });
+      window.dispatchEvent(event);
+    },
     button: (label: string) =>
       Array.from(root.querySelectorAll<HTMLElement>('button')).find(
         (button) =>

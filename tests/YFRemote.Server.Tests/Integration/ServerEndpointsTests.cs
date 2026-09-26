@@ -27,6 +27,7 @@ public sealed class ServerEndpointsTests
     private HttpClient httpClient = null!;
     private string baseUrl = null!;
     private string wsUrl = null!;
+    private FakeInputService fakeInput = null!;
 
     [TestInitialize]
     public async Task InitializeAsync()
@@ -39,11 +40,18 @@ public sealed class ServerEndpointsTests
         baseUrl = $"http://127.0.0.1:{port}";
         wsUrl = $"ws://127.0.0.1:{port}";
 
-        app = Program.BuildApplication([
-            "Server:Host=127.0.0.1",
-            $"Server:Port={port}",
-            $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}"
-        ]);
+        fakeInput = new FakeInputService();
+        app = Program.BuildApplication(
+            [
+                "Server:Host=127.0.0.1",
+                $"Server:Port={port}",
+                $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}"
+            ],
+            services =>
+            {
+                services.AddSingleton<IInputService>(fakeInput);
+                services.AddSingleton<IMouseService>(fakeInput);
+            });
         await app.StartAsync();
 
         httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
@@ -149,9 +157,6 @@ public sealed class ServerEndpointsTests
             () => socket.ConnectAsync(new Uri($"{wsUrl}/ws"), CancellationToken.None));
     }
 
-    // ponytail: braucht ein registriertes IInputService/IMouseService, das es fuer das
-    // Linux-Ziel erst mit Stufe 2 (uinput) gibt - bis dahin liefert /ws dort 500 statt 101.
-#if WINDOWS
     [TestMethod]
     public async Task WebSocket_WithValidTokenAndOrigin_Connects()
     {
@@ -165,7 +170,71 @@ public sealed class ServerEndpointsTests
 
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
     }
-#endif
+
+    // Dieselben Nachrichten, die der Client fuer Tasten, Text, Maus und Scrollen sendet - ueber den
+    // echten HTTP-Stack bis in die Eingabedienste.
+    [TestMethod]
+    public async Task WebSocket_Actions_ReachTheInputServicesAndAreAcknowledged()
+    {
+        var token = (await PostPairAsync(CurrentPin(), "Testgerät")).Token!;
+
+        using var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader("Origin", baseUrl);
+        await socket.ConnectAsync(new Uri($"{wsUrl}/ws?token={token}"), CancellationToken.None);
+
+        string[] payloads =
+        [
+            """{"type":"key","keys":["ENTER"],"requestId":"1"}""",
+            """{"type":"hotkey","keys":["CTRL","SHIFT","TAB"],"requestId":"2"}""",
+            """{"type":"text","text":"Hallo","requestId":"3"}""",
+            """{"type":"mouseMove","deltaX":-50,"deltaY":20,"requestId":"4"}""",
+            """{"type":"mouseClick","button":"right","requestId":"5"}""",
+            """{"type":"mouseScroll","delta":120,"requestId":"6"}""",
+            """{"type":"mouseScroll","deltaX":-120,"requestId":"7"}"""
+        ];
+
+        foreach (var payload in payloads)
+        {
+            await socket.SendAsync(Encoding.UTF8.GetBytes(payload), WebSocketMessageType.Text, true, CancellationToken.None);
+            var response = await ReceiveResponseAsync(socket);
+            Assert.IsTrue(response.Success, $"{payload}: {response.Error}");
+            Assert.IsNotNull(response.RequestId);
+        }
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "key ENTER",
+                "hotkey CTRL+SHIFT+TAB",
+                "text Hallo",
+                "move -50,20",
+                "click right",
+                "scroll 120",
+                "scrollX -120"
+            },
+            fakeInput.Calls.ToArray());
+    }
+
+    [TestMethod]
+    public async Task WebSocket_InvalidAction_IsRejectedWithoutClosingTheConnection()
+    {
+        var token = (await PostPairAsync(CurrentPin(), "Testgerät")).Token!;
+
+        using var socket = new ClientWebSocket();
+        socket.Options.SetRequestHeader("Origin", baseUrl);
+        await socket.ConnectAsync(new Uri($"{wsUrl}/ws?token={token}"), CancellationToken.None);
+
+        await socket.SendAsync(Encoding.UTF8.GetBytes("kein json"), WebSocketMessageType.Text, true, CancellationToken.None);
+        var response = await ReceiveResponseAsync(socket);
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual(WebSocketState.Open, socket.State);
+        Assert.IsTrue(fakeInput.Calls.IsEmpty);
+
+        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+    }
 
     [TestMethod]
     public async Task Unpair_WithoutBearerToken_IsUnauthorized()
@@ -178,8 +247,6 @@ public sealed class ServerEndpointsTests
         Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    // ponytail: siehe WebSocket_WithValidTokenAndOrigin_Connects oben - selbe Einschraenkung.
-#if WINDOWS
     [TestMethod]
     public async Task Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket()
     {
@@ -202,7 +269,6 @@ public sealed class ServerEndpointsTests
             JsonOptions);
         Assert.IsFalse(statusAfterRemoval!.Valid);
     }
-#endif
 
     private string CurrentPin() => app.Services.GetRequiredService<PairingService>().GetCurrentPin().Pin;
 
@@ -220,7 +286,14 @@ public sealed class ServerEndpointsTests
         return (await response.Content.ReadFromJsonAsync<PairResponse>(JsonOptions))!;
     }
 
-#if WINDOWS
+    private static async Task<RemoteActionResponse> ReceiveResponseAsync(ClientWebSocket socket)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var buffer = new byte[4096];
+        var result = await socket.ReceiveAsync(buffer, timeout.Token);
+        return JsonSerializer.Deserialize<RemoteActionResponse>(buffer.AsSpan(0, result.Count), JsonOptions)!;
+    }
+
     private static async Task<bool> WaitForSocketToCloseAsync(ClientWebSocket socket)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -244,7 +317,6 @@ public sealed class ServerEndpointsTests
             return socket.State != WebSocketState.Open;
         }
     }
-#endif
 
     private static StringContent JsonBody(string json) => new(json, Encoding.UTF8, "application/json");
 

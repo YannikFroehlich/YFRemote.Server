@@ -57,12 +57,11 @@ dotnet run -- Https:Enabled=true               # additionally serve HTTPS on 544
 
 Automated Server tests live in `tests/YFRemote.Server.Tests` and cover pairing persistence,
 backup recovery, write rollbacks, PIN lockout, and throttled last-seen writes. The release
-workflow runs them before publishing. `test/websocket-test.html` remains a separate manual
-browser-based smoke test. During a `dotnet run` dev session the server serves this file itself at
-`http://<host>:<port>/test/websocket-test.html` (only when the `test/` directory exists next to
-the working directory, so never in an installed build); open it that way rather than via
-`file://`, since `/ws` rejects handshakes whose `Origin` header doesn't match the server's own
-origin. There is no lint step beyond `dotnet build` warnings.
+workflow runs them before publishing. `ServerEndpointsTests` drive `/ws` end to end over the
+real HTTP stack with `FakeInputService` swapped in for `IInputService`/`IMouseService` via
+`BuildApplication`'s `configureServices` hook, so they never touch the test machine's keyboard
+or mouse and run on both target frameworks. For a manual check against real input, use the
+Angular client itself. There is no lint step beyond `dotnet build` warnings.
 
 To exercise a full client+server integration locally:
 

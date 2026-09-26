@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Controller-Modus: Neigungssteuerung fuer den rechten Stick, ein- und ausschaltbar mit dem neuen Knopf ◎ oben in der Mitte (Standard aus, die Wahl wird pro Geraet gespeichert). Handy zu sich kippen = hoch, rechte Kante nach unten = rechts; volle Auslenkung bei 25 Grad, kleines Wackeln bleibt in einer Totzone. Die Nullstellung ist die Haltung beim Einschalten und wird nach dem Zurueckkehren in die App neu gesetzt. Liegt ein Finger auf dem rechten Stick, hat er Vorrang. Browser liefern die Bewegungssensoren nur ueber HTTPS - ohne zeigt der Controller einen Hinweis auf "HTTPS verwenden" im Tray. Auf dem iPhone fragt Safari beim Einschalten einmal nach der Erlaubnis.
+
 ## [2.23.0] - 2026-09-26
 
 ### Added

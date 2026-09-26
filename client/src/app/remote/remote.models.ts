@@ -35,6 +35,35 @@ export interface TextAction {
   readonly text: string;
 }
 
+/** Vollstaendiger Zustand des virtuellen Xbox-Controllers: `buttons` ist die XInput-Bitmaske,
+ *  Sticks laufen von -32768 bis 32767 (Y positiv = oben), Trigger von 0 bis 255. */
+export interface GamepadState {
+  readonly buttons: number;
+  readonly leftX: number;
+  readonly leftY: number;
+  readonly rightX: number;
+  readonly rightY: number;
+  readonly leftTrigger: number;
+  readonly rightTrigger: number;
+}
+
+export interface GamepadAction {
+  readonly type: 'gamepad';
+  readonly gamepad: GamepadState;
+}
+
+/** Vibrationswunsch eines Spiels; kommt ungefragt vom Server, nicht als Antwort. */
+export interface GamepadRumbleMessage {
+  readonly type: 'rumble';
+  readonly largeMotor: number;
+  readonly smallMotor: number;
+}
+
+/** Steckt den Controller dieser Verbindung am PC wieder ab. */
+export interface GamepadDisconnectAction {
+  readonly type: 'gamepadDisconnect';
+}
+
 export type RemoteAction =
   | KeyboardAction
   | MouseMoveAction
@@ -42,7 +71,9 @@ export type RemoteAction =
   | MouseButtonAction
   | MouseScrollAction
   | PowerAction
-  | TextAction;
+  | TextAction
+  | GamepadAction
+  | GamepadDisconnectAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

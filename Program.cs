@@ -348,6 +348,7 @@ internal static class Program
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
+        builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
 #else
         builder.Services.AddSingleton<LinuxInputSender>();
         builder.Services.AddSingleton<IInputService, LinuxInputService>();
@@ -377,7 +378,12 @@ internal static class Program
             KeepAliveInterval = TimeSpan.FromSeconds(30)
         });
 
-        app.MapGet("/health", () => new HealthResponse("ok", "YFRemote.Server", OperatingSystem.IsWindows() ? "windows" : "linux"));
+        var gamepadService = app.Services.GetService<IGamepadService>();
+        app.MapGet("/health", () => new HealthResponse(
+            "ok",
+            "YFRemote.Server",
+            OperatingSystem.IsWindows() ? "windows" : "linux",
+            gamepadService?.IsAvailable ?? false));
 
         if (httpsOptions.Enabled)
         {

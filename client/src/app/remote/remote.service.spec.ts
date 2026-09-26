@@ -368,6 +368,27 @@ describe('RemoteService', () => {
     expect(remote.lastError()).toBeNull();
   });
 
+  it('shows a file offer and keeps a dismissed one hidden when the server resends it', () => {
+    const { remote, sockets } = setupRemoteService();
+    const offer = { type: 'fileOffer', id: 'o1', name: 'bild.png', size: 2048 };
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive(JSON.stringify(offer));
+
+    expect(remote.fileOffer()).toEqual(offer);
+    expect(remote.lastError()).toBeNull();
+
+    remote.dismissFileOffer();
+    sockets[0].receive(JSON.stringify(offer));
+
+    expect(remote.fileOffer()).toBeNull();
+
+    sockets[0].receive(JSON.stringify({ ...offer, id: 'o2' }));
+
+    expect(remote.fileOffer()?.id).toBe('o2');
+  });
+
   it('reconnects with increasing capped delays', () => {
     const { remote, sockets } = setupRemoteService();
 

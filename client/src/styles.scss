@@ -773,6 +773,12 @@ h2 {
 
 /* Ueber allem (auch Dialogen), aber klein am unteren Rand: ein Update soll auffallen, ohne die
    gerade laufende Bedienung zu blockieren. */
+.file-offer__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .update-banner {
   position: fixed;
   bottom: calc(16px + env(safe-area-inset-bottom));

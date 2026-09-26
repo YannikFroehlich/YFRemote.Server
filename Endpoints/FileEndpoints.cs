@@ -74,5 +74,32 @@ internal static class FileEndpoints
                     context.RequestAborted);
             }
         });
+
+        // Browser senden bei einem Same-Origin-GET per fetch() keinen Origin - wie bei
+        // GET /clipboard/text ist daher das Bearer-Token der eigentliche Schutz.
+        app.MapGet("/files/{id:guid}", async (HttpContext context, Guid id) =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is not { } deviceId)
+            {
+                return Results.Empty;
+            }
+
+            var fileOfferService = context.RequestServices.GetRequiredService<FileOfferService>();
+            var path = fileOfferService.TryGetPath(id);
+            if (path is null || !File.Exists(path))
+            {
+                return Results.NotFound();
+            }
+
+            var fileName = Path.GetFileName(path);
+            var deviceName = context.RequestServices.GetRequiredService<PairingService>()
+                .GetPairedDevices()
+                .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
+            app.Logger.LogInformation("Offered file {FileName} sent to paired device {DeviceName}.", fileName, deviceName);
+            fileOfferService.NotifyDownloaded(fileName, deviceName);
+
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.File(path, "application/octet-stream", fileName);
+        });
     }
 }

@@ -20,6 +20,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly PairingService pairingService;
     private readonly WebSocketConnectionRegistry connectionRegistry;
     private readonly FileTransferService fileTransferService;
+    private readonly FileOfferService fileOfferService;
     private readonly ClipboardReadNotifier clipboardReadNotifier;
     private readonly IGamepadService gamepadService;
     private readonly Icon trayIcon;
@@ -48,6 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         pairingService = app.Services.GetRequiredService<PairingService>();
         connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
         fileTransferService = app.Services.GetRequiredService<FileTransferService>();
+        fileOfferService = app.Services.GetRequiredService<FileOfferService>();
         clipboardReadNotifier = app.Services.GetRequiredService<ClipboardReadNotifier>();
         gamepadService = app.Services.GetRequiredService<IGamepadService>();
         httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
@@ -61,6 +63,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         uiDispatcher.CreateControl();
         fileTransferService.FileReceived += OnFileReceived;
+        fileOfferService.Downloaded += OnOfferedFileDownloaded;
         clipboardReadNotifier.TextRead += OnClipboardTextRead;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
@@ -83,6 +86,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var qrCodeItem = new ToolStripMenuItem("QR-Code zum Verbinden...");
         qrCodeItem.Click += (_, _) => ShowPairingQrCode();
+
+        var sendFileItem = new ToolStripMenuItem("Datei an Geräte senden...");
+        sendFileItem.Click += (_, _) => OfferFile();
 
         var httpsItem = new ToolStripMenuItem("HTTPS verwenden")
         {
@@ -145,6 +151,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             openItem,
             copyAddressItem,
             qrCodeItem,
+            sendFileItem,
             httpsItem,
             certificateItem,
             gamepadDriverItem,
@@ -214,6 +221,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (disposing)
         {
             fileTransferService.FileReceived -= OnFileReceived;
+            fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.TextRead -= OnClipboardTextRead;
             initialUpdateTimer.Dispose();
             periodicUpdateTimer.Dispose();
@@ -368,6 +376,43 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OnFileReceived(string fileName) =>
         uiDispatcher.BeginInvoke(() =>
             notifyIcon.ShowBalloonTip(3000, "Datei empfangen", fileName, ToolTipIcon.Info));
+
+    // Wie OnFileReceived vom HTTP-Request-Thread aufgerufen, daher ueber den uiDispatcher.
+    private void OnOfferedFileDownloaded(string fileName, string deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(
+                3000,
+                "Datei gesendet",
+                $"\"{fileName}\" wurde an \"{deviceName}\" gesendet.",
+                ToolTipIcon.Info));
+
+    private void OfferFile()
+    {
+        using var dialog = new OpenFileDialog { Title = "Datei an Geräte senden" };
+        if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            var offer = fileOfferService.Offer(dialog.FileName);
+            notifyIcon.ShowBalloonTip(
+                3000,
+                "Datei bereitgestellt",
+                $"\"{offer.Name}\" kann jetzt 10 Minuten lang auf den gekoppelten Geräten geladen werden.",
+                ToolTipIcon.Info);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to offer a file.");
+            MessageBox.Show(
+                $"Die Datei konnte nicht bereitgestellt werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
 
     // Wie OnFileReceived vom HTTP-Request-Thread aufgerufen, daher ueber den uiDispatcher.
     private void OnClipboardTextRead(string deviceName) =>

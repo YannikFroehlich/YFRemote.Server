@@ -134,6 +134,11 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `FileTransfer:TargetDirectory` (default `Documents\YFRemote`, 200 MB cap counted on the actual
   bytes read, not `Content-Length`) under a sanitized, collision-free name; the tray shows a
   "Datei empfangen" balloon via its `FileReceived` event.
+- `GET /files/{id}` → downloads the file the tray currently offers ("Datei an Geräte senden...",
+  `FileOfferService`: one offer at a time, 10-minute lifetime). The offer itself reaches devices as
+  an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
+  again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
+  "Datei gesendet" balloon.
 - `POST /clipboard/text` (JSON, `Clipboard:MaxTextLength` 200 000) and `POST /clipboard/image`
   (multipart, `Clipboard:MaxImageSizeBytes` 20 MB) → write the PC clipboard via
   `IClipboardService`.
@@ -174,8 +179,8 @@ connection's `RemoteActionSession`, which `YFRemoteWebSocketHandler` disposes wh
 one controller per connected device, so several phones are several players. `gamepadDisconnect`
 unplugs it early (the Client sends it when leaving the controller view). When a game sets
 vibration, ViGEm's `FeedbackReceived` (driver thread) is deduplicated in `WindowsGamepadService`
-and pushed to the device as `{"type":"rumble","largeMotor","smallMotor"}` - the only server message
-that is not a response. That is why `YFRemoteWebSocketHandler` serializes every send behind one
+and pushed to the device as `{"type":"rumble","largeMotor","smallMotor"}` - like `fileOffer`, a
+server message that is not a response. That is why `YFRemoteWebSocketHandler` serializes every send behind one
 `SemaphoreSlim`: a WebSocket allows only one `SendAsync` at a time. `WindowsGamepadService`
 uses the ViGEmBus driver via `Nefarius.ViGEm.Client` and caps at 4 controllers (XInput slots). The
 driver needs admin rights and is not bundled with the per-user Velopack install: without it

@@ -49,6 +49,37 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_FileOffer_IsPushedOnConnectAndWhenOffered()
+    {
+        var offeredFile = Path.GetTempFileName();
+        try
+        {
+            var fileOfferService = new FileOfferService(TimeProvider.System);
+            var earlierOffer = fileOfferService.Offer(offeredFile);
+
+            await using var pair = await WebSocketPair.CreateAsync();
+            var handleTask = CreateHandler(fileOfferService: fileOfferService)
+                .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+            var onConnect = await ReceiveJsonAsync(pair.Client);
+            Assert.AreEqual("fileOffer", onConnect.GetProperty("type").GetString());
+            Assert.AreEqual(earlierOffer.Id, onConnect.GetProperty("id").GetGuid());
+
+            var laterOffer = fileOfferService.Offer(offeredFile);
+            var pushed = await ReceiveJsonAsync(pair.Client);
+            Assert.AreEqual(laterOffer.Id, pushed.GetProperty("id").GetGuid());
+            Assert.AreEqual(Path.GetFileName(offeredFile), pushed.GetProperty("name").GetString());
+
+            await CloseClientAsync(pair.Client);
+            await AwaitHandlerAsync(handleTask);
+        }
+        finally
+        {
+            File.Delete(offeredFile);
+        }
+    }
+
+    [TestMethod]
     public async Task HandleAsync_InvalidJson_SendsFailureResponse()
     {
         await using var pair = await WebSocketPair.CreateAsync();
@@ -176,7 +207,8 @@ public sealed class YFRemoteWebSocketHandlerTests
         IInputService? inputService = null,
         IMouseService? mouseService = null,
         TimeProvider? timeProvider = null,
-        IGamepadService? gamepadService = null)
+        IGamepadService? gamepadService = null,
+        FileOfferService? fileOfferService = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -187,6 +219,7 @@ public sealed class YFRemoteWebSocketHandlerTests
 
         return new YFRemoteWebSocketHandler(
             actionHandler,
+            fileOfferService ?? new FileOfferService(TimeProvider.System),
             timeProvider ?? TimeProvider.System,
             NullLogger<YFRemoteWebSocketHandler>.Instance);
     }

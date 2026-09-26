@@ -124,6 +124,55 @@ public sealed class FileTransferEndpointTests
         Assert.IsTrue(File.Exists(Path.Combine(filesDirectory, "evil.txt")));
     }
 
+    [TestMethod]
+    public async Task DownloadOfferedFile_WithoutBearerToken_IsUnauthorized()
+    {
+        var offer = OfferFile("angebot.txt", "Vom PC");
+
+        var response = await httpClient.GetAsync($"/files/{offer.Id}");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task DownloadOfferedFile_WithUnknownId_ReturnsNotFound()
+    {
+        var token = await PairAndGetTokenAsync();
+        OfferFile("angebot.txt", "Vom PC");
+
+        var response = await GetOfferedFileAsync(Guid.NewGuid(), token);
+
+        Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task DownloadOfferedFile_WithValidToken_ReturnsFileAsAttachment()
+    {
+        var token = await PairAndGetTokenAsync();
+        var offer = OfferFile("angebot.txt", "Vom PC");
+
+        var response = await GetOfferedFileAsync(offer.Id, token);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("Vom PC", await response.Content.ReadAsStringAsync());
+        Assert.AreEqual("angebot.txt", response.Content.Headers.ContentDisposition?.FileNameStar);
+    }
+
+    private FileOfferMessage OfferFile(string fileName, string content)
+    {
+        var path = Path.Combine(testDirectory, fileName);
+        File.WriteAllText(path, content);
+        return app.Services.GetRequiredService<FileOfferService>().Offer(path);
+    }
+
+    // Ohne Origin, wie ein Same-Origin-fetch() im Browser.
+    private Task<HttpResponseMessage> GetOfferedFileAsync(Guid id, string token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/files/{id}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return httpClient.SendAsync(request);
+    }
+
     private async Task<string> PairAndGetTokenAsync()
     {
         var pin = app.Services.GetRequiredService<PairingService>().GetCurrentPin().Pin;

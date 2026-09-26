@@ -339,6 +339,7 @@ internal static class Program
         builder.Services.AddSingleton(httpsOptions);
         builder.Services.AddSingleton(fileTransferOptions);
         builder.Services.AddSingleton<FileTransferService>();
+        builder.Services.AddSingleton<FileOfferService>();
         builder.Services.AddSingleton(clipboardOptions);
         builder.Services.AddSingleton<ClipboardReadNotifier>();
 #if WINDOWS

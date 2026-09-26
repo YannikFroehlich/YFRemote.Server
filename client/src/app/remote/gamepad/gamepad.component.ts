@@ -1,4 +1,13 @@
-import { afterNextRender, Component, inject, OnDestroy, output, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  effect,
+  inject,
+  OnDestroy,
+  output,
+  signal,
+} from '@angular/core';
 import { GamepadState } from '../remote.models';
 import { REMOTE_VIBRATE, RemoteService } from '../remote.service';
 import { TranslationService } from '../translation.service';
@@ -54,6 +63,11 @@ const TRIGGER_MAX = 255;
 // Verbindung. Mit diesem Abstand bleibt der Controller bei ~60 Nachrichten/s.
 const MIN_SEND_INTERVAL_MS = 16;
 const HAPTIC_PULSE_MS = 8;
+// navigator.vibrate kennt nur an/aus und begrenzt die Dauer (Chrome: 10 s). Das Spiel meldet nur
+// Aenderungen, deshalb bis zur naechsten Meldung durchvibrieren.
+// ponytail: Staerke wird ignoriert und eine Vibration ueber 10 s endet vorzeitig - bei Bedarf per
+// Muster (an/aus-Pulse) abstufen und vor Ablauf erneuern.
+const RUMBLE_MAX_MS = 10000;
 
 @Component({
   selector: 'app-gamepad',
@@ -86,6 +100,10 @@ export class GamepadComponent implements OnDestroy {
   private lastSent: GamepadState = NEUTRAL_GAMEPAD;
   private lastSentAt = -Infinity;
   private frameId: number | null = null;
+
+  // Nur ein Wechsel an/aus erreicht das Handy; derselbe Wert erneut aendert das Signal nicht.
+  private readonly rumbling = computed(() => this.remote.gamepadRumble() > 0);
+  private readonly rumbleEffect = effect(() => this.vibrate(this.rumbling() ? RUMBLE_MAX_MS : 0));
 
   constructor() {
     afterNextRender(() => void enterLandscapeFullscreen());
@@ -165,6 +183,7 @@ export class GamepadComponent implements OnDestroy {
       this.remote.sendAction({ type: 'gamepadDisconnect' });
     }
 
+    this.vibrate(0);
     exitFullscreen();
   }
 

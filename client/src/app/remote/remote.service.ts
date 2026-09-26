@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   ConnectionStatus,
+  GamepadRumbleMessage,
   MacroStep,
   RemoteAction,
   RemoteResponse,
@@ -127,6 +128,7 @@ export class RemoteService implements OnDestroy {
   private readonly manualDisconnectSignal = signal(false);
   private readonly serverPlatformSignal = signal<ServerPlatform | null>(null);
   private readonly gamepadAvailableSignal = signal(false);
+  private readonly gamepadRumbleSignal = signal(0);
 
   private socket: RemoteSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -148,6 +150,8 @@ export class RemoteService implements OnDestroy {
   readonly serverPlatform = this.serverPlatformSignal.asReadonly();
   /** Ob die Gegenstelle virtuelle Xbox-Controller anlegen kann (Windows mit ViGEmBus-Treiber). */
   readonly gamepadAvailable = this.gamepadAvailableSignal.asReadonly();
+  /** Staerkerer der beiden Vibrationsmotoren (0-255), wie ihn das Spiel zuletzt gesetzt hat. */
+  readonly gamepadRumble = this.gamepadRumbleSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -406,6 +410,7 @@ export class RemoteService implements OnDestroy {
       }
 
       this.socket = null;
+      this.gamepadRumbleSignal.set(0);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -426,7 +431,14 @@ export class RemoteService implements OnDestroy {
   }
 
   private handleResponse(rawMessage: string): void {
-    const response = this.parseResponse(rawMessage);
+    const message = parseJson(rawMessage);
+
+    if (isRumbleMessage(message)) {
+      this.gamepadRumbleSignal.set(Math.max(message.largeMotor, message.smallMotor));
+      return;
+    }
+
+    const response = this.isRemoteResponse(message) ? message : null;
 
     if (response === null) {
       this.showError(this.i18n.t('remoteService.error.invalidResponse'));
@@ -444,20 +456,6 @@ export class RemoteService implements OnDestroy {
     }
 
     this.showError(response.error?.trim() || this.i18n.t('remoteService.error.actionRejected'));
-  }
-
-  private parseResponse(rawMessage: string): RemoteResponse | null {
-    try {
-      const parsedValue: unknown = JSON.parse(rawMessage);
-
-      if (!this.isRemoteResponse(parsedValue)) {
-        return null;
-      }
-
-      return parsedValue;
-    } catch {
-      return null;
-    }
   }
 
   private isRemoteResponse(value: unknown): value is RemoteResponse {
@@ -528,6 +526,7 @@ export class RemoteService implements OnDestroy {
 
   private closeActiveSocket(): void {
     this.failPendingActions();
+    this.gamepadRumbleSignal.set(0);
 
     if (this.socket === null) {
       return;
@@ -639,6 +638,23 @@ export class RemoteService implements OnDestroy {
       ? error.message
       : this.i18n.t('common.unknownError');
   }
+}
+
+function parseJson(rawMessage: string): unknown {
+  try {
+    return JSON.parse(rawMessage);
+  } catch {
+    return null;
+  }
+}
+
+function isRumbleMessage(value: unknown): value is GamepadRumbleMessage {
+  const message = value as Partial<GamepadRumbleMessage> | null;
+  return (
+    message?.type === 'rumble' &&
+    typeof message.largeMotor === 'number' &&
+    typeof message.smallMotor === 'number'
+  );
 }
 
 function sleep(ms: number): Promise<void> {

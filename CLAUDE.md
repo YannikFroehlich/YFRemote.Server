@@ -173,7 +173,11 @@ lost message cannot leave a button stuck. `RemoteActionHandler` plugs a virtual 
 in through `IGamepadService` on the first `gamepad` message of a connection and keeps it in that
 connection's `RemoteActionSession`, which `YFRemoteWebSocketHandler` disposes when the socket ends -
 one controller per connected device, so several phones are several players. `gamepadDisconnect`
-unplugs it early (the Client sends it when leaving the controller view). `WindowsGamepadService`
+unplugs it early (the Client sends it when leaving the controller view). When a game sets
+vibration, ViGEm's `FeedbackReceived` (driver thread) is deduplicated in `WindowsGamepadService`
+and pushed to the device as `{"type":"rumble","largeMotor","smallMotor"}` - the only server message
+that is not a response. That is why `YFRemoteWebSocketHandler` serializes every send behind one
+`SemaphoreSlim`: a WebSocket allows only one `SendAsync` at a time. `WindowsGamepadService`
 uses the ViGEmBus driver via `Nefarius.ViGEm.Client` and caps at 4 controllers (XInput slots). The
 driver needs admin rights and is not bundled with the per-user Velopack install: without it
 `/health` reports `gamepad: false`, the Client hides the tab, and the tray shows

@@ -7,7 +7,8 @@ public interface IGamepadService
     // Ob der Treiber fuer virtuelle Controller installiert ist.
     bool IsAvailable { get; }
 
-    IVirtualGamepad Connect();
+    // onRumble meldet Vibrationswuensche des Spiels; wird auf einem Treiber-Thread aufgerufen.
+    IVirtualGamepad Connect(Action<GamepadRumble> onRumble);
 }
 
 public interface IVirtualGamepad : IDisposable

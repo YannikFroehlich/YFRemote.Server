@@ -52,6 +52,13 @@ export interface GamepadAction {
   readonly gamepad: GamepadState;
 }
 
+/** Vibrationswunsch eines Spiels; kommt ungefragt vom Server, nicht als Antwort. */
+export interface GamepadRumbleMessage {
+  readonly type: 'rumble';
+  readonly largeMotor: number;
+  readonly smallMotor: number;
+}
+
 /** Steckt den Controller dieser Verbindung am PC wieder ab. */
 export interface GamepadDisconnectAction {
   readonly type: 'gamepadDisconnect';

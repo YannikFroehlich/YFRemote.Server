@@ -268,7 +268,7 @@ public sealed class RemoteActionHandler(
 
         // Erst mit dem ersten Controller-Zustand anstecken, nicht schon beim Verbinden: sonst
         // saehen Spiele fuer jedes Geraet im Maus- oder Tastaturmodus einen Controller.
-        session.Gamepad ??= gamepadService.Connect();
+        session.Gamepad ??= gamepadService.Connect(session.Rumble);
         session.Gamepad.Update(request.Gamepad);
 
         return RemoteActionResponse.Ok();

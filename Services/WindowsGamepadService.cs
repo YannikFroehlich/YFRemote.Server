@@ -28,7 +28,7 @@ public sealed class WindowsGamepadService(ILogger<WindowsGamepadService> logger)
         }
     }
 
-    public IVirtualGamepad Connect()
+    public IVirtualGamepad Connect(Action<GamepadRumble> onRumble)
     {
         lock (gate)
         {
@@ -42,11 +42,14 @@ public sealed class WindowsGamepadService(ILogger<WindowsGamepadService> logger)
 
             var controller = bus.CreateXbox360Controller();
             controller.AutoSubmitReport = false;
+            // Vor Connect abonnieren: manche Spiele setzen die Vibration gleich beim Anstecken.
+            var gamepad = new VirtualGamepad(this, controller, onRumble);
+            controller.FeedbackReceived += gamepad.OnFeedback;
             controller.Connect();
             connectedCount++;
             logger.LogInformation("Virtual Xbox controller connected ({Count}/{Max}).", connectedCount, MaxControllers);
 
-            return new VirtualGamepad(this, controller);
+            return gamepad;
         }
     }
 
@@ -83,7 +86,7 @@ public sealed class WindowsGamepadService(ILogger<WindowsGamepadService> logger)
         return client;
     }
 
-    private void Release(IXbox360Controller controller)
+    private void Release(IXbox360Controller controller, Xbox360FeedbackReceivedEventHandler onFeedback)
     {
         lock (gate)
         {
@@ -92,6 +95,7 @@ public sealed class WindowsGamepadService(ILogger<WindowsGamepadService> logger)
 
         try
         {
+            controller.FeedbackReceived -= onFeedback;
             controller.Disconnect();
         }
         catch (Exception exception)
@@ -104,9 +108,26 @@ public sealed class WindowsGamepadService(ILogger<WindowsGamepadService> logger)
         logger.LogInformation("Virtual Xbox controller disconnected.");
     }
 
-    private sealed class VirtualGamepad(WindowsGamepadService owner, IXbox360Controller controller) : IVirtualGamepad
+    private sealed class VirtualGamepad(
+        WindowsGamepadService owner,
+        IXbox360Controller controller,
+        Action<GamepadRumble> onRumble) : IVirtualGamepad
     {
         private bool disposed;
+        private int lastRumble;
+
+        // Viele Spiele setzen dieselbe Vibration in jedem Frame erneut; nur Aenderungen gehen
+        // ans Geraet, sonst liefe der Socket voll.
+        public void OnFeedback(object sender, Xbox360FeedbackReceivedEventArgs e)
+        {
+            var rumble = e.LargeMotor << 8 | e.SmallMotor;
+            if (Interlocked.Exchange(ref lastRumble, rumble) == rumble)
+            {
+                return;
+            }
+
+            onRumble(new GamepadRumble(e.LargeMotor, e.SmallMotor));
+        }
 
         public void Update(GamepadState state)
         {
@@ -130,7 +151,7 @@ public sealed class WindowsGamepadService(ILogger<WindowsGamepadService> logger)
             }
 
             disposed = true;
-            owner.Release(controller);
+            owner.Release(controller, OnFeedback);
         }
     }
 }

@@ -71,6 +71,20 @@ public sealed class GamepadActionTests
     }
 
     [TestMethod]
+    public void Gamepad_ForwardsRumbleToTheSession()
+    {
+        var service = new FakeGamepadService();
+        var handler = CreateHandler(service);
+        var received = new List<GamepadRumble>();
+        using var session = new RemoteActionSession(received.Add);
+
+        handler.Handle(GamepadRequest(PressA), session);
+        service.Controllers[0].Rumble(new GamepadRumble(200, 10));
+
+        CollectionAssert.AreEqual(new[] { new GamepadRumble(200, 10) }, received);
+    }
+
+    [TestMethod]
     public void Gamepad_WithoutGamepadService_IsRejected()
     {
         var handler = CreateHandler(gamepadService: null);
@@ -142,22 +156,24 @@ public sealed class GamepadActionTests
 
         public bool IsAvailable => Unavailable is null;
 
-        public IVirtualGamepad Connect()
+        public IVirtualGamepad Connect(Action<GamepadRumble> onRumble)
         {
             if (Unavailable is not null)
             {
                 throw new GamepadUnavailableException(Unavailable);
             }
 
-            var controller = new FakeGamepad();
+            var controller = new FakeGamepad(onRumble);
             Controllers.Add(controller);
             return controller;
         }
     }
 
-    private sealed class FakeGamepad : IVirtualGamepad
+    private sealed class FakeGamepad(Action<GamepadRumble> onRumble) : IVirtualGamepad
     {
         public List<GamepadState> States { get; } = [];
+
+        public void Rumble(GamepadRumble rumble) => onRumble(rumble);
 
         public bool Disposed { get; private set; }
 

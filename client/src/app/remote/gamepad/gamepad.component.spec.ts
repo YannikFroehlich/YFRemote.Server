@@ -124,6 +124,29 @@ describe('GamepadComponent', () => {
     expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: neutral });
   });
 
+  it('vibrates while the game rumbles and stops when it ends', async () => {
+    const pad = await setupGamepad();
+
+    pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 120 });
+    pad.flushEffects();
+    pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 0 });
+    pad.flushEffects();
+
+    expect(pad.vibrations).toEqual([0, 10000, 0]);
+    expect(pad.remote.lastError()).toBeNull();
+  });
+
+  it('stops vibrating when the connection drops', async () => {
+    const pad = await setupGamepad();
+
+    pad.receive({ type: 'rumble', largeMotor: 255, smallMotor: 0 });
+    pad.flushEffects();
+    pad.socket.onclose?.(new CloseEvent('close'));
+    pad.flushEffects();
+
+    expect(pad.vibrations.at(-1)).toBe(0);
+  });
+
   it('unplugs the controller when it is closed', async () => {
     const pad = await setupGamepad();
 
@@ -146,6 +169,7 @@ const neutral = {
 async function setupGamepad() {
   const sockets: MockRemoteSocket[] = [];
   const frames: FrameRequestCallback[] = [];
+  const vibrations: number[] = [];
 
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
     frames.push(callback);
@@ -159,7 +183,7 @@ async function setupGamepad() {
       RemoteService,
       { provide: REMOTE_STORAGE, useValue: null },
       { provide: REMOTE_AUTO_CONNECT, useValue: false },
-      { provide: REMOTE_VIBRATE, useValue: () => undefined },
+      { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {
@@ -171,7 +195,8 @@ async function setupGamepad() {
     ],
   }).compileComponents();
 
-  TestBed.inject(RemoteService).connect();
+  const remote = TestBed.inject(RemoteService);
+  remote.connect();
   sockets[0].open();
 
   const fixture = TestBed.createComponent(GamepadComponent);
@@ -180,6 +205,12 @@ async function setupGamepad() {
 
   return {
     root,
+    remote,
+    vibrations,
+    socket: sockets[0],
+    receive: (message: unknown) =>
+      sockets[0].onmessage?.(new MessageEvent('message', { data: JSON.stringify(message) })),
+    flushEffects: () => fixture.detectChanges(),
     button: (label: string) =>
       Array.from(root.querySelectorAll<HTMLElement>('button')).find(
         (button) => button.textContent?.trim() === label,

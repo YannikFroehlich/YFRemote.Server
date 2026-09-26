@@ -1,10 +1,17 @@
 import { inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { PairingService } from './pairing.service';
+import { FileOfferMessage } from './remote.models';
 import { getServerHttpBaseUrl, SERVER_LOCATION } from './server-config';
 
 export const FILE_TRANSFER_FETCH = new InjectionToken<typeof fetch>('FILE_TRANSFER_FETCH', {
   providedIn: 'root',
   factory: () => globalThis.fetch.bind(globalThis),
+});
+
+/** Legt die geladene Datei im Download-Ordner des Geraets ab; austauschbar fuer Tests. */
+export const FILE_SAVER = new InjectionToken<(blob: Blob, fileName: string) => void>('FILE_SAVER', {
+  providedIn: 'root',
+  factory: () => saveBlobAsDownload,
 });
 
 export interface FileSendResult {
@@ -29,6 +36,39 @@ export class FileTransferService {
 
   private readonly sendingSignal = signal(false);
   readonly sending = this.sendingSignal.asReadonly();
+  private readonly saveFile = inject(FILE_SAVER);
+
+  private readonly downloadingSignal = signal(false);
+  readonly downloading = this.downloadingSignal.asReadonly();
+
+  /** Laedt die vom PC angebotene Datei. Per fetch statt Link, weil das Token nicht in die URL
+   *  (und damit in Verlauf und Server-Logs) gehoert. */
+  async downloadFile(offer: FileOfferMessage): Promise<boolean> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return false;
+    }
+
+    this.downloadingSignal.set(true);
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/files/${encodeURIComponent(offer.id)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (!response.ok) {
+        return false;
+      }
+
+      this.saveFile(await response.blob(), offer.name);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.downloadingSignal.set(false);
+    }
+  }
 
   async sendFile(file: File): Promise<FileSendResult> {
     const token = this.pairing.token();
@@ -66,4 +106,14 @@ export class FileTransferService {
       this.sendingSignal.set(false);
     }
   }
+}
+
+function saveBlobAsDownload(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  // Sofortiges Freigeben bricht den Download in manchen Browsern ab, bevor er begonnen hat.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

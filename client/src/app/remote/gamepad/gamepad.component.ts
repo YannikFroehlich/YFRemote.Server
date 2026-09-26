@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { GamepadState } from '../remote.models';
 import { REMOTE_STORAGE, REMOTE_VIBRATE, RemoteService } from '../remote.service';
+import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
 import {
   clampPlacement,
@@ -135,6 +136,16 @@ const HAPTIC_PULSE_MS = 8;
 // Muster (an/aus-Pulse) abstufen und vor Ablauf erneuern.
 const RUMBLE_MAX_MS = 10000;
 
+export const GAMEPAD_GYRO_STORAGE_KEY = 'yfremote.gamepadGyro';
+// ponytail: feste Empfindlichkeit - bei Bedarf als Einstellung anbieten.
+const GYRO_FULL_TILT_DEG = 25;
+const GYRO_DEADZONE_DEG = 2;
+
+interface Tilt {
+  readonly beta: number;
+  readonly gamma: number;
+}
+
 @Component({
   selector: 'app-gamepad',
   templateUrl: './gamepad.component.html',
@@ -149,12 +160,14 @@ const RUMBLE_MAX_MS = 10000;
     // (RT) am PC gedrueckt.
     '(document:visibilitychange)': 'releaseAll()',
     '(window:blur)': 'releaseAll()',
+    '(window:deviceorientation)': 'onOrientation($event)',
   },
 })
 export class GamepadComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
   private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly storage = inject(REMOTE_STORAGE);
+  private readonly location = inject(SERVER_LOCATION);
   protected readonly i18n = inject(TranslationService);
 
   protected readonly presetIds = GAMEPAD_PRESET_IDS;
@@ -180,6 +193,13 @@ export class GamepadComponent implements OnDestroy {
   private lastSent: GamepadState = NEUTRAL_GAMEPAD;
   private lastSentAt = -Infinity;
   private frameId: number | null = null;
+
+  /** Neigungssteuerung: Handy neigen bewegt den rechten Stick. Nullstellung ist die Haltung beim
+   *  Einschalten bzw. beim Zurueckkehren in die App. */
+  protected readonly gyro = signal(this.storage?.getItem(GAMEPAD_GYRO_STORAGE_KEY) === 'true');
+  protected readonly gyroHint = signal<string | null>(null);
+  private gyroReference: Tilt | null = null;
+  private gyroStick = { x: 0, y: 0 };
 
   // Nur ein Wechsel an/aus erreicht das Handy; derselbe Wert erneut aendert das Signal nicht.
   private readonly rumbling = computed(() => this.remote.gamepadRumble() > 0);
@@ -210,6 +230,51 @@ export class GamepadComponent implements OnDestroy {
     };
     moveStick(stick, event);
     this.hold(event, stick);
+  }
+
+  protected async toggleGyro(): Promise<void> {
+    this.gyroHint.set(null);
+
+    if (this.gyro()) {
+      this.setGyro(false);
+      return;
+    }
+
+    // Browser liefern Bewegungssensoren nur in einem sicheren Kontext (HTTPS oder localhost).
+    if (!isTrustworthyOrigin(this.location)) {
+      this.gyroHint.set('gamepad.gyroInsecureOrigin');
+      return;
+    }
+
+    // iOS fragt erst nach, und nur aus einem Tipp heraus; andere Browser kennen die Methode nicht.
+    const orientationEvent = globalThis.DeviceOrientationEvent as
+      { requestPermission?: () => Promise<string> } | undefined;
+    try {
+      if ((await orientationEvent?.requestPermission?.()) === 'denied') {
+        this.gyroHint.set('gamepad.gyroDenied');
+        return;
+      }
+    } catch {
+      this.gyroHint.set('gamepad.gyroDenied');
+      return;
+    }
+
+    this.setGyro(true);
+  }
+
+  protected onOrientation(event: DeviceOrientationEvent): void {
+    if (!this.gyro() || event.beta === null || event.gamma === null) {
+      return;
+    }
+
+    const tilt = { beta: event.beta, gamma: event.gamma };
+    this.gyroReference ??= tilt;
+    this.gyroStick = tiltToStick(
+      tilt,
+      this.gyroReference,
+      globalThis.screen?.orientation?.angle ?? 0,
+    );
+    this.update();
   }
 
   protected label(key: GamepadLabelKey): string {
@@ -311,6 +376,9 @@ export class GamepadComponent implements OnDestroy {
   }
 
   protected releaseAll(): void {
+    // Nach dem Zurueckkehren haelt man das Handy meist anders - dann neu ausrichten.
+    this.gyroReference = null;
+
     if (this.held.size > 0) {
       this.held.clear();
       this.update();
@@ -347,6 +415,14 @@ export class GamepadComponent implements OnDestroy {
 
     this.vibrate(0);
     exitFullscreen();
+  }
+
+  private setGyro(enabled: boolean): void {
+    this.gyro.set(enabled);
+    this.storage?.setItem(GAMEPAD_GYRO_STORAGE_KEY, String(enabled));
+    this.gyroReference = null;
+    this.gyroStick = { x: 0, y: 0 };
+    this.update();
   }
 
   private updateSelected(
@@ -403,7 +479,8 @@ export class GamepadComponent implements OnDestroy {
     let leftTrigger = 0;
     let rightTrigger = 0;
     let left = { x: 0, y: 0 };
-    let right = { x: 0, y: 0 };
+    // Ein Finger auf dem rechten Stick hat Vorrang vor der Neigung.
+    let right = this.gyro() ? this.gyroStick : { x: 0, y: 0 };
 
     for (const control of this.held.values()) {
       switch (control.kind) {
@@ -491,16 +568,41 @@ function moveStick(stick: Extract<HeldControl, { kind: 'stick' }>, event: Pointe
   stick.y = Math.round(-dy * AXIS_MAX);
 }
 
+/** Rechnet die Neigung seit der Nullstellung in Stick-Achsen um, passend zur Bildschirmdrehung:
+ *  rechte Kante runter = rechts, obere Kante zu sich kippen = hoch (wie Zielen mit dem Handy). */
+export function tiltToStick(
+  tilt: Tilt,
+  reference: Tilt,
+  screenAngle: number,
+): { x: number; y: number } {
+  const beta = wrapDegrees(tilt.beta - reference.beta);
+  const gamma = wrapDegrees(tilt.gamma - reference.gamma);
+  const angle = (screenAngle * Math.PI) / 180;
+  const cos = Math.round(Math.cos(angle));
+  const sin = Math.round(Math.sin(angle));
+
+  return {
+    x: tiltToAxis(gamma * cos + beta * sin),
+    y: tiltToAxis(beta * cos - gamma * sin),
+  };
+}
+
+function tiltToAxis(degrees: number): number {
+  const magnitude = Math.abs(degrees) - GYRO_DEADZONE_DEG;
+  if (magnitude <= 0) {
+    return 0;
+  }
+
+  const scaled = Math.min(magnitude / (GYRO_FULL_TILT_DEG - GYRO_DEADZONE_DEG), 1);
+  return Math.round(Math.sign(degrees) * scaled * AXIS_MAX);
+}
+
+function wrapDegrees(degrees: number): number {
+  return ((((degrees + 180) % 360) + 360) % 360) - 180;
+}
+
 function sameState(a: GamepadState, b: GamepadState): boolean {
-  return (
-    a.buttons === b.buttons &&
-    a.leftX === b.leftX &&
-    a.leftY === b.leftY &&
-    a.rightX === b.rightX &&
-    a.rightY === b.rightY &&
-    a.leftTrigger === b.leftTrigger &&
-    a.rightTrigger === b.rightTrigger
-  );
+  return (Object.keys(a) as (keyof GamepadState)[]).every((key) => a[key] === b[key]);
 }
 
 // Nur auf Touch-Geraeten: dort fehlt sonst im Querformat der halbe Bildschirm an die

@@ -197,6 +197,18 @@
       <button
         class="gp-close"
         type="button"
+        role="switch"
+        [class.gp-close--active]="gyro()"
+        [attr.aria-checked]="gyro()"
+        [attr.aria-label]="i18n.t('gamepad.gyro')"
+        [attr.title]="i18n.t('gamepad.gyro')"
+        (click)="toggleGyro()"
+      >
+        ◎
+      </button>
+      <button
+        class="gp-close"
+        type="button"
         [attr.aria-label]="i18n.t('shell.editLayout')"
         [attr.title]="i18n.t('shell.editLayout')"
         (click)="startEditing()"
@@ -219,6 +231,8 @@
         {{ i18n.t('status.' + status()) }}
       } @else if (lastError(); as errorMessage) {
         {{ errorMessage }}
+      } @else if (gyroHint(); as hintKey) {
+        {{ i18n.t(hintKey) }}
       }
     </p>
 

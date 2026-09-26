@@ -57,12 +57,11 @@ dotnet run -- Https:Enabled=true               # additionally serve HTTPS on 544
 
 Automated Server tests live in `tests/YFRemote.Server.Tests` and cover pairing persistence,
 backup recovery, write rollbacks, PIN lockout, and throttled last-seen writes. The release
-workflow runs them before publishing. `test/websocket-test.html` remains a separate manual
-browser-based smoke test. During a `dotnet run` dev session the server serves this file itself at
-`http://<host>:<port>/test/websocket-test.html` (only when the `test/` directory exists next to
-the working directory, so never in an installed build); open it that way rather than via
-`file://`, since `/ws` rejects handshakes whose `Origin` header doesn't match the server's own
-origin. There is no lint step beyond `dotnet build` warnings.
+workflow runs them before publishing. `ServerEndpointsTests` drive `/ws` end to end over the
+real HTTP stack with `FakeInputService` swapped in for `IInputService`/`IMouseService` via
+`BuildApplication`'s `configureServices` hook, so they never touch the test machine's keyboard
+or mouse and run on both target frameworks. For a manual check against real input, use the
+Angular client itself. There is no lint step beyond `dotnet build` warnings.
 
 To exercise a full client+server integration locally:
 
@@ -135,6 +134,11 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `FileTransfer:TargetDirectory` (default `Documents\YFRemote`, 200 MB cap counted on the actual
   bytes read, not `Content-Length`) under a sanitized, collision-free name; the tray shows a
   "Datei empfangen" balloon via its `FileReceived` event.
+- `GET /files/{id}` → downloads the file the tray currently offers ("Datei an Geräte senden...",
+  `FileOfferService`: one offer at a time, 10-minute lifetime). The offer itself reaches devices as
+  an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
+  again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
+  "Datei gesendet" balloon.
 - `POST /clipboard/text` (JSON, `Clipboard:MaxTextLength` 200 000) and `POST /clipboard/image`
   (multipart, `Clipboard:MaxImageSizeBytes` 20 MB) → write the PC clipboard via
   `IClipboardService`.
@@ -175,8 +179,8 @@ connection's `RemoteActionSession`, which `YFRemoteWebSocketHandler` disposes wh
 one controller per connected device, so several phones are several players. `gamepadDisconnect`
 unplugs it early (the Client sends it when leaving the controller view). When a game sets
 vibration, ViGEm's `FeedbackReceived` (driver thread) is deduplicated in `WindowsGamepadService`
-and pushed to the device as `{"type":"rumble","largeMotor","smallMotor"}` - the only server message
-that is not a response. That is why `YFRemoteWebSocketHandler` serializes every send behind one
+and pushed to the device as `{"type":"rumble","largeMotor","smallMotor"}` - like `fileOffer`, a
+server message that is not a response. That is why `YFRemoteWebSocketHandler` serializes every send behind one
 `SemaphoreSlim`: a WebSocket allows only one `SendAsync` at a time. `WindowsGamepadService`
 uses the ViGEmBus driver via `Nefarius.ViGEm.Client` and caps at 4 controllers (XInput slots). The
 driver needs admin rights and is not bundled with the per-user Velopack install: without it

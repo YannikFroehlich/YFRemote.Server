@@ -284,6 +284,11 @@
   font-size: 1rem;
 }
 
+.gp-close--active {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
 .gp-icon {
   width: 58%;
   height: 58%;

@@ -17,6 +17,7 @@ import {
   GAMEPAD_LAYOUT_STORAGE_KEY,
   GAMEPAD_PRESET_IDS,
   GAMEPAD_PRESETS,
+  GRID_CELLS,
   GamepadControlId,
   GamepadControlPlacement,
   GamepadLabelKey,
@@ -219,13 +220,17 @@ export class GamepadComponent implements OnDestroy {
   protected selectPreset(preset: string): void {
     const id = GAMEPAD_PRESET_IDS.find((candidate) => candidate === preset);
     if (id) {
-      this.saveLayout(presetLayout(id));
+      this.saveLayout(presetLayout(id, this.layout().snapToGrid));
     }
   }
 
   protected confirmReset(): void {
-    this.saveLayout(presetLayout(this.layout().preset));
+    this.saveLayout(presetLayout(this.layout().preset, this.layout().snapToGrid));
     this.resetPending.set(false);
+  }
+
+  protected toggleSnapToGrid(): void {
+    this.saveLayout({ ...this.layout(), snapToGrid: !this.layout().snapToGrid });
   }
 
   protected resize(direction: 1 | -1): void {
@@ -257,11 +262,17 @@ export class GamepadComponent implements OnDestroy {
   protected onPointerMove(event: PointerEvent): void {
     const drag = this.drag;
     if (drag?.pointerId === event.pointerId) {
-      this.setPlacement(drag.id, {
-        ...drag.origin,
-        x: drag.origin.x + ((event.clientX - drag.startX) / Math.max(drag.area.width, 1)) * 100,
-        y: drag.origin.y + ((event.clientY - drag.startY) / Math.max(drag.area.height, 1)) * 100,
-      });
+      const width = Math.max(drag.area.width, 1);
+      const height = Math.max(drag.area.height, 1);
+      let x = (drag.origin.x / 100) * width + event.clientX - drag.startX;
+      let y = (drag.origin.y / 100) * height + event.clientY - drag.startY;
+      if (this.layout().snapToGrid) {
+        // Quadratische Zellen: Schrittweite in Pixeln aus der Hoehe, auch fuer x.
+        const cell = height / GRID_CELLS;
+        x = Math.round(x / cell) * cell;
+        y = Math.round(y / cell) * cell;
+      }
+      this.setPlacement(drag.id, { ...drag.origin, x: (x / width) * 100, y: (y / height) * 100 });
       return;
     }
 

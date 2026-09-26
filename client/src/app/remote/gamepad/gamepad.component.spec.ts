@@ -177,13 +177,36 @@ describe('GamepadComponent', () => {
     pointer(grab, 'pointermove', 1, 200, 150);
     pointer(grab, 'pointerup', 1, 200, 150);
 
+    // Raster ist Standard: 9 % + 100 px = 190 px, naechste 25-px-Zelle 200 px = 20 %.
     expect(pad.storedLayout()?.controls.leftTrigger).toEqual({
-      x: 19,
+      x: 20,
       y: 20,
       scale: 1,
       hidden: false,
     });
     expect(pad.sent()).toEqual([]);
+  });
+
+  it('snaps a dragged control to square grid cells and can switch that off', async () => {
+    const pad = await setupGamepad();
+    pad.button('✎').click();
+    pad.flushEffects();
+    const grab = pad.root.querySelectorAll<HTMLElement>('.gp-slot__grab')[0];
+    // 20 Zellen pro Hoehe: 25 px. Start 90/50 px + 13 px rastet auf 100/75 px ein.
+    grab.closest('.gamepad')!.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 500);
+
+    pointer(grab, 'pointerdown', 1, 0, 0);
+    pointer(grab, 'pointermove', 1, 13, 13);
+    pointer(grab, 'pointerup', 1, 13, 13);
+
+    expect(pad.storedLayout()?.controls.leftTrigger).toMatchObject({ x: 10, y: 15 });
+
+    pad.button('Raster').click();
+    pointer(grab, 'pointerdown', 2, 0, 0);
+    pointer(grab, 'pointermove', 2, 13, 13);
+
+    expect(pad.storedLayout()?.snapToGrid).toBe(false);
+    expect(pad.storedLayout()?.controls.leftTrigger).toMatchObject({ x: 11.3, y: 17.6 });
   });
 
   it('hides a control once editing is done', async () => {

@@ -4,6 +4,7 @@
   [attr.aria-label]="i18n.t('gamepad.ariaLabel')"
   [attr.data-preset]="layout().preset"
   [class.gamepad--editing]="editing()"
+  [class.gamepad--grid]="editing() && layout().snapToGrid"
 >
   @for (view of controlViews; track view.id) {
     @let placement = layout().controls[view.id];
@@ -175,6 +176,15 @@
           <option [value]="id" [selected]="id === layout().preset">{{ presets[id].name }}</option>
         }
       </select>
+      <button
+        class="snap-switch"
+        type="button"
+        role="switch"
+        [attr.aria-checked]="layout().snapToGrid"
+        (click)="toggleSnapToGrid()"
+      >
+        {{ i18n.t('shell.snapToGrid') }}
+      </button>
       @if (resetPending()) {
         <button class="secondary-button" type="button" (click)="confirmReset()">
           {{ i18n.t('shell.confirmResetLayout') }}

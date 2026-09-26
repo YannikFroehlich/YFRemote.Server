@@ -23,7 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Added
 
-- Controller-Modus: Vorlagen fuer Xbox, PlayStation (✕○□△, L1/L2, Share/Options/PS), Nintendo Switch (B/A/Y/X, ZL/ZR, −/+/Home) und Retro (SNES: nur Steuerkreuz, vier Tasten, L/R, Select/Start). Mit dem Stift oben in der Mitte laesst sich jede Taste, jeder Stick, das Steuerkreuz und der Tastenblock verschieben, vergroessern/verkleinern und ausblenden; das Layout wird pro Geraet gespeichert. Die Beschriftung aendert nur die Anzeige - die untere Aktionstaste loest immer Xbox-A aus, auch wenn dort wie bei Nintendo "B" steht.
+- Controller-Modus: Vorlagen fuer Xbox, PlayStation (✕○□△, L1/L2, Share/Options/PS), Nintendo Switch (B/A/Y/X, ZL/ZR, −/+/Home) und Retro (SNES: nur Steuerkreuz, vier Tasten, L/R, Select/Start). Mit dem Stift oben in der Mitte laesst sich jede Taste, jeder Stick, das Steuerkreuz und der Tastenblock verschieben, vergroessern/verkleinern und ausblenden. Mit "Raster" (Standard an) rasten die Elemente beim Ziehen auf einem sichtbaren Gitter aus quadratischen Zellen ein, damit sie sauber in einer Reihe liegen. Das Layout wird pro Geraet gespeichert. Die Beschriftung aendert nur die Anzeige - die untere Aktionstaste loest immer Xbox-A aus, auch wenn dort wie bei Nintendo "B" steht.
 
 ## [2.22.0] - 2026-09-26
 

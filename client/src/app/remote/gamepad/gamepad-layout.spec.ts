@@ -27,6 +27,7 @@ describe('parseStoredGamepadLayout', () => {
     expect(layout.controls.dpad).toEqual({ x: 100, y: 0, scale: 2, hidden: false });
     expect(layout.controls.face).toEqual(GAMEPAD_PRESETS.retro.controls.face);
     expect(layout.controls.leftStick.hidden).toBe(true);
+    expect(layout.snapToGrid).toBe(true);
   });
 
   it('round-trips a stored preset', () => {

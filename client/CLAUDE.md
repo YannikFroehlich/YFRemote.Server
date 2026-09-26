@@ -175,7 +175,10 @@ manual `ChangeDetectorRef` calls.
      control. Labels never change what is sent: the bottom face button is always XInput A, even
      where Nintendo prints "B" on it. In edit mode (✎) a transparent `.gp-slot__grab` over each
      control catches the pointer, so dragging sends no input; the selected control gets
-     smaller/larger/hide buttons. Switching the preset resets the layout to it.
+     smaller/larger/hide buttons. With `snapToGrid` (default on) the dragged center snaps to square
+     cells of `GRID_CELLS` per height; the grid lines are drawn with `cqh` on `.gamepad::before`,
+     since container query units on the container element itself resolve against its ancestor.
+     Switching the preset resets the layout to it but keeps the grid setting.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an

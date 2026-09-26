@@ -34,6 +34,8 @@ export type GamepadControls = Readonly<Record<GamepadControlId, GamepadControlPl
 export interface GamepadLayout {
   readonly preset: GamepadPresetId;
   readonly controls: GamepadControls;
+  /** Beim Ziehen rastet der Mittelpunkt auf quadratischen Zellen ein (GRID_CELLS pro Hoehe). */
+  readonly snapToGrid: boolean;
 }
 
 /** Beschriftbare Tasten; das Steuerkreuz hat Pfeile und braucht keine. */
@@ -60,6 +62,7 @@ export interface GamepadPreset {
 
 export const MIN_CONTROL_SCALE = 0.5;
 export const MAX_CONTROL_SCALE = 2;
+export const GRID_CELLS = 20;
 
 function place(x: number, y: number, scale = 1, hidden = false): GamepadControlPlacement {
   return { x, y, scale, hidden };
@@ -184,8 +187,8 @@ export const GAMEPAD_PRESETS: Readonly<Record<GamepadPresetId, GamepadPreset>> =
   },
 };
 
-export function presetLayout(preset: GamepadPresetId): GamepadLayout {
-  return { preset, controls: GAMEPAD_PRESETS[preset].controls };
+export function presetLayout(preset: GamepadPresetId, snapToGrid = true): GamepadLayout {
+  return { preset, controls: GAMEPAD_PRESETS[preset].controls, snapToGrid };
 }
 
 export const DEFAULT_GAMEPAD_LAYOUT = presetLayout('xbox');
@@ -209,7 +212,8 @@ export function parseStoredGamepadLayout(rawValue: string | null): GamepadLayout
     GAMEPAD_CONTROL_IDS.map((id) => [id, normalizePlacement(stored[id]) ?? preset.controls[id]]),
   ) as Record<GamepadControlId, GamepadControlPlacement>;
 
-  return { preset: parsed['preset'], controls };
+  const snapToGrid = typeof parsed['snapToGrid'] === 'boolean' ? parsed['snapToGrid'] : true;
+  return { preset: parsed['preset'], controls, snapToGrid };
 }
 
 export function clampPlacement(placement: GamepadControlPlacement): GamepadControlPlacement {

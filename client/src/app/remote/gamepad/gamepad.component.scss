@@ -23,6 +23,24 @@
     calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
 }
 
+/* Linien genau dort, wo beim Ziehen die Mittelpunkte einrasten (siehe GRID_CELLS). Im
+   Pseudo-Element, weil cqh sich nur auf einen Vorfahren als Container bezieht. */
+.gamepad {
+  container-type: size;
+}
+
+.gamepad--grid::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--line) var(--border-width), transparent var(--border-width)),
+    linear-gradient(to bottom, var(--line) var(--border-width), transparent var(--border-width));
+  background-position: -0.5px -0.5px;
+  background-size: 5cqh 5cqh;
+  content: '';
+  pointer-events: none;
+}
+
 .gp-slot {
   position: absolute;
   --gp-key: calc(var(--gp-key-base) * var(--gp-scale, 1));
@@ -77,6 +95,10 @@
   border-radius: var(--radius-md);
   background: var(--surface-dialog);
   box-shadow: var(--shadow-lg);
+}
+
+.gp-toolbar .snap-switch {
+  min-height: 34px;
 }
 
 .gp-slot__tools .secondary-button,

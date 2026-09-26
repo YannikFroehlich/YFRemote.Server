@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-09-26
+
 ### Added
 
 - Controller-Modus: Vorlagen fuer Xbox (farbige A/B/X/Y auf dunklen Tasten, Leuchtring als Xbox-Taste, runde View/Menu-Tasten, durchgehendes Steuerkreuz, geformte Trigger), PlayStation (farbige Symbole ✕○□△ als Grafik, vier getrennte spitze Richtungstasten, Share/Options/PS, L1/L2), Nintendo Switch (wie der Pro Controller: dunkle Tasten mit B/A/Y/X, Home-Taste mit Haus und Leuchtring, runde −/+, ZL/ZR) und Retro (wie ein SNES-Pad: rote/gelbe/blaue/gruene Aktionstasten, graues Steuerkreuz, schraege Select/Start, graue L/R; keine Sticks). Mit dem Stift oben in der Mitte laesst sich jede Taste, jeder Stick, das Steuerkreuz und der Tastenblock verschieben, vergroessern/verkleinern und ausblenden. Mit "Raster" (Standard an) rasten die Elemente beim Ziehen auf einem sichtbaren Gitter aus quadratischen Zellen ein, damit sie sauber in einer Reihe liegen. Das Layout wird pro Geraet gespeichert. Die Beschriftung aendert nur die Anzeige - die untere Aktionstaste loest immer Xbox-A aus, auch wenn dort wie bei Nintendo "B" steht.

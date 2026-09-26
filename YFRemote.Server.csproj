@@ -5,6 +5,9 @@
     <OutputType Condition="'$(TargetFramework)' == 'net10.0-windows'">WinExe</OutputType>
     <OutputType Condition="'$(TargetFramework)' != 'net10.0-windows'">Exe</OutputType>
     <UseWindowsForms Condition="'$(TargetFramework)' == 'net10.0-windows'">true</UseWindowsForms>
+    <!-- Dasselbe Icon wie Tray/Installer (branding/render_icons.py), damit auch die EXE selbst
+         im Explorer und in Verknuepfungen das Logo zeigt. -->
+    <ApplicationIcon Condition="'$(TargetFramework)' == 'net10.0-windows'">client\public\favicon.ico</ApplicationIcon>
     <!-- Restore/Build eines crosstargeted Projekts wertet immer ALLE TargetFrameworks aus,
          auch wenn ein einzelner dotnet Aufruf mit der framework Option nur eines davon baut
          - das betrifft schon die Restore Graph Ermittlung, bevor die Framework Auswahl greift.

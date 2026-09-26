@@ -1,16 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Benachrichtigungs-Icons muessen eine weisse Silhouette sein, das Logo taugt dafuer nicht:
-     Telefon mit Funkwellen als Ersatz. -->
+<!-- Benachrichtigungs-Icons muessen eine weisse Silhouette sein: das Logo-Motiv
+     (branding/render_icons.py) ohne Kachel, zentriert. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24"
+    android:viewportWidth="512"
+    android:viewportHeight="512"
     android:tint="#FFFFFFFF">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M15.5,1h-7A2.5,2.5 0 0,0 6,3.5v17A2.5,2.5 0 0,0 8.5,23h7a2.5,2.5 0 0,0 2.5,-2.5v-17A2.5,2.5 0 0,0 15.5,1zM12,21.5a1.2,1.2 0 1,1 0,-2.4 1.2,1.2 0 0,1 0,2.4zM16,18H8V4h8v14z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M4.2,6.2 2.8,4.8A9,9 0 0,0 2.8,17.2l1.4,-1.4a7,7 0 0,1 0,-9.6zM21.2,4.8 19.8,6.2a7,7 0 0,1 0,9.6l1.4,1.4a9,9 0 0,0 0,-12.4z" />
+    <group
+        android:pivotX="238.5"
+        android:pivotY="260"
+        android:scaleX="1.15"
+        android:scaleY="1.15"
+        android:translateX="17.5"
+        android:translateY="-4">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="22"
+            android:strokeLineJoin="round"
+            android:pathData="M226,214 L226,410 L276,362 L312,440 L352,422 L316,346 L386,346 Z" />
+        <path
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="32"
+            android:strokeLineCap="round"
+            android:pathData="M156,214 A70,70 0 0,1 226,144 M96,214 A130,130 0 0,1 226,84" />
+    </group>
 </vector>

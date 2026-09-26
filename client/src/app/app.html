@@ -1,3 +1,12 @@
+@if (updateReady()) {
+  <div class="update-banner" role="status">
+    <span>{{ i18n.t('app.updateReady') }}</span>
+    <button class="primary-button" type="button" (click)="reload()">
+      {{ i18n.t('app.reload') }}
+    </button>
+  </div>
+}
+
 @if (pairing.isPaired()) {
   <app-remote-control />
 } @else {

@@ -156,6 +156,18 @@ manual `ChangeDetectorRef` calls.
      `null` on a browser without support (Firefox), and the button simply does not render.
      Recognition restarts itself on `onend` for as long as dictation is still toggled on, so
      multiple sentences append instead of overwriting each other.
+   - `GamepadComponent` (`gamepad/`) — the controller view, shown only when `/health` reports
+     `platform: windows` and `gamepad: true` (`RemoteService.gamepadAvailable`). It renders as a
+     `position: fixed` layer at `<main>` level, not inside `.remote-panel`, whose
+     `backdrop-filter` would otherwise become the containing block. Pointer Events per control
+     (multi-touch: one `pointerId` per finger), combined into one `GamepadState` that is sent
+     as a `gamepad` action: buttons immediately (a short tap would otherwise be released before
+     the next frame), stick movement at most once per animation frame and every 16 ms, so a
+     120 Hz display stays under the server's 120 messages/s limit. `visibilitychange`/`blur`
+     release everything; leaving the view sends `gamepadDisconnect`. `RemoteService` takes the
+     server-pushed `rumble` message out of the response path (`gamepadRumble` signal, reset on
+     disconnect); the component maps it to `REMOTE_VIBRATE` as on/off only, since
+     `navigator.vibrate` has no intensity.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an
@@ -179,6 +191,12 @@ manual `ChangeDetectorRef` calls.
    can't force re-pairing. `PairingGateComponent` (`pairing-gate.component.ts`, structured like
    `SettingsDialogComponent`) renders in `app.html` instead of `RemoteControlComponent` while
    `pairing.isPaired()` is false.
+
+**Update hint.** The production build runs Angular's service worker (`provideServiceWorker` in
+`app.config.ts`), which keeps serving the cached version and only downloads a new one in the
+background. `App` listens to `SwUpdate.versionUpdates` (injected optionally - it only exists with
+the service worker) and on `VERSION_READY` shows the `.update-banner` with a reload button,
+which calls the `PAGE_RELOAD` token (`location.reload()`, swapped in tests).
 
 **Styling** is mostly centralized in [src/styles.scss](src/styles.scss) (global classes like
 `.remote-panel`, `.control-button`, `.status-pill` used directly in templates); only

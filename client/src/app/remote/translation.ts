@@ -14,6 +14,9 @@ export const TRANSLATIONS = {
   'common.reset': { de: 'Zurücksetzen', en: 'Reset' },
   'common.unknownError': { de: 'Unbekannter Fehler', en: 'Unknown error' },
 
+  'app.updateReady': { de: 'Neue Version verfügbar', en: 'New version available' },
+  'app.reload': { de: 'Neu laden', en: 'Reload' },
+
   'status.connected': { de: 'Verbunden', en: 'Connected' },
   'status.connecting': { de: 'Verbinde', en: 'Connecting' },
   'status.disconnected': { de: 'Getrennt', en: 'Disconnected' },
@@ -26,6 +29,7 @@ export const TRANSLATIONS = {
   'shell.disconnect': { de: 'Verbindung trennen', en: 'Disconnect' },
   'shell.viewTabsAriaLabel': { de: 'Ansicht', en: 'View' },
   'shell.tabKeyboard': { de: 'Tastatur', en: 'Keyboard' },
+  'shell.tabGamepad': { de: 'Controller', en: 'Controller' },
   'shell.done': { de: 'Fertig', en: 'Done' },
   'shell.add': { de: 'Hinzufügen', en: 'Add' },
   'shell.snapToGrid': { de: 'Raster', en: 'Snap to grid' },
@@ -35,6 +39,17 @@ export const TRANSLATIONS = {
     de: 'Wiederherstellen: {{label}}',
     en: 'Restore: {{label}}',
   },
+
+  'gamepad.ariaLabel': { de: 'Xbox-Controller', en: 'Xbox controller' },
+  'gamepad.close': { de: 'Controller schließen', en: 'Close controller' },
+  'gamepad.rotateHint': { de: 'Handy quer halten', en: 'Turn your phone sideways' },
+  'gamepad.leftStick': { de: 'Linker Stick', en: 'Left stick' },
+  'gamepad.rightStick': { de: 'Rechter Stick', en: 'Right stick' },
+  'gamepad.dpad': { de: 'Steuerkreuz', en: 'D-pad' },
+  'gamepad.dpadUp': { de: 'Hoch', en: 'Up' },
+  'gamepad.dpadDown': { de: 'Runter', en: 'Down' },
+  'gamepad.dpadLeft': { de: 'Links', en: 'Left' },
+  'gamepad.dpadRight': { de: 'Rechts', en: 'Right' },
 
   'buttonCanvas.ariaLabel': { de: 'Tastenfeld', en: 'Button grid' },
   'buttonCanvas.removeAriaLabel': { de: 'Entfernen: {{label}}', en: 'Remove: {{label}}' },

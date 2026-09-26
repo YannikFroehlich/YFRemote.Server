@@ -2,9 +2,9 @@
   <section class="remote-panel remote-panel--app" aria-label="YFRemote Remote">
     <header class="remote-header">
       <div class="brand-block brand-lockup">
-        <img class="brand-mark" src="/brand-mark.png" alt="YF" width="128" height="128" />
+        <img class="brand-mark" src="/brand-mark.png" alt="" width="128" height="128" />
         <div class="brand-copy">
-          <span class="brand-name">Remote</span>
+          <span class="brand-name">YFRemote</span>
           <span class="brand-subtitle">Control Center</span>
         </div>
       </div>
@@ -132,6 +132,23 @@
           </svg>
           <span>{{ i18n.t('shell.tabKeyboard') }}</span>
         </button>
+        @if (gamepadAvailable()) {
+          <button
+            class="view-tab"
+            [class.view-tab--active]="activeView() === 'gamepad'"
+            type="button"
+            role="tab"
+            [attr.aria-selected]="activeView() === 'gamepad'"
+            (click)="selectView('gamepad')"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M7 7h10a5 5 0 0 1 4.9 6l-.8 4a3 3 0 0 1-5.1 1.5L14.6 17H9.4L8 18.5A3 3 0 0 1 2.9 17l-.8-4A5 5 0 0 1 7 7Zm0 3v1.5H5.5v1H7V14h1v-1.5h1.5v-1H8V10H7Zm9 .5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"
+              />
+            </svg>
+            <span>{{ i18n.t('shell.tabGamepad') }}</span>
+          </button>
+        }
       </div>
     </div>
 
@@ -201,11 +218,15 @@
         }
       } @else if (activeView() === 'touchpad') {
         <app-touchpad />
-      } @else {
+      } @else if (activeView() === 'keyboard') {
         <app-keyboard-pad />
       }
     </section>
   </section>
+
+  @if (activeView() === 'gamepad') {
+    <app-gamepad (closed)="selectView('remote')" />
+  }
 
   @if (settingsOpen()) {
     <app-settings-dialog (closed)="closeSettings()" />

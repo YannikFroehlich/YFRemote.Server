@@ -1,5 +1,8 @@
+import { Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { SwUpdate, VersionEvent } from '@angular/service-worker';
+import { Subject } from 'rxjs';
+import { App, PAGE_RELOAD } from './app';
 import {
   REMOTE_AUTO_CONNECT,
   REMOTE_STORAGE,
@@ -128,13 +131,40 @@ describe('App', () => {
     TestBed.resetTestingModule();
   });
 
+  it('offers a reload once the service worker has a new version ready', async () => {
+    const versionUpdates = new Subject<VersionEvent>();
+    let reloads = 0;
+    const { fixture } = await setupApp({
+      providers: [
+        { provide: SwUpdate, useValue: { isEnabled: true, versionUpdates } },
+        { provide: PAGE_RELOAD, useValue: () => reloads++ },
+      ],
+    });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    versionUpdates.next({ type: 'VERSION_DETECTED', version: { hash: 'new' } });
+    fixture.detectChanges();
+    expect(compiled.querySelector('.update-banner')).toBeNull();
+
+    versionUpdates.next({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old' },
+      latestVersion: { hash: 'new' },
+    });
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Neu laden').click();
+
+    expect(compiled.querySelector('.update-banner')?.textContent).toContain('Neue Version verfügbar');
+    expect(reloads).toBe(1);
+  });
+
   it('creates the remote shell', async () => {
     const { fixture } = await setupApp();
     const app = fixture.componentInstance;
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(app).toBeTruthy();
-    expect(compiled.querySelector('.brand-name')?.textContent?.trim()).toBe('Remote');
+    expect(compiled.querySelector('.brand-name')?.textContent?.trim()).toBe('YFRemote');
     expect(compiled.textContent).toContain('localhost:5050');
   });
 
@@ -561,6 +591,7 @@ interface SetupAppOptions {
   readonly paired?: boolean;
   readonly pairingFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   readonly serverUrl?: string;
+  readonly providers?: readonly Provider[];
 }
 
 async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
@@ -589,6 +620,7 @@ async function setupApp(options: SetupAppOptions = {}): Promise<AppHarness> {
         },
       },
       { provide: PAIRING_FETCH, useValue: options.pairingFetch ?? alwaysValidPairingFetch },
+      ...(options.providers ?? []),
     ],
   }).compileComponents();
 

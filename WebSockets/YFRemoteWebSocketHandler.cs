@@ -33,6 +33,11 @@ public sealed class YFRemoteWebSocketHandler(
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
         var rateLimiter = new FixedWindowRateLimiter(timeProvider, MaxMessagesPerRateLimitWindow, RateLimitWindow);
+        // Vibrationsmeldungen kommen auf einem Treiber-Thread, parallel zu den Antworten - ein
+        // WebSocket erlaubt aber nur ein SendAsync gleichzeitig.
+        var sendLock = new SemaphoreSlim(1, 1);
+        using var session = new RemoteActionSession(
+            rumble => _ = SendRumbleAsync(socket, sendLock, rumble, client, cancellationToken));
 
         try
         {
@@ -56,10 +61,10 @@ public sealed class YFRemoteWebSocketHandler(
                 else
                 {
                     response = receivedMessage.ErrorResponse
-                        ?? HandleMessage(receivedMessage.Payload!.Value);
+                        ?? HandleMessage(receivedMessage.Payload!.Value, session);
                 }
 
-                await SendResponseAsync(socket, response, cancellationToken);
+                await SendJsonAsync(socket, sendLock, response, cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -76,7 +81,7 @@ public sealed class YFRemoteWebSocketHandler(
         }
     }
 
-    private RemoteActionResponse HandleMessage(ReadOnlyMemory<byte> message)
+    private RemoteActionResponse HandleMessage(ReadOnlyMemory<byte> message, RemoteActionSession session)
     {
         var json = Encoding.UTF8.GetString(message.Span);
         logger.LogDebug("Received WebSocket action payload: {Payload}", json);
@@ -84,7 +89,7 @@ public sealed class YFRemoteWebSocketHandler(
         try
         {
             var request = JsonSerializer.Deserialize<RemoteActionRequest>(json, JsonOptions);
-            var response = actionHandler.Handle(request);
+            var response = actionHandler.Handle(request, session);
 
             if (response.Success)
             {
@@ -181,19 +186,41 @@ public sealed class YFRemoteWebSocketHandler(
         }
     }
 
-    private static Task SendResponseAsync(
+    private async Task SendRumbleAsync(
         WebSocket socket,
-        RemoteActionResponse response,
+        SemaphoreSlim sendLock,
+        GamepadRumble rumble,
+        string client,
         CancellationToken cancellationToken)
     {
-        var json = JsonSerializer.Serialize(response, JsonOptions);
-        var bytes = Encoding.UTF8.GetBytes(json);
+        try
+        {
+            await SendJsonAsync(socket, sendLock, rumble, cancellationToken);
+        }
+        catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or ObjectDisposedException)
+        {
+            // Die Verbindung schliesst gerade - eine verlorene Vibration ist dann egal.
+            logger.LogDebug(ex, "Dropped rumble for closing WebSocket client {Client}.", client);
+        }
+    }
 
-        return socket.SendAsync(
-            bytes,
-            WebSocketMessageType.Text,
-            endOfMessage: true,
-            cancellationToken);
+    private static async Task SendJsonAsync<T>(
+        WebSocket socket,
+        SemaphoreSlim sendLock,
+        T message,
+        CancellationToken cancellationToken)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(message, JsonOptions);
+
+        await sendLock.WaitAsync(cancellationToken);
+        try
+        {
+            await socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
+        }
+        finally
+        {
+            sendLock.Release();
+        }
     }
 
     private sealed record ReceivedMessage(

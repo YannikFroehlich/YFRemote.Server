@@ -10,6 +10,7 @@ namespace YFRemote.Server.WebSockets;
 
 public sealed class YFRemoteWebSocketHandler(
     RemoteActionHandler actionHandler,
+    FileOfferService fileOfferService,
     TimeProvider timeProvider,
     ILogger<YFRemoteWebSocketHandler> logger)
 {
@@ -37,10 +38,19 @@ public sealed class YFRemoteWebSocketHandler(
         // WebSocket erlaubt aber nur ein SendAsync gleichzeitig.
         var sendLock = new SemaphoreSlim(1, 1);
         using var session = new RemoteActionSession(
-            rumble => _ = SendRumbleAsync(socket, sendLock, rumble, client, cancellationToken));
+            rumble => _ = SendPushAsync(socket, sendLock, rumble, client, cancellationToken));
+        void OnFileOffered(FileOfferMessage offer) =>
+            _ = SendPushAsync(socket, sendLock, offer, client, cancellationToken);
+        fileOfferService.Offered += OnFileOffered;
 
         try
         {
+            // Ein Geraet, das sich erst nach der Freigabe verbindet, soll die Datei trotzdem sehen.
+            if (fileOfferService.Current is { } currentOffer)
+            {
+                await SendJsonAsync(socket, sendLock, currentOffer, cancellationToken);
+            }
+
             while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
             {
                 var receivedMessage = await ReceiveMessageAsync(socket, cancellationToken);
@@ -77,6 +87,7 @@ public sealed class YFRemoteWebSocketHandler(
         }
         finally
         {
+            fileOfferService.Offered -= OnFileOffered;
             logger.LogInformation("WebSocket client disconnected: {Client}", client);
         }
     }
@@ -186,21 +197,22 @@ public sealed class YFRemoteWebSocketHandler(
         }
     }
 
-    private async Task SendRumbleAsync(
+    private async Task SendPushAsync<T>(
         WebSocket socket,
         SemaphoreSlim sendLock,
-        GamepadRumble rumble,
+        T message,
         string client,
         CancellationToken cancellationToken)
     {
         try
         {
-            await SendJsonAsync(socket, sendLock, rumble, cancellationToken);
+            await SendJsonAsync(socket, sendLock, message, cancellationToken);
         }
         catch (Exception ex) when (ex is WebSocketException or OperationCanceledException or ObjectDisposedException)
         {
-            // Die Verbindung schliesst gerade - eine verlorene Vibration ist dann egal.
-            logger.LogDebug(ex, "Dropped rumble for closing WebSocket client {Client}.", client);
+            // Die Verbindung schliesst gerade - eine verlorene Vibration oder ein Dateiangebot ist
+            // dann egal, das Angebot kommt beim naechsten Verbinden erneut.
+            logger.LogDebug(ex, "Dropped push message for closing WebSocket client {Client}.", client);
         }
     }
 

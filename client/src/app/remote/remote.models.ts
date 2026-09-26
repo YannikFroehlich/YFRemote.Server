@@ -53,6 +53,14 @@ export interface GamepadAction {
 }
 
 /** Vibrationswunsch eines Spiels; kommt ungefragt vom Server, nicht als Antwort. */
+/** Der PC bietet eine Datei an (Tray "Datei an Geräte senden..."), abrufbar ueber GET /files/{id}. */
+export interface FileOfferMessage {
+  readonly type: 'fileOffer';
+  readonly id: string;
+  readonly name: string;
+  readonly size: number;
+}
+
 export interface GamepadRumbleMessage {
   readonly type: 'rumble';
   readonly largeMotor: number;

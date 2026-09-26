@@ -746,6 +746,29 @@ h2 {
   font-weight: 600;
 }
 
+/* Ueber allem (auch Dialogen), aber klein am unteren Rand: ein Update soll auffallen, ohne die
+   gerade laufende Bedienung zu blockieren. */
+.update-banner {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  max-width: calc(100vw - 32px);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border: var(--border-width) solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-dialog);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 650;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
 .view-tabs {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);

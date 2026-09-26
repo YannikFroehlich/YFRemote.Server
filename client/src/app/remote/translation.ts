@@ -14,6 +14,9 @@ export const TRANSLATIONS = {
   'common.reset': { de: 'Zurücksetzen', en: 'Reset' },
   'common.unknownError': { de: 'Unbekannter Fehler', en: 'Unknown error' },
 
+  'app.updateReady': { de: 'Neue Version verfügbar', en: 'New version available' },
+  'app.reload': { de: 'Neu laden', en: 'Reload' },
+
   'status.connected': { de: 'Verbunden', en: 'Connected' },
   'status.connecting': { de: 'Verbinde', en: 'Connecting' },
   'status.disconnected': { de: 'Getrennt', en: 'Disconnected' },

@@ -180,6 +180,12 @@ manual `ChangeDetectorRef` calls.
    `SettingsDialogComponent`) renders in `app.html` instead of `RemoteControlComponent` while
    `pairing.isPaired()` is false.
 
+**Update hint.** The production build runs Angular's service worker (`provideServiceWorker` in
+`app.config.ts`), which keeps serving the cached version and only downloads a new one in the
+background. `App` listens to `SwUpdate.versionUpdates` (injected optionally - it only exists with
+the service worker) and on `VERSION_READY` shows the `.update-banner` with a reload button,
+which calls the `PAGE_RELOAD` token (`location.reload()`, swapped in tests).
+
 **Styling** is mostly centralized in [src/styles.scss](src/styles.scss) (global classes like
 `.remote-panel`, `.control-button`, `.status-pill` used directly in templates); only
 `touchpad.component.scss` and `button-canvas.component.scss` are component-scoped — the latter

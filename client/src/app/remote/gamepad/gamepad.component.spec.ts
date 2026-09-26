@@ -150,7 +150,7 @@ describe('GamepadComponent', () => {
 
   it('labels the face buttons by preset but sends them by position', async () => {
     const playstation = await setupGamepad({ layout: presetLayout('playstation') });
-    pointer(playstation.button('✕'), 'pointerdown', 1, 0, 0);
+    pointer(playstation.button('Cross'), 'pointerdown', 1, 0, 0);
     expect(playstation.sent().at(-1)).toEqual({
       type: 'gamepad',
       gamepad: { ...neutral, buttons: 0x1000 },
@@ -304,7 +304,8 @@ async function setupGamepad(options: { layout?: unknown } = {}) {
     flushEffects: () => fixture.detectChanges(),
     button: (label: string) =>
       Array.from(root.querySelectorAll<HTMLElement>('button')).find(
-        (button) => button.textContent?.trim() === label,
+        (button) =>
+          button.textContent?.trim() === label || button.getAttribute('aria-label') === label,
       )!,
     nextFrame: (now: number) => {
       const pending = frames.splice(0);

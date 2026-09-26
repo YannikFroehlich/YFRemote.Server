@@ -14,6 +14,7 @@ import { TranslationService } from '../translation.service';
 import {
   clampPlacement,
   GAMEPAD_CONTROL_IDS,
+  GAMEPAD_ICON_PATHS,
   GAMEPAD_LAYOUT_STORAGE_KEY,
   GAMEPAD_PRESET_IDS,
   GAMEPAD_PRESETS,
@@ -91,6 +92,14 @@ const CONTROL_VIEWS: readonly ControlView[] = GAMEPAD_CONTROL_IDS.map((id): Cont
 
 const SCALE_STEP = 0.1;
 
+// Anordnung wie auf dem Pad: Y oben, X links, B rechts, A unten.
+const FACE_BUTTONS = [
+  { button: 'y', area: 'up' },
+  { button: 'x', area: 'left' },
+  { button: 'b', area: 'right' },
+  { button: 'a', area: 'down' },
+] as const;
+
 type HeldControl =
   | { readonly kind: 'button'; readonly button: GamepadButton }
   | { readonly kind: 'trigger'; readonly side: Side }
@@ -151,6 +160,7 @@ export class GamepadComponent implements OnDestroy {
   protected readonly presetIds = GAMEPAD_PRESET_IDS;
   protected readonly presets = GAMEPAD_PRESETS;
   protected readonly controlViews = CONTROL_VIEWS;
+  protected readonly faceButtons = FACE_BUTTONS;
   protected readonly layout = signal<GamepadLayout>(
     parseStoredGamepadLayout(this.storage?.getItem(GAMEPAD_LAYOUT_STORAGE_KEY) ?? null),
   );
@@ -204,6 +214,11 @@ export class GamepadComponent implements OnDestroy {
 
   protected label(key: GamepadLabelKey): string {
     return this.labels()[key];
+  }
+
+  protected iconPath(key: GamepadLabelKey): string | null {
+    const icon = GAMEPAD_PRESETS[this.layout().preset].icons?.[key];
+    return icon ? GAMEPAD_ICON_PATHS[icon] : null;
   }
 
   protected startEditing(): void {

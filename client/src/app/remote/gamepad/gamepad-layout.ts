@@ -54,9 +54,23 @@ export type GamepadLabelKey =
   | 'leftThumb'
   | 'rightThumb';
 
+export type GamepadIcon = 'cross' | 'circle' | 'square' | 'triangle' | 'view' | 'menu';
+
+/** Strich-Pfade (viewBox 24x24): Symbole statt Schriftzeichen, weil z. B. □ je nach Schrift winzig ist. */
+export const GAMEPAD_ICON_PATHS: Readonly<Record<GamepadIcon, string>> = {
+  cross: 'M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5',
+  circle: 'M18.5 12a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z',
+  square: 'M6.5 6.5h11v11h-11Z',
+  triangle: 'M12 5.5 18.5 17h-13Z',
+  view: 'M9 8.5V6h10v8h-2.5M5 9h11v9H5Z',
+  menu: 'M5 7.5h14M5 12h14M5 16.5h14',
+};
+
 export interface GamepadPreset {
   readonly name: string;
+  /** Anzeige ohne Symbol, sonst Name fuer Screenreader. */
   readonly labels: Readonly<Record<GamepadLabelKey, string>>;
+  readonly icons?: Readonly<Partial<Record<GamepadLabelKey, GamepadIcon>>>;
   readonly controls: GamepadControls;
 }
 
@@ -101,21 +115,22 @@ export const GAMEPAD_PRESETS: Readonly<Record<GamepadPresetId, GamepadPreset>> =
       rightShoulder: 'RB',
       leftTrigger: 'LT',
       rightTrigger: 'RT',
-      back: 'Back',
-      start: 'Start',
+      back: 'View',
+      start: 'Menu',
       guide: 'Xbox',
       leftThumb: 'LS',
       rightThumb: 'RS',
     },
+    icons: { back: 'view', start: 'menu' },
     controls: OFFSET_CONTROLS,
   },
   playstation: {
     name: 'PlayStation',
     labels: {
-      a: '✕',
-      b: '○',
-      x: '□',
-      y: '△',
+      a: 'Cross',
+      b: 'Circle',
+      x: 'Square',
+      y: 'Triangle',
       leftShoulder: 'L1',
       rightShoulder: 'R1',
       leftTrigger: 'L2',
@@ -126,6 +141,7 @@ export const GAMEPAD_PRESETS: Readonly<Record<GamepadPresetId, GamepadPreset>> =
       leftThumb: 'L3',
       rightThumb: 'R3',
     },
+    icons: { a: 'cross', b: 'circle', x: 'square', y: 'triangle' },
     controls: {
       ...OFFSET_CONTROLS,
       dpad: place(15, 42),

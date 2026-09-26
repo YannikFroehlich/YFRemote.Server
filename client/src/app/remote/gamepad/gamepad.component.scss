@@ -215,11 +215,6 @@
   font-size: 1.05rem;
 }
 
-/* Die PlayStation-Symbole wirken in Textgroesse zu klein neben Buchstaben. */
-[data-preset='playstation'] .gp-key--face {
-  font-size: 1.3rem;
-}
-
 .gp-cross {
   display: grid;
   grid-template-areas:
@@ -287,4 +282,198 @@
   color: var(--muted-strong);
   font: inherit;
   font-size: 1rem;
+}
+
+.gp-icon {
+  width: 58%;
+  height: 58%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+/* Xbox und PlayStation: Aktions-, Menue- und Leuchttaste dunkel glaenzend wie am echten Pad,
+   unabhaengig vom Theme. Gedrueckt wird aufgehellt statt eingefaerbt, damit die Tastenfarbe bleibt. */
+[data-preset='xbox'],
+[data-preset='playstation'] {
+  .gp-key--face,
+  .gp-key--guide,
+  [data-button='back'],
+  [data-button='start'] {
+    border-color: var(--pad-button-line);
+    background: radial-gradient(
+      circle at 35% 28%,
+      var(--pad-button-top),
+      var(--pad-button-bottom) 72%
+    );
+    color: var(--pad-button-text);
+  }
+
+  .gp-key--face.gp-key--pressed,
+  .gp-key--guide.gp-key--pressed,
+  [data-button='back'].gp-key--pressed,
+  [data-button='start'].gp-key--pressed {
+    filter: brightness(1.5);
+  }
+
+  .gp-stick__knob {
+    border-color: var(--pad-button-line);
+    background: radial-gradient(circle, var(--pad-stick-cap) 0 56%, var(--pad-stick-rim) 58% 100%);
+    box-shadow:
+      inset 0 -3px 6px rgba(var(--pad-glow-rgb), 0.08),
+      0 6px 18px rgba(var(--shadow-rgb), calc(0.45 * var(--shadow-strength)));
+  }
+
+  .gp-key--face {
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+}
+
+[data-preset='xbox'] {
+  .gp-key--face[data-button='a'] {
+    color: var(--xbox-a);
+  }
+
+  .gp-key--face[data-button='b'] {
+    color: var(--xbox-b);
+  }
+
+  .gp-key--face[data-button='x'] {
+    color: var(--xbox-x);
+  }
+
+  .gp-key--face[data-button='y'] {
+    color: var(--xbox-y);
+  }
+
+  /* Leuchtring statt Logo. */
+  .gp-key--guide {
+    width: calc(var(--gp-key) * 1.1);
+    height: calc(var(--gp-key) * 1.1);
+    font-size: 0;
+    box-shadow:
+      inset 0 0 0 calc(var(--gp-key) * 0.16) var(--pad-button-bottom),
+      inset 0 0 0 calc(var(--gp-key) * 0.22) rgba(var(--pad-glow-rgb), 0.85),
+      0 0 18px rgba(var(--pad-glow-rgb), 0.3);
+  }
+
+  [data-button='back'],
+  [data-button='start'] {
+    width: calc(var(--gp-key) * 0.62);
+    min-width: 0;
+    height: calc(var(--gp-key) * 0.62);
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .gp-key--shoulder:not(.gp-key--trigger) {
+    border-radius: calc(var(--gp-key) * 0.5) calc(var(--gp-key) * 0.5) 8px 8px;
+  }
+
+  .gp-key--trigger {
+    height: calc(var(--gp-key) * 1.05);
+    border-radius: 45% 45% 14px 14px / 70% 70% 14px 14px;
+  }
+
+  /* Durchgehendes Kreuz statt vier einzelner Tasten. */
+  .gp-cross:not(.gp-cross--face) {
+    gap: 0;
+    filter: drop-shadow(0 4px 10px rgba(var(--shadow-rgb), calc(0.3 * var(--shadow-strength))));
+
+    &::before {
+      grid-area: 2 / 2;
+      background: var(--surface-raised);
+      content: '';
+    }
+
+    .gp-key {
+      border: 0;
+      box-shadow: none;
+    }
+
+    .gp-cross__up {
+      border-radius: 10px 10px 0 0;
+    }
+
+    .gp-cross__down {
+      border-radius: 0 0 10px 10px;
+    }
+
+    .gp-cross__left {
+      border-radius: 10px 0 0 10px;
+    }
+
+    .gp-cross__right {
+      border-radius: 0 10px 10px 0;
+    }
+  }
+}
+
+[data-preset='playstation'] {
+  .gp-key--face[data-button='a'] {
+    color: var(--ps-cross);
+  }
+
+  .gp-key--face[data-button='b'] {
+    color: var(--ps-circle);
+  }
+
+  .gp-key--face[data-button='x'] {
+    color: var(--ps-square);
+  }
+
+  .gp-key--face[data-button='y'] {
+    color: var(--ps-triangle);
+  }
+
+  .gp-key--guide {
+    font-size: 0.8rem;
+  }
+
+  [data-button='back'],
+  [data-button='start'] {
+    height: calc(var(--gp-key) * 0.5);
+    border-radius: var(--radius-pill);
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .gp-key--shoulder:not(.gp-key--trigger) {
+    height: calc(var(--gp-key) * 0.7);
+    border-radius: 10px;
+  }
+
+  .gp-key--trigger {
+    height: calc(var(--gp-key) * 1.05);
+    border-radius: 40% 40% 12px 12px / 55% 55% 12px 12px;
+  }
+
+  /* Vier getrennte, zur Mitte spitze Richtungstasten. */
+  .gp-cross:not(.gp-cross--face) {
+    gap: 5px;
+
+    .gp-key {
+      border: 0;
+    }
+
+    .gp-cross__up {
+      clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
+    }
+
+    .gp-cross__down {
+      clip-path: polygon(50% 0, 100% 38%, 100% 100%, 0 100%, 0 38%);
+    }
+
+    .gp-cross__left {
+      clip-path: polygon(0 0, 62% 0, 100% 50%, 62% 100%, 0 100%);
+    }
+
+    .gp-cross__right {
+      clip-path: polygon(38% 0, 100% 0, 100% 100%, 38% 100%, 0 50%);
+    }
+  }
 }

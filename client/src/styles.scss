@@ -80,6 +80,22 @@
   --surface-bar: #0d1519;
   --danger-surface: #271b1a;
   --danger-surface-hover: #36201d;
+  /* Controller-Vorlagen: Tasten wie am echten Pad, deshalb ohne Hell-Variante. */
+  --pad-button-top: #3c4249;
+  --pad-button-bottom: #111316;
+  --pad-button-line: #050607;
+  --pad-button-text: #e9edf0;
+  --pad-stick-cap: #2b2f34;
+  --pad-stick-rim: #0d0f11;
+  --pad-glow-rgb: 255, 255, 255;
+  --xbox-a: #5fcc3c;
+  --xbox-b: #f24a40;
+  --xbox-x: #3f90f2;
+  --xbox-y: #f7c61b;
+  --ps-cross: #86aaff;
+  --ps-circle: #ff6170;
+  --ps-square: #f283c9;
+  --ps-triangle: #41dbb9;
 }
 
 /* Hell: explizit per data-mode="light" oder, ohne Auswahl ("System"), ueber die Einstellung

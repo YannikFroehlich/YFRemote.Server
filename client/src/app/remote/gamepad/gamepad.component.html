@@ -32,7 +32,7 @@
           }
           @case ('trigger') {
             <button
-              class="gp-key gp-key--shoulder"
+              class="gp-key gp-key--shoulder gp-key--trigger"
               type="button"
               [class.gp-key--pressed]="isTriggerPressed(view.side)"
               (pointerdown)="pressTrigger($event, view.side)"
@@ -82,42 +82,25 @@
           }
           @case ('face') {
             <div class="gp-cross gp-cross--face">
-              <button
-                class="gp-key gp-key--face gp-cross__up"
-                type="button"
-                data-button="y"
-                [class.gp-key--pressed]="isPressed('y')"
-                (pointerdown)="pressButton($event, 'y')"
-              >
-                {{ label('y') }}
-              </button>
-              <button
-                class="gp-key gp-key--face gp-cross__left"
-                type="button"
-                data-button="x"
-                [class.gp-key--pressed]="isPressed('x')"
-                (pointerdown)="pressButton($event, 'x')"
-              >
-                {{ label('x') }}
-              </button>
-              <button
-                class="gp-key gp-key--face gp-cross__right"
-                type="button"
-                data-button="b"
-                [class.gp-key--pressed]="isPressed('b')"
-                (pointerdown)="pressButton($event, 'b')"
-              >
-                {{ label('b') }}
-              </button>
-              <button
-                class="gp-key gp-key--face gp-cross__down"
-                type="button"
-                data-button="a"
-                [class.gp-key--pressed]="isPressed('a')"
-                (pointerdown)="pressButton($event, 'a')"
-              >
-                {{ label('a') }}
-              </button>
+              @for (face of faceButtons; track face.button) {
+                <button
+                  class="gp-key gp-key--face"
+                  type="button"
+                  [class]="'gp-cross__' + face.area"
+                  [attr.data-button]="face.button"
+                  [attr.aria-label]="iconPath(face.button) ? label(face.button) : null"
+                  [class.gp-key--pressed]="isPressed(face.button)"
+                  (pointerdown)="pressButton($event, face.button)"
+                >
+                  @if (iconPath(face.button); as path) {
+                    <svg class="gp-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path [attr.d]="path" />
+                    </svg>
+                  } @else {
+                    {{ label(face.button) }}
+                  }
+                </button>
+              }
             </div>
           }
           @case ('button') {
@@ -125,10 +108,18 @@
               class="gp-key"
               type="button"
               [class]="view.keyClass"
+              [attr.data-button]="view.button"
+              [attr.aria-label]="iconPath(view.button) ? label(view.button) : null"
               [class.gp-key--pressed]="isPressed(view.button)"
               (pointerdown)="pressButton($event, view.button)"
             >
-              {{ label(view.button) }}
+              @if (iconPath(view.button); as path) {
+                <svg class="gp-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path [attr.d]="path" />
+                </svg>
+              } @else {
+                {{ label(view.button) }}
+              }
             </button>
           }
         }

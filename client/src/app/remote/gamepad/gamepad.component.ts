@@ -602,15 +602,7 @@ function wrapDegrees(degrees: number): number {
 }
 
 function sameState(a: GamepadState, b: GamepadState): boolean {
-  return (
-    a.buttons === b.buttons &&
-    a.leftX === b.leftX &&
-    a.leftY === b.leftY &&
-    a.rightX === b.rightX &&
-    a.rightY === b.rightY &&
-    a.leftTrigger === b.leftTrigger &&
-    a.rightTrigger === b.rightTrigger
-  );
+  return (Object.keys(a) as (keyof GamepadState)[]).every((key) => a[key] === b[key]);
 }
 
 // Nur auf Touch-Geraeten: dort fehlt sonst im Querformat der halbe Bildschirm an die

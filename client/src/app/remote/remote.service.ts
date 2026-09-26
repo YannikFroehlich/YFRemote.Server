@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   ConnectionStatus,
+  FileOfferMessage,
   GamepadRumbleMessage,
   MacroStep,
   RemoteAction,
@@ -129,6 +130,10 @@ export class RemoteService implements OnDestroy {
   private readonly serverPlatformSignal = signal<ServerPlatform | null>(null);
   private readonly gamepadAvailableSignal = signal(false);
   private readonly gamepadRumbleSignal = signal(0);
+  private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
+  // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
+  // wieder auftauchen.
+  private dismissedFileOfferId: string | null = null;
 
   private socket: RemoteSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -152,6 +157,8 @@ export class RemoteService implements OnDestroy {
   readonly gamepadAvailable = this.gamepadAvailableSignal.asReadonly();
   /** Staerkerer der beiden Vibrationsmotoren (0-255), wie ihn das Spiel zuletzt gesetzt hat. */
   readonly gamepadRumble = this.gamepadRumbleSignal.asReadonly();
+  /** Datei, die der PC gerade anbietet; `null`, solange keine angeboten ist. */
+  readonly fileOffer = this.fileOfferSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -266,6 +273,11 @@ export class RemoteService implements OnDestroy {
   saveLiveTyping(enabled: boolean): void {
     this.liveTypingSignal.set(enabled);
     this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
+  }
+
+  dismissFileOffer(): void {
+    this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
+    this.fileOfferSignal.set(null);
   }
 
   removeServerProfile(config: ServerConfig): void {
@@ -411,6 +423,7 @@ export class RemoteService implements OnDestroy {
 
       this.socket = null;
       this.gamepadRumbleSignal.set(0);
+      this.fileOfferSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -435,6 +448,13 @@ export class RemoteService implements OnDestroy {
 
     if (isRumbleMessage(message)) {
       this.gamepadRumbleSignal.set(Math.max(message.largeMotor, message.smallMotor));
+      return;
+    }
+
+    if (isFileOfferMessage(message)) {
+      if (message.id !== this.dismissedFileOfferId) {
+        this.fileOfferSignal.set(message);
+      }
       return;
     }
 
@@ -527,6 +547,8 @@ export class RemoteService implements OnDestroy {
   private closeActiveSocket(): void {
     this.failPendingActions();
     this.gamepadRumbleSignal.set(0);
+    // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
+    this.fileOfferSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -654,6 +676,16 @@ function isRumbleMessage(value: unknown): value is GamepadRumbleMessage {
     message?.type === 'rumble' &&
     typeof message.largeMotor === 'number' &&
     typeof message.smallMotor === 'number'
+  );
+}
+
+function isFileOfferMessage(value: unknown): value is FileOfferMessage {
+  const message = value as Partial<FileOfferMessage> | null;
+  return (
+    message?.type === 'fileOffer' &&
+    typeof message.id === 'string' &&
+    typeof message.name === 'string' &&
+    typeof message.size === 'number'
   );
 }
 

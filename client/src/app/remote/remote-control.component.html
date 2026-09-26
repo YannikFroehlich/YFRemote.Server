@@ -152,6 +152,32 @@
       </div>
     </div>
 
+    <!-- Im Controller-Modus laege der Hinweis ueber den Tasten. -->
+    @if (fileOffer(); as offer) {
+      @if (activeView() !== 'gamepad') {
+        <div class="update-banner file-offer" role="status">
+          <span class="file-offer__label">
+            {{
+              fileOfferError()
+                ? i18n.t('fileOffer.error')
+                : i18n.t('fileOffer.label', { name: offer.name, size: formatFileSize(offer.size) })
+            }}
+          </span>
+          <button
+            class="primary-button"
+            type="button"
+            [disabled]="fileDownloading()"
+            (click)="downloadFileOffer(offer)"
+          >
+            {{ i18n.t('fileOffer.download') }}
+          </button>
+          <button class="secondary-button" type="button" (click)="dismissFileOffer()">
+            {{ i18n.t('fileOffer.dismiss') }}
+          </button>
+        </div>
+      }
+    }
+
     @if (lastError(); as errorMessage) {
       <p class="toast" role="status" aria-live="polite">{{ errorMessage }}</p>
     }

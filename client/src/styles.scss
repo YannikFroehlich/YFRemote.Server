@@ -773,6 +773,12 @@ h2 {
 
 /* Ueber allem (auch Dialogen), aber klein am unteren Rand: ein Update soll auffallen, ohne die
    gerade laufende Bedienung zu blockieren. */
+.file-offer__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .update-banner {
   position: fixed;
   bottom: calc(16px + env(safe-area-inset-bottom));
@@ -881,16 +887,6 @@ h2 {
     background 160ms ease,
     color 160ms ease,
     box-shadow 160ms ease;
-}
-
-.control-button--primary {
-  border-color: rgba(var(--accent-rgb), 0.14);
-  background: linear-gradient(
-    145deg,
-    rgba(var(--accent-rgb), calc(0.1 * var(--decor-strength))),
-    var(--surface-raised) 60%
-  );
-  color: var(--accent-text);
 }
 
 .control-button span {

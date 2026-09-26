@@ -2,10 +2,11 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
+import { FileTransferService } from './file-transfer.service';
 import { GamepadComponent } from './gamepad/gamepad.component';
 import { KeyboardPadComponent } from './keyboard-pad.component';
 import { REMOTE_ICON_PATHS } from './remote-icons';
-import { ConnectionStatus } from './remote.models';
+import { ConnectionStatus, FileOfferMessage } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SettingsDialogComponent } from './settings-dialog.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
@@ -39,6 +40,10 @@ export class RemoteControlComponent {
   protected readonly config = this.remote.config;
   protected readonly status = this.remote.status;
   protected readonly lastError = this.remote.lastError;
+  private readonly fileTransfer = inject(FileTransferService);
+  protected readonly fileOffer = this.remote.fileOffer;
+  protected readonly fileDownloading = this.fileTransfer.downloading;
+  protected readonly fileOfferError = signal(false);
   // Virtuelle Xbox-Controller gibt es nur auf einem Windows-Server mit ViGEmBus-Treiber.
   protected readonly gamepadAvailable = computed(
     () => this.remote.serverPlatform() === 'windows' && this.remote.gamepadAvailable(),
@@ -50,6 +55,25 @@ export class RemoteControlComponent {
   protected readonly editorOpen = signal(false);
   protected readonly editorTargetId = signal<string | null>(null);
   protected readonly resetPending = signal(false);
+
+  protected async downloadFileOffer(offer: FileOfferMessage): Promise<void> {
+    const downloaded = await this.fileTransfer.downloadFile(offer);
+    this.fileOfferError.set(!downloaded);
+    if (downloaded) {
+      this.remote.dismissFileOffer();
+    }
+  }
+
+  protected dismissFileOffer(): void {
+    this.fileOfferError.set(false);
+    this.remote.dismissFileOffer();
+  }
+
+  protected formatFileSize(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+      : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   protected openSettings(): void {
     this.editMode.set(false);

@@ -889,16 +889,6 @@ h2 {
     box-shadow 160ms ease;
 }
 
-.control-button--primary {
-  border-color: rgba(var(--accent-rgb), 0.14);
-  background: linear-gradient(
-    145deg,
-    rgba(var(--accent-rgb), calc(0.1 * var(--decor-strength))),
-    var(--surface-raised) 60%
-  );
-  color: var(--accent-text);
-}
-
 .control-button span {
   max-width: 100%;
   overflow: hidden;

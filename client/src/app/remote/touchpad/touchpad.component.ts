@@ -44,7 +44,8 @@ function createBrowserSpeechRecognizer(): SpeechRecognizer | null {
     SpeechRecognition?: new () => SpeechRecognizer;
     webkitSpeechRecognition?: new () => SpeechRecognizer;
   };
-  const RecognizerCtor = globalWithSpeech.SpeechRecognition ?? globalWithSpeech.webkitSpeechRecognition;
+  const RecognizerCtor =
+    globalWithSpeech.SpeechRecognition ?? globalWithSpeech.webkitSpeechRecognition;
 
   return RecognizerCtor ? new RecognizerCtor() : null;
 }
@@ -82,9 +83,7 @@ const ACCEL_THRESHOLD_PX_PER_MS = 0.25;
 const ACCEL_GAIN = 1.5;
 const ACCEL_MAX_FACTOR = 3;
 const MIN_EVENT_INTERVAL_MS = 8;
-const DICTATION_ERROR_VISIBLE_MS = 4200;
-const FILE_STATUS_VISIBLE_MS = 4200;
-const CLIPBOARD_STATUS_VISIBLE_MS = 4200;
+const STATUS_VISIBLE_MS = 4200;
 // Genug Zeit, um nach dem Fokussieren zum System-"Einfügen" zu greifen; ohne Paste blendet sich
 // das Feld danach wieder aus, statt dauerhaft im Weg zu stehen.
 const CLIPBOARD_PASTE_TARGET_TIMEOUT_MS = 15000;
@@ -111,16 +110,18 @@ export class TouchpadComponent implements OnDestroy {
   // (das passiert erst bei start()), daher ist ein Wegwerf-Objekt zum Testen unbedenklich.
   protected readonly dictationSupported = this.createRecognizer() !== null;
   protected readonly dictating = signal(false);
-  protected readonly dictationError = signal<string | null>(null);
   protected readonly fileSending = this.fileTransfer.sending;
-  protected readonly fileStatus = signal<{ key: string; params?: Record<string, string> } | null>(
-    null,
-  );
+  // Datei-, Zwischenablage- und Diktiermeldungen teilen sich eine Zeile - die neueste gewinnt.
+  protected readonly statusMessage = signal<{
+    key: string;
+    params?: Record<string, string>;
+  } | null>(null);
   protected readonly clipboardPasteTargetVisible = signal(false);
-  protected readonly clipboardStatus = signal<string | null>(null);
   // Nur der Windows-Server kann die Zwischenablage lesen: Linux antwortet 501, der
   // Android-Server kennt den Endpunkt gar nicht.
-  protected readonly pcClipboardReadable = computed(() => this.remote.serverPlatform() === 'windows');
+  protected readonly pcClipboardReadable = computed(
+    () => this.remote.serverPlatform() === 'windows',
+  );
   // Nur wenn beide Richtungen moeglich sind, fragt der Zwischenablage-Knopf nach der Richtung -
   // sonst fuehrt er wie bisher direkt zum Einfuege-Feld, ohne zusaetzlichen Tipp.
   protected readonly clipboardMenuOpen = signal(false);
@@ -130,9 +131,7 @@ export class TouchpadComponent implements OnDestroy {
 
   private recognizer: SpeechRecognizer | null = null;
   private dictationBaseText = '';
-  private dictationErrorTimer: ReturnType<typeof setTimeout> | null = null;
-  private fileStatusTimer: ReturnType<typeof setTimeout> | null = null;
-  private clipboardStatusTimer: ReturnType<typeof setTimeout> | null = null;
+  private statusTimer: ReturnType<typeof setTimeout> | null = null;
   private clipboardPasteTargetTimer: ReturnType<typeof setTimeout> | null = null;
 
   private pointerMode: PointerMode = 'idle';
@@ -334,19 +333,19 @@ export class TouchpadComponent implements OnDestroy {
     const result = await this.fileTransfer.sendFile(file);
 
     if (result.success) {
-      this.showFileStatus('touchpad.file.success', { fileName: result.fileName ?? file.name });
+      this.showStatus('touchpad.file.success', { fileName: result.fileName ?? file.name });
     } else {
-      this.showFileStatus('touchpad.file.error');
+      this.showStatus('touchpad.file.error');
     }
   }
 
-  private showFileStatus(key: string, params?: Record<string, string>): void {
-    if (this.fileStatusTimer !== null) {
-      clearTimeout(this.fileStatusTimer);
+  private showStatus(key: string, params?: Record<string, string>): void {
+    if (this.statusTimer !== null) {
+      clearTimeout(this.statusTimer);
     }
 
-    this.fileStatus.set({ key, params });
-    this.fileStatusTimer = setTimeout(() => this.fileStatus.set(null), FILE_STATUS_VISIBLE_MS);
+    this.statusMessage.set({ key, params });
+    this.statusTimer = setTimeout(() => this.statusMessage.set(null), STATUS_VISIBLE_MS);
   }
 
   /** Zeigt das Einfüge-Feld (der eigentliche Fokus kommt vom nativen autofocus-Attribut im
@@ -418,10 +417,10 @@ export class TouchpadComponent implements OnDestroy {
     this.pcClipboardLoading.set(false);
 
     if (!result.success) {
-      this.showClipboardStatus('touchpad.pcClipboard.error');
+      this.showStatus('touchpad.pcClipboard.error');
     } else if (!result.text) {
       this.pcClipboardText.set(null);
-      this.showClipboardStatus('touchpad.pcClipboard.empty');
+      this.showStatus('touchpad.pcClipboard.empty');
     } else {
       this.pcClipboardText.set(result.text);
     }
@@ -431,9 +430,9 @@ export class TouchpadComponent implements OnDestroy {
     try {
       await this.writeDeviceClipboard!(text);
       this.pcClipboardText.set(null);
-      this.showClipboardStatus('touchpad.pcClipboard.copied');
+      this.showStatus('touchpad.pcClipboard.copied');
     } catch {
-      this.showClipboardStatus('touchpad.pcClipboard.copyError');
+      this.showStatus('touchpad.pcClipboard.copyError');
     }
   }
 
@@ -442,26 +441,14 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private showSendStatus(success: boolean): void {
-    this.showClipboardStatus(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error');
-  }
-
-  private showClipboardStatus(key: string): void {
-    if (this.clipboardStatusTimer !== null) {
-      clearTimeout(this.clipboardStatusTimer);
-    }
-
-    this.clipboardStatus.set(key);
-    this.clipboardStatusTimer = setTimeout(
-      () => this.clipboardStatus.set(null),
-      CLIPBOARD_STATUS_VISIBLE_MS,
-    );
+    this.showStatus(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error');
   }
 
   private startDictation(input: HTMLInputElement): void {
     // Ueber http://<LAN-IP> verweigert der Browser das Mikrofon grundsaetzlich und bietet dafuer
     // auch keine Freigabe an - ohne eigenen Hinweis stuende hier nur "Zugriff verweigert".
     if (!isTrustworthyOrigin(this.location)) {
-      this.showDictationError('touchpad.dictationError.insecureOrigin');
+      this.showStatus('touchpad.dictationError.insecureOrigin');
       return;
     }
 
@@ -472,7 +459,7 @@ export class TouchpadComponent implements OnDestroy {
     }
 
     this.recognizer = recognizer;
-    this.dictationError.set(null);
+    this.statusMessage.set(null);
     recognizer.lang = 'de-DE';
     recognizer.continuous = false;
     recognizer.interimResults = true;
@@ -485,7 +472,7 @@ export class TouchpadComponent implements OnDestroy {
     };
 
     recognizer.onerror = (event) => {
-      this.showDictationError(this.describeDictationError(event.error));
+      this.showStatus(this.describeDictationError(event.error));
       this.dictating.set(false);
     };
 
@@ -501,7 +488,7 @@ export class TouchpadComponent implements OnDestroy {
       try {
         recognizer.start();
       } catch {
-        this.showDictationError(this.describeDictationError(null));
+        this.showStatus(this.describeDictationError(null));
         this.dictating.set(false);
       }
     };
@@ -543,15 +530,6 @@ export class TouchpadComponent implements OnDestroy {
       default:
         return 'touchpad.dictationError.failed';
     }
-  }
-
-  private showDictationError(key: string): void {
-    if (this.dictationErrorTimer !== null) {
-      clearTimeout(this.dictationErrorTimer);
-    }
-
-    this.dictationError.set(key);
-    this.dictationErrorTimer = setTimeout(() => this.dictationError.set(null), DICTATION_ERROR_VISIBLE_MS);
   }
 
   /** Live-Eingabe: vergleicht das Feld mit dem zuletzt gesendeten Stand und schickt nur die
@@ -599,16 +577,8 @@ export class TouchpadComponent implements OnDestroy {
     this.releaseAllHeldButtons();
     this.stopDictation();
 
-    if (this.dictationErrorTimer !== null) {
-      clearTimeout(this.dictationErrorTimer);
-    }
-
-    if (this.fileStatusTimer !== null) {
-      clearTimeout(this.fileStatusTimer);
-    }
-
-    if (this.clipboardStatusTimer !== null) {
-      clearTimeout(this.clipboardStatusTimer);
+    if (this.statusTimer !== null) {
+      clearTimeout(this.statusTimer);
     }
 
     if (this.clipboardPasteTargetTimer !== null) {

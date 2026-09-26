@@ -44,6 +44,7 @@
     <Compile Remove="Services\Linux*.cs" />
     <PackageReference Include="QRCoder" Version="1.8.0" />
     <PackageReference Include="Velopack" Version="1.2.0" />
+    <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
   </ItemGroup>
 
   <ItemGroup>

@@ -122,7 +122,7 @@ without a valid token. A new endpoint of that kind should go through it rather t
 checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) and `DELETE /pair`
 (401 from `RemoveDeviceByToken`) deliberately do their own checks.
 - `GET /health` → `HealthResponse`, including the server platform (`windows`/`linux`), from
-  which the Client picks its built-in button set.
+  which the Client picks its built-in button set, and `gamepad` (controller mode available).
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -166,6 +166,24 @@ multiple clients can connect concurrently. Each connection also carries its own 
 rate limit (120 messages/second; a `Fail` response beyond that, connection stays open) as a
 backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
 move/scroll traffic tops out around one message per animation frame.
+
+**Controller mode (Windows only).** A `gamepad` action carries the full controller state
+(`GamepadState`: XInput button bitmask, stick axes, triggers) instead of single button events, so a
+lost message cannot leave a button stuck. `RemoteActionHandler` plugs a virtual Xbox 360 controller
+in through `IGamepadService` on the first `gamepad` message of a connection and keeps it in that
+connection's `RemoteActionSession`, which `YFRemoteWebSocketHandler` disposes when the socket ends -
+one controller per connected device, so several phones are several players. `gamepadDisconnect`
+unplugs it early (the Client sends it when leaving the controller view). When a game sets
+vibration, ViGEm's `FeedbackReceived` (driver thread) is deduplicated in `WindowsGamepadService`
+and pushed to the device as `{"type":"rumble","largeMotor","smallMotor"}` - the only server message
+that is not a response. That is why `YFRemoteWebSocketHandler` serializes every send behind one
+`SemaphoreSlim`: a WebSocket allows only one `SendAsync` at a time. `WindowsGamepadService`
+uses the ViGEmBus driver via `Nefarius.ViGEm.Client` and caps at 4 controllers (XInput slots). The
+driver needs admin rights and is not bundled with the per-user Velopack install: without it
+`/health` reports `gamepad: false`, the Client hides the tab, and the tray shows
+"Controller-Treiber installieren..." linking to the ViGEmBus releases page. Availability is
+re-checked on every call, so installing the driver needs no restart. Linux registers no
+`IGamepadService`, so `gamepad` is rejected there.
 
 **Input simulation.** `WindowsInputService`/`WindowsMouseService` translate high-level actions
 into raw Win32 `SendInput` calls via the shared `WindowsInputSender`, which serializes all

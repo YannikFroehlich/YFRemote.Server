@@ -1,0 +1,198 @@
+/* Liegt ueber der ganzen App statt im Panel: .remote-panel hat backdrop-filter und waere damit
+   der Bezugsrahmen fuer position: fixed. Groessen haengen an vh/vw, damit alles im Querformat
+   eines Handys ohne Scrollen passt. */
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: block;
+  background: var(--app-bg);
+  color: var(--text-soft);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  --gp-stick: min(40vh, 24vw);
+  --gp-key: min(13vh, 8.5vw);
+}
+
+.gamepad {
+  display: grid;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 2vw;
+  padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
+    calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+  box-sizing: border-box;
+}
+
+.gamepad__side {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vh;
+}
+
+.gamepad__shoulders {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
+.gamepad__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3vh;
+}
+
+.gamepad__menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gamepad__status {
+  min-height: 1.2em;
+  max-width: 30vw;
+  margin: 0;
+  color: var(--warning);
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.gamepad__rotate-hint {
+  display: none;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+@media (orientation: portrait) {
+  .gamepad__rotate-hint {
+    display: block;
+  }
+}
+
+.gp-key {
+  display: grid;
+  min-width: var(--gp-key);
+  height: var(--gp-key);
+  place-items: center;
+  padding: 0 10px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(14px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 750;
+  box-shadow: 0 4px 14px rgba(var(--shadow-rgb), calc(0.25 * var(--shadow-strength)));
+  touch-action: none;
+}
+
+.gp-key--pressed {
+  border-color: var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+  transform: scale(0.94);
+}
+
+.gp-key--shoulder {
+  flex: 1;
+  height: calc(var(--gp-key) * 0.85);
+}
+
+.gp-key--small {
+  height: calc(var(--gp-key) * 0.7);
+  font-size: 0.74rem;
+}
+
+.gp-key--guide {
+  width: var(--gp-key);
+  padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+
+.gp-key--face {
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-size: 1.05rem;
+}
+
+.gp-cross {
+  display: grid;
+  grid-template-areas:
+    '. up .'
+    'left . right'
+    '. down .';
+  grid-template-columns: repeat(3, var(--gp-key));
+  grid-template-rows: repeat(3, var(--gp-key));
+  gap: 2px;
+}
+
+.gp-cross .gp-key {
+  min-width: 0;
+  padding: 0;
+}
+
+.gp-cross__up {
+  grid-area: up;
+}
+
+.gp-cross__left {
+  grid-area: left;
+}
+
+.gp-cross__right {
+  grid-area: right;
+}
+
+.gp-cross__down {
+  grid-area: down;
+}
+
+.gp-stick {
+  position: relative;
+  display: grid;
+  width: var(--gp-stick);
+  height: var(--gp-stick);
+  flex: none;
+  place-items: center;
+  border: var(--border-width) solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  box-shadow: 0 2px 10px rgba(var(--shadow-rgb), calc(0.35 * var(--shadow-strength))) inset;
+  touch-action: none;
+}
+
+.gp-stick__knob {
+  width: 50%;
+  height: 50%;
+  border: var(--border-width) solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: 0 6px 18px rgba(var(--shadow-rgb), calc(0.35 * var(--shadow-strength)));
+  pointer-events: none;
+}
+
+.gp-close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 1rem;
+}

@@ -13,6 +13,7 @@ namespace YFRemote.Server.Tray;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromHours(6);
+    private const string GamepadDriverUrl = "https://github.com/nefarius/ViGEmBus/releases/latest";
 
     private readonly UpdateService updateService = new();
     private readonly ILogger<TrayApplicationContext> logger;
@@ -20,11 +21,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly WebSocketConnectionRegistry connectionRegistry;
     private readonly FileTransferService fileTransferService;
     private readonly ClipboardReadNotifier clipboardReadNotifier;
+    private readonly IGamepadService gamepadService;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem updateItem;
     private readonly ToolStripMenuItem pinItem;
     private readonly ToolStripMenuItem pairedDevicesItem;
+    private readonly ToolStripMenuItem gamepadDriverItem;
     private readonly System.Windows.Forms.Timer initialUpdateTimer;
     private readonly System.Windows.Forms.Timer periodicUpdateTimer;
     private readonly Control uiDispatcher = new();
@@ -46,6 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         connectionRegistry = app.Services.GetRequiredService<WebSocketConnectionRegistry>();
         fileTransferService = app.Services.GetRequiredService<FileTransferService>();
         clipboardReadNotifier = app.Services.GetRequiredService<ClipboardReadNotifier>();
+        gamepadService = app.Services.GetRequiredService<IGamepadService>();
         httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
         var scheme = httpsOptions.Enabled ? "https" : "http";
         var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
@@ -92,6 +96,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Visible = certificateUrl is not null
         };
         certificateItem.Click += (_, _) => ShowCertificateInstallDialog();
+
+        gamepadDriverItem = new ToolStripMenuItem("Controller-Treiber installieren...");
+        gamepadDriverItem.Click += (_, _) => OpenGamepadDriverDownload();
 
         var diagnosticsItem = new ToolStripMenuItem("Diagnoseordner öffnen");
         diagnosticsItem.Click += (_, _) => OpenDiagnosticsFolder();
@@ -140,6 +147,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             qrCodeItem,
             httpsItem,
             certificateItem,
+            gamepadDriverItem,
             diagnosticsItem,
             new ToolStripSeparator(),
             pinItem,
@@ -153,8 +161,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new ToolStripSeparator(),
             exitItem
         ]);
-        contextMenu.Opening += (_, _) => RefreshPairingMenu();
+        contextMenu.Opening += (_, _) =>
+        {
+            RefreshPairingMenu();
+            // Nach der Treiberinstallation verschwindet der Eintrag ohne Neustart.
+            gamepadDriverItem.Visible = !gamepadService.IsAvailable;
+        };
         RefreshPairingMenu();
+        gamepadDriverItem.Visible = !gamepadService.IsAvailable;
 
         trayIcon = LoadTrayIcon();
         notifyIcon = new NotifyIcon
@@ -422,6 +436,42 @@ internal sealed class TrayApplicationContext : ApplicationContext
             logger.LogError(exception, "Failed to show the certificate install dialog.");
             MessageBox.Show(
                 $"Der QR-Code für das Zertifikat konnte nicht angezeigt werden.\n\n{exception.Message}",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+    }
+
+    // ViGEmBus braucht Adminrechte und laesst sich deshalb nicht mit der benutzerbezogenen
+    // Velopack-Installation ausliefern - der Nutzer installiert ihn einmalig selbst.
+    private void OpenGamepadDriverDownload()
+    {
+        var answer = MessageBox.Show(
+            "Für den Controller-Modus braucht Windows den Treiber \"ViGEmBus\". Er macht das Handy "
+            + "für Spiele zu einem Xbox-Controller.\n\nAuf der folgenden Seite die Datei "
+            + "\"ViGEmBus_…_x64_x86_arm64.exe\" herunterladen und installieren. Ein Neustart von "
+            + "YFRemote ist danach nicht nötig.\n\nDownloadseite jetzt öffnen?",
+            "YFRemote - Controller-Treiber",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Information);
+
+        if (answer != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(GamepadDriverUrl)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to open the gamepad driver download page.");
+            MessageBox.Show(
+                $"Der Browser konnte nicht geöffnet werden.\n\n{GamepadDriverUrl}\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);

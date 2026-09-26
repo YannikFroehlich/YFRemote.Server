@@ -30,6 +30,25 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_GameRumble_IsPushedToTheDevice()
+    {
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(gamepadService: new RumblingGamepadService())
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        await SendTextAsync(pair.Client, """{"type":"gamepad","gamepad":{"buttons":4096}}""");
+        var messages = new[] { await ReceiveJsonAsync(pair.Client), await ReceiveJsonAsync(pair.Client) };
+
+        var rumble = messages.Single(message => message.TryGetProperty("type", out _));
+        Assert.AreEqual("rumble", rumble.GetProperty("type").GetString());
+        Assert.AreEqual(200, rumble.GetProperty("largeMotor").GetInt32());
+        Assert.IsTrue(messages.Single(message => message.TryGetProperty("success", out _)).GetProperty("success").GetBoolean());
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_InvalidJson_SendsFailureResponse()
     {
         await using var pair = await WebSocketPair.CreateAsync();
@@ -156,13 +175,15 @@ public sealed class YFRemoteWebSocketHandlerTests
     private static YFRemoteWebSocketHandler CreateHandler(
         IInputService? inputService = null,
         IMouseService? mouseService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IGamepadService? gamepadService = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
             mouseService ?? new RecordingMouseService(),
             new NoOpPowerService(),
-            NullLogger<RemoteActionHandler>.Instance);
+            NullLogger<RemoteActionHandler>.Instance,
+            gamepadService);
 
         return new YFRemoteWebSocketHandler(
             actionHandler,
@@ -172,6 +193,30 @@ public sealed class YFRemoteWebSocketHandlerTests
 
     private static Task SendTextAsync(WebSocket socket, string text) =>
         socket.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, endOfMessage: true, CancellationToken.None);
+
+    private static async Task<JsonElement> ReceiveJsonAsync(WebSocket socket)
+    {
+        var buffer = new byte[8192];
+        var result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+        return JsonDocument.Parse(buffer.AsMemory(0, result.Count)).RootElement.Clone();
+    }
+
+    // Vibriert bei jedem Controller-Zustand, wie ein Spiel, das auf einen Tastendruck reagiert.
+    private sealed class RumblingGamepadService : IGamepadService
+    {
+        public bool IsAvailable => true;
+
+        public IVirtualGamepad Connect(Action<GamepadRumble> onRumble) => new RumblingGamepad(onRumble);
+
+        private sealed class RumblingGamepad(Action<GamepadRumble> onRumble) : IVirtualGamepad
+        {
+            public void Update(GamepadState state) => onRumble(new GamepadRumble(200, 0));
+
+            public void Dispose()
+            {
+            }
+        }
+    }
 
     private static async Task<RemoteActionResponse> ReceiveResponseAsync(WebSocket socket)
     {

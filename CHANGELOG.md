@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Controller-Modus (nur Windows): Der neue Tab "Controller" macht das Handy zu einem virtuellen Xbox-360-Controller mit zwei Sticks, Steuerkreuz, A/B/X/Y, LB/RB, LT/RT, Back/Start/Xbox und L3/R3. Jedes verbundene Geraet bekommt einen eigenen Controller, mehrere Handys erscheinen in Spielen also als Spieler 1-4. Der Controller wird erst beim ersten Tastendruck angesteckt und beim Schliessen der Ansicht oder bei Verbindungsende wieder abgesteckt. Auf Touch-Geraeten wechselt die Ansicht in Vollbild und Querformat (nicht auf iOS). Windows braucht dafuer einmalig den Treiber ViGEmBus; solange er fehlt, bleibt der Tab ausgeblendet und das Tray-Menue zeigt "Controller-Treiber installieren...". Vibriert das Spiel den Controller, vibriert das Handy mit (nur Android; der Browser kennt nur an/aus, keine Staerke). LT/RT sind digital (ganz oder gar nicht).
+
 ### Changed
 
 - Neues Logo: ein Mauszeiger mit Funkwellen auf dunkler Kachel statt des detailreichen YF-Rasterbilds, das im Tray bei 16 px nicht mehr zu erkennen war. Es ersetzt Favicon, Tray- und Installer-Icon, das Icon der `YFRemote.Server.exe` (bisher das Standard-Symbol), die PWA-Icons, die Android-App-Icons und das Android-Benachrichtigungs-Icon. Alle Dateien entstehen aus `branding/render_icons.py`, die 16-px-Stufe hat einen eigenen, kraeftigeren Bogen. Weil das neue Logo keine Buchstaben mehr enthaelt, steht im Kopf des Web-Clients jetzt "YFRemote" statt nur "Remote" neben dem Logo.

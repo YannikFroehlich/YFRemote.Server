@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Configuration.CommandLine;
 using Microsoft.Extensions.Configuration.Json;
-using Microsoft.Extensions.FileProviders;
 using System.Net;
 #if WINDOWS
 using Velopack;
@@ -372,7 +371,6 @@ internal static class Program
 
         app.UseDefaultFiles();
         app.UseStaticFiles();
-        UseTestToolIfPresent(app);
         app.UseWebSockets(new WebSocketOptions
         {
             KeepAliveInterval = TimeSpan.FromSeconds(30)
@@ -410,24 +408,6 @@ internal static class Program
         app.Logger.LogInformation("YFRemote.Server starting on {Url}", serverOptions.Url);
 
         return app;
-    }
-
-    // Existiert nur im Repo-Checkout, nie in einer installierten Build: liefert den manuellen
-    // Smoke-Test ueber eine echte HTTP-Origin aus, damit die Origin-Pruefung von /ws ihn nicht
-    // ablehnt (bei file:// haette der Browser keinen passenden Origin-Header).
-    private static void UseTestToolIfPresent(WebApplication app)
-    {
-        var testDirectory = Path.Combine(Directory.GetCurrentDirectory(), "test");
-        if (!Directory.Exists(testDirectory))
-        {
-            return;
-        }
-
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            FileProvider = new PhysicalFileProvider(testDirectory),
-            RequestPath = "/test"
-        });
     }
 
 #if WINDOWS

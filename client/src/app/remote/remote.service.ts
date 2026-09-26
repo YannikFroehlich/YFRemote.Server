@@ -126,6 +126,7 @@ export class RemoteService implements OnDestroy {
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly manualDisconnectSignal = signal(false);
   private readonly serverPlatformSignal = signal<ServerPlatform | null>(null);
+  private readonly gamepadAvailableSignal = signal(false);
 
   private socket: RemoteSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -145,6 +146,8 @@ export class RemoteService implements OnDestroy {
   readonly status = this.statusSignal.asReadonly();
   /** Plattform der Gegenstelle laut `GET /health`; `null`, solange sie unbekannt ist. */
   readonly serverPlatform = this.serverPlatformSignal.asReadonly();
+  /** Ob die Gegenstelle virtuelle Xbox-Controller anlegen kann (Windows mit ViGEmBus-Treiber). */
+  readonly gamepadAvailable = this.gamepadAvailableSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -488,14 +491,19 @@ export class RemoteService implements OnDestroy {
   private async detectServerPlatform(): Promise<void> {
     try {
       const response = await this.fetchFn(`${getServerHttpBaseUrl(this.serverLocation)}/health`);
-      const body = (await response.json()) as { readonly platform?: unknown };
+      const body = (await response.json()) as {
+        readonly platform?: unknown;
+        readonly gamepad?: unknown;
+      };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
           ? body.platform
           : null,
       );
+      this.gamepadAvailableSignal.set(body.gamepad === true);
     } catch {
       this.serverPlatformSignal.set(null);
+      this.gamepadAvailableSignal.set(false);
     }
   }
 

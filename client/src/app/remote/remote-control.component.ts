@@ -1,7 +1,8 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
+import { GamepadComponent } from './gamepad/gamepad.component';
 import { KeyboardPadComponent } from './keyboard-pad.component';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ConnectionStatus } from './remote.models';
@@ -10,7 +11,7 @@ import { SettingsDialogComponent } from './settings-dialog.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
 
-type RemoteView = 'remote' | 'touchpad' | 'keyboard';
+type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad';
 
 @Component({
   selector: 'app-remote-control',
@@ -20,6 +21,7 @@ type RemoteView = 'remote' | 'touchpad' | 'keyboard';
     ButtonCanvasComponent,
     ButtonEditorDialogComponent,
     KeyboardPadComponent,
+    GamepadComponent,
   ],
   templateUrl: './remote-control.component.html',
 })
@@ -37,6 +39,10 @@ export class RemoteControlComponent {
   protected readonly config = this.remote.config;
   protected readonly status = this.remote.status;
   protected readonly lastError = this.remote.lastError;
+  // Virtuelle Xbox-Controller gibt es nur auf einem Windows-Server mit ViGEmBus-Treiber.
+  protected readonly gamepadAvailable = computed(
+    () => this.remote.serverPlatform() === 'windows' && this.remote.gamepadAvailable(),
+  );
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');

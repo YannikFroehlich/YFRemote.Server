@@ -6,7 +6,8 @@ public sealed class RemoteActionHandler(
     IInputService inputService,
     IMouseService mouseService,
     IPowerService powerService,
-    ILogger<RemoteActionHandler> logger)
+    ILogger<RemoteActionHandler> logger,
+    IGamepadService? gamepadService = null)
 {
     private const int MinMouseMoveDelta = -5000;
     private const int MaxMouseMoveDelta = 5000;
@@ -14,7 +15,7 @@ public sealed class RemoteActionHandler(
     private const int MaxMouseScrollDelta = 1200;
     private const int MaxTextLength = 500;
 
-    public RemoteActionResponse Handle(RemoteActionRequest? request)
+    public RemoteActionResponse Handle(RemoteActionRequest? request, RemoteActionSession? session = null)
     {
         if (request is null)
         {
@@ -40,11 +41,17 @@ public sealed class RemoteActionHandler(
                 "shutdown" => HandlePower(powerService.Shutdown, "shutdown"),
                 "restart" => HandlePower(powerService.Restart, "restart"),
                 "sleep" => HandlePower(powerService.Sleep, "sleep"),
+                "gamepad" => HandleGamepad(request, session),
+                "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
         }
         catch (UnsupportedKeyException ex)
+        {
+            response = Fail(ex.Message);
+        }
+        catch (GamepadUnavailableException ex)
         {
             response = Fail(ex.Message);
         }
@@ -244,6 +251,32 @@ public sealed class RemoteActionHandler(
         logger.LogInformation("Executing power action: {Action}", actionName);
         execute();
 
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleGamepad(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (gamepadService is null || session is null)
+        {
+            return Fail("Gamepad is not supported.");
+        }
+
+        if (request.Gamepad is null)
+        {
+            return Fail("Action 'gamepad' requires gamepad.");
+        }
+
+        // Erst mit dem ersten Controller-Zustand anstecken, nicht schon beim Verbinden: sonst
+        // saehen Spiele fuer jedes Geraet im Maus- oder Tastaturmodus einen Controller.
+        session.Gamepad ??= gamepadService.Connect();
+        session.Gamepad.Update(request.Gamepad);
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private static RemoteActionResponse HandleGamepadDisconnect(RemoteActionSession? session)
+    {
+        session?.Dispose();
         return RemoteActionResponse.Ok();
     }
 

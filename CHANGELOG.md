@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Controller-Modus (nur Windows): Der neue Tab "Controller" macht das Handy zu einem virtuellen Xbox-360-Controller mit zwei Sticks, Steuerkreuz, A/B/X/Y, LB/RB, LT/RT, Back/Start/Xbox und L3/R3. Jedes verbundene Geraet bekommt einen eigenen Controller, mehrere Handys erscheinen in Spielen also als Spieler 1-4. Der Controller wird erst beim ersten Tastendruck angesteckt und beim Schliessen der Ansicht oder bei Verbindungsende wieder abgesteckt. Auf Touch-Geraeten wechselt die Ansicht in Vollbild und Querformat (nicht auf iOS). Windows braucht dafuer einmalig den Treiber ViGEmBus; solange er fehlt, bleibt der Tab ausgeblendet und das Tray-Menue zeigt "Controller-Treiber installieren...". LT/RT sind digital (ganz oder gar nicht), Vibration kommt noch nicht am Handy an.
+
 ## [2.21.2] - 2026-09-24
 
 ### Changed

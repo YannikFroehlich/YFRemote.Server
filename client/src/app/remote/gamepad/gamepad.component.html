@@ -1,0 +1,203 @@
+<div class="gamepad" role="application" [attr.aria-label]="i18n.t('gamepad.ariaLabel')">
+  <div class="gamepad__side">
+    <div class="gamepad__shoulders">
+      <button
+        class="gp-key gp-key--shoulder"
+        type="button"
+        [class.gp-key--pressed]="isTriggerPressed('left')"
+        (pointerdown)="pressTrigger($event, 'left')"
+      >
+        LT
+      </button>
+      <button
+        class="gp-key gp-key--shoulder"
+        type="button"
+        [class.gp-key--pressed]="isPressed('leftShoulder')"
+        (pointerdown)="pressButton($event, 'leftShoulder')"
+      >
+        LB
+      </button>
+    </div>
+
+    <div
+      class="gp-stick"
+      role="slider"
+      [attr.aria-label]="i18n.t('gamepad.leftStick')"
+      (pointerdown)="grabStick($event, 'left')"
+    >
+      <span class="gp-stick__knob" [style.transform]="knobTransform('left')"></span>
+    </div>
+
+    <div class="gp-cross" role="group" [attr.aria-label]="i18n.t('gamepad.dpad')">
+      <button
+        class="gp-key gp-cross__up"
+        type="button"
+        [attr.aria-label]="i18n.t('gamepad.dpadUp')"
+        [class.gp-key--pressed]="isPressed('up')"
+        (pointerdown)="pressButton($event, 'up')"
+      >
+        ▲
+      </button>
+      <button
+        class="gp-key gp-cross__left"
+        type="button"
+        [attr.aria-label]="i18n.t('gamepad.dpadLeft')"
+        [class.gp-key--pressed]="isPressed('left')"
+        (pointerdown)="pressButton($event, 'left')"
+      >
+        ◀
+      </button>
+      <button
+        class="gp-key gp-cross__right"
+        type="button"
+        [attr.aria-label]="i18n.t('gamepad.dpadRight')"
+        [class.gp-key--pressed]="isPressed('right')"
+        (pointerdown)="pressButton($event, 'right')"
+      >
+        ▶
+      </button>
+      <button
+        class="gp-key gp-cross__down"
+        type="button"
+        [attr.aria-label]="i18n.t('gamepad.dpadDown')"
+        [class.gp-key--pressed]="isPressed('down')"
+        (pointerdown)="pressButton($event, 'down')"
+      >
+        ▼
+      </button>
+    </div>
+  </div>
+
+  <div class="gamepad__center">
+    <button
+      class="gp-close"
+      type="button"
+      [attr.aria-label]="i18n.t('gamepad.close')"
+      [attr.title]="i18n.t('gamepad.close')"
+      (click)="closed.emit()"
+    >
+      ✕
+    </button>
+
+    <p class="gamepad__status" role="status" aria-live="polite">
+      @if (status() !== 'connected') {
+        {{ i18n.t('status.' + status()) }}
+      } @else if (lastError(); as errorMessage) {
+        {{ errorMessage }}
+      }
+    </p>
+
+    <div class="gamepad__menu">
+      <button
+        class="gp-key gp-key--small"
+        type="button"
+        [class.gp-key--pressed]="isPressed('back')"
+        (pointerdown)="pressButton($event, 'back')"
+      >
+        Back
+      </button>
+      <button
+        class="gp-key gp-key--guide"
+        type="button"
+        [class.gp-key--pressed]="isPressed('guide')"
+        (pointerdown)="pressButton($event, 'guide')"
+      >
+        Xbox
+      </button>
+      <button
+        class="gp-key gp-key--small"
+        type="button"
+        [class.gp-key--pressed]="isPressed('start')"
+        (pointerdown)="pressButton($event, 'start')"
+      >
+        Start
+      </button>
+    </div>
+
+    <div class="gamepad__menu">
+      <button
+        class="gp-key gp-key--small"
+        type="button"
+        [class.gp-key--pressed]="isPressed('leftThumb')"
+        (pointerdown)="pressButton($event, 'leftThumb')"
+      >
+        L3
+      </button>
+      <button
+        class="gp-key gp-key--small"
+        type="button"
+        [class.gp-key--pressed]="isPressed('rightThumb')"
+        (pointerdown)="pressButton($event, 'rightThumb')"
+      >
+        R3
+      </button>
+    </div>
+
+    <p class="gamepad__rotate-hint">{{ i18n.t('gamepad.rotateHint') }}</p>
+  </div>
+
+  <div class="gamepad__side">
+    <div class="gamepad__shoulders">
+      <button
+        class="gp-key gp-key--shoulder"
+        type="button"
+        [class.gp-key--pressed]="isPressed('rightShoulder')"
+        (pointerdown)="pressButton($event, 'rightShoulder')"
+      >
+        RB
+      </button>
+      <button
+        class="gp-key gp-key--shoulder"
+        type="button"
+        [class.gp-key--pressed]="isTriggerPressed('right')"
+        (pointerdown)="pressTrigger($event, 'right')"
+      >
+        RT
+      </button>
+    </div>
+
+    <div class="gp-cross gp-cross--face">
+      <button
+        class="gp-key gp-key--face gp-cross__up"
+        type="button"
+        [class.gp-key--pressed]="isPressed('y')"
+        (pointerdown)="pressButton($event, 'y')"
+      >
+        Y
+      </button>
+      <button
+        class="gp-key gp-key--face gp-cross__left"
+        type="button"
+        [class.gp-key--pressed]="isPressed('x')"
+        (pointerdown)="pressButton($event, 'x')"
+      >
+        X
+      </button>
+      <button
+        class="gp-key gp-key--face gp-cross__right"
+        type="button"
+        [class.gp-key--pressed]="isPressed('b')"
+        (pointerdown)="pressButton($event, 'b')"
+      >
+        B
+      </button>
+      <button
+        class="gp-key gp-key--face gp-cross__down"
+        type="button"
+        [class.gp-key--pressed]="isPressed('a')"
+        (pointerdown)="pressButton($event, 'a')"
+      >
+        A
+      </button>
+    </div>
+
+    <div
+      class="gp-stick"
+      role="slider"
+      [attr.aria-label]="i18n.t('gamepad.rightStick')"
+      (pointerdown)="grabStick($event, 'right')"
+    >
+      <span class="gp-stick__knob" [style.transform]="knobTransform('right')"></span>
+    </div>
+  </div>
+</div>

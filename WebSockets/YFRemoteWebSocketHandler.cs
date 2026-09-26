@@ -33,6 +33,7 @@ public sealed class YFRemoteWebSocketHandler(
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
         var rateLimiter = new FixedWindowRateLimiter(timeProvider, MaxMessagesPerRateLimitWindow, RateLimitWindow);
+        using var session = new RemoteActionSession();
 
         try
         {
@@ -56,7 +57,7 @@ public sealed class YFRemoteWebSocketHandler(
                 else
                 {
                     response = receivedMessage.ErrorResponse
-                        ?? HandleMessage(receivedMessage.Payload!.Value);
+                        ?? HandleMessage(receivedMessage.Payload!.Value, session);
                 }
 
                 await SendResponseAsync(socket, response, cancellationToken);
@@ -76,7 +77,7 @@ public sealed class YFRemoteWebSocketHandler(
         }
     }
 
-    private RemoteActionResponse HandleMessage(ReadOnlyMemory<byte> message)
+    private RemoteActionResponse HandleMessage(ReadOnlyMemory<byte> message, RemoteActionSession session)
     {
         var json = Encoding.UTF8.GetString(message.Span);
         logger.LogDebug("Received WebSocket action payload: {Payload}", json);
@@ -84,7 +85,7 @@ public sealed class YFRemoteWebSocketHandler(
         try
         {
             var request = JsonSerializer.Deserialize<RemoteActionRequest>(json, JsonOptions);
-            var response = actionHandler.Handle(request);
+            var response = actionHandler.Handle(request, session);
 
             if (response.Success)
             {

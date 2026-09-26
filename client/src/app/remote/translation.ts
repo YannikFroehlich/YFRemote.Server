@@ -40,7 +40,16 @@ export const TRANSLATIONS = {
     en: 'Restore: {{label}}',
   },
 
-  'gamepad.ariaLabel': { de: 'Xbox-Controller', en: 'Xbox controller' },
+  'gamepad.ariaLabel': { de: 'Controller', en: 'Controller' },
+  'gamepad.preset': { de: 'Vorlage', en: 'Preset' },
+  'gamepad.smaller': { de: 'Kleiner', en: 'Smaller' },
+  'gamepad.larger': { de: 'Größer', en: 'Larger' },
+  'gamepad.hide': { de: 'Ausblenden', en: 'Hide' },
+  'gamepad.show': { de: 'Einblenden', en: 'Show' },
+  'gamepad.editHint': {
+    de: 'Element antippen und ziehen - Vorlage wechseln setzt das Layout zurück',
+    en: 'Tap and drag an element - changing the preset resets the layout',
+  },
   'gamepad.close': { de: 'Controller schließen', en: 'Close controller' },
   'gamepad.rotateHint': { de: 'Handy quer halten', en: 'Turn your phone sideways' },
   'gamepad.leftStick': { de: 'Linker Stick', en: 'Left stick' },

@@ -23,6 +23,12 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Added
 
+- Controller-Modus: Vorlagen fuer Xbox (farbige A/B/X/Y auf dunklen Tasten, Leuchtring als Xbox-Taste, runde View/Menu-Tasten, durchgehendes Steuerkreuz, geformte Trigger), PlayStation (farbige Symbole ✕○□△ als Grafik, vier getrennte spitze Richtungstasten, Share/Options/PS, L1/L2), Nintendo Switch (wie der Pro Controller: dunkle Tasten mit B/A/Y/X, Home-Taste mit Haus und Leuchtring, runde −/+, ZL/ZR) und Retro (wie ein SNES-Pad: rote/gelbe/blaue/gruene Aktionstasten, graues Steuerkreuz, schraege Select/Start, graue L/R; keine Sticks). Mit dem Stift oben in der Mitte laesst sich jede Taste, jeder Stick, das Steuerkreuz und der Tastenblock verschieben, vergroessern/verkleinern und ausblenden. Mit "Raster" (Standard an) rasten die Elemente beim Ziehen auf einem sichtbaren Gitter aus quadratischen Zellen ein, damit sie sauber in einer Reihe liegen. Das Layout wird pro Geraet gespeichert. Die Beschriftung aendert nur die Anzeige - die untere Aktionstaste loest immer Xbox-A aus, auch wenn dort wie bei Nintendo "B" steht.
+
+## [2.22.0] - 2026-09-26
+
+### Added
+
 - Controller-Modus (nur Windows): Der neue Tab "Controller" macht das Handy zu einem virtuellen Xbox-360-Controller mit zwei Sticks, Steuerkreuz, A/B/X/Y, LB/RB, LT/RT, Back/Start/Xbox und L3/R3. Jedes verbundene Geraet bekommt einen eigenen Controller, mehrere Handys erscheinen in Spielen also als Spieler 1-4. Der Controller wird erst beim ersten Tastendruck angesteckt und beim Schliessen der Ansicht oder bei Verbindungsende wieder abgesteckt. Auf Touch-Geraeten wechselt die Ansicht in Vollbild und Querformat (nicht auf iOS). Windows braucht dafuer einmalig den Treiber ViGEmBus; solange er fehlt, bleibt der Tab ausgeblendet und das Tray-Menue zeigt "Controller-Treiber installieren...". Vibriert das Spiel den Controller, vibriert das Handy mit (nur Android; der Browser kennt nur an/aus, keine Staerke). LT/RT sind digital (ganz oder gar nicht).
 - Client: Sobald eine neue Version im Hintergrund geladen ist, erscheint unten der Hinweis "Neue Version verfuegbar" mit "Neu laden". Bisher zeigte der Offline-Cache (Service Worker) nach einem Update weiter die alte Version, und die neue kam erst nach zweimal Neuladen an - ohne dass man das merkte.
 

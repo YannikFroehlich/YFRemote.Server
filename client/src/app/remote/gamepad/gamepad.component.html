@@ -1,83 +1,218 @@
-<div class="gamepad" role="application" [attr.aria-label]="i18n.t('gamepad.ariaLabel')">
-  <div class="gamepad__side">
-    <div class="gamepad__shoulders">
-      <button
-        class="gp-key gp-key--shoulder"
-        type="button"
-        [class.gp-key--pressed]="isTriggerPressed('left')"
-        (pointerdown)="pressTrigger($event, 'left')"
+<div
+  class="gamepad"
+  role="application"
+  [attr.aria-label]="i18n.t('gamepad.ariaLabel')"
+  [attr.data-preset]="layout().preset"
+  [class.gamepad--editing]="editing()"
+  [class.gamepad--grid]="editing() && layout().snapToGrid"
+>
+  @for (view of controlViews; track view.id) {
+    @let placement = layout().controls[view.id];
+    @if (!placement.hidden || editing()) {
+      <div
+        class="gp-slot"
+        [class.gp-slot--hidden]="placement.hidden"
+        [class.gp-slot--selected]="editing() && selectedId() === view.id"
+        [style.left.%]="placement.x"
+        [style.top.%]="placement.y"
+        [style.--gp-scale]="placement.scale"
       >
-        LT
+        @switch (view.kind) {
+          @case ('stick') {
+            <div
+              class="gp-stick"
+              role="slider"
+              [attr.aria-label]="
+                i18n.t(view.side === 'left' ? 'gamepad.leftStick' : 'gamepad.rightStick')
+              "
+              (pointerdown)="grabStick($event, view.side)"
+            >
+              <span class="gp-stick__knob" [style.transform]="knobTransform(view.side)"></span>
+            </div>
+          }
+          @case ('trigger') {
+            <button
+              class="gp-key gp-key--shoulder gp-key--trigger"
+              type="button"
+              [class.gp-key--pressed]="isTriggerPressed(view.side)"
+              (pointerdown)="pressTrigger($event, view.side)"
+            >
+              {{ label(view.side === 'left' ? 'leftTrigger' : 'rightTrigger') }}
+            </button>
+          }
+          @case ('dpad') {
+            <div class="gp-cross" role="group" [attr.aria-label]="i18n.t('gamepad.dpad')">
+              <button
+                class="gp-key gp-cross__up"
+                type="button"
+                [attr.aria-label]="i18n.t('gamepad.dpadUp')"
+                [class.gp-key--pressed]="isPressed('up')"
+                (pointerdown)="pressButton($event, 'up')"
+              >
+                ▲
+              </button>
+              <button
+                class="gp-key gp-cross__left"
+                type="button"
+                [attr.aria-label]="i18n.t('gamepad.dpadLeft')"
+                [class.gp-key--pressed]="isPressed('left')"
+                (pointerdown)="pressButton($event, 'left')"
+              >
+                ◀
+              </button>
+              <button
+                class="gp-key gp-cross__right"
+                type="button"
+                [attr.aria-label]="i18n.t('gamepad.dpadRight')"
+                [class.gp-key--pressed]="isPressed('right')"
+                (pointerdown)="pressButton($event, 'right')"
+              >
+                ▶
+              </button>
+              <button
+                class="gp-key gp-cross__down"
+                type="button"
+                [attr.aria-label]="i18n.t('gamepad.dpadDown')"
+                [class.gp-key--pressed]="isPressed('down')"
+                (pointerdown)="pressButton($event, 'down')"
+              >
+                ▼
+              </button>
+            </div>
+          }
+          @case ('face') {
+            <div class="gp-cross gp-cross--face">
+              @for (face of faceButtons; track face.button) {
+                <button
+                  class="gp-key gp-key--face"
+                  type="button"
+                  [class]="'gp-cross__' + face.area"
+                  [attr.data-button]="face.button"
+                  [attr.aria-label]="iconPath(face.button) ? label(face.button) : null"
+                  [class.gp-key--pressed]="isPressed(face.button)"
+                  (pointerdown)="pressButton($event, face.button)"
+                >
+                  @if (iconPath(face.button); as path) {
+                    <svg class="gp-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path [attr.d]="path" />
+                    </svg>
+                  } @else {
+                    {{ label(face.button) }}
+                  }
+                </button>
+              }
+            </div>
+          }
+          @case ('button') {
+            <button
+              class="gp-key"
+              type="button"
+              [class]="view.keyClass"
+              [attr.data-button]="view.button"
+              [attr.aria-label]="iconPath(view.button) ? label(view.button) : null"
+              [class.gp-key--pressed]="isPressed(view.button)"
+              (pointerdown)="pressButton($event, view.button)"
+            >
+              @if (iconPath(view.button); as path) {
+                <svg class="gp-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path [attr.d]="path" />
+                </svg>
+              } @else {
+                {{ label(view.button) }}
+              }
+            </button>
+          }
+        }
+        @if (editing()) {
+          <div class="gp-slot__grab" (pointerdown)="grabControl($event, view.id)"></div>
+          @if (selectedId() === view.id) {
+            <!-- Unter dem Element, in der unteren Haelfte darueber - sonst laege es ausserhalb. -->
+            <div class="gp-slot__tools" [class.gp-slot__tools--above]="placement.y > 50">
+              <button
+                class="secondary-button"
+                type="button"
+                [attr.aria-label]="i18n.t('gamepad.smaller')"
+                (click)="resize(-1)"
+              >
+                −
+              </button>
+              <button
+                class="secondary-button"
+                type="button"
+                [attr.aria-label]="i18n.t('gamepad.larger')"
+                (click)="resize(1)"
+              >
+                +
+              </button>
+              <button class="secondary-button" type="button" (click)="toggleHidden()">
+                {{ i18n.t(placement.hidden ? 'gamepad.show' : 'gamepad.hide') }}
+              </button>
+            </div>
+          }
+        }
+      </div>
+    }
+  }
+</div>
+
+<div class="gamepad__bar">
+  @if (editing()) {
+    <div class="gp-toolbar" role="toolbar" [attr.aria-label]="i18n.t('shell.editLayout')">
+      <select
+        class="gp-toolbar__preset"
+        [attr.aria-label]="i18n.t('gamepad.preset')"
+        (change)="selectPreset($any($event.target).value)"
+      >
+        @for (id of presetIds; track id) {
+          <option [value]="id" [selected]="id === layout().preset">{{ presets[id].name }}</option>
+        }
+      </select>
+      <button
+        class="snap-switch"
+        type="button"
+        role="switch"
+        [attr.aria-checked]="layout().snapToGrid"
+        (click)="toggleSnapToGrid()"
+      >
+        {{ i18n.t('shell.snapToGrid') }}
       </button>
-      <button
-        class="gp-key gp-key--shoulder"
-        type="button"
-        [class.gp-key--pressed]="isPressed('leftShoulder')"
-        (pointerdown)="pressButton($event, 'leftShoulder')"
-      >
-        LB
+      @if (resetPending()) {
+        <button class="secondary-button" type="button" (click)="confirmReset()">
+          {{ i18n.t('shell.confirmResetLayout') }}
+        </button>
+      } @else {
+        <button class="secondary-button" type="button" (click)="resetPending.set(true)">
+          {{ i18n.t('common.reset') }}
+        </button>
+      }
+      <button class="primary-button" type="button" (click)="stopEditing()">
+        {{ i18n.t('shell.done') }}
       </button>
     </div>
-
-    <div
-      class="gp-stick"
-      role="slider"
-      [attr.aria-label]="i18n.t('gamepad.leftStick')"
-      (pointerdown)="grabStick($event, 'left')"
-    >
-      <span class="gp-stick__knob" [style.transform]="knobTransform('left')"></span>
-    </div>
-
-    <div class="gp-cross" role="group" [attr.aria-label]="i18n.t('gamepad.dpad')">
+    @if (selectedId() === null) {
+      <p class="gamepad__hint">{{ i18n.t('gamepad.editHint') }}</p>
+    }
+  } @else {
+    <div class="gamepad__actions">
       <button
-        class="gp-key gp-cross__up"
+        class="gp-close"
         type="button"
-        [attr.aria-label]="i18n.t('gamepad.dpadUp')"
-        [class.gp-key--pressed]="isPressed('up')"
-        (pointerdown)="pressButton($event, 'up')"
+        [attr.aria-label]="i18n.t('shell.editLayout')"
+        [attr.title]="i18n.t('shell.editLayout')"
+        (click)="startEditing()"
       >
-        ▲
+        ✎
       </button>
       <button
-        class="gp-key gp-cross__left"
+        class="gp-close"
         type="button"
-        [attr.aria-label]="i18n.t('gamepad.dpadLeft')"
-        [class.gp-key--pressed]="isPressed('left')"
-        (pointerdown)="pressButton($event, 'left')"
+        [attr.aria-label]="i18n.t('gamepad.close')"
+        [attr.title]="i18n.t('gamepad.close')"
+        (click)="closed.emit()"
       >
-        ◀
-      </button>
-      <button
-        class="gp-key gp-cross__right"
-        type="button"
-        [attr.aria-label]="i18n.t('gamepad.dpadRight')"
-        [class.gp-key--pressed]="isPressed('right')"
-        (pointerdown)="pressButton($event, 'right')"
-      >
-        ▶
-      </button>
-      <button
-        class="gp-key gp-cross__down"
-        type="button"
-        [attr.aria-label]="i18n.t('gamepad.dpadDown')"
-        [class.gp-key--pressed]="isPressed('down')"
-        (pointerdown)="pressButton($event, 'down')"
-      >
-        ▼
+        ✕
       </button>
     </div>
-  </div>
-
-  <div class="gamepad__center">
-    <button
-      class="gp-close"
-      type="button"
-      [attr.aria-label]="i18n.t('gamepad.close')"
-      [attr.title]="i18n.t('gamepad.close')"
-      (click)="closed.emit()"
-    >
-      ✕
-    </button>
 
     <p class="gamepad__status" role="status" aria-live="polite">
       @if (status() !== 'connected') {
@@ -87,117 +222,6 @@
       }
     </p>
 
-    <div class="gamepad__menu">
-      <button
-        class="gp-key gp-key--small"
-        type="button"
-        [class.gp-key--pressed]="isPressed('back')"
-        (pointerdown)="pressButton($event, 'back')"
-      >
-        Back
-      </button>
-      <button
-        class="gp-key gp-key--guide"
-        type="button"
-        [class.gp-key--pressed]="isPressed('guide')"
-        (pointerdown)="pressButton($event, 'guide')"
-      >
-        Xbox
-      </button>
-      <button
-        class="gp-key gp-key--small"
-        type="button"
-        [class.gp-key--pressed]="isPressed('start')"
-        (pointerdown)="pressButton($event, 'start')"
-      >
-        Start
-      </button>
-    </div>
-
-    <div class="gamepad__menu">
-      <button
-        class="gp-key gp-key--small"
-        type="button"
-        [class.gp-key--pressed]="isPressed('leftThumb')"
-        (pointerdown)="pressButton($event, 'leftThumb')"
-      >
-        L3
-      </button>
-      <button
-        class="gp-key gp-key--small"
-        type="button"
-        [class.gp-key--pressed]="isPressed('rightThumb')"
-        (pointerdown)="pressButton($event, 'rightThumb')"
-      >
-        R3
-      </button>
-    </div>
-
-    <p class="gamepad__rotate-hint">{{ i18n.t('gamepad.rotateHint') }}</p>
-  </div>
-
-  <div class="gamepad__side">
-    <div class="gamepad__shoulders">
-      <button
-        class="gp-key gp-key--shoulder"
-        type="button"
-        [class.gp-key--pressed]="isPressed('rightShoulder')"
-        (pointerdown)="pressButton($event, 'rightShoulder')"
-      >
-        RB
-      </button>
-      <button
-        class="gp-key gp-key--shoulder"
-        type="button"
-        [class.gp-key--pressed]="isTriggerPressed('right')"
-        (pointerdown)="pressTrigger($event, 'right')"
-      >
-        RT
-      </button>
-    </div>
-
-    <div class="gp-cross gp-cross--face">
-      <button
-        class="gp-key gp-key--face gp-cross__up"
-        type="button"
-        [class.gp-key--pressed]="isPressed('y')"
-        (pointerdown)="pressButton($event, 'y')"
-      >
-        Y
-      </button>
-      <button
-        class="gp-key gp-key--face gp-cross__left"
-        type="button"
-        [class.gp-key--pressed]="isPressed('x')"
-        (pointerdown)="pressButton($event, 'x')"
-      >
-        X
-      </button>
-      <button
-        class="gp-key gp-key--face gp-cross__right"
-        type="button"
-        [class.gp-key--pressed]="isPressed('b')"
-        (pointerdown)="pressButton($event, 'b')"
-      >
-        B
-      </button>
-      <button
-        class="gp-key gp-key--face gp-cross__down"
-        type="button"
-        [class.gp-key--pressed]="isPressed('a')"
-        (pointerdown)="pressButton($event, 'a')"
-      >
-        A
-      </button>
-    </div>
-
-    <div
-      class="gp-stick"
-      role="slider"
-      [attr.aria-label]="i18n.t('gamepad.rightStick')"
-      (pointerdown)="grabStick($event, 'right')"
-    >
-      <span class="gp-stick__knob" [style.transform]="knobTransform('right')"></span>
-    </div>
-  </div>
+    <p class="gamepad__hint gamepad__rotate-hint">{{ i18n.t('gamepad.rotateHint') }}</p>
+  }
 </div>

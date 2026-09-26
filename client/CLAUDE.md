@@ -167,7 +167,22 @@ manual `ChangeDetectorRef` calls.
      release everything; leaving the view sends `gamepadDisconnect`. `RemoteService` takes the
      server-pushed `rumble` message out of the response path (`gamepadRumble` signal, reset on
      disconnect); the component maps it to `REMOTE_VIBRATE` as on/off only, since
-     `navigator.vibrate` has no intensity.
+     `navigator.vibrate` has no intensity. The layout is user-editable: `gamepad-layout.ts` (pure,
+     same `normalize`/`parseStored*` shape as `button-layout.ts`) holds the presets `xbox`,
+     `playstation`, `nintendo` and `retro` - each a label set plus a center point in percent of
+     the area and a scale per control (`dpad` and `face` move as one group) - and
+     `parseStoredGamepadLayout` for `yfremote.gamepadLayout`, which falls back to the preset per
+     control. Labels never change what is sent: the bottom face button is always XInput A, even
+     where Nintendo prints "B" on it. In edit mode (✎) a transparent `.gp-slot__grab` over each
+     control catches the pointer, so dragging sends no input; the selected control gets
+     smaller/larger/hide buttons. With `snapToGrid` (default on) the dragged center snaps to square
+     cells of `GRID_CELLS` per height; the grid lines are drawn with `cqh` on `.gamepad::before`,
+     since container query units on the container element itself resolve against its ancestor.
+     Switching the preset resets the layout to it but keeps the grid setting. Every preset also looks like its pad (Switch = Pro Controller, Retro = SNES): a preset's `icons` render stroke SVGs from `GAMEPAD_ICON_PATHS`
+     (the label becomes the `aria-label`), and `[data-preset]` rules in the component SCSS shape
+     the keys. Their brand colors are `--pad-*`/`--xbox-*`/`--ps-*`/`--snes-*` tokens in `:root` with no
+     light-mode override on purpose - the buttons stay dark like on the real pad. That styling is
+     why the `anyComponentStyle` budget in `angular.json` is 16/20 kB.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an

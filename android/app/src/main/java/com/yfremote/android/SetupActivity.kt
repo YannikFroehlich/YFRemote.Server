@@ -511,7 +511,9 @@ class SetupActivity : Activity() {
                             addView(
                                 mutedText().apply {
                                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                                    text = "${remoteStatusText(status)} · ${device.url.removePrefix("http://")}"
+                                    val address = device.url.removePrefix("http://")
+                                    text = remoteStatusText(status) +
+                                        if (device.name == address) "" else " · $address"
                                 },
                             )
                         },

@@ -42,6 +42,11 @@ object BluetoothGamepad {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
     private var hid: BluetoothHidDevice? = null
+    @Volatile
+    private var registered = false
+    @Volatile
+    private var pending: BluetoothDevice? = null
+    private var registeringSince = 0L
     private var lastReport = GamepadReport.build(0, 0, 0, 0, 0, 0, 0)
 
     fun isSupported(context: Context): Boolean =
@@ -59,9 +64,19 @@ object BluetoothGamepad {
             update(State.UNSUPPORTED)
             return
         }
-        if (hid != null || state == State.REGISTERING || !isEnabled(context)) return
+        if (!isEnabled(context)) return
+        // Haengt die Anmeldung (kein Callback), nach ein paar Sekunden neu versuchen.
+        if (state == State.REGISTERING && System.currentTimeMillis() - registeringSince < REGISTER_TIMEOUT_MS) return
 
-        update(State.REGISTERING)
+        // Android kann die Anmeldung jederzeit zuruecknehmen (auf dem S25 etwa beim Koppeln eines
+        // neuen Geraets) - dann mit dem vorhandenen Proxy neu anmelden.
+        val proxy = hid
+        if (proxy != null) {
+            if (!registered) register(proxy)
+            return
+        }
+
+        registering()
         adapter(context)!!.getProfileProxy(
             context.applicationContext,
             object : BluetoothProfile.ServiceListener {
@@ -71,6 +86,7 @@ object BluetoothGamepad {
 
                 override fun onServiceDisconnected(profile: Int) {
                     hid = null
+                    registered = false
                     host = null
                     update(State.OFF)
                 }
@@ -80,6 +96,14 @@ object BluetoothGamepad {
     }
 
     fun connect(device: BluetoothDevice) {
+        val current = host
+        // HID kennt nur ein Zielgeraet: erst das alte trennen, das neue folgt in onConnectionStateChanged.
+        if (current != null && current != device) {
+            pending = device
+            hid?.disconnect(current)
+            update(State.CONNECTING)
+            return
+        }
         if (hid?.connect(device) == true) update(State.CONNECTING)
     }
 
@@ -97,6 +121,7 @@ object BluetoothGamepad {
 
     private fun register(proxy: BluetoothHidDevice) {
         hid = proxy
+        registering()
         val sdp = BluetoothHidDeviceAppSdpSettings(
             "YFRemote Controller",
             "Handy als Gamepad",
@@ -107,6 +132,7 @@ object BluetoothGamepad {
 
         val ok = proxy.registerApp(sdp, null, null, executor, object : BluetoothHidDevice.Callback() {
             override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
+                this@BluetoothGamepad.registered = registered
                 if (!registered) {
                     host = null
                     update(State.OFF)
@@ -127,6 +153,10 @@ object BluetoothGamepad {
                     BluetoothProfile.STATE_DISCONNECTED -> if (host == null || host == device) {
                         host = null
                         update(State.READY)
+                        pending?.let {
+                            pending = null
+                            connect(it)
+                        }
                     }
                 }
             }
@@ -138,6 +168,13 @@ object BluetoothGamepad {
         })
         if (!ok) update(State.FAILED)
     }
+
+    private fun registering() {
+        registeringSince = System.currentTimeMillis()
+        update(State.REGISTERING)
+    }
+
+    private const val REGISTER_TIMEOUT_MS = 5000L
 
     private fun update(newState: State) {
         state = newState

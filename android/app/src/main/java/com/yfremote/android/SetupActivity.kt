@@ -751,7 +751,8 @@ class SetupActivity : Activity() {
             else -> gamepadStatus.set("Starte...", color(R.color.brand_text_muted))
         }
 
-        val devices = BluetoothGamepad.bondedDevices(this)
+        // Das verbundene Geraet zuerst, damit "Trennen" ohne Scrollen erreichbar ist.
+        val devices = BluetoothGamepad.bondedDevices(this).sortedByDescending { it == host }
         if (devices.isEmpty()) {
             gamepadDevices.addView(mutedText().apply { text = "Noch kein Bluetooth-Gerät gekoppelt." })
         }
@@ -761,13 +762,42 @@ class SetupActivity : Activity() {
                 LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, dp(4), 0, dp(4))
+                    if (connected) {
+                        // Gruen hinterlegt wie der Status-Punkt, damit das aktive Zielgeraet auffaellt.
+                        val ok = color(R.color.brand_ok)
+                        background = GradientDrawable().apply {
+                            cornerRadius = dp(12).toFloat()
+                            setColor((ok and 0x00FFFFFF) or 0x26000000)
+                            setStroke(dp(1), (ok and 0x00FFFFFF) or 0x80000000.toInt())
+                        }
+                        setPadding(dp(12), dp(6), dp(8), dp(6))
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ).apply { bottomMargin = dp(6) }
+                    } else {
+                        setPadding(0, dp(4), 0, dp(4))
+                    }
                     addView(
-                        TextView(this@SetupActivity).apply {
-                            text = device.name ?: device.address
-                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-                            setTextColor(color(R.color.brand_text))
+                        column().apply {
                             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                            addView(
+                                TextView(this@SetupActivity).apply {
+                                    text = device.name ?: device.address
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                                    setTextColor(color(R.color.brand_text))
+                                    if (connected) setTypeface(null, Typeface.BOLD)
+                                },
+                            )
+                            if (connected) {
+                                addView(
+                                    TextView(this@SetupActivity).apply {
+                                        text = "Verbunden"
+                                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                                        setTextColor(color(R.color.brand_ok))
+                                    },
+                                )
+                            }
                         },
                     )
                     addView(

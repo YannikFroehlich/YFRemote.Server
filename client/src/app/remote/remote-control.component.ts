@@ -42,6 +42,9 @@ export class RemoteControlComponent {
   protected readonly lastError = this.remote.lastError;
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
+  protected readonly fileOfferLabelKey = computed(() =>
+    this.remote.serverPlatform() === 'android' ? 'fileOffer.label.android' : 'fileOffer.label',
+  );
   protected readonly fileDownloading = this.fileTransfer.downloading;
   protected readonly fileOfferError = signal(false);
   // Virtuelle Xbox-Controller gibt es nur auf einem Windows-Server mit ViGEmBus-Treiber.

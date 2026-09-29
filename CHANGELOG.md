@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Datei vom Android-Gerät aufs Handy - in einer beliebigen App "Teilen" → "An gekoppelte Geräte senden" wählen, dann erscheint auf allen verbundenen Geräten der Hinweis "Vom Gerät: Name (Größe)" mit "Laden" und "Verwerfen", wie beim Tray-Menü "Datei an Geräte senden..." unter Windows. Eine neue Freigabe ersetzt die alte, nach 10 Minuten läuft sie ab; nach jedem Download zeigt das Android-Gerät "Datei gesendet".
+- Android-App: Die Zwischenablage lässt sich jetzt auch vom Android-Gerät holen (`GET /clipboard/text`, im Client "Vom Gerät holen"). Android 10+ gibt die Zwischenablage nur der ausgewählten Tastatur frei - das klappt also nur, solange am Gerät die YFRemote-Tastatur ausgewählt ist, sonst nennt der Client genau diesen Grund. Ab Android 12 blendet das System beim Lesen selbst einen Hinweis ein.
+
 ### Fixed
 
 - Android: "Entkoppeln" in der Setup-UI trennt jetzt auch die offene Verbindung des Geräts,

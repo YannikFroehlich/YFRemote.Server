@@ -11,10 +11,13 @@ data class ClipboardTextRequest(val text: String? = null)
 data class ClipboardResponse(
     val success: Boolean,
     val error: String? = null,
+    val text: String? = null,
 ) {
     companion object {
         fun ok() = ClipboardResponse(success = true)
 
         fun fail(error: String) = ClipboardResponse(success = false, error = error)
+
+        fun withText(text: String?) = ClipboardResponse(success = true, text = text)
     }
 }

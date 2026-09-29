@@ -663,8 +663,8 @@ describe('TouchpadComponent', () => {
     expect(recognizer.stopped).toBe(true);
   });
 
-  it('opens the paste field directly unless the server is Windows', async () => {
-    const { fixture } = await setupTouchpad({ serverPlatform: 'android' });
+  it('opens the paste field directly when the server cannot read its clipboard (Linux)', async () => {
+    const { fixture } = await setupTouchpad({ serverPlatform: 'linux' });
     const root = fixture.nativeElement as HTMLElement;
 
     root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage senden"]')!.click();
@@ -692,6 +692,17 @@ describe('TouchpadComponent', () => {
 
     expect(root.querySelector('.clipboard-menu')).toBeNull();
     expect(root.querySelector('.clipboard-paste-target')).not.toBeNull();
+  });
+
+  it('offers both directions with device wording on Android', async () => {
+    const { fixture } = await setupTouchpad({ serverPlatform: 'android' });
+    const root = fixture.nativeElement as HTMLElement;
+
+    root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage"]')!.click();
+    fixture.detectChanges();
+
+    expect(menuOption(fixture, 'An Gerät senden')).toBeTruthy();
+    expect(menuOption(fixture, 'Vom Gerät holen')).toBeTruthy();
   });
 
   it('shows the PC clipboard text and copies it to the device clipboard', async () => {

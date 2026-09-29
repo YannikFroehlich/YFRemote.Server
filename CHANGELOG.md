@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Fixed
+
+- Android: "Entkoppeln" in der Setup-UI trennt jetzt auch die offene Verbindung des Geräts,
+  statt es bis zum nächsten Verbindungsaufbau weiter steuern zu lassen - das Gerät landet sofort
+  wieder auf der PIN-Eingabe, und die angezeigte PIN wird erneuert (#118).
+- Android: Jede WebSocket-Nachricht prüft das Token erneut, damit ein entkoppeltes Gerät auch
+  dann keine Aktion mehr auslösen kann, wenn es den Close-Frame ignoriert.
+- Windows/Linux: Entkoppeln eines Geräts erneuert die PIN. Außerdem bleibt eine WebSocket-Verbindung
+  nicht mehr offen, wenn das Gerät genau während des Verbindungsaufbaus entkoppelt wird.
+
 ## [2.24.0] - 2026-09-26
 
 ### Added

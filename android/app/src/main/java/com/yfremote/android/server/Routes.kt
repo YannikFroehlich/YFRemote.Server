@@ -75,6 +75,14 @@ fun Route.installRoutes(
             for (frame in incoming) {
                 if (frame !is Frame.Text) continue
 
+                // Pro Nachricht statt nur beim Handshake: closeConnections() schickt nur einen
+                // Close-Frame, den ein Client ignorieren kann, und eine zwischen Token-Pruefung und
+                // register() entkoppelte Verbindung sieht es gar nicht.
+                if (!pairing.isValidToken(token)) {
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Pairing required."))
+                    return@webSocket
+                }
+
                 val response = handleActionMessage(frame.readText(), router, json, rateLimited = !rateLimiter.tryAcquire())
 
                 send(Frame.Text(json.encodeToString(RemoteActionResponse.serializer(), response)))

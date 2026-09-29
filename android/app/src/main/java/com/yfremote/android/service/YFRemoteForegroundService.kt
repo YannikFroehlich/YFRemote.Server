@@ -91,6 +91,12 @@ class YFRemoteForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    fun removeDevice(deviceId: String) {
+        if (!pairing.removeDevice(deviceId)) return
+        connectionRegistry.closeConnections(deviceId)
+        refreshNotification()
+    }
+
     fun refreshNotification() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, buildNotification())

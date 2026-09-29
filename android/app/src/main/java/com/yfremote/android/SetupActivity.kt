@@ -138,10 +138,11 @@ class SetupActivity : Activity() {
         }
     }
 
-    private class NavItem(val view: View, val label: TextView, val icon: ImageView?)
+    private class NavItem(val view: View, val label: TextView, val icon: ImageView)
 
-    // Die Leiste folgt dem System des Geraets: Samsung-Apps (One UI) haben unten reine Text-Tabs,
-    // die aktive fett; sonst Material 3 - schwebende Leiste, Icon ueber Text, Pille um die aktive.
+    // Die Leiste folgt dem System des Geraets: Samsung-Apps (One UI) haben unten eine Leiste ueber
+    // die ganze Breite mit Trennlinie, aktiver Eintrag hell und fett; sonst Material 3 - schwebende
+    // Leiste mit Pille um den aktiven Eintrag.
     private val oneUi = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
 
     private fun navigationBar(): View {
@@ -151,25 +152,21 @@ class SetupActivity : Activity() {
         }
 
         navItems = sections.mapIndexed { index, section ->
-            val icon = if (oneUi) {
-                null
-            } else {
-                ImageView(this).apply {
-                    setImageResource(section.icon)
-                    layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
-                }
+            val icon = ImageView(this).apply {
+                setImageResource(section.icon)
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
             }
             val label = TextView(this).apply {
                 text = section.label
                 gravity = Gravity.CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (oneUi) 15f else 12f)
-                if (!oneUi) setPadding(0, dp(4), 0, 0)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (oneUi) 13f else 12f)
+                setPadding(0, dp(4), 0, 0)
             }
             val item = column().apply {
                 gravity = Gravity.CENTER
-                icon?.let { addView(it) }
+                addView(icon)
                 addView(label)
-                layoutParams = LinearLayout.LayoutParams(0, dp(if (oneUi) 48 else 64), 1f).apply {
+                layoutParams = LinearLayout.LayoutParams(0, dp(64), 1f).apply {
                     leftMargin = dp(4)
                     rightMargin = dp(4)
                 }
@@ -179,11 +176,19 @@ class SetupActivity : Activity() {
             NavItem(item, label, icon)
         }
 
-        return bar.apply {
-            if (oneUi) {
+        return if (oneUi) {
+            column().apply {
                 setBackgroundColor(color(R.color.brand_surface))
-                setPadding(dp(12), dp(6), dp(12), dp(10))
-            } else {
+                addView(
+                    View(this@SetupActivity).apply {
+                        setBackgroundColor(color(R.color.brand_surface_stroke))
+                        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+                    },
+                )
+                addView(bar.apply { setPadding(dp(12), dp(4), dp(12), dp(8)) })
+            }
+        } else {
+            bar.apply {
                 background = GradientDrawable().apply {
                     cornerRadius = dp(36).toFloat()
                     setColor(color(R.color.brand_surface))
@@ -213,7 +218,7 @@ class SetupActivity : Activity() {
             )
             item.label.setTextColor(tint)
             item.label.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
-            item.icon?.setColorFilter(tint)
+            item.icon.setColorFilter(tint)
             item.view.background = if (selected && !oneUi) {
                 GradientDrawable().apply {
                     cornerRadius = dp(24).toFloat()

@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Security
+
+- Client: Angular auf 21.2.24 angehoben. Damit sind die Dependabot-Warnungen zu `undici`, `ip-address` und `qs` behoben. Alle drei stecken nur in den Build- und Test-Werkzeugen (Angular CLI/Build, jsdom), nicht im ausgelieferten Client.
+
 ## [2.25.0] - 2026-09-29
 
 ### Added

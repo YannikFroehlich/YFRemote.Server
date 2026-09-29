@@ -247,6 +247,15 @@ same-origin and protocol-compatible with no Client changes.
 is assumed to sit somewhere visible (a TV box, a mounted tablet) and is controlled the way the
 Windows/Linux server is — no `MediaProjection`/video-encoding screen capture into the browser.
 
+**The app is also a controller.** `SetupActivity`'s "Andere Geräte steuern" card lists devices
+this phone controls (`remote/RemoteDevices`, addresses only, in `SharedPreferences`) with an
+online dot from polling their unauthenticated `GET /health`. Opening one starts
+`remote/RemoteWebActivity`, a plain `WebView` on `http://<host>:<port>/` — the target serves the
+same Angular Client, which does the PIN pairing itself and keeps its token in the WebView's
+per-origin `localStorage`, exactly like a browser. No native protocol code on this side, hence
+`usesCleartextTraffic`. Known limits of the WebView: file *downloads* ("Laden" on a file offer,
+blob URLs) and dictation don't work; HTTPS targets with the local CA aren't trusted.
+
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
 way to widen it later without asking for root or an ADB-based tool like Shizuku:

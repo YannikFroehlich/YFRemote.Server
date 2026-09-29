@@ -288,9 +288,10 @@ Galaxy S25 (Android 16).
    - Release-signing keystore not yet created; store it base64-encoded in GitHub Secrets before
      the first real release build — a release-signed APK cannot replace a debug-signed one on a
      device without uninstalling first.
-   - No CI job builds `assembleRelease` yet. Must not be named `build-and-test` — that name is
-     the required status check on `main` (see "Release automation" below) and must stay pointed
-     at the Windows server job.
+   - `ci.yml`'s `android` job builds `assembleDebug` and runs the unit tests on every PR;
+     `assembleRelease` (signed) still only runs in `release-android`. Neither may be named
+     `build-and-test` — that name is the required status check on `main` (see "Release
+     automation" below) and must stay pointed at the Windows server job.
    - Not yet wired into `auto-tag.yml`/`release.yml` — a push to `main` triggers a full release
      regardless of which part of the repo changed (see "Release automation" below), so an
      Android-only change will release Windows/Linux too unless `[skip release]` is used
@@ -405,10 +406,13 @@ Test update behavior using an installed older version, not a development binary.
 Merging to `main` triggers a release automatically. Nothing else is required — this now
 covers Client-only changes too, because the Client lives in this repository.
 
-`.github/workflows/ci.yml` runs on every pull request with two jobs: `build-and-test`
-(restores, builds, and tests the Server on `windows-latest`) and `client` (`npm ci`, Client
-tests, and the Client production build on `ubuntu-latest`). Neither has a `paths` filter, so
-both run for every change.
+`.github/workflows/ci.yml` runs on every pull request with four jobs: `build-and-test`
+(restores, builds, and tests the Server on `windows-latest`), `client` (`npm ci`, Client
+tests, and the Client production build on `ubuntu-latest`), `linux` (the `net10.0` Server build
+and tests), and `android` (`gradle -p android assembleDebug testDebugUnitTest`, no signing
+secrets needed). None has a `paths` filter, so all run for every change. The Android SDK setup is
+shared with `release-android` via the composite action `.github/actions/setup-android`, so a fix
+to it (retries, license handling) applies to both.
 
 `main` is protected by exactly one required status check, named `build-and-test`. Because that
 check only runs on `pull_request`, a merge into `main` has to go through a pull request. The

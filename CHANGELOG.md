@@ -31,6 +31,13 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 - Windows/Linux: Entkoppeln eines Geräts erneuert die PIN. Außerdem bleibt eine WebSocket-Verbindung
   nicht mehr offen, wenn das Gerät genau während des Verbindungsaufbaus entkoppelt wird.
 
+### Changed
+
+- CI: Jeder Pull Request baut jetzt auch die Android-App und führt ihre Unit-Tests aus (Job
+  `android` in `ci.yml`). Bisher wurde der Kotlin-Code erst im Release-Job `release-android`
+  kompiliert, ein Fehler fiel also erst auf, als Windows und Linux schon veröffentlicht waren.
+  Das Android-SDK-Setup teilen sich beide Jobs über `.github/actions/setup-android`.
+
 ## [2.24.0] - 2026-09-26
 
 ### Added

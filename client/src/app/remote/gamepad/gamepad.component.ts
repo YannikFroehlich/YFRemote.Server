@@ -9,7 +9,8 @@ import {
   signal,
 } from '@angular/core';
 import { GamepadState } from '../remote.models';
-import { REMOTE_STORAGE, REMOTE_VIBRATE, RemoteService } from '../remote.service';
+import { REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
+import { GAMEPAD_TRANSPORT } from './gamepad-transport';
 import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
 import {
@@ -176,7 +177,8 @@ interface Tilt {
   },
 })
 export class GamepadComponent implements OnDestroy {
-  private readonly remote = inject(RemoteService);
+  // WebSocket zum Server oder, in der Android-App, Bluetooth (gamepad-transport.ts).
+  private readonly remote = inject(GAMEPAD_TRANSPORT);
   private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly location = inject(SERVER_LOCATION);

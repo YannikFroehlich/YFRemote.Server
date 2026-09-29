@@ -1,8 +1,10 @@
 package com.yfremote.android
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
+import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -29,6 +31,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
+import com.yfremote.android.bluetooth.BluetoothGamepad
+import com.yfremote.android.bluetooth.GamepadActivity
 import com.yfremote.android.ime.YFRemoteInputMethodService
 import com.yfremote.android.remote.RemoteDevice
 import com.yfremote.android.remote.RemoteDevices
@@ -61,6 +65,10 @@ class SetupActivity : Activity() {
     private lateinit var subtitleText: TextView
     private lateinit var sections: List<Section>
     private lateinit var navItems: List<NavItem>
+    private lateinit var gamepadStatus: StatusRow
+    private lateinit var gamepadDevices: LinearLayout
+    private lateinit var gamepadPageView: View
+    private val gamepadListener = { refreshGamepad() }
 
     private lateinit var remoteDevices: RemoteDevices
     private val remoteStatus = ConcurrentHashMap<String, String>()
@@ -97,10 +105,12 @@ class SetupActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        BluetoothGamepad.listeners += gamepadListener
         refreshHandler.post(refreshRunnable)
     }
 
     override fun onPause() {
+        BluetoothGamepad.listeners -= gamepadListener
         refreshHandler.removeCallbacks(refreshRunnable)
         super.onPause()
     }
@@ -118,6 +128,7 @@ class SetupActivity : Activity() {
         sections = listOf(
             Section("Steuern", "Andere Geräte von hier steuern", R.drawable.ic_nav_control, controlPage()),
             Section("Freigeben", "Dieses Telefon fernsteuern lassen", R.drawable.ic_nav_share, sharePage()),
+            Section("Controller", "Handy als Bluetooth-Controller", R.drawable.ic_nav_gamepad, gamepadPage()),
         )
 
         val root = column().apply { setPadding(dp(20), dp(24), dp(20), dp(32)) }
@@ -230,6 +241,7 @@ class SetupActivity : Activity() {
             }
         }
         subtitleText.text = sections[index].subtitle
+        if (sections[index].page === gamepadPageView) refreshGamepad()
         prefs().edit().putInt(KEY_SECTION, index).apply()
     }
 
@@ -664,8 +676,142 @@ class SetupActivity : Activity() {
         else -> "Online"
     }
 
+    private fun gamepadPage(): View = column().also { gamepadPageView = it }.apply {
+        addView(
+            card("Bluetooth-Controller").apply {
+                gamepadStatus = statusRow()
+                addView(gamepadStatus.row)
+                addView(
+                    mutedText().apply {
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                        text = "Das Handy meldet sich per Bluetooth als Controller an, etwa an einem " +
+                            "Android-Gerät oder PC. Dort ist keine App nötig. Designs und Editor wie im " +
+                            "Controller-Modus der Fernbedienung, ohne Vibration."
+                        setPadding(0, 0, 0, dp(6))
+                    },
+                )
+                addView(
+                    primaryButton("Controller öffnen") {
+                        startActivity(Intent(this@SetupActivity, GamepadActivity::class.java))
+                    },
+                )
+            },
+        )
+        addView(
+            card("Zielgerät").apply {
+                gamepadDevices = column()
+                addView(gamepadDevices)
+                addView(
+                    mutedText().apply {
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                        text = "Neues Gerät: in den Bluetooth-Einstellungen mit diesem Handy koppeln " +
+                            "und hier verbinden. Oder das Handy sichtbar machen und am Zielgerät nach " +
+                            "Bluetooth-Geräten suchen."
+                        setPadding(0, dp(10), 0, 0)
+                    },
+                )
+                addView(
+                    secondaryButton("Bluetooth-Einstellungen") {
+                        startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                    },
+                )
+                addView(secondaryButton("Sichtbar machen") { makeDiscoverable() })
+            },
+        )
+    }
+
+    // Geraetenamen lesen braucht BLUETOOTH_CONNECT - geprueft ueber hasBluetoothPermissions().
+    @SuppressLint("MissingPermission")
+    private fun refreshGamepad() {
+        gamepadDevices.removeAllViews()
+
+        if (!BluetoothGamepad.isSupported(this)) {
+            gamepadStatus.set("Braucht Android 9 und Bluetooth", color(R.color.brand_error))
+            return
+        }
+        if (!hasBluetoothPermissions()) {
+            gamepadStatus.set("Bluetooth-Berechtigung fehlt", color(R.color.brand_warn))
+            gamepadDevices.addView(primaryButton("Berechtigung erteilen") { requestBluetoothPermissions() })
+            return
+        }
+        if (!BluetoothGamepad.isEnabled(this)) {
+            gamepadStatus.set("Bluetooth ist ausgeschaltet", color(R.color.brand_error))
+            return
+        }
+
+        BluetoothGamepad.start(this)
+        val host = BluetoothGamepad.host
+        when (BluetoothGamepad.state) {
+            BluetoothGamepad.State.CONNECTED ->
+                gamepadStatus.set("Verbunden mit ${host?.name ?: "Gerät"}", color(R.color.brand_ok))
+            BluetoothGamepad.State.CONNECTING -> gamepadStatus.set("Verbinde...", color(R.color.brand_warn))
+            BluetoothGamepad.State.READY -> gamepadStatus.set("Bereit, nicht verbunden", color(R.color.brand_warn))
+            BluetoothGamepad.State.FAILED ->
+                gamepadStatus.set("Anmeldung als Controller fehlgeschlagen", color(R.color.brand_error))
+            else -> gamepadStatus.set("Starte...", color(R.color.brand_text_muted))
+        }
+
+        val devices = BluetoothGamepad.bondedDevices(this)
+        if (devices.isEmpty()) {
+            gamepadDevices.addView(mutedText().apply { text = "Noch kein Bluetooth-Gerät gekoppelt." })
+        }
+        for (device in devices) {
+            val connected = device == host
+            gamepadDevices.addView(
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(4), 0, dp(4))
+                    addView(
+                        TextView(this@SetupActivity).apply {
+                            text = device.name ?: device.address
+                            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                            setTextColor(color(R.color.brand_text))
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        },
+                    )
+                    addView(
+                        secondaryButton(if (connected) "Trennen" else "Verbinden") {
+                            if (connected) BluetoothGamepad.disconnect() else BluetoothGamepad.connect(device)
+                        }.apply {
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42))
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    // Ab Android 12 Laufzeit-Berechtigungen; davor reichen die im Manifest.
+    private fun bluetoothPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
+        } else {
+            emptyArray()
+        }
+
+    private fun hasBluetoothPermissions(): Boolean =
+        bluetoothPermissions().all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+
+    private fun requestBluetoothPermissions() = requestPermissions(bluetoothPermissions(), BLUETOOTH_REQUEST)
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == BLUETOOTH_REQUEST) refreshGamepad()
+    }
+
+    private fun makeDiscoverable() {
+        if (!hasBluetoothPermissions()) return requestBluetoothPermissions()
+        startActivity(
+            Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120),
+        )
+    }
+
     private fun refreshUi() {
         refreshRemoteDevices()
+        // Nur solange der Bereich offen ist - sonst meldet sich das Handy ungefragt als Controller an.
+        if (gamepadDevices.isShown) refreshGamepad()
 
         val running = YFRemoteForegroundService.isRunning
         val service = YFRemoteForegroundService.instance
@@ -781,5 +927,6 @@ class SetupActivity : Activity() {
     private companion object {
         const val OFFLINE = "offline"
         const val KEY_SECTION = "section"
+        const val BLUETOOTH_REQUEST = 2
     }
 }

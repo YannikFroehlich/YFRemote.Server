@@ -7,6 +7,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Haptik des Web-Clients (navigator.vibrate) im WebView von RemoteWebActivity. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Bluetooth-Controller (bluetooth/BluetoothGamepad): bis Android 11 die alten, ab 12 die
+         Laufzeit-Berechtigungen; ADVERTISE nur fuer "Sichtbar machen". -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
     <!-- usesCleartextTraffic: gesteuerte Geraete sprechen im LAN nur http://<IP> (HTTPS ist dort
          optional und haengt an einer lokalen CA, der das WebView nicht vertraut). -->
@@ -32,6 +39,13 @@
         <activity
             android:name=".remote.RemoteWebActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="false" />
+
+        <!-- Controller immer quer und ohne Neuaufbau beim Drehen, wie RemoteWebActivity. -->
+        <activity
+            android:name=".bluetooth.GamepadActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:screenOrientation="sensorLandscape"
             android:exported="false" />
 
         <!-- Ziel von "Teilen": bietet eine Datei den gekoppelten Geraeten an. Ohne eigene

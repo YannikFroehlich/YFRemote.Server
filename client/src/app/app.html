@@ -7,7 +7,9 @@
   </div>
 }
 
-@if (pairing.isPaired()) {
+@if (bluetooth; as bridge) {
+  <app-gamepad (closed)="bridge.close()" />
+} @else if (pairing.isPaired()) {
   <app-remote-control />
 } @else {
   <app-pairing-gate />

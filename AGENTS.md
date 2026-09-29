@@ -92,6 +92,17 @@ bug in the mapping table. Operationally the target machine needs the `uinput` ke
 (`modprobe uinput`, persist via `/etc/modules-load.d/`) and a udev rule granting the service user
 access without running as root — see `packaging/linux/99-yfremote-uinput.rules`.
 
+**Linux clipboard (`Services/LinuxClipboardService.cs`).** No Wayland/X11 client of its own: it
+runs `wl-paste`/`wl-copy` from `wl-clipboard` on Wayland and `xclip` on X11, so the target needs
+one of those packages; a missing tool is a `NotSupportedException` → `501` naming the package.
+`SelectBackend` prefers `WAYLAND_DISPLAY`, then a `wayland-*` socket in `XDG_RUNTIME_DIR` (the
+`systemd --user` unit starts before the graphical session and does not inherit its environment),
+then `DISPLAY`; X11 without `DISPLAY` in the service environment is not found on its own. Writers
+redirect only stdin, because `wl-copy`/`xclip` leave a background child serving the selection
+that would keep redirected stdout/stderr pipes open forever. Images are PNG or JPEG only
+(sniffed from the magic bytes, the tools need a MIME type). **Unverified on a real Linux session**
+— only backend selection and image sniffing are unit-tested (`LinuxClipboardServiceTests`).
+
 **Current status: both stages of the plan's proof have now passed, on x86_64 only.** Manually
 tested on a Linux Mint 22 (Cinnamon) VM in VirtualBox: (1) the standalone `/dev/uinput`
 round-trip via `--uinput-smoke-test` (typed text and moved/clicked/scrolled the mouse with no

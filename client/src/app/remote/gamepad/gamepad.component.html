@@ -37,6 +37,10 @@
               [class.gp-key--pressed]="isTriggerPressed(view.side)"
               (pointerdown)="pressTrigger($event, view.side)"
             >
+              <span
+                class="gp-trigger__fill"
+                [style.height.%]="triggerPull(view.side) * 100"
+              ></span>
               {{ label(view.side === 'left' ? 'leftTrigger' : 'rightTrigger') }}
             </button>
           }

@@ -68,6 +68,24 @@ describe('GamepadComponent', () => {
     });
   });
 
+  it('grades a trigger by how far the finger pulls it down', async () => {
+    const pad = await setupGamepad();
+    const trigger = pad.button('LT');
+    trigger.getBoundingClientRect = () => new DOMRect(0, 100, 80, 50);
+
+    pointer(trigger, 'pointerdown', 1, 10, 100);
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, leftTrigger: 64 } });
+
+    pointer(trigger, 'pointermove', 1, 10, 120);
+    pad.nextFrame(100);
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, leftTrigger: 160 } });
+
+    // Ueber den Rand hinaus bleibt er voll, der Finger haengt per Pointer-Capture am Trigger.
+    pointer(trigger, 'pointermove', 1, 10, 400);
+    pad.nextFrame(200);
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, leftTrigger: 255 } });
+  });
+
   it('maps a stick drag to axes with Y pointing up and clamps to the rim', async () => {
     const pad = await setupGamepad();
     const stick = pad.root.querySelector<HTMLElement>('.gp-stick')!;

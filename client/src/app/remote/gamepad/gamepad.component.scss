@@ -195,6 +195,20 @@
   height: calc(var(--gp-key) * 0.85);
 }
 
+.gp-key--trigger {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Waechst von oben nach unten mit dem Zug des Fingers - zeigt, wie weit der Trigger gedrueckt ist. */
+.gp-trigger__fill {
+  position: absolute;
+  inset: 0 0 auto;
+  background: var(--accent);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 .gp-key--small {
   height: calc(var(--gp-key) * 0.7);
   font-size: 0.74rem;

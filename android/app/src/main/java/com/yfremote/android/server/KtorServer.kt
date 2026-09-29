@@ -23,6 +23,7 @@ class KtorServer(
     private val clipboardBridge: ClipboardBridge,
     private val clipboardOptions: ClipboardOptions,
     private val fileTransferOptions: FileTransferOptions,
+    private val fileOffers: FileOfferRepository,
 ) {
     companion object {
         const val DEFAULT_PORT = 5050
@@ -58,6 +59,7 @@ class KtorServer(
                     clipboardBridge = clipboardBridge,
                     clipboardOptions = clipboardOptions,
                     fileTransferOptions = fileTransferOptions,
+                    fileOffers = fileOffers,
                     json = json,
                 )
             }

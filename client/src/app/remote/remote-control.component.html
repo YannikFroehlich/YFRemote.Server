@@ -160,7 +160,7 @@
             {{
               fileOfferError()
                 ? i18n.t('fileOffer.error')
-                : i18n.t('fileOffer.label', { name: offer.name, size: formatFileSize(offer.size) })
+                : i18n.t(fileOfferLabelKey(), { name: offer.name, size: formatFileSize(offer.size) })
             }}
           </span>
           <button

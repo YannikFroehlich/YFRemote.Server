@@ -322,6 +322,8 @@ Annahme beim Schreiben ab: `PartData.FileItem.provider()` statt `streamProvider(
 `defaultForFilePath`-Import, `queryParameters` faelschlich importiert) sowie ein
 Netty-`META-INF/INDEX.LIST`-Packaging-Konflikt.
 
-**Noch nicht verifiziert:** `POST /files`, `POST /clipboard/image`, `sleep`, `mouseScroll`,
+**Noch nicht verifiziert:** `GET /clipboard/text` (liest nur, solange die YFRemote-Tastatur
+ausgewaehlt ist, sonst `409`), Datei-Angebot ueber "Teilen" (`ShareActivity` →
+`FileOfferRepository` → `fileOffer`-Push + `GET /files/{id}`), `POST /files`, `POST /clipboard/image`, `sleep`, `mouseScroll`,
 `mouseDown`/`mouseUp`-Drag mit `continueStroke`, der signierte Release-Build
 (`release-android`-CI-Job, siehe Stufe 5).

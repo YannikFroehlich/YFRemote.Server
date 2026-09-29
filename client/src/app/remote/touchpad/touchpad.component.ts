@@ -117,10 +117,14 @@ export class TouchpadComponent implements OnDestroy {
     params?: Record<string, string>;
   } | null>(null);
   protected readonly clipboardPasteTargetVisible = signal(false);
-  // Nur der Windows-Server kann die Zwischenablage lesen: Linux antwortet 501, der
-  // Android-Server kennt den Endpunkt gar nicht.
-  protected readonly pcClipboardReadable = computed(
-    () => this.remote.serverPlatform() === 'windows',
+  // Linux antwortet 501 - nur Windows und Android koennen die Zwischenablage lesen.
+  protected readonly pcClipboardReadable = computed(() => {
+    const platform = this.remote.serverPlatform();
+    return platform === 'windows' || platform === 'android';
+  });
+  // Texte wie "Vom PC holen" haben fuer den Android-Server eine eigene Variante ("Vom Gerät holen").
+  protected readonly targetSuffix = computed(() =>
+    this.remote.serverPlatform() === 'android' ? '.android' : '',
   );
   // Nur wenn beide Richtungen moeglich sind, fragt der Zwischenablage-Knopf nach der Richtung -
   // sonst fuehrt er wie bisher direkt zum Einfuege-Feld, ohne zusaetzlichen Tipp.
@@ -417,10 +421,10 @@ export class TouchpadComponent implements OnDestroy {
     this.pcClipboardLoading.set(false);
 
     if (!result.success) {
-      this.showStatus('touchpad.pcClipboard.error');
+      this.showStatus('touchpad.pcClipboard.error' + this.targetSuffix());
     } else if (!result.text) {
       this.pcClipboardText.set(null);
-      this.showStatus('touchpad.pcClipboard.empty');
+      this.showStatus('touchpad.pcClipboard.empty' + this.targetSuffix());
     } else {
       this.pcClipboardText.set(result.text);
     }

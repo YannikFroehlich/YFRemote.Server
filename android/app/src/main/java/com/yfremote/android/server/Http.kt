@@ -8,10 +8,13 @@ import io.ktor.server.plugins.origin
 // des Browsers - der Origin-Header muss deshalb selbst geprueft werden. Direkte Spiegelung von
 // RequestGuards.IsAllowedOrigin (Endpoints/RequestGuards.cs): reiner String-Vergleich Scheme+Host-Header gegen Origin-Header,
 // keine feste Allowlist.
-fun ApplicationCall.isAllowedOrigin(): Boolean {
+// originOptional wie RequestGuards.cs: Browser senden bei einem Same-Origin-GET per fetch() keinen
+// Origin - dort traegt das Bearer-Token den Schutz, abgelehnt wird nur ein fremder Origin.
+fun ApplicationCall.isAllowedOrigin(originOptional: Boolean = false): Boolean {
     val origin = request.headers[HttpHeaders.Origin]
+    if (origin.isNullOrEmpty()) return originOptional
     val hostHeader = request.headers[HttpHeaders.Host]
-    if (origin.isNullOrEmpty() || hostHeader.isNullOrEmpty()) return false
+    if (hostHeader.isNullOrEmpty()) return false
 
     val expected = "${request.origin.scheme}://$hostHeader"
     return origin.equals(expected, ignoreCase = true)

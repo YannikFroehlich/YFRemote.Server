@@ -22,6 +22,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Ziel von "Teilen": bietet eine Datei den gekoppelten Geraeten an. Ohne eigene
+             Oberflaeche, daher durchsichtig und ohne Eintrag in der Aufgabenliste. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="An gekoppelte Geräte senden"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".service.YFRemoteForegroundService"
             android:foregroundServiceType="dataSync"

@@ -117,11 +117,9 @@ export class TouchpadComponent implements OnDestroy {
     params?: Record<string, string>;
   } | null>(null);
   protected readonly clipboardPasteTargetVisible = signal(false);
-  // Linux antwortet 501 - nur Windows und Android koennen die Zwischenablage lesen.
-  protected readonly pcClipboardReadable = computed(() => {
-    const platform = this.remote.serverPlatform();
-    return platform === 'windows' || platform === 'android';
-  });
+  // Alle drei Server koennen die Zwischenablage lesen (Linux ueber wl-clipboard/xclip). Nur ohne
+  // bekannte Plattform (GET /health fehlgeschlagen) bleibt es beim direkten Einfuege-Feld.
+  protected readonly pcClipboardReadable = computed(() => this.remote.serverPlatform() !== null);
   // Texte wie "Vom PC holen" haben fuer den Android-Server eine eigene Variante ("Vom Gerät holen").
   protected readonly targetSuffix = computed(() =>
     this.remote.serverPlatform() === 'android' ? '.android' : '',
@@ -421,7 +419,12 @@ export class TouchpadComponent implements OnDestroy {
     this.pcClipboardLoading.set(false);
 
     if (!result.success) {
-      this.showStatus('touchpad.pcClipboard.error' + this.targetSuffix());
+      // Linux hat einen eigenen Fehlertext: dort fehlt meist wl-clipboard bzw. xclip.
+      this.showStatus(
+        this.remote.serverPlatform() === 'linux'
+          ? 'touchpad.pcClipboard.error.linux'
+          : 'touchpad.pcClipboard.error' + this.targetSuffix(),
+      );
     } else if (!result.text) {
       this.pcClipboardText.set(null);
       this.showStatus('touchpad.pcClipboard.empty' + this.targetSuffix());

@@ -53,7 +53,8 @@ flowchart LR
   driver once; the tray menu links to it while it is missing.
 - **Linux support (beta)** — a `uinput`-based input backend, verified end-to-end
   on x86_64; arm64 and the installed package are not yet verified
-  (details in [`AGENTS.md`](AGENTS.md)).
+  (details in [`AGENTS.md`](AGENTS.md)). Clipboard sync needs `wl-clipboard`
+  (Wayland) or `xclip` (X11) on the target.
 
 ## Getting started
 

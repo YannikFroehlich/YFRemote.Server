@@ -663,8 +663,8 @@ describe('TouchpadComponent', () => {
     expect(recognizer.stopped).toBe(true);
   });
 
-  it('opens the paste field directly when the server cannot read its clipboard (Linux)', async () => {
-    const { fixture } = await setupTouchpad({ serverPlatform: 'linux' });
+  it('opens the paste field directly while the server platform is unknown', async () => {
+    const { fixture } = await setupTouchpad();
     const root = fixture.nativeElement as HTMLElement;
 
     root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage senden"]')!.click();

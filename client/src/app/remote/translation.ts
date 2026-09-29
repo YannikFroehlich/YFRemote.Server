@@ -247,6 +247,10 @@ export const TRANSLATIONS = {
     de: 'Zwischenablage konnte nicht vom PC geholt werden.',
     en: "The PC's clipboard could not be retrieved.",
   },
+  'touchpad.pcClipboard.error.linux': {
+    de: 'Zwischenablage konnte nicht vom PC geholt werden. Unter Linux braucht YFRemote dafür wl-clipboard (Wayland) oder xclip (X11).',
+    en: "The PC's clipboard could not be retrieved. On Linux, YFRemote needs wl-clipboard (Wayland) or xclip (X11) for this.",
+  },
   'touchpad.pcClipboard.empty.android': {
     de: 'Die Zwischenablage am Gerät enthält keinen Text.',
     en: "The device's clipboard contains no text.",

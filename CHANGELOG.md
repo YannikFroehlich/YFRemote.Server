@@ -32,6 +32,8 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Fixed
 
+- Client: Erfolgsmeldungen im Touchpad ("Datei gesendet", "Zwischenablage gesendet.", "In die Zwischenablage kopiert.") erscheinen jetzt grün statt rot wie ein Fehler.
+
 - Android: "Entkoppeln" in der Setup-UI trennt jetzt auch die offene Verbindung des Geräts,
   statt es bis zum nächsten Verbindungsaufbau weiter steuern zu lassen - das Gerät landet sofort
   wieder auf der PIN-Eingabe, und die angezeigte PIN wird erneuert (#118).

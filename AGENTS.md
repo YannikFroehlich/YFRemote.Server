@@ -247,7 +247,7 @@ same-origin and protocol-compatible with no Client changes.
 is assumed to sit somewhere visible (a TV box, a mounted tablet) and is controlled the way the
 Windows/Linux server is — no `MediaProjection`/video-encoding screen capture into the browser.
 
-**The app is also a controller.** `SetupActivity`'s "Andere Geräte steuern" card lists devices
+**The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
 this phone controls (`remote/RemoteDevices`, addresses only, in `SharedPreferences`) with an
 online dot from polling their unauthenticated `GET /health`. Opening one starts
 `remote/RemoteWebActivity`, a plain `WebView` on `http://<host>:<port>/` — the target serves the
@@ -255,6 +255,17 @@ same Angular Client, which does the PIN pairing itself and keeps its token in th
 per-origin `localStorage`, exactly like a browser. No native protocol code on this side, hence
 `usesCleartextTraffic`. Known limits of the WebView: file *downloads* ("Laden" on a file offer,
 blob URLs) and dictation don't work; HTTPS targets with the local CA aren't trusted.
+
+**Bluetooth controller.** The "Controller" section registers the phone as a Bluetooth HID gamepad
+(`bluetooth/BluetoothGamepad`, `BluetoothHidDevice`, API 28+) - for targets like another Android
+device, where input injection over the WebSocket protocol isn't possible. `bluetooth/GamepadActivity`
+loads the bundled Angular Client from `assets/www` under `https://appassets.androidplatform.net/`
+(served via `shouldInterceptRequest`, so it is a secure context and tilt control works) and injects
+`window.YFRemoteBluetooth`. The Client then renders only `GamepadComponent`, whose
+`GAMEPAD_TRANSPORT` sends each `GamepadState` through that bridge instead of `RemoteService`
+(`client/src/app/remote/gamepad/gamepad-transport.ts`). `bluetooth/GamepadReport` holds the HID
+descriptor and the XInput-to-HID mapping (Linux/Android generic gamepad button order, sticks X/Y and
+Z/Rz, triggers Brake/Gas, D-pad as hat). No rumble back from the host.
 
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no

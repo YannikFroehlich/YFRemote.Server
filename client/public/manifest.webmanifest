@@ -4,8 +4,8 @@
   "lang": "de",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#070b0e",
-  "theme_color": "#070b0e",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
   "icons": [
     {
       "src": "brand-mark-192.png",

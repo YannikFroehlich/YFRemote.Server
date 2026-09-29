@@ -13,8 +13,8 @@ export const APPLIED_THEME_STORAGE_KEY = 'yfremote.appliedTheme';
 export const MAX_CUSTOM_THEMES = 20;
 export const MAX_CUSTOM_THEME_NAME_LENGTH = 30;
 
-const DARK_THEME_COLOR = '#070b0e';
-const LIGHT_THEME_COLOR = '#eef3f4';
+const DARK_THEME_COLOR = '#0b1220';
+const LIGHT_THEME_COLOR = '#eef3f9';
 const HEX_COLOR = /^#[0-9a-f]{6}$/;
 
 // label ist ein Key ins Uebersetzungs-Dictionary (translation.ts); System/Serif/Monospace sind
@@ -293,13 +293,13 @@ export function readThemeValues(doc: Document): CustomThemeValues {
           : 'system';
 
   return {
-    accent: color('--accent', '#62e3c4'),
-    background: color('--app-bg', '#070b0e'),
-    surface: color('--surface-solid', '#11191e'),
-    raised: color('--surface-raised', '#172127'),
-    text: color('--text', '#f2f7f8'),
-    muted: color('--muted', '#8c9da5'),
-    line: color('--line-rgb', '#e0f2f5'),
+    accent: color('--accent', '#38bdf8'),
+    background: color('--app-bg', '#0b1220'),
+    surface: color('--surface-solid', '#151f31'),
+    raised: color('--surface-raised', '#1a2539'),
+    text: color('--text', '#e8eef8'),
+    muted: color('--muted', '#9aacc6'),
+    line: color('--line-rgb', '#e0eaf8'),
     danger: color('--danger', '#ff9b87'),
     borderWidth: number('--border-width', 1),
     radius: number('--radius-scale', 1),

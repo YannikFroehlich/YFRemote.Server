@@ -44,6 +44,7 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Changed
 
+- Client: Das Standard-Design passt jetzt zum Logo und zur Android-App - dunkles Blau statt Schwarzgrün, Cyan als Akzent, dieselben Farben für OK, Warnung und Fehler. Auch der helle Modus nutzt den blauen Akzent. Futuristisch, Minimal und eigene Stile bleiben unverändert.
 - CI: Jeder Pull Request baut jetzt auch die Android-App und führt ihre Unit-Tests aus (Job
   `android` in `ci.yml`). Bisher wurde der Kotlin-Code erst im Release-Job `release-android`
   kompiliert, ein Fehler fiel also erst auf, als Windows und Linux schon veröffentlicht waren.

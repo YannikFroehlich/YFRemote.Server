@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-09-29
+
 ### Added
 
 - Android-App: Neuer Bereich "Controller" - das Handy meldet sich per Bluetooth als Gamepad an einem anderen Gerät an, etwa an einem Android-Gerät, auf dem der WebSocket-Weg nicht geht, oder an einem PC. Auf dem Zielgerät ist keine App nötig. Der Controller ist derselbe wie im Web-Client (Xbox, PlayStation, Nintendo, Retro, eigenes Layout, Neigungssteuerung). Das Zielgerät einmal in den Bluetooth-Einstellungen koppeln, danach im Bereich "Controller" verbinden. Braucht Android 9; Vibration vom Spiel kommt nicht zurück.

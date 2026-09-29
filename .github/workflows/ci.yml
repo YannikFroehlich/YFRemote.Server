@@ -4,7 +4,7 @@ name: CI
 # Release-Workflow (der nur bei Push/Tag auf main laeuft). Verhindert, dass ein
 # kaputter Build oder fehlschlagende Tests erst beim Release-Versuch auffallen.
 #
-# Beide Jobs laufen immer, ohne paths-Filter: die Laufzeit ist gering und ein
+# Alle Jobs laufen immer, ohne paths-Filter: die Laufzeit ist gering und ein
 # Filter wuerde nur verdecken, dass der Server den gebauten Client ausliefert.
 
 on:
@@ -100,3 +100,32 @@ jobs:
           dotnet test tests/YFRemote.Server.Tests/YFRemote.Server.Tests.csproj
           --configuration Release
           --framework net10.0
+
+  # Baut die Android-App und fuehrt ihre Unit-Tests aus. Vorher kompilierte erst release-android
+  # den Kotlin-Code - ein Fehler fiel dort auf, nachdem Windows/Linux schon veroeffentlicht waren.
+  # Debug-Build, damit keine Signing-Secrets noetig sind; assets/www (der Client) bleibt leer,
+  # zum Kompilieren und Testen wird er nicht gebraucht.
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Auschecken
+        uses: actions/checkout@v6
+
+      - name: JDK einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android-SDK einrichten
+        uses: ./.github/actions/setup-android
+
+      # Dieselbe Gradle-Version wie release-android, damit der PR-Build dasselbe prueft.
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: App bauen und testen
+        run: gradle -p android assembleDebug testDebugUnitTest

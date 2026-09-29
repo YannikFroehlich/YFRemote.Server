@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.yfremote.android.R
@@ -25,6 +26,9 @@ class RemoteWebActivity : Activity() {
             setBackgroundColor(getColor(R.color.brand_background))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            // index.html und brand-mark.png haben keinen Hash im Namen - aus dem Cache kaeme nach
+            // einem Update des Zielgeraets noch die alte Oberflaeche. Im LAN kostet frisch laden nichts.
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
             webViewClient = WebViewClient()
             // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden").
             webChromeClient = object : WebChromeClient() {

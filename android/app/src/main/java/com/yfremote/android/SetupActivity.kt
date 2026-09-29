@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Build
@@ -59,7 +60,7 @@ class SetupActivity : Activity() {
     private lateinit var remoteContainer: LinearLayout
     private lateinit var subtitleText: TextView
     private lateinit var sections: List<Section>
-    private lateinit var navButtons: List<TextView>
+    private lateinit var navItems: List<NavItem>
 
     private lateinit var remoteDevices: RemoteDevices
     private val remoteStatus = ConcurrentHashMap<String, String>()
@@ -110,13 +111,13 @@ class SetupActivity : Activity() {
     }
 
     /** Ein Bereich der App mit eigenem Eintrag in der Leiste unten. */
-    private class Section(val label: String, val subtitle: String, val page: View)
+    private class Section(val label: String, val subtitle: String, val icon: Int, val page: View)
 
     private fun buildLayout(): View {
         // Weitere Bereiche (z. B. ein Bluetooth-Controller) sind nur ein Eintrag mehr hier.
         sections = listOf(
-            Section("Steuern", "Andere Geräte von hier steuern", controlPage()),
-            Section("Freigeben", "Dieses Telefon fernsteuern lassen", sharePage()),
+            Section("Steuern", "Andere Geräte von hier steuern", R.drawable.ic_nav_control, controlPage()),
+            Section("Freigeben", "Dieses Telefon fernsteuern lassen", R.drawable.ic_nav_share, sharePage()),
         )
 
         val root = column().apply { setPadding(dp(20), dp(24), dp(20), dp(32)) }
@@ -137,37 +138,87 @@ class SetupActivity : Activity() {
         }
     }
 
-    private fun navigationBar(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        setBackgroundColor(color(R.color.brand_surface))
-        setPadding(dp(12), dp(8), dp(12), dp(8))
+    private class NavItem(val view: View, val label: TextView, val icon: ImageView?)
 
-        navButtons = sections.mapIndexed { index, section ->
-            TextView(this@SetupActivity).apply {
+    // Die Leiste folgt dem System des Geraets: Samsung-Apps (One UI) haben unten reine Text-Tabs,
+    // die aktive fett; sonst Material 3 - schwebende Leiste, Icon ueber Text, Pille um die aktive.
+    private val oneUi = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+
+    private fun navigationBar(): View {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        navItems = sections.mapIndexed { index, section ->
+            val icon = if (oneUi) {
+                null
+            } else {
+                ImageView(this).apply {
+                    setImageResource(section.icon)
+                    layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                }
+            }
+            val label = TextView(this).apply {
                 text = section.label
                 gravity = Gravity.CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-                layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (oneUi) 15f else 12f)
+                if (!oneUi) setPadding(0, dp(4), 0, 0)
+            }
+            val item = column().apply {
+                gravity = Gravity.CENTER
+                icon?.let { addView(it) }
+                addView(label)
+                layoutParams = LinearLayout.LayoutParams(0, dp(if (oneUi) 48 else 64), 1f).apply {
                     leftMargin = dp(4)
                     rightMargin = dp(4)
                 }
                 setOnClickListener { showSection(index) }
             }
+            bar.addView(item)
+            NavItem(item, label, icon)
         }
-        navButtons.forEach { addView(it) }
+
+        return bar.apply {
+            if (oneUi) {
+                setBackgroundColor(color(R.color.brand_surface))
+                setPadding(dp(12), dp(6), dp(12), dp(10))
+            } else {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(36).toFloat()
+                    setColor(color(R.color.brand_surface))
+                    setStroke(dp(1), color(R.color.brand_surface_stroke))
+                }
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { setMargins(dp(16), dp(4), dp(16), dp(12)) }
+            }
+        }
     }
 
     private fun showSection(index: Int) {
         sections.forEachIndexed { i, section ->
             section.page.visibility = if (i == index) View.VISIBLE else View.GONE
         }
-        navButtons.forEachIndexed { i, button ->
+        navItems.forEachIndexed { i, item ->
             val selected = i == index
-            button.setTextColor(color(if (selected) R.color.brand_accent else R.color.brand_text_muted))
-            button.background = if (selected) {
+            val tint = color(
+                when {
+                    !selected -> R.color.brand_text_muted
+                    oneUi -> R.color.brand_text
+                    else -> R.color.brand_accent
+                },
+            )
+            item.label.setTextColor(tint)
+            item.label.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+            item.icon?.setColorFilter(tint)
+            item.view.background = if (selected && !oneUi) {
                 GradientDrawable().apply {
-                    cornerRadius = dp(12).toFloat()
-                    setColor(color(R.color.brand_surface_stroke))
+                    cornerRadius = dp(24).toFloat()
+                    // Akzent mit 20 % Deckkraft - wie der "secondary container" in Material 3.
+                    setColor((color(R.color.brand_accent) and 0x00FFFFFF) or 0x33000000)
                 }
             } else {
                 null

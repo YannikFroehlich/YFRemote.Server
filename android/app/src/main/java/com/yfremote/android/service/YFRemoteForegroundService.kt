@@ -16,11 +16,13 @@ import com.yfremote.android.ime.YFRemoteInputMethodService
 import com.yfremote.android.server.ClipboardBridge
 import com.yfremote.android.server.ClipboardOptions
 import com.yfremote.android.server.ConnectionRegistry
+import com.yfremote.android.server.FileOfferRepository
 import com.yfremote.android.server.FileTransferBridge
 import com.yfremote.android.server.FileTransferOptions
 import com.yfremote.android.server.KtorServer
 import com.yfremote.android.server.PairingRepository
 import com.yfremote.android.server.RemoteActionRouter
+import java.io.File
 
 // Haelt den Prozess am Leben, waehrend der Ktor-Server laeuft - Android wuerde einen reinen
 // Hintergrundprozess sonst jederzeit beenden (siehe PLAN.md, Stufe 5). Android-Aequivalent zum
@@ -41,6 +43,9 @@ class YFRemoteForegroundService : Service() {
     lateinit var pairing: PairingRepository
         private set
 
+    lateinit var fileOffers: FileOfferRepository
+        private set
+
     private lateinit var connectionRegistry: ConnectionRegistry
     private lateinit var server: KtorServer
 
@@ -50,6 +55,7 @@ class YFRemoteForegroundService : Service() {
 
         connectionRegistry = ConnectionRegistry()
         pairing = PairingRepository(filesDir)
+        fileOffers = FileOfferRepository(File(cacheDir, "offers"))
 
         val router = RemoteActionRouter(
             audioManager = getSystemService(AUDIO_SERVICE) as AudioManager,
@@ -67,6 +73,7 @@ class YFRemoteForegroundService : Service() {
             clipboardBridge = ClipboardBridge(applicationContext),
             clipboardOptions = ClipboardOptions(),
             fileTransferOptions = FileTransferOptions(),
+            fileOffers = fileOffers,
         )
     }
 
@@ -90,6 +97,12 @@ class YFRemoteForegroundService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    fun removeDevice(deviceId: String) {
+        if (!pairing.removeDevice(deviceId)) return
+        connectionRegistry.closeConnections(deviceId)
+        refreshNotification()
+    }
 
     fun refreshNotification() {
         val manager = getSystemService(NotificationManager::class.java)

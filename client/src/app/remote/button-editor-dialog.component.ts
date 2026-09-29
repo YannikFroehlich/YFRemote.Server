@@ -14,7 +14,7 @@ import { MacroStep, RemoteAction, RemoteIcon } from './remote.models';
 import { TranslationService } from './translation.service';
 
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
-const DEFAULT_CUSTOM_COLOR = '#62e3c4';
+const DEFAULT_CUSTOM_COLOR = '#38bdf8';
 
 type StepType = 'keys' | 'text' | 'mouseClick';
 

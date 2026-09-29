@@ -11,8 +11,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="YFRemote">
-  <meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
-  <meta name="theme-color" content="#eef3f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#eef3f9" media="(prefers-color-scheme: light)">
   <script>
     // Zuletzt angewendetes Theme vor dem ersten Rendern setzen, sonst blitzt beim Laden der
     // falsche Stil auf. ThemeService speichert es fertig berechnet (AppliedTheme in theme.ts).
@@ -26,7 +26,7 @@
         Object.keys(theme.props || {}).forEach(function (name) {
           if (name.indexOf('--') === 0) root.style.setProperty(name, String(theme.props[name]));
         });
-        var color = theme.themeColor || (theme.mode === 'light' ? '#eef3f4' : theme.mode ? '#070b0e' : null);
+        var color = theme.themeColor || (theme.mode === 'light' ? '#eef3f9' : theme.mode ? '#0b1220' : null);
         if (color) {
           document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
             meta.content = color;

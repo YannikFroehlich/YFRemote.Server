@@ -113,7 +113,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path [attr.d]="iconPaths.upload"></path>
         </svg>
-        {{ i18n.t('touchpad.clipboard.sendOption') }}
+        {{ i18n.t('touchpad.clipboard.sendOption' + targetSuffix()) }}
       </button>
       <button
         class="secondary-button clipboard-menu__option"
@@ -123,7 +123,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path [attr.d]="iconPaths.download"></path>
         </svg>
-        {{ i18n.t('touchpad.pcClipboard.title') }}
+        {{ i18n.t('touchpad.pcClipboard.title' + targetSuffix()) }}
       </button>
     </div>
   }
@@ -146,7 +146,7 @@
     <div
       class="pc-clipboard"
       role="group"
-      [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel')"
+      [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel' + targetSuffix())"
     >
       <textarea
         #pcClipboardField
@@ -154,7 +154,7 @@
         readonly
         rows="3"
         [value]="text"
-        [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel')"
+        [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel' + targetSuffix())"
         (focus)="pcClipboardField.select()"
       ></textarea>
       @if (!canCopyToDevice) {
@@ -174,7 +174,12 @@
   }
 
   @if (statusMessage(); as status) {
-    <p class="settings-message" role="status" aria-live="polite">
+    <p
+      class="settings-message"
+      [class.settings-message--success]="status.success"
+      role="status"
+      aria-live="polite"
+    >
       {{ i18n.t(status.key, status.params) }}
     </p>
   }

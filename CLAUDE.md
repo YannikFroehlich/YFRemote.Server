@@ -145,9 +145,12 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 - `GET /clipboard/text` → reads the PC clipboard's text back (`{ text: null }` when it holds
   none, `422` beyond `Clipboard:MaxTextLength`), sent with `Cache-Control: no-store`. Unlike the
   POST endpoints it only rejects a *mismatching* `Origin`: browsers send none on a same-origin
-  GET `fetch()`, so the `Bearer` token is the real gate here. Only the Windows service can read;
-  `LinuxClipboardService` throws `NotSupportedException` for every clipboard call, which becomes
-  `501`, and the Client offers "Vom PC holen" only for `platform: windows`. Every successful
+  GET `fetch()`, so the `Bearer` token is the real gate here. `LinuxClipboardService` shells out
+  to `wl-paste`/`wl-copy` (Wayland) or `xclip` (X11); a missing tool or graphical session becomes
+  a `NotSupportedException` → `501`. The Client offers "Vom PC holen" for every known platform
+  ("Vom Gerät holen" for the Android app's own `GET /clipboard/text`, which answers `409` unless
+  the YFRemote keyboard is the selected IME - Android 10+ only lets that IME read the
+  clipboard). Every successful
   read calls `ClipboardReadNotifier.NotifyTextRead(deviceName)`, which the tray turns into a
   "Zwischenablage gesendet" balloon so an unexpected read is visible at the PC.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.

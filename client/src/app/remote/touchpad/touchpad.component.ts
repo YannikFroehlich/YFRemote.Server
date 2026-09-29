@@ -115,12 +115,15 @@ export class TouchpadComponent implements OnDestroy {
   protected readonly statusMessage = signal<{
     key: string;
     params?: Record<string, string>;
+    success?: boolean;
   } | null>(null);
   protected readonly clipboardPasteTargetVisible = signal(false);
-  // Nur der Windows-Server kann die Zwischenablage lesen: Linux antwortet 501, der
-  // Android-Server kennt den Endpunkt gar nicht.
-  protected readonly pcClipboardReadable = computed(
-    () => this.remote.serverPlatform() === 'windows',
+  // Alle drei Server koennen die Zwischenablage lesen (Linux ueber wl-clipboard/xclip). Nur ohne
+  // bekannte Plattform (GET /health fehlgeschlagen) bleibt es beim direkten Einfuege-Feld.
+  protected readonly pcClipboardReadable = computed(() => this.remote.serverPlatform() !== null);
+  // Texte wie "Vom PC holen" haben fuer den Android-Server eine eigene Variante ("Vom Gerät holen").
+  protected readonly targetSuffix = computed(() =>
+    this.remote.serverPlatform() === 'android' ? '.android' : '',
   );
   // Nur wenn beide Richtungen moeglich sind, fragt der Zwischenablage-Knopf nach der Richtung -
   // sonst fuehrt er wie bisher direkt zum Einfuege-Feld, ohne zusaetzlichen Tipp.
@@ -333,18 +336,18 @@ export class TouchpadComponent implements OnDestroy {
     const result = await this.fileTransfer.sendFile(file);
 
     if (result.success) {
-      this.showStatus('touchpad.file.success', { fileName: result.fileName ?? file.name });
+      this.showStatus('touchpad.file.success', { fileName: result.fileName ?? file.name }, true);
     } else {
       this.showStatus('touchpad.file.error');
     }
   }
 
-  private showStatus(key: string, params?: Record<string, string>): void {
+  private showStatus(key: string, params?: Record<string, string>, success = false): void {
     if (this.statusTimer !== null) {
       clearTimeout(this.statusTimer);
     }
 
-    this.statusMessage.set({ key, params });
+    this.statusMessage.set({ key, params, success });
     this.statusTimer = setTimeout(() => this.statusMessage.set(null), STATUS_VISIBLE_MS);
   }
 
@@ -417,10 +420,15 @@ export class TouchpadComponent implements OnDestroy {
     this.pcClipboardLoading.set(false);
 
     if (!result.success) {
-      this.showStatus('touchpad.pcClipboard.error');
+      // Linux hat einen eigenen Fehlertext: dort fehlt meist wl-clipboard bzw. xclip.
+      this.showStatus(
+        this.remote.serverPlatform() === 'linux'
+          ? 'touchpad.pcClipboard.error.linux'
+          : 'touchpad.pcClipboard.error' + this.targetSuffix(),
+      );
     } else if (!result.text) {
       this.pcClipboardText.set(null);
-      this.showStatus('touchpad.pcClipboard.empty');
+      this.showStatus('touchpad.pcClipboard.empty' + this.targetSuffix());
     } else {
       this.pcClipboardText.set(result.text);
     }
@@ -430,7 +438,7 @@ export class TouchpadComponent implements OnDestroy {
     try {
       await this.writeDeviceClipboard!(text);
       this.pcClipboardText.set(null);
-      this.showStatus('touchpad.pcClipboard.copied');
+      this.showStatus('touchpad.pcClipboard.copied', undefined, true);
     } catch {
       this.showStatus('touchpad.pcClipboard.copyError');
     }
@@ -441,7 +449,7 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private showSendStatus(success: boolean): void {
-    this.showStatus(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error');
+    this.showStatus(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error', undefined, success);
   }
 
   private startDictation(input: HTMLInputElement): void {

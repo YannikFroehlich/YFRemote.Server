@@ -23,6 +23,39 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Added
 
+- Android-App: Neuer Bereich "Controller" - das Handy meldet sich per Bluetooth als Gamepad an einem anderen Gerät an, etwa an einem Android-Gerät, auf dem der WebSocket-Weg nicht geht, oder an einem PC. Auf dem Zielgerät ist keine App nötig. Der Controller ist derselbe wie im Web-Client (Xbox, PlayStation, Nintendo, Retro, eigenes Layout, Neigungssteuerung). Das Zielgerät einmal in den Bluetooth-Einstellungen koppeln, danach im Bereich "Controller" verbinden. Braucht Android 9; Vibration vom Spiel kommt nicht zurück.
+- Android-App: Die App ist in drei Bereiche aufgeteilt, umschaltbar über eine Leiste unten: "Steuern" (andere Geräte von hier steuern), "Freigeben" (Dienst, PIN, Berechtigungen und gekoppelte Geräte dieses Telefons) und "Controller" (Bluetooth-Controller, siehe oben). Die App merkt sich den zuletzt gewählten Bereich. Die Leiste passt sich dem Handy an: auf Samsung-Geräten eine Leiste über die ganze Breite mit Symbolen wie in den One-UI-Apps, sonst eine schwebende Material-3-Leiste mit Symbolen.
+- Android-App: Das Handy kann jetzt auch selbst andere Geräte steuern. Der Bereich "Steuern" listet die hinzugefügten PCs und Android-Geräte mit Online-Anzeige (grün/rot, dazu Windows-PC, Linux-PC oder Android-Gerät). Über "+ Gerät hinzufügen" gibt man die IP-Adresse ein (optional mit Port und Namen), danach öffnet sich die gewohnte Fernbedienung und fragt beim ersten Mal die PIN ab. "Entfernen" löscht das Gerät aus der Liste und vergisst die Kopplung auf dem Handy. Dateien vom Zielgerät laden und Diktieren gehen in der App noch nicht, dafür weiter den Browser nutzen.
+
+- Controller-Modus: LT/RT sind jetzt analog statt nur "ganz oder gar nicht". Wie weit der Finger auf dem Trigger nach unten gezogen ist, bestimmt, wie stark er gedrückt ist - oben angetippt leicht, ab vier Fünfteln der Höhe voll, auch wenn der Finger dabei über den Rand rutscht. Schon der leichteste Wert liegt über der XInput-Schwelle, ein kurzer Tipp kommt also in jedem Spiel als Druck an. Eine Füllung im Trigger zeigt, wie weit er gezogen ist.
+- Linux: Die Zwischenablage funktioniert jetzt in beide Richtungen (Text senden und holen, Bilder als PNG/JPEG senden). YFRemote nutzt dafür `wl-clipboard` unter Wayland bzw. `xclip` unter X11 - eines der beiden Pakete muss installiert sein, sonst nennt die Fehlermeldung das fehlende Paket. Auch als `systemd --user`-Dienst, der vor der grafischen Sitzung startet, findet YFRemote die Wayland-Sitzung selbst. Noch nicht auf einer echten Linux-Sitzung geprüft.
+- Android-App: Datei vom Android-Gerät aufs Handy - in einer beliebigen App "Teilen" → "An gekoppelte Geräte senden" wählen, dann erscheint auf allen verbundenen Geräten der Hinweis "Vom Gerät: Name (Größe)" mit "Laden" und "Verwerfen", wie beim Tray-Menü "Datei an Geräte senden..." unter Windows. Eine neue Freigabe ersetzt die alte, nach 10 Minuten läuft sie ab; nach jedem Download zeigt das Android-Gerät "Datei gesendet".
+- Android-App: Die Zwischenablage lässt sich jetzt auch vom Android-Gerät holen (`GET /clipboard/text`, im Client "Vom Gerät holen"). Android 10+ gibt die Zwischenablage nur der ausgewählten Tastatur frei - das klappt also nur, solange am Gerät die YFRemote-Tastatur ausgewählt ist, sonst nennt der Client genau diesen Grund. Ab Android 12 blendet das System beim Lesen selbst einen Hinweis ein.
+
+### Fixed
+
+- Client: Erfolgsmeldungen im Touchpad ("Datei gesendet", "Zwischenablage gesendet.", "In die Zwischenablage kopiert.") erscheinen jetzt grün statt rot wie ein Fehler.
+
+- Android: "Entkoppeln" in der Setup-UI trennt jetzt auch die offene Verbindung des Geräts,
+  statt es bis zum nächsten Verbindungsaufbau weiter steuern zu lassen - das Gerät landet sofort
+  wieder auf der PIN-Eingabe, und die angezeigte PIN wird erneuert (#118).
+- Android: Jede WebSocket-Nachricht prüft das Token erneut, damit ein entkoppeltes Gerät auch
+  dann keine Aktion mehr auslösen kann, wenn es den Close-Frame ignoriert.
+- Windows/Linux: Entkoppeln eines Geräts erneuert die PIN. Außerdem bleibt eine WebSocket-Verbindung
+  nicht mehr offen, wenn das Gerät genau während des Verbindungsaufbaus entkoppelt wird.
+
+### Changed
+
+- Client: Das Standard-Design passt jetzt zum Logo und zur Android-App - dunkles Blau statt Schwarzgrün, Cyan als Akzent, dieselben Farben für OK, Warnung und Fehler. Auch der helle Modus nutzt den blauen Akzent. Futuristisch, Minimal und eigene Stile bleiben unverändert.
+- CI: Jeder Pull Request baut jetzt auch die Android-App und führt ihre Unit-Tests aus (Job
+  `android` in `ci.yml`). Bisher wurde der Kotlin-Code erst im Release-Job `release-android`
+  kompiliert, ein Fehler fiel also erst auf, als Windows und Linux schon veröffentlicht waren.
+  Das Android-SDK-Setup teilen sich beide Jobs über `.github/actions/setup-android`.
+
+## [2.24.0] - 2026-09-26
+
+### Added
+
 - Datei vom PC aufs Handy: Im Tray-Menue "Datei an Geräte senden..." eine Datei waehlen, dann erscheint auf allen verbundenen Geraeten unten der Hinweis "Vom PC: Name (Groesse)" mit "Laden" und "Verwerfen". "Laden" legt die Datei im Download-Ordner des Geraets ab, am PC meldet der Tray "Datei gesendet". Ein Geraet, das sich erst spaeter verbindet, bekommt das Angebot beim Verbinden. Eine neue Freigabe ersetzt die alte, nach 10 Minuten laeuft sie ab. Im Controller-Modus bleibt der Hinweis ausgeblendet. Nur der Windows-Server kann Dateien anbieten (dort sitzt das Tray-Menue).
 - Controller-Modus: Neigungssteuerung fuer den rechten Stick, ein- und ausschaltbar mit dem neuen Knopf ◎ oben in der Mitte (Standard aus, die Wahl wird pro Geraet gespeichert). Handy zu sich kippen = hoch, rechte Kante nach unten = rechts; volle Auslenkung bei 25 Grad, kleines Wackeln bleibt in einer Totzone. Die Nullstellung ist die Haltung beim Einschalten und wird nach dem Zurueckkehren in die App neu gesetzt. Liegt ein Finger auf dem rechten Stick, hat er Vorrang. Browser liefern die Bewegungssensoren nur ueber HTTPS - ohne zeigt der Controller einen Hinweis auf "HTTPS verwenden" im Tray. Auf dem iPhone fragt Safari beim Einschalten einmal nach der Erlaubnis.
 

@@ -1,8 +1,10 @@
 package com.yfremote.android.server
 
 import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.server.websocket.DefaultWebSocketServerSession
+import kotlinx.coroutines.launch
 
 // Android-Aequivalent zu WebSockets/WebSocketConnectionRegistry.cs: erlaubt es, offene /ws-
 // Verbindungen eines Geraets gezielt zu schliessen (z.B. beim Entkoppeln in der Setup-UI).
@@ -24,10 +26,23 @@ class ConnectionRegistry {
         }
     }
 
-    suspend fun closeConnections(deviceId: String) {
+    // Nicht suspend, damit auch die Setup-UI (Main-Thread, ohne Coroutine) entkoppeln kann -
+    // jede Session schliesst sich in ihrem eigenen Scope.
+    fun closeConnections(deviceId: String) {
         val sessions = synchronized(lock) { connectionsByDeviceId[deviceId]?.toList() } ?: return
         sessions.forEach { session ->
-            runCatching { session.close(CloseReason(CloseReason.Codes.NORMAL, "Device unpaired.")) }
+            session.launch {
+                runCatching { session.close(CloseReason(CloseReason.Codes.NORMAL, "Device unpaired.")) }
+            }
+        }
+    }
+
+    // Ungefragte Server-Nachricht (z.B. ein Datei-Angebot) an alle offenen Verbindungen. send()
+    // geht in den Ausgangs-Channel der Session und darf deshalb parallel zur Antwortschleife laufen.
+    fun broadcast(text: String) {
+        val sessions = synchronized(lock) { connectionsByDeviceId.values.flatten() }
+        sessions.forEach { session ->
+            session.launch { runCatching { session.send(Frame.Text(text)) } }
         }
     }
 }

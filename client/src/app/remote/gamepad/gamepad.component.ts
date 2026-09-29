@@ -9,7 +9,8 @@ import {
   signal,
 } from '@angular/core';
 import { GamepadState } from '../remote.models';
-import { REMOTE_STORAGE, REMOTE_VIBRATE, RemoteService } from '../remote.service';
+import { REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
+import { GAMEPAD_TRANSPORT } from './gamepad-transport';
 import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
 import {
@@ -103,7 +104,13 @@ const FACE_BUTTONS = [
 
 type HeldControl =
   | { readonly kind: 'button'; readonly button: GamepadButton }
-  | { readonly kind: 'trigger'; readonly side: Side }
+  | {
+      readonly kind: 'trigger';
+      readonly side: Side;
+      readonly top: number;
+      readonly height: number;
+      value: number;
+    }
   | {
       readonly kind: 'stick';
       readonly side: Side;
@@ -126,6 +133,12 @@ export const NEUTRAL_GAMEPAD: GamepadState = {
 
 const AXIS_MAX = 32767;
 const TRIGGER_MAX = 255;
+// Leichtester Wert eines gedrueckten Triggers - deutlich ueber der XInput-Schwelle von 30
+// (XINPUT_GAMEPAD_TRIGGER_THRESHOLD), damit auch ein kurzer Tipp in jedem Spiel als Druck zaehlt.
+const TRIGGER_MIN = 64;
+// Ab diesem Anteil der Trigger-Hoehe ist er voll gezogen - ganz bis an die Unterkante muss der
+// Finger dafuer nicht.
+const TRIGGER_FULL_AT = 0.8;
 // Ein 120-Hz-Display liefert 120 Frames pro Sekunde - genau das Nachrichtenlimit des Servers pro
 // Verbindung. Mit diesem Abstand bleibt der Controller bei ~60 Nachrichten/s.
 const MIN_SEND_INTERVAL_MS = 16;
@@ -164,7 +177,8 @@ interface Tilt {
   },
 })
 export class GamepadComponent implements OnDestroy {
-  private readonly remote = inject(RemoteService);
+  // WebSocket zum Server oder, in der Android-App, Bluetooth (gamepad-transport.ts).
+  private readonly remote = inject(GAMEPAD_TRANSPORT);
   private readonly vibrate = inject(REMOTE_VIBRATE);
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly location = inject(SERVER_LOCATION);
@@ -214,7 +228,10 @@ export class GamepadComponent implements OnDestroy {
   }
 
   protected pressTrigger(event: PointerEvent, side: Side): void {
-    this.hold(event, { kind: 'trigger', side });
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const trigger: HeldControl = { kind: 'trigger', side, top: rect.top, height: rect.height, value: 0 };
+    moveTrigger(trigger, event);
+    this.hold(event, trigger);
   }
 
   protected grabStick(event: PointerEvent, side: Side): void {
@@ -357,12 +374,13 @@ export class GamepadComponent implements OnDestroy {
     }
 
     const control = this.held.get(event.pointerId);
-    if (control?.kind !== 'stick') {
-      return;
+    if (control?.kind === 'stick') {
+      moveStick(control, event);
+      this.update();
+    } else if (control?.kind === 'trigger') {
+      moveTrigger(control, event);
+      this.update();
     }
-
-    moveStick(control, event);
-    this.update();
   }
 
   protected release(event: PointerEvent): void {
@@ -387,6 +405,11 @@ export class GamepadComponent implements OnDestroy {
 
   protected isPressed(button: GamepadButton): boolean {
     return (this.state().buttons & GAMEPAD_BUTTONS[button]) !== 0;
+  }
+
+  /** Anteil 0..1 fuer die Fuellanzeige im Trigger. */
+  protected triggerPull(side: Side): number {
+    return (side === 'left' ? this.state().leftTrigger : this.state().rightTrigger) / TRIGGER_MAX;
   }
 
   protected isTriggerPressed(side: Side): boolean {
@@ -487,13 +510,11 @@ export class GamepadComponent implements OnDestroy {
         case 'button':
           buttons |= GAMEPAD_BUTTONS[control.button];
           break;
-        // ponytail: Trigger sind digital (0 oder voll) - fuer Halbgas bräuchte es einen
-        // Schieberegler statt einer Taste.
         case 'trigger':
           if (control.side === 'left') {
-            leftTrigger = TRIGGER_MAX;
+            leftTrigger = control.value;
           } else {
-            rightTrigger = TRIGGER_MAX;
+            rightTrigger = control.value;
           }
           break;
         case 'stick':
@@ -551,6 +572,19 @@ export class GamepadComponent implements OnDestroy {
     this.lastSent = state;
     return true;
   }
+}
+
+/** Die Zugposition des Fingers stuft den Trigger ab: oben angetippt = leicht, nach unten gezogen
+ *  = voll. Der Finger bleibt per Pointer-Capture am Trigger, auch wenn er ueber den Rand rutscht. */
+function moveTrigger(trigger: Extract<HeldControl, { kind: 'trigger' }>, event: PointerEvent): void {
+  // Ohne Layout (Hoehe 0) gibt es keine Zugposition - dann wie bisher voll.
+  if (trigger.height <= 0) {
+    trigger.value = TRIGGER_MAX;
+    return;
+  }
+
+  const pull = Math.min(Math.max(event.clientY - trigger.top, 0) / (trigger.height * TRIGGER_FULL_AT), 1);
+  trigger.value = Math.round(TRIGGER_MIN + pull * (TRIGGER_MAX - TRIGGER_MIN));
 }
 
 function moveStick(stick: Extract<HeldControl, { kind: 'stick' }>, event: PointerEvent): void {

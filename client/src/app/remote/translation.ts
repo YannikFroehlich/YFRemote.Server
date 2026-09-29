@@ -190,6 +190,10 @@ export const TRANSLATIONS = {
   'touchpad.dictationError.noSpeech': { de: 'Kein Ton erkannt.', en: 'No sound detected.' },
   'touchpad.dictationError.failed': { de: 'Diktat fehlgeschlagen.', en: 'Dictation failed.' },
   'fileOffer.label': { de: 'Vom PC: {{name}} ({{size}})', en: 'From PC: {{name}} ({{size}})' },
+  'fileOffer.label.android': {
+    de: 'Vom Gerät: {{name}} ({{size}})',
+    en: 'From device: {{name}} ({{size}})',
+  },
   'fileOffer.download': { de: 'Laden', en: 'Download' },
   'fileOffer.dismiss': { de: 'Verwerfen', en: 'Dismiss' },
   'fileOffer.error': {
@@ -208,6 +212,7 @@ export const TRANSLATIONS = {
   'touchpad.clipboard.hint': { de: 'Jetzt einfügen', en: 'Paste now' },
   'touchpad.clipboard.menuTitle': { de: 'Zwischenablage', en: 'Clipboard' },
   'touchpad.clipboard.sendOption': { de: 'An PC senden', en: 'Send to PC' },
+  'touchpad.clipboard.sendOption.android': { de: 'An Gerät senden', en: 'Send to device' },
   'touchpad.clipboard.success': { de: 'Zwischenablage gesendet.', en: 'Clipboard sent.' },
   'touchpad.clipboard.error': {
     de: 'Zwischenablage konnte nicht gesendet werden.',
@@ -215,6 +220,11 @@ export const TRANSLATIONS = {
   },
   'touchpad.pcClipboard.title': { de: 'Vom PC holen', en: 'Get from PC' },
   'touchpad.pcClipboard.panelLabel': { de: 'Zwischenablage des PCs', en: "PC's clipboard" },
+  'touchpad.pcClipboard.title.android': { de: 'Vom Gerät holen', en: 'Get from device' },
+  'touchpad.pcClipboard.panelLabel.android': {
+    de: 'Zwischenablage des Geräts',
+    en: "Device's clipboard",
+  },
   'touchpad.pcClipboard.manualHint': {
     de: 'Text markieren und über das Menü des Geräts kopieren.',
     en: "Select the text and copy it via your device's menu.",
@@ -236,6 +246,19 @@ export const TRANSLATIONS = {
   'touchpad.pcClipboard.error': {
     de: 'Zwischenablage konnte nicht vom PC geholt werden.',
     en: "The PC's clipboard could not be retrieved.",
+  },
+  'touchpad.pcClipboard.error.linux': {
+    de: 'Zwischenablage konnte nicht vom PC geholt werden. Unter Linux braucht YFRemote dafür wl-clipboard (Wayland) oder xclip (X11).',
+    en: "The PC's clipboard could not be retrieved. On Linux, YFRemote needs wl-clipboard (Wayland) or xclip (X11) for this.",
+  },
+  'touchpad.pcClipboard.empty.android': {
+    de: 'Die Zwischenablage am Gerät enthält keinen Text.',
+    en: "The device's clipboard contains no text.",
+  },
+  // Android gibt die Zwischenablage nur der ausgewaehlten Tastatur frei - der haeufigste Grund.
+  'touchpad.pcClipboard.error.android': {
+    de: 'Zwischenablage konnte nicht geholt werden. Wähle dafür am Gerät die YFRemote-Tastatur aus.',
+    en: 'The clipboard could not be retrieved. Select the YFRemote keyboard on the device first.',
   },
 
   'keyboardPad.eyebrow': { de: 'Direkte Eingabe', en: 'Direct input' },

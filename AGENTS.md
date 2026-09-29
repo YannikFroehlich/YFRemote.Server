@@ -92,6 +92,17 @@ bug in the mapping table. Operationally the target machine needs the `uinput` ke
 (`modprobe uinput`, persist via `/etc/modules-load.d/`) and a udev rule granting the service user
 access without running as root — see `packaging/linux/99-yfremote-uinput.rules`.
 
+**Linux clipboard (`Services/LinuxClipboardService.cs`).** No Wayland/X11 client of its own: it
+runs `wl-paste`/`wl-copy` from `wl-clipboard` on Wayland and `xclip` on X11, so the target needs
+one of those packages; a missing tool is a `NotSupportedException` → `501` naming the package.
+`SelectBackend` prefers `WAYLAND_DISPLAY`, then a `wayland-*` socket in `XDG_RUNTIME_DIR` (the
+`systemd --user` unit starts before the graphical session and does not inherit its environment),
+then `DISPLAY`; X11 without `DISPLAY` in the service environment is not found on its own. Writers
+redirect only stdin, because `wl-copy`/`xclip` leave a background child serving the selection
+that would keep redirected stdout/stderr pipes open forever. Images are PNG or JPEG only
+(sniffed from the magic bytes, the tools need a MIME type). **Unverified on a real Linux session**
+— only backend selection and image sniffing are unit-tested (`LinuxClipboardServiceTests`).
+
 **Current status: both stages of the plan's proof have now passed, on x86_64 only.** Manually
 tested on a Linux Mint 22 (Cinnamon) VM in VirtualBox: (1) the standalone `/dev/uinput`
 round-trip via `--uinput-smoke-test` (typed text and moved/clicked/scrolled the mouse with no
@@ -236,6 +247,26 @@ same-origin and protocol-compatible with no Client changes.
 is assumed to sit somewhere visible (a TV box, a mounted tablet) and is controlled the way the
 Windows/Linux server is — no `MediaProjection`/video-encoding screen capture into the browser.
 
+**The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
+this phone controls (`remote/RemoteDevices`, addresses only, in `SharedPreferences`) with an
+online dot from polling their unauthenticated `GET /health`. Opening one starts
+`remote/RemoteWebActivity`, a plain `WebView` on `http://<host>:<port>/` — the target serves the
+same Angular Client, which does the PIN pairing itself and keeps its token in the WebView's
+per-origin `localStorage`, exactly like a browser. No native protocol code on this side, hence
+`usesCleartextTraffic`. Known limits of the WebView: file *downloads* ("Laden" on a file offer,
+blob URLs) and dictation don't work; HTTPS targets with the local CA aren't trusted.
+
+**Bluetooth controller.** The "Controller" section registers the phone as a Bluetooth HID gamepad
+(`bluetooth/BluetoothGamepad`, `BluetoothHidDevice`, API 28+) - for targets like another Android
+device, where input injection over the WebSocket protocol isn't possible. `bluetooth/GamepadActivity`
+loads the bundled Angular Client from `assets/www` under `https://appassets.androidplatform.net/`
+(served via `shouldInterceptRequest`, so it is a secure context and tilt control works) and injects
+`window.YFRemoteBluetooth`. The Client then renders only `GamepadComponent`, whose
+`GAMEPAD_TRANSPORT` sends each `GamepadState` through that bridge instead of `RemoteService`
+(`client/src/app/remote/gamepad/gamepad-transport.ts`). `bluetooth/GamepadReport` holds the HID
+descriptor and the XInput-to-HID mapping (Linux/Android generic gamepad button order, sticks X/Y and
+Z/Rz, triggers Brake/Gas, D-pad as hat). No rumble back from the host.
+
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
 way to widen it later without asking for root or an ADB-based tool like Shizuku:
@@ -288,9 +319,10 @@ Galaxy S25 (Android 16).
    - Release-signing keystore not yet created; store it base64-encoded in GitHub Secrets before
      the first real release build — a release-signed APK cannot replace a debug-signed one on a
      device without uninstalling first.
-   - No CI job builds `assembleRelease` yet. Must not be named `build-and-test` — that name is
-     the required status check on `main` (see "Release automation" below) and must stay pointed
-     at the Windows server job.
+   - `ci.yml`'s `android` job builds `assembleDebug` and runs the unit tests on every PR;
+     `assembleRelease` (signed) still only runs in `release-android`. Neither may be named
+     `build-and-test` — that name is the required status check on `main` (see "Release
+     automation" below) and must stay pointed at the Windows server job.
    - Not yet wired into `auto-tag.yml`/`release.yml` — a push to `main` triggers a full release
      regardless of which part of the repo changed (see "Release automation" below), so an
      Android-only change will release Windows/Linux too unless `[skip release]` is used
@@ -405,10 +437,13 @@ Test update behavior using an installed older version, not a development binary.
 Merging to `main` triggers a release automatically. Nothing else is required — this now
 covers Client-only changes too, because the Client lives in this repository.
 
-`.github/workflows/ci.yml` runs on every pull request with two jobs: `build-and-test`
-(restores, builds, and tests the Server on `windows-latest`) and `client` (`npm ci`, Client
-tests, and the Client production build on `ubuntu-latest`). Neither has a `paths` filter, so
-both run for every change.
+`.github/workflows/ci.yml` runs on every pull request with four jobs: `build-and-test`
+(restores, builds, and tests the Server on `windows-latest`), `client` (`npm ci`, Client
+tests, and the Client production build on `ubuntu-latest`), `linux` (the `net10.0` Server build
+and tests), and `android` (`gradle -p android assembleDebug testDebugUnitTest`, no signing
+secrets needed). None has a `paths` filter, so all run for every change. The Android SDK setup is
+shared with `release-android` via the composite action `.github/actions/setup-android`, so a fix
+to it (retries, license handling) applies to both.
 
 `main` is protected by exactly one required status check, named `build-and-test`. Because that
 check only runs on `pull_request`, a merge into `main` has to go through a pull request. The

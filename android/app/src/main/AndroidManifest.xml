@@ -5,9 +5,21 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Haptik des Web-Clients (navigator.vibrate) im WebView von RemoteWebActivity. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Bluetooth-Controller (bluetooth/BluetoothGamepad): bis Android 11 die alten, ab 12 die
+         Laufzeit-Berechtigungen; ADVERTISE nur fuer "Sichtbar machen". -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
+    <!-- usesCleartextTraffic: gesteuerte Geraete sprechen im LAN nur http://<IP> (HTTPS ist dort
+         optional und haengt an einer lokalen CA, der das WebView nicht vertraut). -->
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -19,6 +31,36 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- configChanges: Drehen (Controller-Modus quer) darf das WebView nicht neu laden, sonst
+             reisst die WebSocket-Verbindung jedes Mal ab. -->
+        <activity
+            android:name=".remote.RemoteWebActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="false" />
+
+        <!-- Controller immer quer und ohne Neuaufbau beim Drehen, wie RemoteWebActivity. -->
+        <activity
+            android:name=".bluetooth.GamepadActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:screenOrientation="sensorLandscape"
+            android:exported="false" />
+
+        <!-- Ziel von "Teilen": bietet eine Datei den gekoppelten Geraeten an. Ohne eigene
+             Oberflaeche, daher durchsichtig und ohne Eintrag in der Aufgabenliste. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="An gekoppelte Geräte senden"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
 

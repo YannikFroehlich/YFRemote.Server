@@ -1,8 +1,12 @@
 package com.yfremote.android.server
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import com.yfremote.android.server.models.ClipboardResponse
 import com.yfremote.android.server.models.ClipboardTextRequest
+import com.yfremote.android.server.models.FileOfferMessage
 import com.yfremote.android.server.models.FileUploadResponse
 import com.yfremote.android.server.models.HealthResponse
 import com.yfremote.android.server.models.PairRequest
@@ -10,7 +14,9 @@ import com.yfremote.android.server.models.PairResponse
 import com.yfremote.android.server.models.PairStatusResponse
 import com.yfremote.android.server.models.RemoteActionRequest
 import com.yfremote.android.server.models.RemoteActionResponse
+import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
@@ -21,7 +27,9 @@ import io.ktor.server.application.call
 import io.ktor.server.request.path
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveMultipart
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
@@ -49,8 +57,13 @@ fun Route.installRoutes(
     clipboardBridge: ClipboardBridge,
     clipboardOptions: ClipboardOptions,
     fileTransferOptions: FileTransferOptions,
+    fileOffers: FileOfferRepository,
     json: Json,
 ) {
+    fileOffers.onOffered = { offer ->
+        connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer))
+    }
+
     get("/health") { call.respond(HealthResponse("ok", "YFRemote.Android", "android")) }
 
     webSocket("/ws") {
@@ -72,8 +85,22 @@ fun Route.installRoutes(
         val registration = connectionRegistry.register(deviceId, this)
 
         try {
+            // Wie YFRemoteWebSocketHandler.cs: ein Geraet, das sich erst nach dem Teilen verbindet,
+            // bekommt das noch gueltige Angebot beim Verbinden.
+            fileOffers.currentOffer?.let {
+                send(Frame.Text(json.encodeToString(FileOfferMessage.serializer(), it)))
+            }
+
             for (frame in incoming) {
                 if (frame !is Frame.Text) continue
+
+                // Pro Nachricht statt nur beim Handshake: closeConnections() schickt nur einen
+                // Close-Frame, den ein Client ignorieren kann, und eine zwischen Token-Pruefung und
+                // register() entkoppelte Verbindung sieht es gar nicht.
+                if (!pairing.isValidToken(token)) {
+                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Pairing required."))
+                    return@webSocket
+                }
 
                 val response = handleActionMessage(frame.readText(), router, json, rateLimited = !rateLimiter.tryAcquire())
 
@@ -166,7 +193,80 @@ fun Route.installRoutes(
         }
     }
 
+    // Wie GET /files/{id} in FileEndpoints.cs: kein Origin bei einem Same-Origin-GET per fetch(),
+    // das Bearer-Token ist der eigentliche Schutz.
+    get("/files/{id}") {
+        if (!call.isAllowedOrigin(originOptional = true)) {
+            call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
+            return@get
+        }
+        if (pairing.validateToken(call.bearerToken()) == null) {
+            call.respond(HttpStatusCode.Unauthorized)
+            return@get
+        }
+
+        val file = call.parameters["id"]?.let(fileOffers::fileFor)
+        if (file == null || !file.exists()) {
+            call.respond(HttpStatusCode.NotFound)
+            return@get
+        }
+
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        call.response.header(
+            HttpHeaders.ContentDisposition,
+            ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, file.name).toString(),
+        )
+        call.respondFile(file)
+        showToast(context, "Datei gesendet: ${file.name}")
+    }
+
     route("/clipboard") {
+        // Origin nur pruefen, wenn einer mitkommt - siehe GET /clipboard/text in ClipboardEndpoints.cs.
+        get("/text") {
+            if (!call.isAllowedOrigin(originOptional = true)) {
+                call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
+                return@get
+            }
+            if (pairing.validateToken(call.bearerToken()) == null) {
+                call.respond(HttpStatusCode.Unauthorized)
+                return@get
+            }
+
+            // Kann Passwoerter enthalten - nie cachen.
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+
+            if (!clipboardBridge.canReadText()) {
+                call.respond(
+                    HttpStatusCode.Conflict,
+                    ClipboardResponse.fail("Die Zwischenablage ist nur lesbar, solange die YFRemote-Tastatur ausgewählt ist."),
+                )
+                return@get
+            }
+
+            val text = try {
+                clipboardBridge.getText()
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ClipboardResponse.fail("Zwischenablage konnte nicht gelesen werden."))
+                return@get
+            }
+
+            if (text.isNullOrEmpty()) {
+                call.respond(ClipboardResponse.withText(null))
+                return@get
+            }
+            if (text.length > clipboardOptions.maxTextLength) {
+                call.respond(
+                    HttpStatusCode.UnprocessableEntity,
+                    ClipboardResponse.fail("Clipboard text is longer than ${clipboardOptions.maxTextLength} characters."),
+                )
+                return@get
+            }
+
+            // Ab Android 12 blendet das System beim Lesen selbst einen Hinweis ein - das entspricht
+            // der Sprechblase "Zwischenablage gesendet" des Windows-Trays.
+            call.respond(ClipboardResponse.withText(text))
+        }
+
         post("/text") {
             if (!call.isAllowedOrigin()) {
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
@@ -305,4 +405,9 @@ private fun readAsset(assets: android.content.res.AssetManager, path: String): B
     assets.open(path).use { it.readBytes() }
 } catch (e: IOException) {
     null
+}
+
+// Wie die Tray-Sprechblase "Datei gesendet" am PC - Ktor-Handler laufen nicht auf dem Main-Thread.
+private fun showToast(context: Context, text: String) {
+    Handler(Looper.getMainLooper()).post { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
 }

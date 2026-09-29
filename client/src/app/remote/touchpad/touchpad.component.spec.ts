@@ -663,8 +663,8 @@ describe('TouchpadComponent', () => {
     expect(recognizer.stopped).toBe(true);
   });
 
-  it('opens the paste field directly unless the server is Windows', async () => {
-    const { fixture } = await setupTouchpad({ serverPlatform: 'android' });
+  it('opens the paste field directly while the server platform is unknown', async () => {
+    const { fixture } = await setupTouchpad();
     const root = fixture.nativeElement as HTMLElement;
 
     root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage senden"]')!.click();
@@ -694,6 +694,17 @@ describe('TouchpadComponent', () => {
     expect(root.querySelector('.clipboard-paste-target')).not.toBeNull();
   });
 
+  it('offers both directions with device wording on Android', async () => {
+    const { fixture } = await setupTouchpad({ serverPlatform: 'android' });
+    const root = fixture.nativeElement as HTMLElement;
+
+    root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage"]')!.click();
+    fixture.detectChanges();
+
+    expect(menuOption(fixture, 'An Gerät senden')).toBeTruthy();
+    expect(menuOption(fixture, 'Vom Gerät holen')).toBeTruthy();
+  });
+
   it('shows the PC clipboard text and copies it to the device clipboard', async () => {
     const writes: string[] = [];
     const { fixture } = await setupTouchpad({
@@ -720,6 +731,7 @@ describe('TouchpadComponent', () => {
     expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
       'In die Zwischenablage kopiert.',
     );
+    expect(root.querySelector('.settings-message--success')).not.toBeNull();
   });
 
   it('offers only manual copying where the device clipboard is not writable', async () => {
@@ -749,6 +761,7 @@ describe('TouchpadComponent', () => {
     expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
       'Die Zwischenablage am PC enthält keinen Text.',
     );
+    expect(root.querySelector('.settings-message--success')).toBeNull();
   });
 });
 

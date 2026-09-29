@@ -40,17 +40,25 @@ internal static class WebSocketEndpoint
 
             var connectionRegistry = context.RequestServices.GetRequiredService<WebSocketConnectionRegistry>();
             var handler = context.RequestServices.GetRequiredService<YFRemoteWebSocketHandler>();
-            using var socket = await context.WebSockets.AcceptWebSocketAsync();
-            var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
             // Ein eigener CancellationTokenSource statt direkt context.RequestAborted, damit ein
             // Entkoppeln des Geräts (Tray oder DELETE /pair) diese Verbindung gezielt beenden kann,
             // ohne auf ein Schließen durch den Client warten zu müssen.
             using var connectionCts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
-            using (connectionRegistry.Register(deviceId, connectionCts))
+            using var registration = connectionRegistry.Register(deviceId, connectionCts);
+
+            // Erneut prüfen: wurde das Gerät zwischen TryValidateToken und Register entkoppelt,
+            // hat CloseConnections diese Verbindung noch nicht gesehen und sie bliebe offen.
+            if (!pairingService.IsValidToken(token))
             {
-                await handler.HandleAsync(socket, client, connectionCts.Token);
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsync("Pairing required.");
+                return;
             }
+
+            using var socket = await context.WebSockets.AcceptWebSocketAsync();
+            var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            await handler.HandleAsync(socket, client, connectionCts.Token);
         });
     }
 }

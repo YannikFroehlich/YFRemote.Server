@@ -4,6 +4,8 @@ import { SwUpdate } from '@angular/service-worker';
 import { EMPTY, filter, map } from 'rxjs';
 import { RemoteControlComponent } from './remote/remote-control.component';
 import { PairingGateComponent } from './remote/pairing-gate.component';
+import { GamepadComponent } from './remote/gamepad/gamepad.component';
+import { BLUETOOTH_GAMEPAD_BRIDGE } from './remote/gamepad/gamepad-transport';
 import { PairingService } from './remote/pairing.service';
 import { ThemeService } from './remote/theme.service';
 import { TranslationService } from './remote/translation.service';
@@ -16,11 +18,13 @@ export const PAGE_RELOAD = new InjectionToken<() => void>('PAGE_RELOAD', {
 
 @Component({
   selector: 'app-root',
-  imports: [RemoteControlComponent, PairingGateComponent],
+  imports: [RemoteControlComponent, PairingGateComponent, GamepadComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
+  // In der Android-App (Bereich "Controller") nur der Controller, per Bluetooth statt WebSocket.
+  protected readonly bluetooth = inject(BLUETOOTH_GAMEPAD_BRIDGE);
   protected readonly pairing = inject(PairingService);
   protected readonly i18n = inject(TranslationService);
   // Früh erzeugen, damit Hell/Dunkel und Stil auch vor dem Koppeln gelten.

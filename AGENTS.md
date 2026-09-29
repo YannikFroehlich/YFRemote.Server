@@ -247,7 +247,7 @@ same-origin and protocol-compatible with no Client changes.
 is assumed to sit somewhere visible (a TV box, a mounted tablet) and is controlled the way the
 Windows/Linux server is — no `MediaProjection`/video-encoding screen capture into the browser.
 
-**The app is also a controller.** `SetupActivity`'s "Andere Geräte steuern" card lists devices
+**The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
 this phone controls (`remote/RemoteDevices`, addresses only, in `SharedPreferences`) with an
 online dot from polling their unauthenticated `GET /health`. Opening one starts
 `remote/RemoteWebActivity`, a plain `WebView` on `http://<host>:<port>/` — the target serves the

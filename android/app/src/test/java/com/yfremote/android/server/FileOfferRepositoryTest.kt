@@ -37,7 +37,7 @@ class FileOfferRepositoryTest {
 
         assertEquals(offer.id, announced)
         assertEquals("fileOffer", offer.type)
-        assertEquals(7L, offer.size)
+        assertEquals("Inhalt".length.toLong(), offer.size)
         assertEquals("Inhalt", repository.fileFor(offer.id)?.readText())
         assertNull(repository.fileFor("andere-id"))
     }

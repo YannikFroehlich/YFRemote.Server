@@ -2,6 +2,7 @@ package com.yfremote.android
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -12,12 +13,15 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.webkit.WebStorage
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -25,10 +29,19 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.ime.YFRemoteInputMethodService
+import com.yfremote.android.remote.RemoteDevice
+import com.yfremote.android.remote.RemoteDevices
+import com.yfremote.android.remote.RemoteWebActivity
 import com.yfremote.android.server.KtorServer
 import com.yfremote.android.service.YFRemoteForegroundService
+import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import org.json.JSONObject
 
 // Android-Aequivalent zu TrayApplicationContext (Windows) - PIN-Anzeige, gekoppelte Geraete,
 // Links zu den zwei manuell zu erteilenden Berechtigungen, Start/Stopp fuer den Dienst (siehe
@@ -43,6 +56,12 @@ class SetupActivity : Activity() {
     private lateinit var accessibilityStatus: StatusRow
     private lateinit var keyboardStatus: StatusRow
     private lateinit var devicesContainer: LinearLayout
+    private lateinit var remoteContainer: LinearLayout
+
+    private lateinit var remoteDevices: RemoteDevices
+    private val remoteStatus = ConcurrentHashMap<String, String>()
+    private val remoteCheckRunning = AtomicBoolean(false)
+    private val remoteCheckExecutor = Executors.newSingleThreadExecutor()
 
     private val refreshHandler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -66,6 +85,7 @@ class SetupActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        remoteDevices = RemoteDevices(this)
         requestNotificationPermissionIfNeeded()
         setContentView(buildLayout())
         ensureServiceRunning()
@@ -81,13 +101,26 @@ class SetupActivity : Activity() {
         super.onPause()
     }
 
+    override fun onDestroy() {
+        remoteCheckExecutor.shutdownNow()
+        super.onDestroy()
+    }
+
     private fun buildLayout(): ScrollView {
         val root = column().apply { setPadding(dp(20), dp(24), dp(20), dp(32)) }
 
         root.addView(header())
 
         root.addView(
-            card("Verbindung").apply {
+            card("Andere Geräte steuern").apply {
+                remoteContainer = column()
+                addView(remoteContainer)
+                addView(primaryButton("+ Gerät hinzufügen") { showAddDeviceDialog() })
+            },
+        )
+
+        root.addView(
+            card("Dieses Telefon fernsteuern").apply {
                 addressText = mutedText()
                 addView(addressText)
 
@@ -195,7 +228,7 @@ class SetupActivity : Activity() {
                         setTextColor(color(R.color.brand_text))
                     },
                 )
-                addView(mutedText().apply { text = "Dieses Telefon fernsteuern" })
+                addView(mutedText().apply { text = "Steuern und gesteuert werden" })
             },
         )
     }
@@ -327,7 +360,189 @@ class SetupActivity : Activity() {
         refreshHandler.postDelayed({ refreshUi() }, 300)
     }
 
+    private fun showAddDeviceDialog() {
+        val addressInput = EditText(this).apply {
+            hint = "IP-Adresse, z. B. 192.168.0.10"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+        }
+        val nameInput = EditText(this).apply {
+            hint = "Name (optional)"
+            setSingleLine()
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Gerät hinzufügen")
+            .setMessage("Port ${RemoteDevices.DEFAULT_PORT}, falls keiner angegeben ist. Die PIN fragt das Gerät danach ab.")
+            .setView(
+                column().apply {
+                    setPadding(dp(20), 0, dp(20), 0)
+                    addView(addressInput)
+                    addView(nameInput)
+                },
+            )
+            .setPositiveButton("Verbinden", null)
+            .setNegativeButton("Abbrechen", null)
+            .create()
+
+        // Eigener Listener statt setPositiveButton-Callback: der wuerde den Dialog auch bei einer
+        // ungueltigen Adresse schliessen.
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val url = RemoteDevices.normalizeAddress(addressInput.text.toString())
+                if (url == null) {
+                    addressInput.error = "Ungültige Adresse"
+                    return@setOnClickListener
+                }
+                val device = RemoteDevice(
+                    url,
+                    nameInput.text.toString().trim().ifEmpty { url.removePrefix("http://") },
+                )
+                remoteDevices.add(device)
+                dialog.dismiss()
+                openRemote(device)
+            }
+        }
+        dialog.show()
+    }
+
+    private fun openRemote(device: RemoteDevice) {
+        startActivity(
+            Intent(this, RemoteWebActivity::class.java)
+                .putExtra(RemoteWebActivity.EXTRA_URL, device.url)
+                .putExtra(RemoteWebActivity.EXTRA_NAME, device.name),
+        )
+    }
+
+    private fun removeRemote(device: RemoteDevice) {
+        remoteDevices.remove(device.url)
+        remoteStatus.remove(device.url)
+        // Loescht das Pairing-Token im WebView, damit ein erneutes Hinzufuegen wieder die PIN
+        // verlangt. Am Zielgeraet bleibt die Kopplung stehen, bis sie dort entfernt wird.
+        WebStorage.getInstance().deleteOrigin(device.url)
+        refreshUi()
+    }
+
+    private fun checkRemoteDevices(devices: List<RemoteDevice>) {
+        if (devices.isEmpty() || !remoteCheckRunning.compareAndSet(false, true)) return
+
+        remoteCheckExecutor.execute {
+            try {
+                for (device in devices) remoteStatus[device.url] = fetchPlatform(device.url)
+            } finally {
+                remoteCheckRunning.set(false)
+            }
+        }
+    }
+
+    // /health ist ohne Kopplung erreichbar und nennt die Plattform - reicht fuer "online".
+    private fun fetchPlatform(url: String): String = try {
+        (URL("$url/health").openConnection() as HttpURLConnection).run {
+            connectTimeout = 1500
+            readTimeout = 1500
+            try {
+                if (responseCode == 200) {
+                    JSONObject(inputStream.bufferedReader().readText()).optString("platform")
+                } else {
+                    OFFLINE
+                }
+            } finally {
+                disconnect()
+            }
+        }
+    } catch (e: Exception) {
+        OFFLINE
+    }
+
+    private fun refreshRemoteDevices() {
+        val devices = remoteDevices.load()
+        checkRemoteDevices(devices)
+        remoteContainer.removeAllViews()
+
+        if (devices.isEmpty()) {
+            remoteContainer.addView(
+                mutedText().apply {
+                    text = "Noch kein Gerät hinzugefügt. Auf dem PC zeigt das Tray-Menü Adresse und PIN."
+                    setPadding(0, 0, 0, dp(6))
+                },
+            )
+            return
+        }
+
+        val clickable = TypedValue().also {
+            theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true)
+        }
+
+        for (device in devices) {
+            val status = remoteStatus[device.url]
+            val dot = View(this).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(
+                        when (status) {
+                            null -> color(R.color.brand_text_muted)
+                            OFFLINE -> color(R.color.brand_error)
+                            else -> color(R.color.brand_ok)
+                        },
+                    )
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(10), dp(10)).apply { rightMargin = dp(12) }
+            }
+
+            remoteContainer.addView(
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(6), 0, dp(6))
+                    setBackgroundResource(clickable.resourceId)
+                    setOnClickListener { openRemote(device) }
+
+                    addView(dot)
+                    addView(
+                        column().apply {
+                            layoutParams =
+                                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                            addView(
+                                TextView(this@SetupActivity).apply {
+                                    text = device.name
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                                    setTextColor(color(R.color.brand_text))
+                                },
+                            )
+                            addView(
+                                mutedText().apply {
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                                    val address = device.url.removePrefix("http://")
+                                    text = remoteStatusText(status) +
+                                        if (device.name == address) "" else " · $address"
+                                },
+                            )
+                        },
+                    )
+                    addView(
+                        secondaryButton("Entfernen") { removeRemote(device) }.apply {
+                            layoutParams = LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                dp(42),
+                            )
+                        },
+                    )
+                },
+            )
+        }
+    }
+
+    private fun remoteStatusText(status: String?): String = when (status) {
+        null -> "Prüfe..."
+        OFFLINE -> "Offline"
+        "windows" -> "Online, Windows-PC"
+        "linux" -> "Online, Linux-PC"
+        "android" -> "Online, Android-Gerät"
+        else -> "Online"
+    }
+
     private fun refreshUi() {
+        refreshRemoteDevices()
+
         val running = YFRemoteForegroundService.isRunning
         val service = YFRemoteForegroundService.instance
 
@@ -437,5 +652,9 @@ class SetupActivity : Activity() {
             ?.hostAddress
     } catch (e: Exception) {
         null
+    }
+
+    private companion object {
+        const val OFFLINE = "offline"
     }
 }

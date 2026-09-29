@@ -731,6 +731,7 @@ describe('TouchpadComponent', () => {
     expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
       'In die Zwischenablage kopiert.',
     );
+    expect(root.querySelector('.settings-message--success')).not.toBeNull();
   });
 
   it('offers only manual copying where the device clipboard is not writable', async () => {
@@ -760,6 +761,7 @@ describe('TouchpadComponent', () => {
     expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
       'Die Zwischenablage am PC enthält keinen Text.',
     );
+    expect(root.querySelector('.settings-message--success')).toBeNull();
   });
 });
 

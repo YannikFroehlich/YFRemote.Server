@@ -143,6 +143,19 @@ public sealed class PairingServiceTests
     }
 
     [TestMethod]
+    public void RemoveDevice_RotatesPin()
+    {
+        var service = CreateService();
+        var pairResponse = Pair(service, service.GetCurrentPin().Pin, "Telefon");
+        Assert.IsTrue(pairResponse.Success, pairResponse.Error);
+        var pinBeforeRemoval = service.GetCurrentPin().Pin;
+
+        Assert.IsTrue(service.RemoveDevice(service.GetPairedDevices()[0].Id));
+
+        Assert.AreNotEqual(pinBeforeRemoval, service.GetCurrentPin().Pin);
+    }
+
+    [TestMethod]
     public void RemoveDeviceByToken_WithUnknownToken_DoesNotChangeStoredDevices()
     {
         var service = CreateService();

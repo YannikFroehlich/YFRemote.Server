@@ -222,7 +222,17 @@ public sealed class PairingService
             return PairingRemovalResult.PersistenceFailed;
         }
 
-        nextLastSeenPersistenceUtc = UtcNow.Add(options.LastSeenPersistenceInterval);
+        // Neue PIN, damit sich ein gerade entferntes Gerät nicht mit der noch angezeigten alten
+        // PIN sofort wieder koppeln kann - daher auch nie zufällig dieselbe PIN.
+        var now = UtcNow;
+        var previousPin = pinState.Pin;
+        do
+        {
+            pinState = GenerateNewPin(now);
+        }
+        while (pinState.Pin == previousPin);
+
+        nextLastSeenPersistenceUtc = now.Add(options.LastSeenPersistenceInterval);
         logger.LogInformation("Device unpaired: {DeviceName} ({DeviceId})", removedDevice.Name, removedDevice.Id);
         return PairingRemovalResult.Removed;
     }

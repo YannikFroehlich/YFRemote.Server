@@ -384,7 +384,7 @@ class SetupActivity : Activity() {
                     )
                     addView(
                         secondaryButton("Entkoppeln") {
-                            service?.pairing?.removeDevice(device.id)
+                            service?.removeDevice(device.id)
                             refreshUi()
                         }.apply {
                             layoutParams = LinearLayout.LayoutParams(

@@ -4,6 +4,7 @@ import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -86,6 +87,15 @@ class PairingRepositoryTest {
 
         assertTrue(repository.removeDevice(deviceId))
         assertFalse(repository.isValidToken(token))
+    }
+
+    @Test
+    fun `removing a device rotates the PIN`() {
+        repository.tryPair(repository.getCurrentPin().first, "Test-Handy", "127.0.0.1")
+        val pinBeforeRemoval = repository.getCurrentPin().first
+
+        assertTrue(repository.removeDevice(repository.getPairedDevices().single().id))
+        assertNotEquals(pinBeforeRemoval, repository.getCurrentPin().first)
     }
 
     @Test

@@ -179,7 +179,14 @@ class PairingRepository(private val filesDir: File) {
             return RemovalResult.PersistenceFailed
         }
 
-        nextLastSeenPersistenceUtc = Instant.now().plus(LAST_SEEN_PERSISTENCE_INTERVAL)
+        // Neue PIN, damit ein gerade entferntes Geraet sich nicht mit der noch angezeigten
+        // alten PIN sofort wieder koppeln kann - daher auch nie zufaellig dieselbe PIN.
+        val now = Instant.now()
+        var generated: Pair<String, Instant>
+        do generated = generateNewPin(now) while (generated.first == pin)
+        pin = generated.first
+        pinExpiresAtUtc = generated.second
+        nextLastSeenPersistenceUtc = now.plus(LAST_SEEN_PERSISTENCE_INTERVAL)
         return RemovalResult.Removed(removed.id)
     }
 

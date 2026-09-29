@@ -57,6 +57,9 @@ class SetupActivity : Activity() {
     private lateinit var keyboardStatus: StatusRow
     private lateinit var devicesContainer: LinearLayout
     private lateinit var remoteContainer: LinearLayout
+    private lateinit var subtitleText: TextView
+    private lateinit var sections: List<Section>
+    private lateinit var navButtons: List<TextView>
 
     private lateinit var remoteDevices: RemoteDevices
     private val remoteStatus = ConcurrentHashMap<String, String>()
@@ -106,21 +109,90 @@ class SetupActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun buildLayout(): ScrollView {
+    /** Ein Bereich der App mit eigenem Eintrag in der Leiste unten. */
+    private class Section(val label: String, val subtitle: String, val page: View)
+
+    private fun buildLayout(): View {
+        // Weitere Bereiche (z. B. ein Bluetooth-Controller) sind nur ein Eintrag mehr hier.
+        sections = listOf(
+            Section("Steuern", "Andere Geräte von hier steuern", controlPage()),
+            Section("Freigeben", "Dieses Telefon fernsteuern lassen", sharePage()),
+        )
+
         val root = column().apply { setPadding(dp(20), dp(24), dp(20), dp(32)) }
-
         root.addView(header())
+        sections.forEach { root.addView(it.page) }
 
-        root.addView(
-            card("Andere Geräte steuern").apply {
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(root)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+
+        return column().apply {
+            setBackgroundColor(color(R.color.brand_background))
+            addView(scroll)
+            addView(navigationBar())
+            showSection(prefs().getInt(KEY_SECTION, 0).coerceIn(sections.indices))
+        }
+    }
+
+    private fun navigationBar(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setBackgroundColor(color(R.color.brand_surface))
+        setPadding(dp(12), dp(8), dp(12), dp(8))
+
+        navButtons = sections.mapIndexed { index, section ->
+            TextView(this@SetupActivity).apply {
+                text = section.label
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+                    leftMargin = dp(4)
+                    rightMargin = dp(4)
+                }
+                setOnClickListener { showSection(index) }
+            }
+        }
+        navButtons.forEach { addView(it) }
+    }
+
+    private fun showSection(index: Int) {
+        sections.forEachIndexed { i, section ->
+            section.page.visibility = if (i == index) View.VISIBLE else View.GONE
+        }
+        navButtons.forEachIndexed { i, button ->
+            val selected = i == index
+            button.setTextColor(color(if (selected) R.color.brand_accent else R.color.brand_text_muted))
+            button.background = if (selected) {
+                GradientDrawable().apply {
+                    cornerRadius = dp(12).toFloat()
+                    setColor(color(R.color.brand_surface_stroke))
+                }
+            } else {
+                null
+            }
+        }
+        subtitleText.text = sections[index].subtitle
+        prefs().edit().putInt(KEY_SECTION, index).apply()
+    }
+
+    private fun prefs() = getSharedPreferences("setup", MODE_PRIVATE)
+
+    private fun controlPage(): View = column().apply {
+        addView(
+            card("Geräte").apply {
                 remoteContainer = column()
                 addView(remoteContainer)
                 addView(primaryButton("+ Gerät hinzufügen") { showAddDeviceDialog() })
             },
         )
+    }
 
+    private fun sharePage(): View = column().apply {
+        val root = this
         root.addView(
-            card("Dieses Telefon fernsteuern").apply {
+            card("Verbindung").apply {
                 addressText = mutedText()
                 addView(addressText)
 
@@ -195,12 +267,6 @@ class SetupActivity : Activity() {
                 addView(devicesContainer)
             },
         )
-
-        return ScrollView(this).apply {
-            setBackgroundColor(color(R.color.brand_background))
-            isFillViewport = true
-            addView(root)
-        }
     }
 
     private fun header(): View = LinearLayout(this).apply {
@@ -228,7 +294,8 @@ class SetupActivity : Activity() {
                         setTextColor(color(R.color.brand_text))
                     },
                 )
-                addView(mutedText().apply { text = "Steuern und gesteuert werden" })
+                subtitleText = mutedText()
+                addView(subtitleText)
             },
         )
     }
@@ -455,7 +522,8 @@ class SetupActivity : Activity() {
 
     private fun refreshRemoteDevices() {
         val devices = remoteDevices.load()
-        checkRemoteDevices(devices)
+        // Nur pruefen, solange die Liste sichtbar ist - sonst laeuft im Hintergrund unnoetig Netzverkehr.
+        if (remoteContainer.isShown) checkRemoteDevices(devices)
         remoteContainer.removeAllViews()
 
         if (devices.isEmpty()) {
@@ -656,5 +724,6 @@ class SetupActivity : Activity() {
 
     private companion object {
         const val OFFLINE = "offline"
+        const val KEY_SECTION = "section"
     }
 }

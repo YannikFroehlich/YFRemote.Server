@@ -23,6 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Added
 
+- Android-App: Die App ist in zwei Bereiche aufgeteilt, umschaltbar über eine Leiste unten: "Steuern" (andere Geräte von hier steuern) und "Freigeben" (Dienst, PIN, Berechtigungen und gekoppelte Geräte dieses Telefons). Die App merkt sich den zuletzt gewählten Bereich.
 - Android-App: Das Handy kann jetzt auch selbst andere Geräte steuern. Die Karte "Andere Geräte steuern" listet die hinzugefügten PCs und Android-Geräte mit Online-Anzeige (grün/rot, dazu Windows-PC, Linux-PC oder Android-Gerät). Über "+ Gerät hinzufügen" gibt man die IP-Adresse ein (optional mit Port und Namen), danach öffnet sich die gewohnte Fernbedienung und fragt beim ersten Mal die PIN ab. "Entfernen" löscht das Gerät aus der Liste und vergisst die Kopplung auf dem Handy. Dateien vom Zielgerät laden und Diktieren gehen in der App noch nicht, dafür weiter den Browser nutzen.
 
 - Controller-Modus: LT/RT sind jetzt analog statt nur "ganz oder gar nicht". Wie weit der Finger auf dem Trigger nach unten gezogen ist, bestimmt, wie stark er gedrückt ist - oben angetippt leicht, ab vier Fünfteln der Höhe voll, auch wenn der Finger dabei über den Rand rutscht. Schon der leichteste Wert liegt über der XInput-Schwelle, ein kurzer Tipp kommt also in jedem Spiel als Druck an. Eine Füllung im Trigger zeigt, wie weit er gezogen ist.

@@ -13,8 +13,8 @@ import { sampleCustomTheme } from './theme.fixtures';
 function themeDocument(): Document {
   const doc = document.implementation.createHTMLDocument();
   doc.head.innerHTML = `
-    <meta name="theme-color" content="#070b0e" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#eef3f4" media="(prefers-color-scheme: light)">`;
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#eef3f9" media="(prefers-color-scheme: light)">`;
   return doc;
 }
 
@@ -42,12 +42,12 @@ describe('theme', () => {
     applyTheme(doc, builtInTheme('light', 'futuristic'));
     expect(doc.documentElement.dataset['mode']).toBe('light');
     expect(doc.documentElement.dataset['style']).toBe('futuristic');
-    expect(metaColors(doc)).toEqual(['#eef3f4', '#eef3f4']);
+    expect(metaColors(doc)).toEqual(['#eef3f9', '#eef3f9']);
 
     applyTheme(doc, builtInTheme('system', 'standard'));
     expect(doc.documentElement.dataset['mode']).toBeUndefined();
     expect(doc.documentElement.dataset['style']).toBeUndefined();
-    expect(metaColors(doc)).toEqual(['#070b0e', '#eef3f4']);
+    expect(metaColors(doc)).toEqual(['#0b1220', '#eef3f9']);
   });
 
   it('applies a custom theme as inline tokens and removes them again', () => {

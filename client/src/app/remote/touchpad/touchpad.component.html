@@ -174,7 +174,12 @@
   }
 
   @if (statusMessage(); as status) {
-    <p class="settings-message" role="status" aria-live="polite">
+    <p
+      class="settings-message"
+      [class.settings-message--success]="status.success"
+      role="status"
+      aria-live="polite"
+    >
       {{ i18n.t(status.key, status.params) }}
     </p>
   }

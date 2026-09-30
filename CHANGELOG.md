@@ -24,6 +24,7 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 ### Added
 
 - Android-App: Verbinden per QR-Code in beide Richtungen. Unter "Steuern" scannt "QR-Code scannen" den Code aus dem Tray-Menü des PCs ("QR-Code zum Verbinden...") oder von einem anderen Handy, legt das Gerät an und trägt die PIN gleich ins Kopplungsformular ein - die Adresse muss nicht mehr getippt werden. Unter "Freigeben" steht neben der PIN ein QR-Code mit Adresse und PIN, den ein anderes Gerät mit der YFRemote-App oder der normalen Kamera scannt. Ein HTTPS-Code aus dem Tray wird über HTTP auf Port 5050 geöffnet, weil die App der lokalen Zertifizierungsstelle nicht vertraut.
+- Android-App: Unter "Steuern" lädt "Laden" bei einer angebotenen Datei ("Datei an Geräte senden..." im Tray) die Datei jetzt tatsächlich herunter - bisher tat der Knopf im eingebetteten Browser nichts. Die App übernimmt den Download über den Android-Download-Manager, mit Fortschrittsanzeige in der Benachrichtigungsleiste, nach Downloads/YFRemote. Braucht Android 10 und auf dem gesteuerten Gerät diese oder eine neuere YFRemote-Version.
 - Android-App: Die Benachrichtigung des laufenden Dienstes hat neben "Stoppen" jetzt "PIN neu erzeugen" - wie der gleichnamige Knopf unter "Freigeben", nur ohne die App zu öffnen.
 
 ### Fixed

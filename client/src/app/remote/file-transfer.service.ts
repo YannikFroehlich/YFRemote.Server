@@ -14,6 +14,18 @@ export const FILE_SAVER = new InjectionToken<(blob: Blob, fileName: string) => v
   factory: () => saveBlobAsDownload,
 });
 
+/** Haengt die Android-App (Bereich "Steuern", remote/RemoteWebActivity.kt) als
+ *  window.YFRemoteDownloads ein: Ihr WebView kann blob:-Downloads nicht speichern, deshalb laedt
+ *  die App die Datei selbst (Android-DownloadManager, gestreamt, mit Fortschrittsanzeige). */
+export interface DownloadBridge {
+  download(url: string, token: string, fileName: string): boolean;
+}
+
+export const DOWNLOAD_BRIDGE = new InjectionToken<DownloadBridge | null>('DOWNLOAD_BRIDGE', {
+  providedIn: 'root',
+  factory: () => (globalThis as { YFRemoteDownloads?: DownloadBridge }).YFRemoteDownloads ?? null,
+});
+
 export interface FileSendResult {
   readonly success: boolean;
   readonly fileName?: string;
@@ -37,6 +49,7 @@ export class FileTransferService {
   private readonly sendingSignal = signal(false);
   readonly sending = this.sendingSignal.asReadonly();
   private readonly saveFile = inject(FILE_SAVER);
+  private readonly downloadBridge = inject(DOWNLOAD_BRIDGE);
 
   private readonly downloadingSignal = signal(false);
   readonly downloading = this.downloadingSignal.asReadonly();
@@ -49,13 +62,15 @@ export class FileTransferService {
       return false;
     }
 
+    const url = `${getServerHttpBaseUrl(this.serverLocation)}/files/${encodeURIComponent(offer.id)}`;
+    if (this.downloadBridge !== null) {
+      return this.downloadBridge.download(url, token, offer.name);
+    }
+
     this.downloadingSignal.set(true);
 
     try {
-      const response = await this.fetchFn(
-        `${getServerHttpBaseUrl(this.serverLocation)}/files/${encodeURIComponent(offer.id)}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const response = await this.fetchFn(url, { headers: { Authorization: `Bearer ${token}` } });
 
       if (!response.ok) {
         return false;

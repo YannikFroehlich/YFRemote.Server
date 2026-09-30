@@ -253,8 +253,13 @@ online dot from polling their unauthenticated `GET /health`. Opening one starts
 `remote/RemoteWebActivity`, a plain `WebView` on `http://<host>:<port>/` — the target serves the
 same Angular Client, which does the PIN pairing itself and keeps its token in the WebView's
 per-origin `localStorage`, exactly like a browser. No native protocol code on this side, hence
-`usesCleartextTraffic`. Known limits of the WebView: file *downloads* ("Laden" on a file offer,
-blob URLs) and dictation don't work; HTTPS targets with the local CA aren't trusted.
+`usesCleartextTraffic`. The WebView cannot save the Client's `blob:` downloads, so
+`RemoteWebActivity` injects `window.YFRemoteDownloads` and the Client's `FileTransferService`
+hands "Laden" on a file offer to it (`DOWNLOAD_BRIDGE`) instead of fetching: the app enqueues
+`GET /files/{id}` with the `Bearer` token in Android's `DownloadManager` (Android 10+,
+`Downloads/YFRemote`), only for URLs on the loaded target's own origin. Known limits of the
+WebView: the settings dialog's JSON exports (styles, layout profiles) are still `blob:` links and
+do nothing there, dictation doesn't work, and HTTPS targets with the local CA aren't trusted.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as

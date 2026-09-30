@@ -19,7 +19,9 @@ import org.json.JSONObject
 // Android-Aequivalent zu Services/PairingService.cs: 6-stellige PIN, SHA-256-gehashte
 // Device-Tokens, atomare Persistenz in filesDir/devices.json. Lockouts bleiben bewusst
 // in-memory (siehe PLAN.md Stufe 1) - kein pairing-lockouts.json wie im .NET-Server.
-class PairingRepository(private val filesDir: File) {
+// onPinChanged laeuft bei jedem PIN-Wechsel nach init, noch unter dem Lock - also nur kurz
+// weiterreichen (die Benachrichtigung zeigt die PIN, siehe YFRemoteForegroundService).
+class PairingRepository(private val filesDir: File, private val onPinChanged: () -> Unit = {}) {
 
     private data class PairedDevice(
         val id: String,
@@ -75,6 +77,7 @@ class PairingRepository(private val filesDir: File) {
         val generated = generateNewPin(Instant.now())
         pin = generated.first
         pinExpiresAtUtc = generated.second
+        onPinChanged()
         pin to pinExpiresAtUtc
     }
 
@@ -125,6 +128,7 @@ class PairingRepository(private val filesDir: File) {
             pin = generated.first
             pinExpiresAtUtc = generated.second
             nextLastSeenPersistenceUtc = now.plus(LAST_SEEN_PERSISTENCE_INTERVAL)
+            onPinChanged()
 
             return PairResponse.ok(token)
         }
@@ -187,6 +191,7 @@ class PairingRepository(private val filesDir: File) {
         pin = generated.first
         pinExpiresAtUtc = generated.second
         nextLastSeenPersistenceUtc = now.plus(LAST_SEEN_PERSISTENCE_INTERVAL)
+        onPinChanged()
         return RemovalResult.Removed(removed.id)
     }
 
@@ -195,6 +200,7 @@ class PairingRepository(private val filesDir: File) {
             val generated = generateNewPin(now)
             pin = generated.first
             pinExpiresAtUtc = generated.second
+            onPinChanged()
         }
     }
 

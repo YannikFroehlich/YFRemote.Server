@@ -90,6 +90,23 @@ class PairingRepositoryTest {
     }
 
     @Test
+    fun `every PIN change is reported`() {
+        var changes = 0
+        val repository = PairingRepository(tempDir) { changes++ }
+
+        repository.getCurrentPin()
+        assertEquals(0, changes)
+        repository.regeneratePin()
+        assertEquals(1, changes)
+        repository.tryPair("000000", "Test-Handy", "127.0.0.1")
+        assertEquals(1, changes)
+        repository.tryPair(repository.getCurrentPin().first, "Test-Handy", "127.0.0.1")
+        assertEquals(2, changes)
+        repository.removeDevice(repository.getPairedDevices().single().id)
+        assertEquals(3, changes)
+    }
+
+    @Test
     fun `removing a device rotates the PIN`() {
         repository.tryPair(repository.getCurrentPin().first, "Test-Handy", "127.0.0.1")
         val pinBeforeRemoval = repository.getCurrentPin().first

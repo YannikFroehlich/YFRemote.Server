@@ -24,11 +24,13 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 ### Added
 
 - Android-App: Verbinden per QR-Code in beide Richtungen. Unter "Steuern" scannt "QR-Code scannen" den Code aus dem Tray-Menü des PCs ("QR-Code zum Verbinden...") oder von einem anderen Handy, legt das Gerät an und trägt die PIN gleich ins Kopplungsformular ein - die Adresse muss nicht mehr getippt werden. Unter "Freigeben" steht neben der PIN ein QR-Code mit Adresse und PIN, den ein anderes Gerät mit der YFRemote-App oder der normalen Kamera scannt. Ein HTTPS-Code aus dem Tray wird über HTTP auf Port 5050 geöffnet, weil die App der lokalen Zertifizierungsstelle nicht vertraut.
+- Client: Die Leiste für eine angebotene Datei sagt jetzt, was los ist: "Der PC möchte dir eine Datei senden" (bzw. "Das Gerät..."), darunter Dateiname und Größe, dazu "Annehmen" und "Ablehnen" statt "Laden"/"Verwerfen". Bisher stand alles in einer Zeile, auf dem Handy blieb vom Dateinamen oft nur "Vom PC: Url...".
 - Android-App: Unter "Steuern" lädt "Laden" bei einer angebotenen Datei ("Datei an Geräte senden..." im Tray) die Datei jetzt tatsächlich herunter - bisher tat der Knopf im eingebetteten Browser nichts. Die App übernimmt den Download über den Android-Download-Manager, mit Fortschrittsanzeige in der Benachrichtigungsleiste, nach Downloads/YFRemote. Braucht Android 10 und auf dem gesteuerten Gerät diese oder eine neuere YFRemote-Version.
 - Android-App: Die Benachrichtigung des laufenden Dienstes hat neben "Stoppen" jetzt "PIN neu erzeugen" - wie der gleichnamige Knopf unter "Freigeben", nur ohne die App zu öffnen.
 
 ### Fixed
 
+- Client: Mit einem Android-Gerät verbunden fehlten nach jedem Neuladen die Buttons Home, Übersicht und Sperren - an ihrer Stelle blieb eine Lücke. Das gespeicherte Android-Layout wurde beim Laden gegen die PC-Buttons geprüft und verlor dabei alles, was es nur auf Android gibt.
 - Android-App: Unter "Freigeben" stand bei eingeschalteten mobilen Daten oft die Mobilfunk-Adresse (etwa 100.x.x.x) statt der WLAN-Adresse, weil die App einfach die erste gefundene IPv4-Adresse nahm. Sie bevorzugt jetzt private LAN-Adressen - wichtig, seit der QR-Code diese Adresse enthält.
 - Android-App: Die Benachrichtigung des Dienstes zeigte nach einer Kopplung, nach dem Entkoppeln über ein anderes Gerät und nach Ablauf der PIN (10 Minuten) weiter die alte, ungültige PIN. Sie wird jetzt bei jedem PIN-Wechsel aktualisiert.
 

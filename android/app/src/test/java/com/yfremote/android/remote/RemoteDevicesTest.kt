@@ -24,6 +24,24 @@ class RemoteDevicesTest {
     }
 
     @Test
+    fun `qr code yields address and pin`() {
+        assertEquals(
+            "http://192.168.0.5:5050" to "123456",
+            RemoteDevices.parseQrCode("http://192.168.0.5:5050/#pin=123456"),
+        )
+        assertEquals("http://pc:5060" to null, RemoteDevices.parseQrCode("http://pc:5060/"))
+        assertEquals("http://pc:5050" to "654321", RemoteDevices.parseQrCode("https://pc:5443/#pin=654321"))
+    }
+
+    @Test
+    fun `foreign qr codes are rejected`() {
+        for (input in listOf("", "hallo", "WIFI:S:netz;;", "mailto:a@b.de", "ftp://pc/")) {
+            assertNull(input, RemoteDevices.parseQrCode(input))
+        }
+        assertEquals("http://pc:5050" to null, RemoteDevices.parseQrCode("http://pc:5050/#pin=12"))
+    }
+
+    @Test
     fun `devices survive serialize and parse`() {
         val devices = listOf(RemoteDevice("http://a:5050", "PC"), RemoteDevice("http://b:5050", "Tablet"))
         assertEquals(devices, RemoteDevices.parse(RemoteDevices.serialize(devices)))

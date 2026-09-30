@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -47,6 +48,13 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:screenOrientation="sensorLandscape"
             android:exported="false" />
+
+        <!-- QR-Scanner von zxing-android-embedded ist fest quer - hochkant haelt man das Handy
+             beim Scannen eines Bildschirms aber meist. -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="fullSensor"
+            tools:replace="screenOrientation" />
 
         <!-- Ziel von "Teilen": bietet eine Datei den gekoppelten Geraeten an. Ohne eigene
              Oberflaeche, daher durchsichtig und ohne Eintrag in der Aufgabenliste. -->

@@ -86,6 +86,19 @@ describe('ButtonLayoutService', () => {
     expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
   });
 
+  it('keeps the Android-only buttons after a reload in the Android profile', () => {
+    const storage = new MemoryStorage();
+    setupService(storage).service.applyServerPlatform('android');
+    TestBed.resetTestingModule();
+
+    const { service } = setupService(storage);
+
+    expect(service.activeProfileId()).toBe(ANDROID_PROFILE_ID);
+    expect(service.visibleButtons().map((placed) => placed.button.id).sort()).toEqual(
+      ANDROID_BUILT_IN_BUTTONS.map((button) => button.id).sort(),
+    );
+  });
+
   it('keeps the Android profile untouched while the platform is unknown', () => {
     const { service } = setupService();
 

@@ -6,4 +6,5 @@
     <string name="notification_title">YFRemote läuft</string>
     <string name="notification_text">PIN: %1$s</string>
     <string name="notification_stop">Stoppen</string>
+    <string name="notification_regenerate_pin">PIN neu erzeugen</string>
 </resources>

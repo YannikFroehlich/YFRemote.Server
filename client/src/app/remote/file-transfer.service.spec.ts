@@ -1,5 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { FILE_SAVER, FILE_TRANSFER_FETCH, FileTransferService } from './file-transfer.service';
+import {
+  DOWNLOAD_BRIDGE,
+  DownloadBridge,
+  FILE_SAVER,
+  FILE_TRANSFER_FETCH,
+  FileTransferService,
+} from './file-transfer.service';
 import { PAIRING_TOKEN_STORAGE_KEY } from './pairing';
 import { PAIRING_FETCH } from './pairing.service';
 import { REMOTE_STORAGE } from './remote.service';
@@ -77,7 +83,7 @@ interface FileTransferHarness {
 }
 
 function setupFileTransferService(
-  options: { storedToken?: string | null; serverUrl?: string } = {},
+  options: { storedToken?: string | null; serverUrl?: string; downloadBridge?: DownloadBridge } = {},
 ): FileTransferHarness {
   const storage = new MemoryStorage();
 
@@ -95,6 +101,7 @@ function setupFileTransferService(
       { provide: PAIRING_FETCH, useValue: async () => new Response(null, { status: 500 }) },
       { provide: FILE_TRANSFER_FETCH, useValue: fakeFetch.fetch },
       { provide: FILE_SAVER, useValue: (blob: Blob, fileName: string) => saved.push({ blob, fileName }) },
+      { provide: DOWNLOAD_BRIDGE, useValue: options.downloadBridge ?? null },
       {
         provide: SERVER_LOCATION,
         useValue: createServerLocation(options.serverUrl ?? 'http://192.168.1.44:5050/'),
@@ -196,6 +203,28 @@ describe('FileTransferService', () => {
     });
 
     expect(downloaded).toBe(false);
+    expect(saved).toEqual([]);
+  });
+
+  it('hands the download to the Android app bridge instead of fetching it', async () => {
+    const calls: string[][] = [];
+    const { fileTransfer, fakeFetch, saved } = setupFileTransferService({
+      storedToken: 'tok-123',
+      downloadBridge: {
+        download: (url, token, fileName) => calls.push([url, token, fileName]) > 0,
+      },
+    });
+
+    const downloaded = await fileTransfer.downloadFile({
+      type: 'fileOffer',
+      id: 'o1',
+      name: 'notiz.txt',
+      size: 8,
+    });
+
+    expect(downloaded).toBe(true);
+    expect(calls).toEqual([['http://192.168.1.44:5050/files/o1', 'tok-123', 'notiz.txt']]);
+    expect(fakeFetch.calls).toHaveLength(0);
     expect(saved).toEqual([]);
   });
 });

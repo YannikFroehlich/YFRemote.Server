@@ -4,6 +4,7 @@ import {
   DEFAULT_BUTTON_LAYOUT,
   normalizeButtonLayout,
 } from './button-layout';
+import { ANDROID_BUILT_IN_BUTTONS, ANDROID_DEFAULT_PLACEMENTS } from './remote-actions';
 
 export const BUTTON_LAYOUT_PROFILES_STORAGE_KEY = 'yfremote.buttonLayoutProfiles';
 export const BUTTON_LAYOUT_PROFILES_VERSION = 1;
@@ -133,7 +134,12 @@ function normalizeProfile(candidate: unknown): ButtonLayoutProfile | null {
 
   const value = candidate as Partial<ButtonLayoutProfile>;
   const name = normalizeProfileName(value.name);
-  const layout = normalizeButtonLayout(value.layout);
+  // Gegen die eigenen eingebauten Buttons pruefen - sonst verliert das Android-Profil bei jedem
+  // Laden Home/Uebersicht/Sperren als "unbekannte Id" (ButtonLayoutService.builtIns).
+  const layout =
+    value.id === ANDROID_PROFILE_ID
+      ? normalizeButtonLayout(value.layout, ANDROID_BUILT_IN_BUTTONS, ANDROID_DEFAULT_PLACEMENTS)
+      : normalizeButtonLayout(value.layout);
 
   if (
     typeof value.id !== 'string' ||

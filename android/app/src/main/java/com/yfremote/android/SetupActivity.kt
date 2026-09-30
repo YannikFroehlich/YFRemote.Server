@@ -29,7 +29,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.integration.android.IntentIntegrator
+import com.journeyapps.barcodescanner.BarcodeEncoder
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.bluetooth.BluetoothGamepad
 import com.yfremote.android.bluetooth.GamepadActivity
@@ -56,6 +60,8 @@ class SetupActivity : Activity() {
 
     private lateinit var addressText: TextView
     private lateinit var pinText: TextView
+    private lateinit var qrImage: ImageView
+    private var qrPayload: String? = null
     private lateinit var toggleButton: Button
     private lateinit var serviceStatus: StatusRow
     private lateinit var accessibilityStatus: StatusRow
@@ -252,7 +258,8 @@ class SetupActivity : Activity() {
             card("Geräte").apply {
                 remoteContainer = column()
                 addView(remoteContainer)
-                addView(primaryButton("+ Gerät hinzufügen") { showAddDeviceDialog() })
+                addView(primaryButton("QR-Code scannen") { scanQrCode() })
+                addView(secondaryButton("Adresse eingeben") { showAddDeviceDialog() })
             },
         )
     }
@@ -274,10 +281,20 @@ class SetupActivity : Activity() {
                 addView(
                     mutedText().apply {
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                        text = "PIN im Browser des steuernden Geräts eingeben"
+                        text = "QR-Code mit dem steuernden Gerät scannen oder die PIN in dessen Browser eingeben"
                         setPadding(0, 0, 0, dp(14))
                     },
                 )
+
+                qrImage = ImageView(this@SetupActivity).apply {
+                    contentDescription = "QR-Code zum Verbinden"
+                    visibility = View.GONE
+                    layoutParams = LinearLayout.LayoutParams(dp(QR_SIZE_DP), dp(QR_SIZE_DP)).apply {
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        bottomMargin = dp(14)
+                    }
+                }
+                addView(qrImage)
 
                 serviceStatus = statusRow()
                 addView(serviceStatus.row)
@@ -476,10 +493,7 @@ class SetupActivity : Activity() {
     }
 
     private fun regeneratePin() {
-        YFRemoteForegroundService.instance?.let {
-            it.pairing.regeneratePin()
-            it.refreshNotification()
-        }
+        YFRemoteForegroundService.instance?.pairing?.regeneratePin()
         refreshUi()
     }
 
@@ -540,10 +554,42 @@ class SetupActivity : Activity() {
         dialog.show()
     }
 
-    private fun openRemote(device: RemoteDevice) {
+    // IntentIntegrator ist zugunsten von ScanContract (AndroidX Activity Result API) veraltet -
+    // diese Activity kommt bewusst ohne AndroidX aus.
+    @Suppress("DEPRECATION")
+    private fun scanQrCode() {
+        IntentIntegrator(this)
+            .setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+            .setPrompt("QR-Code aus dem Tray-Menü des PCs oder aus \"Freigeben\" eines Handys scannen")
+            .setBeepEnabled(false)
+            .setOrientationLocked(false)
+            .initiateScan()
+    }
+
+    @Deprecated("Activity ohne AndroidX - onActivityResult ist hier der einzige Weg.")
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+            ?: return super.onActivityResult(requestCode, resultCode, data)
+        // contents == null: Scan abgebrochen.
+        val contents = result.contents ?: return
+        val (url, pin) = RemoteDevices.parseQrCode(contents) ?: run {
+            Toast.makeText(this, "Kein YFRemote-QR-Code", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Bekanntes Geraet behaelt seinen Namen, nur die PIN kommt neu dazu.
+        val device = remoteDevices.load().firstOrNull { it.url == url }
+            ?: RemoteDevice(url, url.removePrefix("http://")).also { remoteDevices.add(it) }
+        openRemote(device, pin)
+    }
+
+    // Die PIN im Fragment traegt der Web-Client selbst ins Kopplungsformular ein, wie beim QR-Code
+    // im Browser (getPairingPinFromHash) - das Fragment erreicht den Server nie.
+    private fun openRemote(device: RemoteDevice, pin: String? = null) {
         startActivity(
             Intent(this, RemoteWebActivity::class.java)
-                .putExtra(RemoteWebActivity.EXTRA_URL, device.url)
+                .putExtra(RemoteWebActivity.EXTRA_URL, if (pin == null) device.url else "${device.url}/#pin=$pin")
                 .putExtra(RemoteWebActivity.EXTRA_NAME, device.name),
         )
     }
@@ -597,7 +643,8 @@ class SetupActivity : Activity() {
         if (devices.isEmpty()) {
             remoteContainer.addView(
                 mutedText().apply {
-                    text = "Noch kein Gerät hinzugefügt. Auf dem PC zeigt das Tray-Menü Adresse und PIN."
+                    text = "Noch kein Gerät hinzugefügt. Auf dem PC zeigt das Tray-Menü unter " +
+                        "\"QR-Code zum Verbinden...\" den Code zum Scannen."
                     setPadding(0, 0, 0, dp(6))
                 },
             )
@@ -846,8 +893,13 @@ class SetupActivity : Activity() {
         val running = YFRemoteForegroundService.isRunning
         val service = YFRemoteForegroundService.instance
 
-        addressText.text = "${networkAddress() ?: "Adresse unbekannt"}:${KtorServer.DEFAULT_PORT}"
-        pinText.text = service?.pairing?.getCurrentPin()?.first ?: "------"
+        val address = networkAddress()
+        val pin = service?.pairing?.getCurrentPin()?.first
+        addressText.text = "${address ?: "Adresse unbekannt"}:${KtorServer.DEFAULT_PORT}"
+        pinText.text = pin ?: "------"
+        // Gleicher Aufbau wie PairingQrCodePayload.cs. Die PIN steht ohnehin gross daneben, daher
+        // anders als im Tray ohne Schalter immer im Code.
+        showQrCode(if (address != null && pin != null) "http://$address:${KtorServer.DEFAULT_PORT}/#pin=$pin" else null)
         toggleButton.text = if (running) "Dienst stoppen" else "Dienst starten"
         serviceStatus.set(
             if (running) "Dienst läuft" else "Dienst gestoppt",
@@ -913,6 +965,18 @@ class SetupActivity : Activity() {
         }
     }
 
+    // refreshUi laeuft alle 2 s - neu gezeichnet wird nur, wenn sich Adresse oder PIN geaendert haben.
+    private fun showQrCode(payload: String?) {
+        if (payload == qrPayload) return
+        qrPayload = payload
+        qrImage.visibility = if (payload == null) View.GONE else View.VISIBLE
+        if (payload != null) {
+            qrImage.setImageBitmap(
+                BarcodeEncoder().encodeBitmap(payload, BarcodeFormat.QR_CODE, dp(QR_SIZE_DP), dp(QR_SIZE_DP)),
+            )
+        }
+    }
+
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -940,14 +1004,16 @@ class SetupActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    // ponytail: simple erste-nicht-loopback-IPv4-Heuristik statt der Gateway-Praeferenz von
-    // NetworkAddressService.cs - fuer ein Telefon mit typischerweise einem aktiven WLAN-Interface
-    // reicht das; Praeferenzlogik nachziehen, falls mehrere aktive Interfaces das je verwechseln.
+    // Private LAN-Adressen (WLAN, 192.168.x.x usw.) zuerst: Mobilfunk (rmnet_*) und Tailscale liegen
+    // meist in 100.64.0.0/10, sind ebenfalls "up" und standen sonst je nach Reihenfolge vorne.
+    // ponytail: ohne die Gateway-Praeferenz von NetworkAddressService.cs; nachziehen, falls zwei
+    // private Netze (z. B. WLAN plus Hotspot) je verwechselt werden.
     private fun networkAddress(): String? = try {
         NetworkInterface.getNetworkInterfaces().asSequence()
             .filter { it.isUp && !it.isLoopback }
             .flatMap { it.inetAddresses.asSequence() }
             .filterIsInstance<Inet4Address>()
+            .sortedByDescending { it.isSiteLocalAddress }
             .firstOrNull()
             ?.hostAddress
     } catch (e: Exception) {
@@ -958,5 +1024,6 @@ class SetupActivity : Activity() {
         const val OFFLINE = "offline"
         const val KEY_SECTION = "section"
         const val BLUETOOTH_REQUEST = 2
+        const val QR_SIZE_DP = 220
     }
 }

@@ -189,13 +189,17 @@ export const TRANSLATIONS = {
   },
   'touchpad.dictationError.noSpeech': { de: 'Kein Ton erkannt.', en: 'No sound detected.' },
   'touchpad.dictationError.failed': { de: 'Diktat fehlgeschlagen.', en: 'Dictation failed.' },
-  'fileOffer.label': { de: 'Vom PC: {{name}} ({{size}})', en: 'From PC: {{name}} ({{size}})' },
-  'fileOffer.label.android': {
-    de: 'Vom Gerät: {{name}} ({{size}})',
-    en: 'From device: {{name}} ({{size}})',
+  'fileOffer.title': {
+    de: 'Der PC möchte dir eine Datei senden',
+    en: 'The PC wants to send you a file',
   },
-  'fileOffer.download': { de: 'Laden', en: 'Download' },
-  'fileOffer.dismiss': { de: 'Verwerfen', en: 'Dismiss' },
+  'fileOffer.title.android': {
+    de: 'Das Gerät möchte dir eine Datei senden',
+    en: 'The device wants to send you a file',
+  },
+  'fileOffer.download': { de: 'Annehmen', en: 'Accept' },
+  'fileOffer.dismiss': { de: 'Ablehnen', en: 'Decline' },
+  'fileOffer.close': { de: 'Schließen', en: 'Close' },
   'fileOffer.error': {
     de: 'Die Datei ist nicht mehr verfügbar.',
     en: 'The file is no longer available.',

@@ -23,6 +23,25 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Added
 
+- Android-App: Verbinden per QR-Code in beide Richtungen. Unter "Steuern" scannt "QR-Code scannen" den Code aus dem Tray-Menü des PCs ("QR-Code zum Verbinden...") oder von einem anderen Handy, legt das Gerät an und trägt die PIN gleich ins Kopplungsformular ein - die Adresse muss nicht mehr getippt werden. Unter "Freigeben" steht neben der PIN ein QR-Code mit Adresse und PIN, den ein anderes Gerät mit der YFRemote-App oder der normalen Kamera scannt. Ein HTTPS-Code aus dem Tray wird über HTTP auf Port 5050 geöffnet, weil die App der lokalen Zertifizierungsstelle nicht vertraut.
+- Client: Die Leiste für eine angebotene Datei sagt jetzt, was los ist: "Der PC möchte dir eine Datei senden" (bzw. "Das Gerät..."), darunter Dateiname und Größe, dazu "Annehmen" und "Ablehnen" statt "Laden"/"Verwerfen". Bisher stand alles in einer Zeile, auf dem Handy blieb vom Dateinamen oft nur "Vom PC: Url...".
+- Android-App: Unter "Steuern" lädt "Annehmen" (bisher "Laden") bei einer angebotenen Datei ("Datei an Geräte senden..." im Tray) die Datei jetzt tatsächlich herunter - bisher tat der Knopf im eingebetteten Browser nichts. Die App übernimmt den Download über den Android-Download-Manager, mit Fortschrittsanzeige in der Benachrichtigungsleiste, nach Downloads/YFRemote. Braucht Android 10 und auf dem gesteuerten Gerät diese oder eine neuere YFRemote-Version.
+- Android-App: Die Benachrichtigung des laufenden Dienstes hat neben "Stoppen" jetzt "PIN neu erzeugen" - wie der gleichnamige Knopf unter "Freigeben", nur ohne die App zu öffnen.
+
+### Fixed
+
+- Client: Mit einem Android-Gerät verbunden fehlten nach jedem Neuladen die Buttons Home, Übersicht und Sperren - an ihrer Stelle blieb eine Lücke. Das gespeicherte Android-Layout wurde beim Laden gegen die PC-Buttons geprüft und verlor dabei alles, was es nur auf Android gibt.
+- Android-App: Unter "Freigeben" stand bei eingeschalteten mobilen Daten oft die Mobilfunk-Adresse (etwa 100.x.x.x) statt der WLAN-Adresse, weil die App einfach die erste gefundene IPv4-Adresse nahm. Sie bevorzugt jetzt private LAN-Adressen - wichtig, seit der QR-Code diese Adresse enthält.
+- Android-App: Die Benachrichtigung des Dienstes zeigte nach einer Kopplung, nach dem Entkoppeln über ein anderes Gerät und nach Ablauf der PIN (10 Minuten) weiter die alte, ungültige PIN. Sie wird jetzt bei jedem PIN-Wechsel aktualisiert.
+
+### Security
+
+- Client: Angular auf 21.2.24 angehoben. Damit sind die Dependabot-Warnungen zu `undici`, `ip-address` und `qs` behoben. Alle drei stecken nur in den Build- und Test-Werkzeugen (Angular CLI/Build, jsdom), nicht im ausgelieferten Client.
+
+## [2.25.0] - 2026-09-29
+
+### Added
+
 - Android-App: Neuer Bereich "Controller" - das Handy meldet sich per Bluetooth als Gamepad an einem anderen Gerät an, etwa an einem Android-Gerät, auf dem der WebSocket-Weg nicht geht, oder an einem PC. Auf dem Zielgerät ist keine App nötig. Der Controller ist derselbe wie im Web-Client (Xbox, PlayStation, Nintendo, Retro, eigenes Layout, Neigungssteuerung). Das Zielgerät einmal in den Bluetooth-Einstellungen koppeln, danach im Bereich "Controller" verbinden. Braucht Android 9; Vibration vom Spiel kommt nicht zurück.
 - Android-App: Die App ist in drei Bereiche aufgeteilt, umschaltbar über eine Leiste unten: "Steuern" (andere Geräte von hier steuern), "Freigeben" (Dienst, PIN, Berechtigungen und gekoppelte Geräte dieses Telefons) und "Controller" (Bluetooth-Controller, siehe oben). Die App merkt sich den zuletzt gewählten Bereich. Die Leiste passt sich dem Handy an: auf Samsung-Geräten eine Leiste über die ganze Breite mit Symbolen wie in den One-UI-Apps, sonst eine schwebende Material-3-Leiste mit Symbolen.
 - Android-App: Das Handy kann jetzt auch selbst andere Geräte steuern. Der Bereich "Steuern" listet die hinzugefügten PCs und Android-Geräte mit Online-Anzeige (grün/rot, dazu Windows-PC, Linux-PC oder Android-Gerät). Über "+ Gerät hinzufügen" gibt man die IP-Adresse ein (optional mit Port und Namen), danach öffnet sich die gewohnte Fernbedienung und fragt beim ersten Mal die PIN ab. "Entfernen" löscht das Gerät aus der Liste und vergisst die Kopplung auf dem Handy. Dateien vom Zielgerät laden und Diktieren gehen in der App noch nicht, dafür weiter den Browser nutzen.

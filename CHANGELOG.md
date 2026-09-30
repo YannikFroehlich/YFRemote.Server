@@ -29,6 +29,7 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 ### Fixed
 
 - Android-App: Unter "Freigeben" stand bei eingeschalteten mobilen Daten oft die Mobilfunk-Adresse (etwa 100.x.x.x) statt der WLAN-Adresse, weil die App einfach die erste gefundene IPv4-Adresse nahm. Sie bevorzugt jetzt private LAN-Adressen - wichtig, seit der QR-Code diese Adresse enthält.
+- Android-App: Die Benachrichtigung des Dienstes zeigte nach einer Kopplung, nach dem Entkoppeln über ein anderes Gerät und nach Ablauf der PIN (10 Minuten) weiter die alte, ungültige PIN. Sie wird jetzt bei jedem PIN-Wechsel aktualisiert.
 
 ### Security
 

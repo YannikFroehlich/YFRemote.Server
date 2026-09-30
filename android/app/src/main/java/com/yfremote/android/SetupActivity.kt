@@ -493,10 +493,7 @@ class SetupActivity : Activity() {
     }
 
     private fun regeneratePin() {
-        YFRemoteForegroundService.instance?.let {
-            it.pairing.regeneratePin()
-            it.refreshNotification()
-        }
+        YFRemoteForegroundService.instance?.pairing?.regeneratePin()
         refreshUi()
     }
 

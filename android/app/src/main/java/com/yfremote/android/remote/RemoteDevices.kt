@@ -1,6 +1,8 @@
 package com.yfremote.android.remote
 
 import android.content.Context
+import java.net.URI
+import java.net.URISyntaxException
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -39,6 +41,29 @@ class RemoteDevices(context: Context) {
             }
 
             return "http://$host:$port"
+        }
+
+        /**
+         * Inhalt eines YFRemote-QR-Codes ("http://192.168.0.5:5050/#pin=123456", vom Tray oder
+         * vom Freigeben-Bereich) -> Adresse und, falls enthalten, PIN. Sonst null.
+         */
+        fun parseQrCode(text: String): Pair<String, String?>? {
+            val uri = try {
+                URI(text.trim())
+            } catch (e: URISyntaxException) {
+                return null
+            }
+            val host = uri.host ?: return null
+            val port = when (uri.scheme?.lowercase()) {
+                "http" -> if (uri.port == -1) 80 else uri.port
+                // ponytail: HTTPS-QR (Tray mit "HTTPS verwenden") -> HTTP auf dem Standardport, weil
+                // das WebView der lokalen CA nicht vertraut; ein geaenderter Server:Port geht hier verloren.
+                "https" -> DEFAULT_PORT
+                else -> return null
+            }
+            val url = normalizeAddress("$host:$port") ?: return null
+            val pin = Regex("(?:^|&)pin=(\\d{6})(?:&|$)").find(uri.rawFragment.orEmpty())?.groupValues?.get(1)
+            return url to pin
         }
 
         fun parse(json: String?): List<RemoteDevice> = try {

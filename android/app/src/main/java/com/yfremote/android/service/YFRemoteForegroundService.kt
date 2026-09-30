@@ -31,6 +31,7 @@ class YFRemoteForegroundService : Service() {
 
     companion object {
         const val ACTION_STOP = "com.yfremote.android.action.STOP"
+        const val ACTION_REGENERATE_PIN = "com.yfremote.android.action.REGENERATE_PIN"
         private const val CHANNEL_ID = "yfremote_service"
         private const val NOTIFICATION_ID = 1
 
@@ -82,6 +83,9 @@ class YFRemoteForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // Weiter zu startForeground: aktualisiert die Benachrichtigung mit der neuen PIN und startet
+        // den Server, falls Android den Dienst zwischenzeitlich beendet hatte (start() ist idempotent).
+        if (intent?.action == ACTION_REGENERATE_PIN) pairing.regeneratePin()
 
         startForeground(NOTIFICATION_ID, buildNotification())
         server.start()
@@ -118,6 +122,13 @@ class YFRemoteForegroundService : Service() {
             Intent(this, YFRemoteForegroundService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE,
         )
+        // Eigener requestCode, sonst ersetzt dieser PendingIntent den von "Stoppen".
+        val regeneratePinIntent = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, YFRemoteForegroundService::class.java).setAction(ACTION_REGENERATE_PIN),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
         val contentIntent = PendingIntent.getActivity(
             this,
             0,
@@ -131,6 +142,7 @@ class YFRemoteForegroundService : Service() {
             .setContentText(getString(R.string.notification_text, pin))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(contentIntent)
+            .addAction(0, getString(R.string.notification_regenerate_pin), regeneratePinIntent)
             .addAction(0, getString(R.string.notification_stop), stopIntent)
             .setOngoing(true)
             .build()

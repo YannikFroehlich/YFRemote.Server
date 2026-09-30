@@ -21,6 +21,15 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Verbinden per QR-Code in beide Richtungen. Unter "Steuern" scannt "QR-Code scannen" den Code aus dem Tray-Menü des PCs ("QR-Code zum Verbinden...") oder von einem anderen Handy, legt das Gerät an und trägt die PIN gleich ins Kopplungsformular ein - die Adresse muss nicht mehr getippt werden. Unter "Freigeben" steht neben der PIN ein QR-Code mit Adresse und PIN, den ein anderes Gerät mit der YFRemote-App oder der normalen Kamera scannt. Ein HTTPS-Code aus dem Tray wird über HTTP auf Port 5050 geöffnet, weil die App der lokalen Zertifizierungsstelle nicht vertraut.
+- Android-App: Die Benachrichtigung des laufenden Dienstes hat neben "Stoppen" jetzt "PIN neu erzeugen" - wie der gleichnamige Knopf unter "Freigeben", nur ohne die App zu öffnen.
+
+### Fixed
+
+- Android-App: Unter "Freigeben" stand bei eingeschalteten mobilen Daten oft die Mobilfunk-Adresse (etwa 100.x.x.x) statt der WLAN-Adresse, weil die App einfach die erste gefundene IPv4-Adresse nahm. Sie bevorzugt jetzt private LAN-Adressen - wichtig, seit der QR-Code diese Adresse enthält.
+
 ### Security
 
 - Client: Angular auf 21.2.24 angehoben. Damit sind die Dependabot-Warnungen zu `undici`, `ip-address` und `qs` behoben. Alle drei stecken nur in den Build- und Test-Werkzeugen (Angular CLI/Build, jsdom), nicht im ausgelieferten Client.

@@ -72,6 +72,9 @@ dependencies {
     // Nur fuer FileProvider (Zwischenablage-Bilder) und NotificationCompat (Foreground-Service-
     // Notification auf API < 33 ohne Channel-Boilerplate) - kein Compose, kein AppCompat.
     implementation("androidx.core:core:1.13.1")
+    // QR-Codes: anzeigen (Freigeben, per zxing-core) und scannen (Steuern, eigene Kamera-Activity
+    // ohne Google Play-Dienste - die App wird auch per APK auf Geraete ohne GMS installiert).
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // PairingRepository braucht nur org.json + java.time/java.util - laeuft daher als reiner
     // JVM-Unit-Test ohne Instrumentierung/Emulator; org.json ist auf dem echten Geraet Teil des

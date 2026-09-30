@@ -383,12 +383,16 @@ export function parseStoredButtonLayout(rawValue: string | null): ButtonLayout {
   }
 }
 
-export function normalizeButtonLayout(candidate: unknown): ButtonLayout | null {
+export function normalizeButtonLayout(
+  candidate: unknown,
+  builtIns: readonly RemoteButtonConfig[] = BUILT_IN_BUTTONS,
+  defaultPlacements: readonly ButtonPlacement[] = DEFAULT_PLACEMENTS,
+): ButtonLayout | null {
   if (!isButtonLayoutLike(candidate) || candidate.version !== BUTTON_LAYOUT_VERSION) {
     return null;
   }
 
-  return resolveButtonLayout(candidate);
+  return resolveButtonLayout(candidate, builtIns, defaultPlacements);
 }
 
 export function labelVisibleFor(button: RemoteButtonConfig): boolean {

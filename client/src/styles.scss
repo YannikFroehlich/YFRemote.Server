@@ -773,10 +773,35 @@ h2 {
 
 /* Ueber allem (auch Dialogen), aber klein am unteren Rand: ein Update soll auffallen, ohne die
    gerade laufende Bedienung zu blockieren. */
-.file-offer__label {
-  min-width: 0;
+/* Untereinander statt in einer Zeile: auf dem Handy blieb vom Dateinamen sonst nur "Vom PC: bi...".
+   Doppelte Klasse, weil .update-banner weiter unten steht und sonst gewinnt. */
+.update-banner.file-offer {
+  width: min(420px, calc(100vw - 32px));
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  white-space: normal;
+}
+
+.file-offer__title {
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.file-offer__file {
   overflow: hidden;
+  color: var(--muted);
+  font-weight: 600;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-offer__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .update-banner {

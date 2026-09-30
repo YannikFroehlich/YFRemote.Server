@@ -1007,14 +1007,16 @@ class SetupActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    // ponytail: simple erste-nicht-loopback-IPv4-Heuristik statt der Gateway-Praeferenz von
-    // NetworkAddressService.cs - fuer ein Telefon mit typischerweise einem aktiven WLAN-Interface
-    // reicht das; Praeferenzlogik nachziehen, falls mehrere aktive Interfaces das je verwechseln.
+    // Private LAN-Adressen (WLAN, 192.168.x.x usw.) zuerst: Mobilfunk (rmnet_*) und Tailscale liegen
+    // meist in 100.64.0.0/10, sind ebenfalls "up" und standen sonst je nach Reihenfolge vorne.
+    // ponytail: ohne die Gateway-Praeferenz von NetworkAddressService.cs; nachziehen, falls zwei
+    // private Netze (z. B. WLAN plus Hotspot) je verwechselt werden.
     private fun networkAddress(): String? = try {
         NetworkInterface.getNetworkInterfaces().asSequence()
             .filter { it.isUp && !it.isLoopback }
             .flatMap { it.inetAddresses.asSequence() }
             .filterIsInstance<Inet4Address>()
+            .sortedByDescending { it.isSiteLocalAddress }
             .firstOrNull()
             ?.hostAddress
     } catch (e: Exception) {

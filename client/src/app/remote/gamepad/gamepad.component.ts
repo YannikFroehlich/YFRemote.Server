@@ -133,6 +133,8 @@ export const NEUTRAL_GAMEPAD: GamepadState = {
 
 const AXIS_MAX = 32767;
 const TRIGGER_MAX = 255;
+// Staerkster Motorwert einer rumble-Meldung (XInput-Vibration, wie ViGEm sie liefert).
+const RUMBLE_MAX = 255;
 // Leichtester Wert eines gedrueckten Triggers - deutlich ueber der XInput-Schwelle von 30
 // (XINPUT_GAMEPAD_TRIGGER_THRESHOLD), damit auch ein kurzer Tipp in jedem Spiel als Druck zaehlt.
 const TRIGGER_MIN = 64;
@@ -143,15 +145,20 @@ const TRIGGER_FULL_AT = 0.8;
 // Verbindung. Mit diesem Abstand bleibt der Controller bei ~60 Nachrichten/s.
 const MIN_SEND_INTERVAL_MS = 16;
 const HAPTIC_PULSE_MS = 8;
-// navigator.vibrate kennt nur an/aus und begrenzt die Dauer (Chrome: 10 s). Das Spiel meldet nur
-// Aenderungen, deshalb bis zur naechsten Meldung durchvibrieren.
-// ponytail: Staerke wird ignoriert und eine Vibration ueber 10 s endet vorzeitig - bei Bedarf per
-// Muster (an/aus-Pulse) abstufen und vor Ablauf erneuern.
-const RUMBLE_MAX_MS = 10000;
+// navigator.vibrate kennt nur an/aus. Die Staerke wird deshalb als Pulsmuster abgestuft: je
+// Periode ein Anteil an, der Rest aus. Chrome kuerzt Muster auf 99 Eintraege, also reicht eines
+// nur RUMBLE_PULSES Perioden (2,45 s); das Spiel meldet nur Aenderungen, deshalb wird es vorher
+// erneuert, bis die naechste Meldung kommt.
+const RUMBLE_LEVELS = 4;
+const RUMBLE_PERIOD_MS = 50;
+const RUMBLE_PULSES = 49;
+const RUMBLE_RENEW_MS = 2000;
 
 export const GAMEPAD_GYRO_STORAGE_KEY = 'yfremote.gamepadGyro';
-// ponytail: feste Empfindlichkeit - bei Bedarf als Einstellung anbieten.
-const GYRO_FULL_TILT_DEG = 25;
+export const GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY = 'yfremote.gamepadGyroSensitivity';
+// Neigung in Grad, bei der der Stick voll ausschlaegt.
+const GYRO_SENSITIVITIES = { low: 40, medium: 25, high: 15 } as const;
+type GyroSensitivity = keyof typeof GYRO_SENSITIVITIES;
 const GYRO_DEADZONE_DEG = 2;
 
 interface Tilt {
@@ -212,12 +219,25 @@ export class GamepadComponent implements OnDestroy {
    *  Einschalten bzw. beim Zurueckkehren in die App. */
   protected readonly gyro = signal(this.storage?.getItem(GAMEPAD_GYRO_STORAGE_KEY) === 'true');
   protected readonly gyroHint = signal<string | null>(null);
+  protected readonly gyroSensitivities = Object.keys(GYRO_SENSITIVITIES) as GyroSensitivity[];
+  protected readonly gyroSensitivity = signal<GyroSensitivity>(
+    parseGyroSensitivity(this.storage?.getItem(GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY) ?? null),
+  );
   private gyroReference: Tilt | null = null;
   private gyroStick = { x: 0, y: 0 };
 
-  // Nur ein Wechsel an/aus erreicht das Handy; derselbe Wert erneut aendert das Signal nicht.
-  private readonly rumbling = computed(() => this.remote.gamepadRumble() > 0);
-  private readonly rumbleEffect = effect(() => this.vibrate(this.rumbling() ? RUMBLE_MAX_MS : 0));
+  // Nur ein Stufenwechsel erreicht das Handy; derselbe Wert erneut aendert das Signal nicht.
+  private readonly rumbleLevel = computed(() =>
+    Math.ceil((this.remote.gamepadRumble() / RUMBLE_MAX) * RUMBLE_LEVELS),
+  );
+  private readonly rumbleEffect = effect((onCleanup) => {
+    const pattern = rumblePattern(this.rumbleLevel());
+    this.vibrate(pattern);
+    if (pattern !== 0) {
+      const timer = setInterval(() => this.vibrate(pattern), RUMBLE_RENEW_MS);
+      onCleanup(() => clearInterval(timer));
+    }
+  });
 
   constructor() {
     afterNextRender(() => void enterLandscapeFullscreen());
@@ -290,8 +310,15 @@ export class GamepadComponent implements OnDestroy {
       tilt,
       this.gyroReference,
       globalThis.screen?.orientation?.angle ?? 0,
+      GYRO_SENSITIVITIES[this.gyroSensitivity()],
     );
     this.update();
+  }
+
+  protected selectGyroSensitivity(value: string): void {
+    const sensitivity = parseGyroSensitivity(value);
+    this.gyroSensitivity.set(sensitivity);
+    this.storage?.setItem(GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY, sensitivity);
   }
 
   protected label(key: GamepadLabelKey): string {
@@ -608,6 +635,7 @@ export function tiltToStick(
   tilt: Tilt,
   reference: Tilt,
   screenAngle: number,
+  fullTiltDeg: number = GYRO_SENSITIVITIES.medium,
 ): { x: number; y: number } {
   const beta = wrapDegrees(tilt.beta - reference.beta);
   const gamma = wrapDegrees(tilt.gamma - reference.gamma);
@@ -616,19 +644,41 @@ export function tiltToStick(
   const sin = Math.round(Math.sin(angle));
 
   return {
-    x: tiltToAxis(gamma * cos + beta * sin),
-    y: tiltToAxis(beta * cos - gamma * sin),
+    x: tiltToAxis(gamma * cos + beta * sin, fullTiltDeg),
+    y: tiltToAxis(beta * cos - gamma * sin, fullTiltDeg),
   };
 }
 
-function tiltToAxis(degrees: number): number {
+function tiltToAxis(degrees: number, fullTiltDeg: number): number {
   const magnitude = Math.abs(degrees) - GYRO_DEADZONE_DEG;
   if (magnitude <= 0) {
     return 0;
   }
 
-  const scaled = Math.min(magnitude / (GYRO_FULL_TILT_DEG - GYRO_DEADZONE_DEG), 1);
+  const scaled = Math.min(magnitude / (fullTiltDeg - GYRO_DEADZONE_DEG), 1);
   return Math.round(Math.sign(degrees) * scaled * AXIS_MAX);
+}
+
+function parseGyroSensitivity(value: string | null): GyroSensitivity {
+  return value !== null && Object.hasOwn(GYRO_SENSITIVITIES, value)
+    ? (value as GyroSensitivity)
+    : 'medium';
+}
+
+/** Vibrationsmuster fuer eine Rumble-Stufe 0..RUMBLE_LEVELS: aus, Pulse oder durchgehend. */
+export function rumblePattern(level: number): VibratePattern {
+  if (level <= 0) {
+    return 0;
+  }
+
+  if (level >= RUMBLE_LEVELS) {
+    return RUMBLE_PULSES * RUMBLE_PERIOD_MS;
+  }
+
+  const on = Math.round((RUMBLE_PERIOD_MS * level) / RUMBLE_LEVELS);
+  return Array.from({ length: RUMBLE_PULSES * 2 }, (_, index) =>
+    index % 2 === 0 ? on : RUMBLE_PERIOD_MS - on,
+  );
 }
 
 function wrapDegrees(degrees: number): number {

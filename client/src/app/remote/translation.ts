@@ -53,6 +53,10 @@ export const TRANSLATIONS = {
   'gamepad.close': { de: 'Controller schließen', en: 'Close controller' },
   'gamepad.rotateHint': { de: 'Handy quer halten', en: 'Turn your phone sideways' },
   'gamepad.gyro': { de: 'Neigungssteuerung (rechter Stick)', en: 'Tilt control (right stick)' },
+  'gamepad.gyroSensitivity': { de: 'Empfindlichkeit der Neigung', en: 'Tilt sensitivity' },
+  'gamepad.gyroSensitivity.low': { de: 'Neigung: niedrig', en: 'Tilt: low' },
+  'gamepad.gyroSensitivity.medium': { de: 'Neigung: mittel', en: 'Tilt: medium' },
+  'gamepad.gyroSensitivity.high': { de: 'Neigung: hoch', en: 'Tilt: high' },
   'gamepad.gyroInsecureOrigin': {
     de: 'Neigungssteuerung braucht HTTPS - im Tray "HTTPS verwenden" einschalten.',
     en: 'Tilt control needs HTTPS - turn on "HTTPS verwenden" in the tray.',

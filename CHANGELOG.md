@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Security
+
+- Client: `piscina` per npm-`overrides` auf 5.3.2 angehoben (kritische Dependabot-Warnung GHSA-67c8-pqhq-4rmx, Prototype Pollution mit Codeausführung). `piscina` steckt nur im Build-Werkzeug `@angular/build`, nicht im ausgelieferten Client. Angular 21.2.24 legt die verwundbare Version 5.2.0 fest; das Override kann weg, sobald `@angular/build` selbst 5.3.2 oder neuer verlangt.
+
+## [2.26.1] - 2026-10-02
+
 ### Fixed
 
 - Android-App: Der grüne Mauszeiger blieb auf dem Bildschirm stehen, nachdem das steuernde Gerät getrennt oder der Dienst gestoppt wurde - selbst bei geschlossener App. Er verschwindet jetzt, sobald kein Gerät mehr verbunden ist oder der Dienst stoppt, und erscheint bei der nächsten Mausbewegung wieder.

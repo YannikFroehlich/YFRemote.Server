@@ -342,6 +342,18 @@ via `adb forward`):
 - `sleep`: `mWakefulness` wechselt von `Awake` zu `Dozing`, Sperrbildschirm aktiv.
   `shutdown` liefert "Auf Android ohne Root nicht möglich.".
 
-**Noch nicht verifiziert:** die signierte Release-APK aus dem GitHub-Release
-(`release-android`-CI-Job, siehe Stufe 5) auf einem Geraet. Sie laesst sich nicht ueber einen
-Debug-Build installieren, ohne die App vorher zu deinstallieren.
+**Signierte Release-APK verifiziert** (`YFRemote-Android-v2.26.1.apk` aus dem GitHub-Release,
+`release-android`-CI-Job, siehe Stufe 5; selbes Geraet, 2026-10-02):
+- `apksigner`: v2-Signatur, ein Signer (`OU=YFRemote`). `aapt2`: `versionName` 2.26.1,
+  `versionCode` 22601, nicht debuggable.
+- Web-Client aus den APK-Assets inklusive SPA-Fallback, d.h. die Release-CI befuellt
+  `assets/www` korrekt.
+- Kopplung (falsche PIN abgelehnt), `/pair/status`, Zwischenablage-Text in beide Richtungen,
+  `POST /clipboard/image`, `POST /files`, Datei-Angebot ueber "Teilen" mit `GET /files/{id}`,
+  `mouseMove`, `mouseScroll`, Drag, `ESC` (Zurueck), `sleep` und `DELETE /pair` - jeweils wie
+  oben beim Debug-Build.
+- Der Cursor-Marker verschwindet nach dem Trennen der letzten `/ws`-Verbindung (v2.26.1).
+
+Der Wechsel von einem Debug-Build braucht eine Deinstallation, weil die Signaturen verschieden
+sind. Dabei gehen gekoppelte Geraete, die Geraeteliste unter "Steuern" und die Aktivierung von
+Bedienungshilfe und Tastatur verloren.

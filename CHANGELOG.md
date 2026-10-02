@@ -21,6 +21,20 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: PCs unter "Steuern" lassen sich per Wake-on-LAN wecken. Ist ein PC offline, erscheint "Aufwecken" neben "Entfernen" - die App kennt dafür die Netzwerkkarte des PCs, sobald sie ihn einmal online gesehen hat (mit dieser oder einer neueren YFRemote-Version). Am PC muss das einmal erlaubt sein: im Geräte-Manager beim Netzwerkadapter "Wake on Magic Packet" und "Gerät kann den Computer aus dem Ruhezustand aktivieren"; aus dem ausgeschalteten Zustand zusätzlich Wake-on-LAN im BIOS/UEFI.
+- Server: `GET /health` meldet zusätzlich `macAddress`, die MAC-Adresse des Netzwerkadapters hinter der im Tray angezeigten Adresse.
+- Client: Im Controller ist die Vibration jetzt abgestuft - ein leichtes Rütteln im Spiel vibriert als kurze Pulse, ein starkes durchgehend. Bisher vibrierte das Handy bei jedem Rütteln voll und hörte nach 10 Sekunden auf, auch wenn das Spiel weiter rüttelte.
+- Client: Bei eingeschalteter Neigungssteuerung lässt sich die Empfindlichkeit wählen (niedrig, mittel, hoch). Das Gerät merkt sich die Wahl.
+- Server: Die Pause pro Zeichen bei der Texteingabe ist per `Input:TypeTextCharacterDelayMs` einstellbar (Standard 30 ms, z. B. `dotnet run -- Input:TypeTextCharacterDelayMs=60`). Hilft auf langsamen PCs, wenn beim Text senden Zeichen vertauscht oder doppelt ankommen.
+
+### Fixed
+
+- Android-App: Unter "Freigeben" stand bei eingeschaltetem Hotspot oder bei Mobilfunk mit 10.x.x.x-Adresse manchmal die falsche Adresse. Die App bevorzugt jetzt das aktive WLAN, beim Hotspot dessen Adresse, und nimmt Mobilfunk nur noch, wenn nichts anderes da ist.
+
+## [2.26.2] - 2026-10-02
+
 ### Security
 
 - Client: `piscina` per npm-`overrides` auf 5.3.2 angehoben (kritische Dependabot-Warnung GHSA-67c8-pqhq-4rmx, Prototype Pollution mit Codeausführung). `piscina` steckt nur im Build-Werkzeug `@angular/build`, nicht im ausgelieferten Client. Angular 21.2.24 legt die verwundbare Version 5.2.0 fest; das Override kann weg, sobald `@angular/build` selbst 5.3.2 oder neuer verlangt.

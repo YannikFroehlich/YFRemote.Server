@@ -309,6 +309,11 @@ internal static class Program
             .Get<ClipboardOptions>() ?? new ClipboardOptions();
         clipboardOptions.Validate();
 
+        var inputOptions = builder.Configuration
+            .GetSection(InputOptions.SectionName)
+            .Get<InputOptions>() ?? new InputOptions();
+        inputOptions.Validate();
+
         if (httpsOptions.Enabled)
         {
             if (!IPAddress.TryParse(serverOptions.Host, out var bindAddress))
@@ -341,6 +346,7 @@ internal static class Program
         builder.Services.AddSingleton<FileTransferService>();
         builder.Services.AddSingleton<FileOfferService>();
         builder.Services.AddSingleton(clipboardOptions);
+        builder.Services.AddSingleton(inputOptions);
         builder.Services.AddSingleton<ClipboardReadNotifier>();
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
@@ -382,7 +388,8 @@ internal static class Program
             "ok",
             "YFRemote.Server",
             OperatingSystem.IsWindows() ? "windows" : "linux",
-            gamepadService?.IsAvailable ?? false));
+            gamepadService?.IsAvailable ?? false,
+            NetworkAddressService.GetDeviceMacAddress()));
 
         if (httpsOptions.Enabled)
         {

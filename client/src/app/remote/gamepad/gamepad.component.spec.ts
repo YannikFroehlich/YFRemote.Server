@@ -1,5 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { GAMEPAD_GYRO_STORAGE_KEY, GamepadComponent, tiltToStick } from './gamepad.component';
+import {
+  GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY,
+  GAMEPAD_GYRO_STORAGE_KEY,
+  GamepadComponent,
+  rumblePattern,
+  tiltToStick,
+} from './gamepad.component';
 import { GAMEPAD_LAYOUT_STORAGE_KEY, presetLayout } from './gamepad-layout';
 import {
   REMOTE_AUTO_CONNECT,
@@ -147,13 +153,42 @@ describe('GamepadComponent', () => {
   it('vibrates while the game rumbles and stops when it ends', async () => {
     const pad = await setupGamepad();
 
-    pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 120 });
+    pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 255 });
     pad.flushEffects();
     pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 0 });
     pad.flushEffects();
 
-    expect(pad.vibrations).toEqual([0, 10000, 0]);
+    expect(pad.vibrations).toEqual([0, 2450, 0]);
     expect(pad.remote.lastError()).toBeNull();
+  });
+
+  it('grades rumble strength as pulses and renews the pattern until the game stops', async () => {
+    vi.useFakeTimers();
+    try {
+      const pad = await setupGamepad();
+
+      pad.receive({ type: 'rumble', largeMotor: 60, smallMotor: 0 });
+      pad.flushEffects();
+      vi.advanceTimersByTime(2000);
+      pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 0 });
+      pad.flushEffects();
+      vi.advanceTimersByTime(4000);
+
+      expect(pad.vibrations).toEqual([0, rumblePattern(1), rumblePattern(1), 0]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('maps rumble levels to off, pulses within the browser limit, and continuous', () => {
+    expect(rumblePattern(0)).toBe(0);
+    expect(rumblePattern(4)).toBe(2450);
+
+    const weak = rumblePattern(1) as number[];
+    const strong = rumblePattern(3) as number[];
+    expect(weak.length).toBeLessThanOrEqual(99);
+    expect(weak.slice(0, 2)).toEqual([13, 37]);
+    expect(strong.slice(0, 2)).toEqual([38, 12]);
   });
 
   it('stops vibrating when the connection drops', async () => {
@@ -290,6 +325,32 @@ describe('GamepadComponent', () => {
     expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, rightX: 32767 } });
   });
 
+  it('reaches full stick deflection with less tilt at high sensitivity', () => {
+    const reference = { beta: 40, gamma: 0 };
+
+    expect(tiltToStick({ beta: 55, gamma: 0 }, reference, 0, 15)).toEqual({ x: 0, y: 32767 });
+    expect(tiltToStick({ beta: 55, gamma: 0 }, reference, 0, 40).y).toBeLessThan(32767);
+  });
+
+  it('applies and remembers the chosen tilt sensitivity', async () => {
+    const pad = await setupGamepad();
+
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.flushEffects();
+    const select = pad.root.querySelector<HTMLSelectElement>(
+      'select[aria-label="Empfindlichkeit der Neigung"]',
+    )!;
+    select.value = 'high';
+    select.dispatchEvent(new Event('change'));
+    pad.tilt(40, 0);
+    pad.tilt(55, 0);
+    pad.nextFrame(100);
+
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, rightY: 32767 } });
+    expect(pad.stored.get(GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY)).toBe('high');
+  });
+
   it('ignores tilt while switched off and centers the stick when switched off', async () => {
     const pad = await setupGamepad();
 
@@ -345,7 +406,7 @@ async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}
   } as unknown as Storage;
   const sockets: MockRemoteSocket[] = [];
   const frames: FrameRequestCallback[] = [];
-  const vibrations: number[] = [];
+  const vibrations: VibratePattern[] = [];
 
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback): number => {
     frames.push(callback);
@@ -362,7 +423,7 @@ async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}
       ...(options.pageUrl
         ? [{ provide: SERVER_LOCATION, useValue: new URL(options.pageUrl) }]
         : []),
-      { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
+      { provide: REMOTE_VIBRATE, useValue: (pattern: VibratePattern) => vibrations.push(pattern) },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {

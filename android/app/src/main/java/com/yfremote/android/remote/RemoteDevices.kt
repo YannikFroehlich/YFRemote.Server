@@ -6,8 +6,9 @@ import java.net.URISyntaxException
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Ein Geraet, das dieses Telefon steuert - `url` ist die Basis-URL seines YFRemote-Servers. */
-data class RemoteDevice(val url: String, val name: String)
+/** Ein Geraet, das dieses Telefon steuert - `url` ist die Basis-URL seines YFRemote-Servers,
+ *  `mac` die zuletzt per /health gemeldete MAC fuer Wake-on-LAN. */
+data class RemoteDevice(val url: String, val name: String, val mac: String? = null)
 
 // Nur die Liste der Adressen: das Pairing-Token liegt im localStorage des WebViews, pro Origin,
 // genau wie im Browser - der Web-Client verwaltet es selbst.
@@ -20,6 +21,9 @@ class RemoteDevices(context: Context) {
     fun add(device: RemoteDevice) = save(load().filterNot { it.url == device.url } + device)
 
     fun remove(url: String) = save(load().filterNot { it.url == url })
+
+    fun setMac(url: String, mac: String) =
+        save(load().map { if (it.url == url) it.copy(mac = mac) else it })
 
     private fun save(devices: List<RemoteDevice>) {
         prefs.edit().putString(KEY, serialize(devices)).apply()
@@ -70,14 +74,14 @@ class RemoteDevices(context: Context) {
             val array = JSONArray(json ?: "[]")
             (0 until array.length()).map {
                 val item = array.getJSONObject(it)
-                RemoteDevice(item.getString("url"), item.getString("name"))
+                RemoteDevice(item.getString("url"), item.getString("name"), item.optString("mac").ifEmpty { null })
             }
         } catch (e: Exception) {
             emptyList()
         }
 
         fun serialize(devices: List<RemoteDevice>): String = JSONArray(
-            devices.map { JSONObject().put("url", it.url).put("name", it.name) },
+            devices.map { JSONObject().put("url", it.url).put("name", it.name).putOpt("mac", it.mac) },
         ).toString()
     }
 }

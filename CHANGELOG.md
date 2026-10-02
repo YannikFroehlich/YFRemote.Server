@@ -23,6 +23,8 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ### Added
 
+- Android-App: PCs unter "Steuern" lassen sich per Wake-on-LAN wecken. Ist ein PC offline, erscheint "Aufwecken" neben "Entfernen" - die App kennt dafür die Netzwerkkarte des PCs, sobald sie ihn einmal online gesehen hat (mit dieser oder einer neueren YFRemote-Version). Am PC muss das einmal erlaubt sein: im Geräte-Manager beim Netzwerkadapter "Wake on Magic Packet" und "Gerät kann den Computer aus dem Ruhezustand aktivieren"; aus dem ausgeschalteten Zustand zusätzlich Wake-on-LAN im BIOS/UEFI.
+- Server: `GET /health` meldet zusätzlich `macAddress`, die MAC-Adresse des Netzwerkadapters hinter der im Tray angezeigten Adresse.
 - Client: Im Controller ist die Vibration jetzt abgestuft - ein leichtes Rütteln im Spiel vibriert als kurze Pulse, ein starkes durchgehend. Bisher vibrierte das Handy bei jedem Rütteln voll und hörte nach 10 Sekunden auf, auch wenn das Spiel weiter rüttelte.
 - Client: Bei eingeschalteter Neigungssteuerung lässt sich die Empfindlichkeit wählen (niedrig, mittel, hoch). Das Gerät merkt sich die Wahl.
 - Server: Die Pause pro Zeichen bei der Texteingabe ist per `Input:TypeTextCharacterDelayMs` einstellbar (Standard 30 ms, z. B. `dotnet run -- Input:TypeTextCharacterDelayMs=60`). Hilft auf langsamen PCs, wenn beim Text senden Zeichen vertauscht oder doppelt ankommen.

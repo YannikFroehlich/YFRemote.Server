@@ -388,7 +388,8 @@ internal static class Program
             "ok",
             "YFRemote.Server",
             OperatingSystem.IsWindows() ? "windows" : "linux",
-            gamepadService?.IsAvailable ?? false));
+            gamepadService?.IsAvailable ?? false,
+            NetworkAddressService.GetDeviceMacAddress()));
 
         if (httpsOptions.Enabled)
         {

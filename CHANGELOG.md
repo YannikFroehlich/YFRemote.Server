@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Fixed
+
+- Android-App: Der grüne Mauszeiger blieb auf dem Bildschirm stehen, nachdem das steuernde Gerät getrennt oder der Dienst gestoppt wurde - selbst bei geschlossener App. Er verschwindet jetzt, sobald kein Gerät mehr verbunden ist oder der Dienst stoppt, und erscheint bei der nächsten Mausbewegung wieder.
+
 ## [2.26.0] - 2026-09-30
 
 ### Added

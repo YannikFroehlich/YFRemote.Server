@@ -469,18 +469,22 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      actions: write
     steps:
+      # Einen PR vom GITHUB_TOKEN (github-actions[bot]) startet GitHub seit Juni 2026 nur mit
+      # "Approve workflows to run" - ohne den Klick fehlt der Pflicht-Check build-and-test und der
+      # PR bleibt blockiert. Mit CHANGELOG_PR_TOKEN (fine-grained PAT des Owners) laeuft CI sofort.
       - name: develop auschecken
         uses: actions/checkout@v6
         with:
           ref: develop
           fetch-depth: 0
+          token: ${{ secrets.CHANGELOG_PR_TOKEN || github.token }}
 
       - name: CHANGELOG umbenennen und PR oeffnen
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CHANGELOG_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          HAS_PR_TOKEN: ${{ secrets.CHANGELOG_PR_TOKEN != '' }}
           VERSION: ${{ needs.release.outputs.version }}
           RELEASED_SHA: ${{ needs.release.outputs.server_sha }}
         run: |
@@ -540,6 +544,10 @@ jobs:
             --title "docs: CHANGELOG - v$VERSION benennen" \
             --body "Automatisch nach dem Release v$VERSION: \`[Unreleased]\` in \`[$VERSION]\` umbenannt, darueber ein neuer leerer \`[Unreleased]\`-Abschnitt. Reine Doku - geht dieser Commit allein nach \`main\`, gehoert \`[skip release]\` in den Merge-Commit."
 
-          # Ein PR vom GITHUB_TOKEN startet keine pull_request-Workflows, ohne CI-Lauf fehlt
-          # der Pflicht-Check build-and-test. workflow_dispatch ist von dieser Sperre ausgenommen.
-          gh workflow run ci.yml --ref "$branch"
+          # Merged von selbst, sobald build-and-test gruen ist.
+          gh pr merge "$branch" --auto --squash \
+            || echo "::warning::Auto-merge fuer $branch nicht aktiviert - PR von Hand mergen."
+
+          if [ "$HAS_PR_TOKEN" != true ]; then
+            echo "::warning::Ohne Secret CHANGELOG_PR_TOKEN wartet die CI dieses PRs auf 'Approve workflows to run'."
+          fi

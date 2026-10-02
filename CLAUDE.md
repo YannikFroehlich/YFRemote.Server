@@ -252,4 +252,6 @@ enough to send input, a device must first be paired.
 - [`CHANGELOG.md`](CHANGELOG.md) tracks every notable change per released version. Add an entry
   under its `[Unreleased]` section in the same change that adds a feature or fix. After a
   release, `release.yml` (job `changelog-pr`) opens a PR into `develop` that renames
-  `[Unreleased]` to the new version/date - merge it instead of renaming by hand.
+  `[Unreleased]` to the new version/date and merges itself via auto-merge once `build-and-test`
+  passes - don't rename by hand. Without the `CHANGELOG_PR_TOKEN` secret its CI first needs
+  "Approve workflows to run" (see AGENTS.md).

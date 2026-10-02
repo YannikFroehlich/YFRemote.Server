@@ -66,10 +66,10 @@ export const REMOTE_AUTO_CONNECT = new InjectionToken<boolean>('REMOTE_AUTO_CONN
   factory: () => true,
 });
 
-export const REMOTE_VIBRATE = new InjectionToken<(durationMs: number) => void>('REMOTE_VIBRATE', {
+export const REMOTE_VIBRATE = new InjectionToken<(pattern: VibratePattern) => void>('REMOTE_VIBRATE', {
   providedIn: 'root',
   // iOS kennt navigator.vibrate nicht; dort bleibt es einfach still.
-  factory: () => (durationMs: number) => void globalThis.navigator?.vibrate?.(durationMs),
+  factory: () => (pattern: VibratePattern) => void globalThis.navigator?.vibrate?.(pattern),
 });
 
 const SOCKET_OPEN = 1;

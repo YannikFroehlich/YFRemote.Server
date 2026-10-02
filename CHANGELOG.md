@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Added
+
+- Client: Im Controller ist die Vibration jetzt abgestuft - ein leichtes Rütteln im Spiel vibriert als kurze Pulse, ein starkes durchgehend. Bisher vibrierte das Handy bei jedem Rütteln voll und hörte nach 10 Sekunden auf, auch wenn das Spiel weiter rüttelte.
+- Client: Bei eingeschalteter Neigungssteuerung lässt sich die Empfindlichkeit wählen (niedrig, mittel, hoch). Das Gerät merkt sich die Wahl.
+- Server: Die Pause pro Zeichen bei der Texteingabe ist per `Input:TypeTextCharacterDelayMs` einstellbar (Standard 30 ms, z. B. `dotnet run -- Input:TypeTextCharacterDelayMs=60`). Hilft auf langsamen PCs, wenn beim Text senden Zeichen vertauscht oder doppelt ankommen.
+
+### Fixed
+
+- Android-App: Unter "Freigeben" stand bei eingeschaltetem Hotspot oder bei Mobilfunk mit 10.x.x.x-Adresse manchmal die falsche Adresse. Die App bevorzugt jetzt das aktive WLAN, beim Hotspot dessen Adresse, und nimmt Mobilfunk nur noch, wenn nichts anderes da ist.
+
 ## [2.26.2] - 2026-10-02
 
 ### Security

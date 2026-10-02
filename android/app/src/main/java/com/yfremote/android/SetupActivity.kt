@@ -923,9 +923,13 @@ class SetupActivity : Activity() {
         val running = YFRemoteForegroundService.isRunning
         val service = YFRemoteForegroundService.instance
 
-        val address = networkAddress()
+        val addresses = networkAddresses()
+        val address = addresses.firstOrNull()
         val pin = service?.pairing?.getCurrentPin()?.first
-        addressText.text = "${address ?: "Adresse unbekannt"}:${KtorServer.DEFAULT_PORT}"
+        // Weitere Netze (z. B. WLAN plus Hotspot): Geraete im anderen Netz brauchen deren Adresse,
+        // der QR-Code bleibt bei der ersten.
+        addressText.text = "${address ?: "Adresse unbekannt"}:${KtorServer.DEFAULT_PORT}" +
+            addresses.drop(1).joinToString("") { "\nAuch erreichbar: $it:${KtorServer.DEFAULT_PORT}" }
         pinText.text = pin ?: "------"
         // Gleicher Aufbau wie PairingQrCodePayload.cs. Die PIN steht ohnehin gross daneben, daher
         // anders als im Tray ohne Schalter immer im Code.
@@ -1036,9 +1040,9 @@ class SetupActivity : Activity() {
 
     // Die Gateway-Praeferenz von NetworkAddressService.cs passt hier nicht: Beim Hotspot hat gerade
     // der Mobilfunk das Gateway, die Geraete kommen aber ueber das Hotspot-Netz. Deshalb zaehlt, ob
-    // ein Interface aktives WLAN/Ethernet oder Mobilfunk ist (Details bei pickLanAddress).
+    // ein Interface aktives WLAN/Ethernet oder Mobilfunk ist (Details bei lanAddresses).
     @Suppress("DEPRECATION") // allNetworks: der Ersatz waere ein NetworkCallback fuer eine Momentaufnahme.
-    private fun networkAddress(): String? = try {
+    private fun networkAddresses(): List<String> = try {
         val connectivity = getSystemService(ConnectivityManager::class.java)
         fun interfaceOf(network: Network?) = network?.let { connectivity.getLinkProperties(it)?.interfaceName }
         fun hasTransport(network: Network?, transport: Int) =
@@ -1054,7 +1058,7 @@ class SetupActivity : Activity() {
             .mapNotNull { interfaceOf(it) }
             .toSet()
 
-        pickLanAddress(
+        lanAddresses(
             NetworkInterface.getNetworkInterfaces().asSequence()
                 .filter { it.isUp && !it.isLoopback }
                 .flatMap { nic -> nic.inetAddresses.asSequence().filterIsInstance<Inet4Address>().map { nic.name to it } }
@@ -1063,7 +1067,7 @@ class SetupActivity : Activity() {
             cellular,
         )
     } catch (e: Exception) {
-        null
+        emptyList()
     }
 
     private companion object {
@@ -1074,20 +1078,22 @@ class SetupActivity : Activity() {
     }
 }
 
-/** Waehlt die Adresse, unter der andere Geraete im lokalen Netz dieses Handy erreichen: zuerst das
- *  aktive WLAN/Ethernet, Mobilfunk zuletzt (Netzbetreiber vergeben oft ebenfalls 10.x.x.x), sonst
- *  private Adressen vor Tailscale & Co. in 100.64.0.0/10. Beim Hotspot ist Mobilfunk das aktive
- *  Netz, dann gewinnt die private Adresse des Hotspot-Interfaces. */
-internal fun pickLanAddress(
+/** Adressen, unter denen andere Geraete im lokalen Netz dieses Handy erreichen. Die erste ist die
+ *  wahrscheinlichste: zuerst das aktive WLAN/Ethernet, Mobilfunk zuletzt (Netzbetreiber vergeben
+ *  oft ebenfalls 10.x.x.x), sonst private Adressen vor Tailscale & Co. in 100.64.0.0/10. Beim
+ *  Hotspot ist Mobilfunk das aktive Netz, dann gewinnt die private Adresse des Hotspot-Interfaces.
+ *  Danach folgen weitere private Nicht-Mobilfunk-Adressen, etwa der Hotspot neben dem WLAN. */
+internal fun lanAddresses(
     candidates: List<Pair<String, Inet4Address>>,
     activeLanInterface: String?,
     cellularInterfaces: Set<String>,
-): String? = candidates
-    .sortedWith(
+): List<String> {
+    val sorted = candidates.sortedWith(
         compareByDescending<Pair<String, Inet4Address>> { it.first == activeLanInterface }
             .thenBy { it.first in cellularInterfaces }
             .thenByDescending { it.second.isSiteLocalAddress },
     )
-    .firstOrNull()
-    ?.second
-    ?.hostAddress
+    val primary = sorted.firstOrNull() ?: return emptyList()
+    val others = sorted.drop(1).filter { it.second.isSiteLocalAddress && it.first !in cellularInterfaces }
+    return (listOf(primary) + others).mapNotNull { it.second.hostAddress }.distinct()
+}

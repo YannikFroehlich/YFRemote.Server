@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Ist das Handy in mehreren lokalen Netzen zugleich, etwa im WLAN und mit eingeschaltetem Hotspot, zeigt "Freigeben" unter der Hauptadresse auch die übrigen ("Auch erreichbar: 10.93.70.108:5050"). Ein Gerät im Hotspot-Netz fand bisher keine passende Adresse. Der QR-Code enthält weiter die Hauptadresse.
+
 ### Fixed
 
 - Release-Pipeline: Der automatische CHANGELOG-PR nach einem Release blieb bisher jedes Mal hängen, bis jemand seine CI freigab ("Approve workflows to run") - GitHub startet seit Juni 2026 die CI von PRs des `github-actions`-Bots nur noch nach Freigabe. Der Job öffnet den PR jetzt mit dem Secret `CHANGELOG_PR_TOKEN` (fine-grained Token des Repo-Owners) und schaltet Auto-merge ein, sodass er nach grüner CI von selbst landet. Ohne das Secret bleibt nur der Freigabe-Klick übrig.

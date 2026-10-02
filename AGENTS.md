@@ -555,9 +555,14 @@ longer a separate repository, so there is no ordering constraint and no manual s
 6. Monitor the `Auto Tag YFRemote` and `Release YFRemote` workflow runs and verify all
    assets. The `changelog-pr` job in `release.yml` then opens a pull request into `develop`
    that renames `[Unreleased]` in `CHANGELOG.md` to the version/date just published, with a
-   fresh empty `[Unreleased]` above it, and starts `ci.yml` for it via `workflow_dispatch`
-   (a PR opened with `GITHUB_TOKEN` does not trigger `pull_request` workflows, so the
-   required `build-and-test` check would otherwise never run). Review and merge that PR.
+   fresh empty `[Unreleased]` above it, and enables auto-merge (squash) on it, so it lands once
+   `build-and-test` passes. It pushes and opens the PR with the repository secret
+   `CHANGELOG_PR_TOKEN`, a fine-grained personal access token of the owner limited to this
+   repository (Contents and Pull requests: read and write). Without that secret it falls back
+   to `GITHUB_TOKEN`: since June 2026 GitHub creates the `pull_request` CI run of a PR opened by
+   `github-actions[bot]` in an approval-required state, so the PR then waits for "Approve
+   workflows to run" in its merge box before `build-and-test` runs (a `workflow_dispatch` run
+   on the branch does not satisfy the required check). Renew the token before it expires.
    The job skips with a notice if `develop` already has the version heading or `[Unreleased]`
    was empty, and with a warning if `[Unreleased]` in `develop` changed after the release
    commit (new entries merged meanwhile) — then do the rename by hand, as before.

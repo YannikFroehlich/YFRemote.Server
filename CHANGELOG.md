@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-10-02
+
 ### Added
 
 - Android-App: Ist das Handy in mehreren lokalen Netzen zugleich, etwa im WLAN und mit eingeschaltetem Hotspot, zeigt "Freigeben" unter der Hauptadresse auch die übrigen ("Auch erreichbar: 10.93.70.108:5050"). Ein Gerät im Hotspot-Netz fand bisher keine passende Adresse. Der QR-Code enthält weiter die Hauptadresse.

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-10-02
+
 ### Added
 
 - Android-App: PCs unter "Steuern" lassen sich per Wake-on-LAN wecken. Ist ein PC offline, erscheint "Aufwecken" neben "Entfernen" - die App kennt dafür die Netzwerkkarte des PCs, sobald sie ihn einmal online gesehen hat (mit dieser oder einer neueren YFRemote-Version). Am PC muss das einmal erlaubt sein: im Geräte-Manager beim Netzwerkadapter "Wake on Magic Packet" und "Gerät kann den Computer aus dem Ruhezustand aktivieren"; aus dem ausgeschalteten Zustand zusätzlich Wake-on-LAN im BIOS/UEFI.

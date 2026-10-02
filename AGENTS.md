@@ -335,8 +335,9 @@ Galaxy S25 (Android 16).
      Linux and Android together, so an Android-only change releases the PC packages too unless
      `[skip release]` is used deliberately.
 
-   The signed release APK itself has not yet been checked on a device; every on-device check so
-   far used debug builds (see `android/PLAN.md`, "Nächster Schritt").
+   The signed release APK (v2.26.1) is also verified on a device: signature, a non-debuggable
+   manifest, the bundled Client, and the full endpoint/action set (see `android/PLAN.md`,
+   "Nächster Schritt").
 
 ## Tray application
 

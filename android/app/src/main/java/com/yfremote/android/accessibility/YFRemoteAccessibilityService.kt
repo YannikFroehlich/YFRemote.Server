@@ -67,6 +67,13 @@ class YFRemoteAccessibilityService : AccessibilityService() {
         activeStroke?.let { continueDragStroke(willContinue = true) }
     }
 
+    // Der Dienst laeuft weiter, solange er in den Einstellungen aktiv ist - ohne diesen Aufruf
+    // bliebe der Marker nach dem Trennen oder nach "Dienst stoppen" stehen. Der naechste
+    // moveCursor() zeigt ihn wieder an.
+    fun hideCursor() {
+        overlay?.hide()
+    }
+
     fun tap() = dispatchStroke(cursorPath(), TAP_DURATION_MS)
 
     fun longPress() = dispatchStroke(cursorPath(), LONG_PRESS_DURATION_MS)

@@ -11,6 +11,9 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -1031,18 +1034,34 @@ class SetupActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    // Private LAN-Adressen (WLAN, 192.168.x.x usw.) zuerst: Mobilfunk (rmnet_*) und Tailscale liegen
-    // meist in 100.64.0.0/10, sind ebenfalls "up" und standen sonst je nach Reihenfolge vorne.
-    // ponytail: ohne die Gateway-Praeferenz von NetworkAddressService.cs; nachziehen, falls zwei
-    // private Netze (z. B. WLAN plus Hotspot) je verwechselt werden.
+    // Die Gateway-Praeferenz von NetworkAddressService.cs passt hier nicht: Beim Hotspot hat gerade
+    // der Mobilfunk das Gateway, die Geraete kommen aber ueber das Hotspot-Netz. Deshalb zaehlt, ob
+    // ein Interface aktives WLAN/Ethernet oder Mobilfunk ist (Details bei pickLanAddress).
+    @Suppress("DEPRECATION") // allNetworks: der Ersatz waere ein NetworkCallback fuer eine Momentaufnahme.
     private fun networkAddress(): String? = try {
-        NetworkInterface.getNetworkInterfaces().asSequence()
-            .filter { it.isUp && !it.isLoopback }
-            .flatMap { it.inetAddresses.asSequence() }
-            .filterIsInstance<Inet4Address>()
-            .sortedByDescending { it.isSiteLocalAddress }
-            .firstOrNull()
-            ?.hostAddress
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        fun interfaceOf(network: Network?) = network?.let { connectivity.getLinkProperties(it)?.interfaceName }
+        fun hasTransport(network: Network?, transport: Int) =
+            connectivity.getNetworkCapabilities(network)?.hasTransport(transport) == true
+
+        val active = connectivity.activeNetwork
+        val activeLan = interfaceOf(active).takeIf {
+            hasTransport(active, NetworkCapabilities.TRANSPORT_WIFI) ||
+                hasTransport(active, NetworkCapabilities.TRANSPORT_ETHERNET)
+        }
+        val cellular = connectivity.allNetworks
+            .filter { hasTransport(it, NetworkCapabilities.TRANSPORT_CELLULAR) }
+            .mapNotNull { interfaceOf(it) }
+            .toSet()
+
+        pickLanAddress(
+            NetworkInterface.getNetworkInterfaces().asSequence()
+                .filter { it.isUp && !it.isLoopback }
+                .flatMap { nic -> nic.inetAddresses.asSequence().filterIsInstance<Inet4Address>().map { nic.name to it } }
+                .toList(),
+            activeLan,
+            cellular,
+        )
     } catch (e: Exception) {
         null
     }
@@ -1054,3 +1073,21 @@ class SetupActivity : Activity() {
         const val QR_SIZE_DP = 220
     }
 }
+
+/** Waehlt die Adresse, unter der andere Geraete im lokalen Netz dieses Handy erreichen: zuerst das
+ *  aktive WLAN/Ethernet, Mobilfunk zuletzt (Netzbetreiber vergeben oft ebenfalls 10.x.x.x), sonst
+ *  private Adressen vor Tailscale & Co. in 100.64.0.0/10. Beim Hotspot ist Mobilfunk das aktive
+ *  Netz, dann gewinnt die private Adresse des Hotspot-Interfaces. */
+internal fun pickLanAddress(
+    candidates: List<Pair<String, Inet4Address>>,
+    activeLanInterface: String?,
+    cellularInterfaces: Set<String>,
+): String? = candidates
+    .sortedWith(
+        compareByDescending<Pair<String, Inet4Address>> { it.first == activeLanInterface }
+            .thenBy { it.first in cellularInterfaces }
+            .thenByDescending { it.second.isSiteLocalAddress },
+    )
+    .firstOrNull()
+    ?.second
+    ?.hostAddress

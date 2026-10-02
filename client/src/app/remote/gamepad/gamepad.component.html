@@ -210,6 +210,20 @@
       >
         ◎
       </button>
+      @if (gyro()) {
+        <select
+          class="gp-toolbar__preset"
+          [attr.aria-label]="i18n.t('gamepad.gyroSensitivity')"
+          [attr.title]="i18n.t('gamepad.gyroSensitivity')"
+          (change)="selectGyroSensitivity($any($event.target).value)"
+        >
+          @for (sensitivity of gyroSensitivities; track sensitivity) {
+            <option [value]="sensitivity" [selected]="sensitivity === gyroSensitivity()">
+              {{ i18n.t('gamepad.gyroSensitivity.' + sensitivity) }}
+            </option>
+          }
+        </select>
+      }
       <button
         class="gp-close"
         type="button"

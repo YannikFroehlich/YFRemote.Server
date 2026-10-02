@@ -34,6 +34,37 @@ internal static class NetworkAddressService
         }
     }
 
+    // MAC-Adresse der Netzwerkkarte hinter GetDeviceAddress, fuer Wake-on-LAN von einem anderen
+    // Geraet aus. Ohne brauchbare IPv4-Adresse oder MAC (z. B. nur Loopback) null.
+    public static string? GetDeviceMacAddress()
+    {
+        try
+        {
+            var networkInterface = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(networkInterface =>
+                    networkInterface.OperationalStatus == OperationalStatus.Up &&
+                    networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .OrderByDescending(HasDefaultGateway)
+                .FirstOrDefault(networkInterface => networkInterface.GetIPProperties().UnicastAddresses
+                    .Any(unicastAddress => IsUsableIpv4Address(unicastAddress.Address)));
+
+            return networkInterface is null
+                ? null
+                : FormatMacAddress(networkInterface.GetPhysicalAddress().GetAddressBytes());
+        }
+        catch (NetworkInformationException)
+        {
+            return null;
+        }
+    }
+
+    internal static string? FormatMacAddress(byte[] bytes)
+    {
+        return bytes.Length == 6 && bytes.Any(value => value != 0)
+            ? string.Join(':', bytes.Select(value => value.ToString("X2")))
+            : null;
+    }
+
     // Immer ueber HTTP: das Zertifikat muss geladen werden koennen, bevor das Geraet der
     // HTTPS-Adresse ueberhaupt vertraut.
     public static string GetCertificateUrl(int httpPort)

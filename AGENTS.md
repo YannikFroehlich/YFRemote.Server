@@ -249,7 +249,10 @@ Windows/Linux server is — no `MediaProjection`/video-encoding screen capture i
 
 **The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
 this phone controls (`remote/RemoteDevices`, addresses only, in `SharedPreferences`) with an
-online dot from polling their unauthenticated `GET /health`. Opening one starts
+online dot from polling their unauthenticated `GET /health`. The `macAddress` from that response
+is stored with the device; while it is offline, "Aufwecken" sends a Wake-on-LAN magic packet
+(`remote/WakeOnLan`, UDP port 9 to `255.255.255.255` and every interface's broadcast address) —
+native, because the browser Client cannot send UDP. Opening one starts
 `remote/RemoteWebActivity`, a plain `WebView` on `http://<host>:<port>/` — the target serves the
 same Angular Client, which does the PIN pairing itself and keeps its token in the WebView's
 per-origin `localStorage`, exactly like a browser. No native protocol code on this side, hence

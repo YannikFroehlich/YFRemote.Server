@@ -32,6 +32,21 @@ public sealed class NetworkAddressServiceTests
     }
 
     [TestMethod]
+    public void FormatMacAddress_SixBytes_ReturnsColonSeparatedUpperHex()
+    {
+        Assert.AreEqual(
+            "00:1A:2B:3C:4D:5E",
+            NetworkAddressService.FormatMacAddress([0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E]));
+    }
+
+    [TestMethod]
+    public void FormatMacAddress_EmptyOrAllZero_ReturnsNull()
+    {
+        Assert.IsNull(NetworkAddressService.FormatMacAddress([]));
+        Assert.IsNull(NetworkAddressService.FormatMacAddress(new byte[6]));
+    }
+
+    [TestMethod]
     public void IsUsableIpv4Address_Ipv6Address_ReturnsFalse()
     {
         Assert.IsFalse(NetworkAddressService.IsUsableIpv4Address(IPAddress.Parse("::1")));

@@ -51,6 +51,12 @@ flowchart LR
   layouts; every button and stick can be moved, resized or hidden.
   Needs the free [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
   driver once; the tray menu links to it while it is missing.
+- **Wake-on-LAN (Android app)** — the YFRemote Android app remembers each PC's
+  network adapter and can wake it from sleep with "Aufwecken" while it is
+  offline. The PC must allow it once: in Device Manager, on the network
+  adapter, enable "Wake on Magic Packet" and "Allow this device to wake the
+  computer"; waking from shutdown also needs Wake-on-LAN enabled in the
+  BIOS/UEFI. Works within the same network (Wi-Fi to a wired PC is fine).
 - **Linux support (beta)** — a `uinput`-based input backend, verified end-to-end
   on x86_64; arm64 and the installed package are not yet verified
   (details in [`AGENTS.md`](AGENTS.md)). Clipboard sync needs `wl-clipboard`

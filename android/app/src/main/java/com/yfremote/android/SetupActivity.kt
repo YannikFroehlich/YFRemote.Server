@@ -41,6 +41,7 @@ import com.yfremote.android.ime.YFRemoteInputMethodService
 import com.yfremote.android.remote.RemoteDevice
 import com.yfremote.android.remote.RemoteDevices
 import com.yfremote.android.remote.RemoteWebActivity
+import com.yfremote.android.remote.WakeOnLan
 import com.yfremote.android.server.KtorServer
 import com.yfremote.android.service.YFRemoteForegroundService
 import java.net.HttpURLConnection
@@ -608,30 +609,46 @@ class SetupActivity : Activity() {
 
         remoteCheckExecutor.execute {
             try {
-                for (device in devices) remoteStatus[device.url] = fetchPlatform(device.url)
+                for (device in devices) {
+                    val health = fetchHealth(device.url)
+                    remoteStatus[device.url] = health?.optString("platform") ?: OFFLINE
+                    val mac = health?.optString("macAddress").orEmpty()
+                    if (mac.isNotEmpty() && mac != device.mac) remoteDevices.setMac(device.url, mac)
+                }
             } finally {
                 remoteCheckRunning.set(false)
             }
         }
     }
 
-    // /health ist ohne Kopplung erreichbar und nennt die Plattform - reicht fuer "online".
-    private fun fetchPlatform(url: String): String = try {
+    // /health ist ohne Kopplung erreichbar und nennt Plattform und MAC - reicht fuer "online".
+    // null heisst offline.
+    private fun fetchHealth(url: String): JSONObject? = try {
         (URL("$url/health").openConnection() as HttpURLConnection).run {
             connectTimeout = 1500
             readTimeout = 1500
             try {
-                if (responseCode == 200) {
-                    JSONObject(inputStream.bufferedReader().readText()).optString("platform")
-                } else {
-                    OFFLINE
-                }
+                if (responseCode == 200) JSONObject(inputStream.bufferedReader().readText()) else null
             } finally {
                 disconnect()
             }
         }
     } catch (e: Exception) {
-        OFFLINE
+        null
+    }
+
+    private fun wakeRemote(device: RemoteDevice) {
+        val mac = device.mac ?: return
+        remoteCheckExecutor.execute {
+            val sent = runCatching { WakeOnLan.send(mac) }.getOrDefault(false)
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    if (sent) "Weckruf an ${device.name} gesendet" else "Weckruf konnte nicht gesendet werden",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
     }
 
     private fun refreshRemoteDevices() {
@@ -701,6 +718,16 @@ class SetupActivity : Activity() {
                             )
                         },
                     )
+                    if (status == OFFLINE && device.mac != null) {
+                        addView(
+                            secondaryButton("Aufwecken") { wakeRemote(device) }.apply {
+                                layoutParams = LinearLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                                    dp(42),
+                                ).apply { rightMargin = dp(8) }
+                            },
+                        )
+                    }
                     addView(
                         secondaryButton("Entfernen") { removeRemote(device) }.apply {
                             layoutParams = LinearLayout.LayoutParams(

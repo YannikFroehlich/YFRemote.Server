@@ -222,8 +222,8 @@ remote-control the Android device itself — the same product idea as
 `SendInput`/`uinput`-style raw injection isn't available without root. Implemented under
 `android/` (native Kotlin + Ktor, its own Gradle build) and merged to `develop` — pairing, the
 virtual cursor, typing, the remaining actions, and its own branding are all in place and verified
-on real hardware. Not yet released: no CI build job, no signed APK, not wired into
-`auto-tag.yml`/`release.yml` (see "Status" below). [`android/PLAN.md`](android/PLAN.md) is the
+on real hardware. Released with every version since v2.18.2: the `release-android` job in
+`release.yml` attaches a signed `YFRemote-Android-vX.Y.Z.apk` (see "Status" below). [`android/PLAN.md`](android/PLAN.md) is the
 executable roadmap this section summarizes, including the full action-by-action
 protocol-compatibility table; read it for implementation detail beyond the decisions recorded
 here.
@@ -304,8 +304,7 @@ way to widen it later without asking for root or an ADB-based tool like Shizuku:
   current shape: `MediaStore`/Downloads for files, `ClipboardManager` for the clipboard (Android
   10+ restricts clipboard reads/writes to the focused app or the active IME).
 
-**Status: Stufen 0–4 done; Stufe 5 partially done — the app itself is finished, its release
-packaging is not.** Each stage was gated on the previous one actually working on a real device
+**Status: Stufen 0–5 done.** Each stage was gated on the previous one actually working on a real device
 (an emulator doesn't validate `AccessibilityService`/IME behavior reliably) — verified on a
 Galaxy S25 (Android 16).
 0. ✅ Bare Kotlin app, `AccessibilityService` only, proved gesture injection reaches a real device.
@@ -319,26 +318,25 @@ Galaxy S25 (Android 16).
 4. ✅ Remaining actions (navigation, `sleep`→lock, files, clipboard; `shutdown`/`restart` return
    a clear error) and `GET /health` reporting `platform` so the Client switches to an
    Android-specific button layout.
-5. Foreground service, setup Activity (address, PIN, paired devices, links to the two required
-   system-settings screens) and its own branding (app icon, dark theme, card layout) are done.
-   **Still open:**
-   - `DefaultItemExcludes` in `YFRemote.Server.csproj` still only excludes `client\**`, not
-     `android\**` — without it the Web SDK's default globs can pull the Gradle tree into the
-     server's own publish output once `android/` is checked out locally, the same failure mode
-     `client/**` needed the exclusion for.
-   - Gradle task to copy `client/dist` into `app/src/main/assets/www/` automatically (still a
-     manual step).
-   - Release-signing keystore not yet created; store it base64-encoded in GitHub Secrets before
-     the first real release build — a release-signed APK cannot replace a debug-signed one on a
-     device without uninstalling first.
+5. ✅ Foreground service, setup Activity (address, PIN, paired devices, links to the two required
+   system-settings screens), its own branding, and release packaging:
+   - `DefaultItemExcludes` in `YFRemote.Server.csproj` excludes `android\**`, so the Gradle tree
+     never ends up in the server's publish output.
+   - A Gradle task in `app/build.gradle.kts` copies `client/dist` into `app/src/main/assets/www/`
+     for local builds; the release CI fills `assets/www` directly.
+   - The release-signing keystore lives base64-encoded in the `ANDROID_KEYSTORE_*` repository
+     secrets. A release-signed APK cannot replace a debug-signed one on a device without
+     uninstalling first.
    - `ci.yml`'s `android` job builds `assembleDebug` and runs the unit tests on every PR;
-     `assembleRelease` (signed) still only runs in `release-android`. Neither may be named
+     `assembleRelease` (signed) only runs in `release-android`. Neither may be named
      `build-and-test` — that name is the required status check on `main` (see "Release
      automation" below) and must stay pointed at the Windows server job.
-   - Not yet wired into `auto-tag.yml`/`release.yml` — a push to `main` triggers a full release
-     regardless of which part of the repo changed (see "Release automation" below), so an
-     Android-only change will release Windows/Linux too unless `[skip release]` is used
-     deliberately, until this wiring exists.
+   - There is no separate Android version or trigger: every push to `main` releases Windows,
+     Linux and Android together, so an Android-only change releases the PC packages too unless
+     `[skip release]` is used deliberately.
+
+   The signed release APK itself has not yet been checked on a device; every on-device check so
+   far used debug builds (see `android/PLAN.md`, "Nächster Schritt").
 
 ## Tray application
 

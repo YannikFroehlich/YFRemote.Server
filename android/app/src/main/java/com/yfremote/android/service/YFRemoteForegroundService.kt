@@ -61,7 +61,7 @@ class YFRemoteForegroundService : Service() {
         super.onCreate()
         instance = this
 
-        connectionRegistry = ConnectionRegistry()
+        connectionRegistry = ConnectionRegistry { handler.post { YFRemoteAccessibilityService.instance?.hideCursor() } }
         // Kopplung, Entkoppeln (auch per DELETE /pair) und Ablauf wechseln die PIN ohne die App.
         pairing = PairingRepository(filesDir) { handler.post(refreshRunnable) }
         fileOffers = FileOfferRepository(File(cacheDir, "offers"))
@@ -104,6 +104,9 @@ class YFRemoteForegroundService : Service() {
     override fun onDestroy() {
         handler.removeCallbacks(refreshRunnable)
         server.stop()
+        // Direkt statt ueber onAllClosed: ob server.stop() die Verbindungen noch sauber beendet,
+        // bevor der Prozess weg ist, ist nicht garantiert.
+        YFRemoteAccessibilityService.instance?.hideCursor()
         isRunning = false
         instance = null
         super.onDestroy()

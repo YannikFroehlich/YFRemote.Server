@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it - merge that pull request.
 
 ## [Unreleased]
 
+### Fixed
+
+- Android-App: Der grüne Mauszeiger blieb auf dem Bildschirm stehen, nachdem das steuernde Gerät getrennt oder der Dienst gestoppt wurde - selbst bei geschlossener App. Er verschwindet jetzt, sobald kein Gerät mehr verbunden ist oder der Dienst stoppt, und erscheint bei der nächsten Mausbewegung wieder.
+
+## [2.26.0] - 2026-09-30
+
 ### Added
 
 - Android-App: Verbinden per QR-Code in beide Richtungen. Unter "Steuern" scannt "QR-Code scannen" den Code aus dem Tray-Menü des PCs ("QR-Code zum Verbinden...") oder von einem anderen Handy, legt das Gerät an und trägt die PIN gleich ins Kopplungsformular ein - die Adresse muss nicht mehr getippt werden. Unter "Freigeben" steht neben der PIN ein QR-Code mit Adresse und PIN, den ein anderes Gerät mit der YFRemote-App oder der normalen Kamera scannt. Ein HTTPS-Code aus dem Tray wird über HTTP auf Port 5050 geöffnet, weil die App der lokalen Zertifizierungsstelle nicht vertraut.

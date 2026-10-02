@@ -8,7 +8,8 @@ import kotlinx.coroutines.launch
 
 // Android-Aequivalent zu WebSockets/WebSocketConnectionRegistry.cs: erlaubt es, offene /ws-
 // Verbindungen eines Geraets gezielt zu schliessen (z.B. beim Entkoppeln in der Setup-UI).
-class ConnectionRegistry {
+// onAllClosed laeuft, sobald die letzte Verbindung endet - auf dem Thread dieser Verbindung.
+class ConnectionRegistry(private val onAllClosed: () -> Unit = {}) {
     private val lock = Any()
     private val connectionsByDeviceId = mutableMapOf<String, MutableList<DefaultWebSocketServerSession>>()
 
@@ -17,12 +18,13 @@ class ConnectionRegistry {
             connectionsByDeviceId.getOrPut(deviceId) { mutableListOf() }.add(session)
         }
         return AutoCloseable {
-            synchronized(lock) {
-                connectionsByDeviceId[deviceId]?.let { sessions ->
-                    sessions.remove(session)
-                    if (sessions.isEmpty()) connectionsByDeviceId.remove(deviceId)
-                }
+            val allClosed = synchronized(lock) {
+                val sessions = connectionsByDeviceId[deviceId] ?: return@synchronized false
+                if (!sessions.remove(session)) return@synchronized false
+                if (sessions.isEmpty()) connectionsByDeviceId.remove(deviceId)
+                connectionsByDeviceId.isEmpty()
             }
+            if (allClosed) onAllClosed()
         }
     }
 

@@ -322,8 +322,26 @@ Annahme beim Schreiben ab: `PartData.FileItem.provider()` statt `streamProvider(
 `defaultForFilePath`-Import, `queryParameters` faelschlich importiert) sowie ein
 Netty-`META-INF/INDEX.LIST`-Packaging-Konflikt.
 
-**Noch nicht verifiziert:** `GET /clipboard/text` (liest nur, solange die YFRemote-Tastatur
-ausgewaehlt ist, sonst `409`), Datei-Angebot ueber "Teilen" (`ShareActivity` →
-`FileOfferRepository` → `fileOffer`-Push + `GET /files/{id}`), `POST /files`, `POST /clipboard/image`, `sleep`, `mouseScroll`,
-`mouseDown`/`mouseUp`-Drag mit `continueStroke`, der signierte Release-Build
-(`release-android`-CI-Job, siehe Stufe 5).
+**Nachgetragen verifiziert** (Samsung SM-S938B, Android 16, 2026-10-02, Debug-Build aus `develop`
+via `adb forward`):
+- `GET /clipboard/text`: `409` mit Samsung-Tastatur, `401` ohne Token. Mit YFRemote-Tastatur
+  `200`, `no-store` und exakter Rueckgabe eines vorher per `POST /clipboard/text` gesetzten Texts.
+  Haelt die Zwischenablage ein Bild, fehlt `text` in der Antwort statt `null` wie beim
+  .NET-Server - der Client (`clipboard.service.ts`) behandelt beides gleich.
+- `POST /files`: `200`, Datei byte-identisch unter `Download/YFRemote`. Ohne oder mit fremdem
+  `Origin` `403`.
+- `POST /clipboard/image`: `200`, Android bestaetigt mit dem System-Toast "Kopiert.".
+- Datei-Angebot ueber "Teilen" (`SEND`-Intent an `ShareActivity`): `fileOffer`-Push sofort an die
+  offene `/ws`-Verbindung und erneut bei jedem Verbindungsaufbau. `GET /files/{id}`: `200`,
+  `no-store`, `attachment`, Inhalt identisch. Ohne Token `401`, fremder Origin `403`, unbekannte
+  ID `404`.
+- `mouseScroll`: `delta: -600` scrollt die Einstellungen nach unten, wie das Windows-Mausrad.
+  Ausserhalb von +-1200 oder ohne `delta`/`deltaX` kommt eine `Fail`-Antwort.
+- `mouseDown` → 6 × `mouseMove` → `mouseUp`: ein durchgehender Zug, die Liste scrollt zurueck,
+  beim Loslassen kein Tap. `mouseDown` mit unbekannter Taste ergibt eine `Fail`-Antwort.
+- `sleep`: `mWakefulness` wechselt von `Awake` zu `Dozing`, Sperrbildschirm aktiv.
+  `shutdown` liefert "Auf Android ohne Root nicht möglich.".
+
+**Noch nicht verifiziert:** die signierte Release-APK aus dem GitHub-Release
+(`release-android`-CI-Job, siehe Stufe 5) auf einem Geraet. Sie laesst sich nicht ueber einen
+Debug-Build installieren, ohne die App vorher zu deinstallieren.

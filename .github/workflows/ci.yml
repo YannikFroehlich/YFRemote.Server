@@ -9,7 +9,7 @@ name: CI
 
 on:
   pull_request:
-  # Fuer PRs, die release.yml mit dem GITHUB_TOKEN oeffnet - die loesen pull_request nicht aus.
+  # Zum Nachholen von Hand, z. B. fuer einen Branch ohne PR.
   workflow_dispatch:
 
 permissions:

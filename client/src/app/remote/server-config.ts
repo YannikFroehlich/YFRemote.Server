@@ -16,6 +16,7 @@ export const INVERT_SCROLL_STORAGE_KEY = 'yfremote.invertScroll';
 export const HAPTICS_STORAGE_KEY = 'yfremote.haptics';
 export const POINTER_ACCELERATION_STORAGE_KEY = 'yfremote.pointerAcceleration';
 export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
+export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
 
 const IPV4_SEGMENT_PATTERN = '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])';
 const IPV4_PATTERN = new RegExp(

@@ -73,6 +73,29 @@ export interface GamepadDisconnectAction {
   readonly type: 'gamepadDisconnect';
 }
 
+/** Schaltet fuer diese Verbindung den automatischen Zwischenablage-Abgleich ein oder aus. */
+export interface ClipboardSyncAction {
+  readonly type: 'clipboardSync';
+  readonly enabled: boolean;
+}
+
+/** Lautstaerke und laufendes Medium am PC; kommt ungefragt beim Verbinden und bei jeder Aenderung.
+ *  `volume` fehlt ohne Wiedergabegeraet, `title` wenn keine App Medien meldet. */
+export interface MediaStatusMessage {
+  readonly type: 'media';
+  readonly volume?: number;
+  readonly muted: boolean;
+  readonly title?: string;
+  readonly artist?: string;
+  readonly playing: boolean;
+}
+
+/** Neuer Text in der PC-Zwischenablage, nur bei eingeschaltetem Abgleich. */
+export interface ClipboardPushMessage {
+  readonly type: 'clipboard';
+  readonly text: string;
+}
+
 export type RemoteAction =
   | KeyboardAction
   | MouseMoveAction
@@ -82,7 +105,8 @@ export type RemoteAction =
   | PowerAction
   | TextAction
   | GamepadAction
-  | GamepadDisconnectAction;
+  | GamepadDisconnectAction
+  | ClipboardSyncAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

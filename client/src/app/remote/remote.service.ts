@@ -1,9 +1,11 @@
 import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
+  ClipboardPushMessage,
   ConnectionStatus,
   FileOfferMessage,
   GamepadRumbleMessage,
   MacroStep,
+  MediaStatusMessage,
   RemoteAction,
   RemoteResponse,
   ServerConfig,
@@ -11,6 +13,7 @@ import {
 } from './remote.models';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
+  CLIPBOARD_SYNC_STORAGE_KEY,
   getServerConfigFromLocation,
   getServerHttpBaseUrl,
   getServerPageUrl,
@@ -124,6 +127,9 @@ export class RemoteService implements OnDestroy {
   private readonly liveTypingSignal = signal(
     parseStoredFlag(this.readStorage(LIVE_TYPING_STORAGE_KEY), false),
   );
+  private readonly clipboardSyncSignal = signal(
+    parseStoredFlag(this.readStorage(CLIPBOARD_SYNC_STORAGE_KEY), false),
+  );
   private readonly statusSignal = signal<ConnectionStatus>('disconnected');
   private readonly lastErrorSignal = signal<string | null>(null);
   private readonly manualDisconnectSignal = signal(false);
@@ -131,6 +137,8 @@ export class RemoteService implements OnDestroy {
   private readonly gamepadAvailableSignal = signal(false);
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
+  private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
+  private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
   // wieder auftauchen.
   private dismissedFileOfferId: string | null = null;
@@ -150,6 +158,8 @@ export class RemoteService implements OnDestroy {
   readonly haptics = this.hapticsSignal.asReadonly();
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
+  /** Gewuenschter Zwischenablage-Abgleich; wirksam nur, wo `clipboardSyncSupported()` gilt. */
+  readonly clipboardSync = this.clipboardSyncSignal.asReadonly();
   readonly status = this.statusSignal.asReadonly();
   /** Plattform der Gegenstelle laut `GET /health`; `null`, solange sie unbekannt ist. */
   readonly serverPlatform = this.serverPlatformSignal.asReadonly();
@@ -159,6 +169,15 @@ export class RemoteService implements OnDestroy {
   readonly gamepadRumble = this.gamepadRumbleSignal.asReadonly();
   /** Datei, die der PC gerade anbietet; `null`, solange keine angeboten ist. */
   readonly fileOffer = this.fileOfferSignal.asReadonly();
+  /** Lautstaerke und laufendes Medium am PC; `null`, solange die Gegenstelle keine meldet. */
+  readonly mediaStatus = this.mediaStatusSignal.asReadonly();
+  /** Zuletzt vom PC gemeldeter Zwischenablage-Text (nur bei eingeschaltetem Abgleich). Ein neues
+   *  Objekt pro Meldung, damit auch derselbe Text erneut auslöst. */
+  readonly pcClipboard = this.pcClipboardSignal.asReadonly();
+  /** Den Abgleich koennen nur der Windows- und der Linux-Server, nicht die Android-App. */
+  readonly clipboardSyncSupported = computed(
+    () => this.serverPlatformSignal() === 'windows' || this.serverPlatformSignal() === 'linux',
+  );
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -273,6 +292,12 @@ export class RemoteService implements OnDestroy {
   saveLiveTyping(enabled: boolean): void {
     this.liveTypingSignal.set(enabled);
     this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
+  }
+
+  saveClipboardSync(enabled: boolean): void {
+    this.clipboardSyncSignal.set(enabled);
+    this.storage?.setItem(CLIPBOARD_SYNC_STORAGE_KEY, String(enabled));
+    this.sendClipboardSync();
   }
 
   dismissFileOffer(): void {
@@ -424,6 +449,7 @@ export class RemoteService implements OnDestroy {
       this.socket = null;
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
+      this.mediaStatusSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -448,6 +474,16 @@ export class RemoteService implements OnDestroy {
 
     if (isRumbleMessage(message)) {
       this.gamepadRumbleSignal.set(Math.max(message.largeMotor, message.smallMotor));
+      return;
+    }
+
+    if (isMediaStatusMessage(message)) {
+      this.mediaStatusSignal.set(message);
+      return;
+    }
+
+    if (isClipboardPushMessage(message)) {
+      this.pcClipboardSignal.set(message);
       return;
     }
 
@@ -523,6 +559,18 @@ export class RemoteService implements OnDestroy {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
     }
+
+    // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,
+    // weil erst /health sagt, ob die Gegenstelle ihn kann.
+    if (this.clipboardSyncSignal()) {
+      this.sendClipboardSync();
+    }
+  }
+
+  private sendClipboardSync(): void {
+    if (this.clipboardSyncSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'clipboardSync', enabled: this.clipboardSyncSignal() });
+    }
   }
 
   private scheduleReconnect(): void {
@@ -549,6 +597,7 @@ export class RemoteService implements OnDestroy {
     this.gamepadRumbleSignal.set(0);
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
     this.fileOfferSignal.set(null);
+    this.mediaStatusSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -677,6 +726,23 @@ function isRumbleMessage(value: unknown): value is GamepadRumbleMessage {
     typeof message.largeMotor === 'number' &&
     typeof message.smallMotor === 'number'
   );
+}
+
+function isMediaStatusMessage(value: unknown): value is MediaStatusMessage {
+  const message = value as Partial<MediaStatusMessage> | null;
+  return (
+    message?.type === 'media' &&
+    (message.volume === undefined || typeof message.volume === 'number') &&
+    typeof message.muted === 'boolean' &&
+    (message.title === undefined || typeof message.title === 'string') &&
+    (message.artist === undefined || typeof message.artist === 'string') &&
+    typeof message.playing === 'boolean'
+  );
+}
+
+function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
+  const message = value as Partial<ClipboardPushMessage> | null;
+  return message?.type === 'clipboard' && typeof message.text === 'string';
 }
 
 function isFileOfferMessage(value: unknown): value is FileOfferMessage {

@@ -107,7 +107,7 @@ jobs:
         run: >-
           dotnet publish YFRemote.Server.csproj
           --configuration Release
-          --framework net10.0-windows
+          --framework net10.0-windows10.0.17763.0
           --runtime win-x64
           --self-contained true
           --output publish

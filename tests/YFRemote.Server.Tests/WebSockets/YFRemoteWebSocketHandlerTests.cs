@@ -80,6 +80,74 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_ClipboardSyncEnabled_PushesNewClipboardTextUntilDisabled()
+    {
+        var clipboardText = "vorher";
+        var clipboardSync = new PollingBroadcaster<ClipboardMessage?>(
+            () => Task.FromResult<ClipboardMessage?>(new ClipboardMessage(clipboardText)),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: false,
+            NullLogger.Instance);
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(clipboardSync: clipboardSync)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        await SendTextAsync(pair.Client, """{"type":"clipboardSync","enabled":true}""");
+        Assert.IsTrue((await ReceiveResponseAsync(pair.Client)).Success);
+
+        await clipboardSync.PollAsync();
+        clipboardText = "kopiert";
+        await clipboardSync.PollAsync();
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("clipboard", pushed.GetProperty("type").GetString());
+        Assert.AreEqual("kopiert", pushed.GetProperty("text").GetString());
+
+        await SendTextAsync(pair.Client, """{"type":"clipboardSync","enabled":false,"requestId":"off"}""");
+        Assert.AreEqual("off", (await ReceiveResponseAsync(pair.Client)).RequestId);
+        clipboardText = "danach";
+        await clipboardSync.PollAsync();
+
+        // Nach dem Ausschalten kommt kein Push mehr - die naechste Nachricht ist die Antwort.
+        await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"],"requestId":"next"}""");
+        Assert.AreEqual("next", (await ReceiveResponseAsync(pair.Client)).RequestId);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
+    public async Task HandleAsync_MediaStatus_IsPushedWhenItChanges()
+    {
+        var status = new MediaStatusMessage(40, false, "Song", "Band", true);
+        var mediaStatus = new PollingBroadcaster<MediaStatusMessage>(
+            () => Task.FromResult(status),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: true,
+            NullLogger.Instance);
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(mediaStatus: mediaStatus)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        // Der Handler abonniert beim Verbinden; eine beantwortete Aktion stellt sicher, dass das passiert ist.
+        await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"]}""");
+        await ReceiveResponseAsync(pair.Client);
+        await mediaStatus.PollAsync();
+        var onConnect = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("media", onConnect.GetProperty("type").GetString());
+        Assert.AreEqual(40, onConnect.GetProperty("volume").GetInt32());
+        Assert.AreEqual("Song", onConnect.GetProperty("title").GetString());
+
+        status = status with { Volume = 42, Title = null };
+        await mediaStatus.PollAsync();
+        var changed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual(42, changed.GetProperty("volume").GetInt32());
+        Assert.IsFalse(changed.TryGetProperty("title", out _));
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_InvalidJson_SendsFailureResponse()
     {
         await using var pair = await WebSocketPair.CreateAsync();
@@ -208,20 +276,24 @@ public sealed class YFRemoteWebSocketHandlerTests
         IMouseService? mouseService = null,
         TimeProvider? timeProvider = null,
         IGamepadService? gamepadService = null,
-        FileOfferService? fileOfferService = null)
+        FileOfferService? fileOfferService = null,
+        PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
+        PollingBroadcaster<MediaStatusMessage>? mediaStatus = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
             mouseService ?? new RecordingMouseService(),
             new NoOpPowerService(),
             NullLogger<RemoteActionHandler>.Instance,
-            gamepadService);
+            gamepadService,
+            clipboardSync);
 
         return new YFRemoteWebSocketHandler(
             actionHandler,
             fileOfferService ?? new FileOfferService(TimeProvider.System),
             timeProvider ?? TimeProvider.System,
-            NullLogger<YFRemoteWebSocketHandler>.Instance);
+            NullLogger<YFRemoteWebSocketHandler>.Instance,
+            mediaStatus);
     }
 
     private static Task SendTextAsync(WebSocket socket, string text) =>

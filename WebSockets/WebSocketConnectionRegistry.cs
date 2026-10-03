@@ -1,11 +1,34 @@
 namespace YFRemote.Server.WebSockets;
 
 // Erlaubt es, offene /ws-Verbindungen eines Geräts gezielt zu beenden (z.B. beim Entkoppeln
-// im Tray), ohne dass der Client selbst die Verbindung schließt.
+// im Tray), ohne dass der Client selbst die Verbindung schließt. Der Tray zeigt darüber auch an,
+// welche Geräte gerade verbunden sind.
 public sealed class WebSocketConnectionRegistry
 {
     private readonly object syncRoot = new();
     private readonly Dictionary<Guid, List<CancellationTokenSource>> connectionsByDeviceId = new();
+
+    // Kommt auf dem Thread der Verbindung, ausserhalb der Sperre.
+    public event Action? ConnectionsChanged;
+
+    public bool IsConnected(Guid deviceId)
+    {
+        lock (syncRoot)
+        {
+            return connectionsByDeviceId.ContainsKey(deviceId);
+        }
+    }
+
+    public int ConnectedDeviceCount
+    {
+        get
+        {
+            lock (syncRoot)
+            {
+                return connectionsByDeviceId.Count;
+            }
+        }
+    }
 
     public IDisposable Register(Guid deviceId, CancellationTokenSource connectionCts)
     {
@@ -20,6 +43,7 @@ public sealed class WebSocketConnectionRegistry
             connections.Add(connectionCts);
         }
 
+        ConnectionsChanged?.Invoke();
         return new Registration(this, deviceId, connectionCts);
     }
 
@@ -64,6 +88,8 @@ public sealed class WebSocketConnectionRegistry
                 connectionsByDeviceId.Remove(deviceId);
             }
         }
+
+        ConnectionsChanged?.Invoke();
     }
 
     private sealed class Registration(

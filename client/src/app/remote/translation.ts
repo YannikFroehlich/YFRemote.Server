@@ -316,6 +316,23 @@ export const TRANSLATIONS = {
     de: 'Vibration bei Tastendruck (Android)',
     en: 'Vibration on key press (Android)',
   },
+  'settings.clipboardSync': {
+    de: 'Zwischenablage automatisch abgleichen',
+    en: 'Sync clipboard automatically',
+  },
+  'settings.clipboardSync.httpsHint': {
+    de: 'Nur über HTTPS möglich (im Infobereich "HTTPS verwenden").',
+    en: 'Only available over HTTPS ("HTTPS verwenden" in the tray menu).',
+  },
+  'settings.clipboardSync.unsupported': {
+    de: 'Diese Gegenstelle kann die Zwischenablage nicht abgleichen.',
+    en: 'This server cannot sync the clipboard.',
+  },
+  'media.nothing': { de: 'Am PC läuft nichts', en: 'Nothing playing on the PC' },
+  'media.playing': { de: 'läuft', en: 'playing' },
+  'media.paused': { de: 'pausiert', en: 'paused' },
+  'media.muted': { de: 'Ton aus', en: 'Muted' },
+  'media.volume': { de: 'Lautstärke {{volume}} %', en: 'Volume {{volume}}%' },
   'settings.language.label': { de: 'Sprache', en: 'Language' },
   'settings.themeMode.label': { de: 'Darstellung', en: 'Appearance' },
   'settings.themeMode.system': { de: 'Wie das Gerät (System)', en: 'Same as device (System)' },

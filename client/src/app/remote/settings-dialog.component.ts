@@ -1,4 +1,5 @@
 import { Component, inject, output, signal } from '@angular/core';
+import { ClipboardSyncService } from './clipboard-sync.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
@@ -40,6 +41,7 @@ export class SettingsDialogComponent {
   protected readonly layout = inject(ButtonLayoutService);
   protected readonly theme = inject(ThemeService);
   protected readonly i18n = inject(TranslationService);
+  protected readonly clipboardSync = inject(ClipboardSyncService);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
 
   readonly closed = output<void>();
@@ -82,6 +84,7 @@ export class SettingsDialogComponent {
     invertScroll: new FormControl(this.remote.invertScroll(), { nonNullable: true }),
     pointerAcceleration: new FormControl(this.remote.pointerAcceleration(), { nonNullable: true }),
     haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
+    clipboardSync: new FormControl(this.remote.clipboardSync(), { nonNullable: true }),
     language: new FormControl<Lang>(this.i18n.language(), { nonNullable: true }),
     themeMode: new FormControl<ThemeMode>(this.theme.mode(), { nonNullable: true }),
     /** Eingebauter Stil oder `custom:<id>` für einen eigenen. */
@@ -120,6 +123,9 @@ export class SettingsDialogComponent {
 
     this.remote.savePointerAcceleration(this.form.controls.pointerAcceleration.value);
     this.remote.saveHaptics(this.form.controls.haptics.value);
+    if (this.form.controls.clipboardSync.value !== this.remote.clipboardSync()) {
+      this.remote.saveClipboardSync(this.form.controls.clipboardSync.value);
+    }
     this.i18n.setLanguage(this.form.controls.language.value);
     this.saveTheme();
 
@@ -237,7 +243,9 @@ export class SettingsDialogComponent {
     }
   }
 
-  protected toggleSetting(name: 'pointerAcceleration' | 'invertScroll' | 'haptics'): void {
+  protected toggleSetting(
+    name: 'pointerAcceleration' | 'invertScroll' | 'haptics' | 'clipboardSync',
+  ): void {
     const control = this.form.controls[name];
     control.setValue(!control.value);
     control.markAsDirty();

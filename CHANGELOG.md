@@ -31,6 +31,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Android-App: Die Benachrichtigung des laufenden Dienstes ließ sich ab Android 14 wegwischen, obwohl der Dienst weiterlief - damit fehlten PIN und "Stoppen" in der Benachrichtigungsleiste. Sie kommt jetzt sofort zurück und verschwindet nur, wenn der Dienst endet.
 - Android-App: In der Geräteliste unter "Steuern" ging gelegentlich ein Tipp verloren ("Aufwecken", "Entfernen" oder ein Gerät öffnen), weil die App die Liste alle 2 Sekunden komplett neu aufbaute. Sie baut sie jetzt nur noch neu auf, wenn sich ein Gerät oder dessen Status geändert hat.
 
 ## [2.28.1] - 2026-10-03

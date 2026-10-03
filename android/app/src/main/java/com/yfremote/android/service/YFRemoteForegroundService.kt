@@ -36,6 +36,7 @@ class YFRemoteForegroundService : Service() {
     companion object {
         const val ACTION_STOP = "com.yfremote.android.action.STOP"
         const val ACTION_REGENERATE_PIN = "com.yfremote.android.action.REGENERATE_PIN"
+        private const val ACTION_NOTIFICATION_DISMISSED = "com.yfremote.android.action.NOTIFICATION_DISMISSED"
         private const val CHANNEL_ID = "yfremote_service"
         private const val NOTIFICATION_ID = 1
 
@@ -91,6 +92,12 @@ class YFRemoteForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // Seit Android 14 laesst sich auch die Benachrichtigung eines Vordergrunddienstes wegwischen,
+        // der Dienst laeuft dabei weiter. Sie soll aber nur mit dem Dienst verschwinden.
+        if (intent?.action == ACTION_NOTIFICATION_DISMISSED) {
+            if (isRunning) refreshNotification()
+            return START_STICKY
+        }
         // Weiter zu startForeground: aktualisiert die Benachrichtigung mit der neuen PIN und startet
         // den Server, falls Android den Dienst zwischenzeitlich beendet hatte (start() ist idempotent).
         if (intent?.action == ACTION_REGENERATE_PIN) pairing.regeneratePin()
@@ -140,6 +147,12 @@ class YFRemoteForegroundService : Service() {
             Intent(this, YFRemoteForegroundService::class.java).setAction(ACTION_REGENERATE_PIN),
             PendingIntent.FLAG_IMMUTABLE,
         )
+        val dismissedIntent = PendingIntent.getService(
+            this,
+            2,
+            Intent(this, YFRemoteForegroundService::class.java).setAction(ACTION_NOTIFICATION_DISMISSED),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
         val contentIntent = PendingIntent.getActivity(
             this,
             0,
@@ -159,6 +172,7 @@ class YFRemoteForegroundService : Service() {
             .setContentIntent(contentIntent)
             .addAction(0, getString(R.string.notification_regenerate_pin), regeneratePinIntent)
             .addAction(0, getString(R.string.notification_stop), stopIntent)
+            .setDeleteIntent(dismissedIntent)
             .setOngoing(true)
             .build()
     }

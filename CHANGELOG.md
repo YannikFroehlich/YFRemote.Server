@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.30.0] - 2026-10-03
+
 ### Added
 
 - Remote-Ansicht: Eine Leiste über den Tasten zeigt, was am Windows-PC gerade läuft (Titel und Interpret aus der Windows-Mediensteuerung, also z.B. Spotify oder ein Browser-Tab), und die aktuelle Lautstärke samt Stummschaltung. Sie aktualisiert sich etwa im Sekundentakt, auch nach "Lauter"/"Leiser". Der Server schickt dafür die neue WebSocket-Nachricht `{"type":"media",...}`.

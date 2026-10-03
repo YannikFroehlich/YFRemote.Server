@@ -82,6 +82,7 @@ class SetupActivity : Activity() {
 
     private lateinit var remoteDevices: RemoteDevices
     private val remoteStatus = ConcurrentHashMap<String, String>()
+    private var renderedRemoteDevices: Any? = null
     private val remoteCheckRunning = AtomicBoolean(false)
     private val remoteCheckExecutor = Executors.newSingleThreadExecutor()
 
@@ -658,6 +659,11 @@ class SetupActivity : Activity() {
         val devices = remoteDevices.load()
         // Nur pruefen, solange die Liste sichtbar ist - sonst laeuft im Hintergrund unnoetig Netzverkehr.
         if (remoteContainer.isShown) checkRemoteDevices(devices)
+        // Nur bei einer Aenderung neu aufbauen: refreshUi laeuft alle 2 s, und ein Tipp genau waehrend
+        // des Neuaufbaus ging verloren ("Aufwecken", "Entfernen", Geraet oeffnen).
+        val rendered = devices to devices.map { remoteStatus[it.url] }
+        if (rendered == renderedRemoteDevices) return
+        renderedRemoteDevices = rendered
         remoteContainer.removeAllViews()
 
         if (devices.isEmpty()) {

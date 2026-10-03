@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Android-App: In der Geräteliste unter "Steuern" ging gelegentlich ein Tipp verloren ("Aufwecken", "Entfernen" oder ein Gerät öffnen), weil die App die Liste alle 2 Sekunden komplett neu aufbaute. Sie baut sie jetzt nur noch neu auf, wenn sich ein Gerät oder dessen Status geändert hat.
+
 ### Changed
 
 - Android-App: "Zurück" schließt im Controller jetzt den Controller (und steckt ihn am PC ab), statt nur das Vollbild zu verlassen und ihn hochkant offen zu lassen. Im Browser bleibt es wie bisher: Dort endet das Vollbild auch beim Wechsel in eine andere App, und der Controller soll dabei nicht verschwinden.

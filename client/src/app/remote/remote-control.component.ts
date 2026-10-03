@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
+import { ClipboardSyncService } from './clipboard-sync.service';
 import { FileTransferService } from './file-transfer.service';
 import { GamepadComponent } from './gamepad/gamepad.component';
 import { KeyboardPadComponent } from './keyboard-pad.component';
@@ -42,6 +43,9 @@ export class RemoteControlComponent {
   protected readonly lastError = this.remote.lastError;
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
+  protected readonly mediaStatus = this.remote.mediaStatus;
+  // Lebt, solange die Fernbedienung offen ist - sonst haette niemand die Zwischenablage im Blick.
+  private readonly clipboardSync = inject(ClipboardSyncService);
   protected readonly fileOfferTitleKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'fileOffer.title.android' : 'fileOffer.title',
   );

@@ -61,6 +61,30 @@ public sealed class WebSocketConnectionRegistryTests
     }
 
     [TestMethod]
+    public void ConnectedDevices_FollowRegistrationsAndRaiseChanged()
+    {
+        var registry = new WebSocketConnectionRegistry();
+        var deviceId = Guid.NewGuid();
+        var changes = 0;
+        registry.ConnectionsChanged += () => changes++;
+        using var firstConnection = new CancellationTokenSource();
+        using var secondConnection = new CancellationTokenSource();
+
+        var first = registry.Register(deviceId, firstConnection);
+        var second = registry.Register(deviceId, secondConnection);
+        Assert.IsTrue(registry.IsConnected(deviceId));
+        Assert.AreEqual(1, registry.ConnectedDeviceCount);
+
+        first.Dispose();
+        Assert.IsTrue(registry.IsConnected(deviceId));
+
+        second.Dispose();
+        Assert.IsFalse(registry.IsConnected(deviceId));
+        Assert.AreEqual(0, registry.ConnectedDeviceCount);
+        Assert.AreEqual(4, changes);
+    }
+
+    [TestMethod]
     public void CloseConnections_IgnoresAlreadyDisposedConnections()
     {
         var registry = new WebSocketConnectionRegistry();

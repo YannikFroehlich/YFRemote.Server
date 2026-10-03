@@ -12,7 +12,8 @@ public sealed class YFRemoteWebSocketHandler(
     RemoteActionHandler actionHandler,
     FileOfferService fileOfferService,
     TimeProvider timeProvider,
-    ILogger<YFRemoteWebSocketHandler> logger)
+    ILogger<YFRemoteWebSocketHandler> logger,
+    PollingBroadcaster<MediaStatusMessage>? mediaStatus = null)
 {
     private const int BufferSize = 4096;
     private const int MaxMessageBytes = 16 * 1024;
@@ -29,7 +30,11 @@ public sealed class YFRemoteWebSocketHandler(
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task HandleAsync(WebSocket socket, string client, CancellationToken cancellationToken)
+    public async Task HandleAsync(
+        WebSocket socket,
+        string client,
+        CancellationToken cancellationToken,
+        string? deviceName = null)
     {
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
@@ -38,10 +43,16 @@ public sealed class YFRemoteWebSocketHandler(
         // WebSocket erlaubt aber nur ein SendAsync gleichzeitig.
         var sendLock = new SemaphoreSlim(1, 1);
         using var session = new RemoteActionSession(
-            rumble => _ = SendPushAsync(socket, sendLock, rumble, client, cancellationToken));
+            rumble => _ = SendPushAsync(socket, sendLock, rumble, client, cancellationToken),
+            clipboard => _ = SendPushAsync(socket, sendLock, clipboard, client, cancellationToken))
+        {
+            DeviceName = deviceName ?? client
+        };
         void OnFileOffered(FileOfferMessage offer) =>
             _ = SendPushAsync(socket, sendLock, offer, client, cancellationToken);
         fileOfferService.Offered += OnFileOffered;
+        using var mediaSubscription = mediaStatus?.Subscribe(status =>
+            _ = SendPushAsync(socket, sendLock, status, client, cancellationToken));
 
         try
         {

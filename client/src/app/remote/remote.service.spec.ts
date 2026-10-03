@@ -125,6 +125,8 @@ interface RemoteServiceSetup {
   readonly autoConnect?: boolean;
   readonly storedPairingToken?: string;
   readonly serverUrl?: string;
+  /** Antwort von `GET /health`; ohne bleibt die Plattform unbekannt. */
+  readonly health?: object;
 }
 
 /** `RemoteService`-Tests testen kein Pairing-HTTP-Verhalten; falls ein gespeichertes
@@ -389,6 +391,53 @@ describe('RemoteService', () => {
     expect(remote.fileOffer()?.id).toBe('o2');
   });
 
+  it('shows the pushed media status until the connection ends', () => {
+    const { remote, sockets } = setupRemoteService();
+    const media = { type: 'media', volume: 40, muted: false, title: 'Song', playing: true };
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive(JSON.stringify(media));
+
+    expect(remote.mediaStatus()).toEqual(media);
+    expect(remote.lastError()).toBeNull();
+
+    sockets[0].closeFromServer();
+
+    expect(remote.mediaStatus()).toBeNull();
+  });
+
+  it('turns clipboard sync on after connecting to a PC and off when the setting changes', async () => {
+    const { remote, sockets, storage } = setupRemoteService({ health: { platform: 'windows' } });
+    remote.saveClipboardSync(true);
+
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"clipboardSync","enabled":true}']);
+
+    sockets[0].receive('{"type":"clipboard","text":"vom PC"}');
+    expect(remote.pcClipboard()?.text).toBe('vom PC');
+
+    remote.saveClipboardSync(false);
+
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"clipboardSync","enabled":false}');
+    expect(storage.getItem('yfremote.clipboardSync')).toBe('false');
+  });
+
+  it('does not ask an Android server for clipboard sync', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'android' } });
+    remote.saveClipboardSync(true);
+
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('android'));
+
+    expect(remote.clipboardSyncSupported()).toBe(false);
+    expect(sockets[0].sentMessages).toEqual([]);
+  });
+
   it('reconnects with increasing capped delays', () => {
     const { remote, sockets } = setupRemoteService();
 
@@ -604,7 +653,13 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
           return socket;
         },
       },
-      { provide: PAIRING_FETCH, useValue: unusedPairingFetch },
+      {
+        provide: PAIRING_FETCH,
+        useValue:
+          options.health === undefined
+            ? unusedPairingFetch
+            : async () => new Response(JSON.stringify(options.health)),
+      },
       { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
     ],
   });

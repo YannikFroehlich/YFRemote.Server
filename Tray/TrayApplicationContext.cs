@@ -26,6 +26,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem updateItem;
+    private readonly ToolStripMenuItem statusItem;
     private readonly ToolStripMenuItem pinItem;
     private readonly ToolStripMenuItem pairedDevicesItem;
     private readonly ToolStripMenuItem gamepadDriverItem;
@@ -65,12 +66,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         fileTransferService.FileReceived += OnFileReceived;
         fileOfferService.Downloaded += OnOfferedFileDownloaded;
         clipboardReadNotifier.TextRead += OnClipboardTextRead;
+        clipboardReadNotifier.SyncEnabled += OnClipboardSyncEnabled;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
         {
             Enabled = false
         };
-        var statusItem = new ToolStripMenuItem("Server läuft")
+        statusItem = new ToolStripMenuItem("Server läuft")
         {
             Enabled = false
         };
@@ -168,6 +170,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             new ToolStripSeparator(),
             exitItem
         ]);
+        connectionRegistry.ConnectionsChanged += OnConnectionsChanged;
         contextMenu.Opening += (_, _) =>
         {
             RefreshPairingMenu();
@@ -223,6 +226,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             fileTransferService.FileReceived -= OnFileReceived;
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.TextRead -= OnClipboardTextRead;
+            clipboardReadNotifier.SyncEnabled -= OnClipboardSyncEnabled;
+            connectionRegistry.ConnectionsChanged -= OnConnectionsChanged;
             initialUpdateTimer.Dispose();
             periodicUpdateTimer.Dispose();
             notifyIcon.Visible = false;
@@ -423,6 +428,39 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 $"Die Zwischenablage wurde an \"{deviceName}\" gesendet.",
                 ToolTipIcon.Info));
 
+    private void OnClipboardSyncEnabled(string deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(
+                4000,
+                "Zwischenablage-Abgleich",
+                $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
+                ToolTipIcon.Info));
+
+    // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteliste
+    // sofort neu aufgebaut, sonst reicht das naechste Opening.
+    private void OnConnectionsChanged() =>
+        uiDispatcher.BeginInvoke(() =>
+        {
+            UpdateConnectionStatus();
+            if (notifyIcon.ContextMenuStrip?.Visible == true)
+            {
+                RefreshPairingMenu();
+            }
+        });
+
+    private void UpdateConnectionStatus()
+    {
+        var connected = connectionRegistry.ConnectedDeviceCount;
+        var status = connected switch
+        {
+            0 => "Server läuft",
+            1 => "1 Gerät verbunden",
+            _ => $"{connected} Geräte verbunden"
+        };
+        statusItem.Text = status;
+        notifyIcon.Text = $"YFRemote - {status}";
+    }
+
     private void CopyDeviceAddress()
     {
         try
@@ -549,7 +587,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         pinItem.Text = FormatPinText(pairingService.GetCurrentPin());
 
         var pairedDevices = pairingService.GetPairedDevices();
-        pairedDevicesItem.Text = $"Gekoppelte Geräte ({pairedDevices.Count})";
+        var connectedCount = pairedDevices.Count(device => connectionRegistry.IsConnected(device.Id));
+        pairedDevicesItem.Text = connectedCount == 0
+            ? $"Gekoppelte Geräte ({pairedDevices.Count})"
+            : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)";
         pairedDevicesItem.DropDownItems.Clear();
 
         if (pairedDevices.Count == 0)
@@ -561,10 +602,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        foreach (var device in pairedDevices.OrderByDescending(device => device.LastSeenUtc))
+        foreach (var device in pairedDevices
+            .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
+            .ThenByDescending(device => device.LastSeenUtc))
         {
-            var deviceItem = new ToolStripMenuItem(
-                $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})");
+            var deviceItem = new ToolStripMenuItem(connectionRegistry.IsConnected(device.Id)
+                ? $"{device.Name} (verbunden)"
+                : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})")
+            {
+                Checked = connectionRegistry.IsConnected(device.Id)
+            };
             deviceItem.Click += (_, _) => HandleRemoveDeviceClick(device);
             pairedDevicesItem.DropDownItems.Add(deviceItem);
         }

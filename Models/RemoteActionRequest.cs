@@ -19,4 +19,6 @@ public sealed record RemoteActionRequest
     public int? Delta { get; init; }
 
     public GamepadState? Gamepad { get; init; }
+
+    public bool? Enabled { get; init; }
 }

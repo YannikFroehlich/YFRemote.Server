@@ -290,8 +290,18 @@ public sealed class ServerEndpointsTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var buffer = new byte[4096];
-        var result = await socket.ReceiveAsync(buffer, timeout.Token);
-        return JsonSerializer.Deserialize<RemoteActionResponse>(buffer.AsSpan(0, result.Count), JsonOptions)!;
+
+        // Ungefragte Server-Nachrichten (unter Windows z.B. der Medienstatus beim Verbinden) haben
+        // ein "type" und sind keine Antwort - ueberspringen wie der Client.
+        while (true)
+        {
+            var result = await socket.ReceiveAsync(buffer, timeout.Token);
+            using var message = JsonDocument.Parse(buffer.AsMemory(0, result.Count));
+            if (!message.RootElement.TryGetProperty("type", out _))
+            {
+                return message.RootElement.Deserialize<RemoteActionResponse>(JsonOptions)!;
+            }
+        }
     }
 
     private static async Task<bool> WaitForSocketToCloseAsync(ClientWebSocket socket)

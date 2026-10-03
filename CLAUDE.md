@@ -15,7 +15,7 @@ the server project's globs via `DefaultItemExcludes`; its production build is co
 `wwwroot/` (gitignored) and served as static files. Server and client are therefore versioned
 and released from a single commit.
 
-The Server project multi-targets `net10.0-windows;net10.0`. Windows is the stable release; every
+The Server project multi-targets `net10.0-windows10.0.17763.0;net10.0`. Windows is the stable release; every
 release also ships Linux x64/arm64 packages on separate `-beta` Velopack channels
 (`release-linux` job). The Linux `uinput` input backend is manually verified end-to-end on a real
 x86_64 kernel, but only as a bare `dotnet publish` output — arm64 on real hardware and the
@@ -177,6 +177,19 @@ rate limit (120 messages/second; a `Fail` response beyond that, connection stays
 backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
 move/scroll traffic tops out around one message per animation frame.
 
+**Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
+`{"type":"media","volume","muted","title","artist","playing"}` (Windows only:
+`WindowsMediaStatusReader` reads Core Audio over COM and the WinRT media session manager) and
+`{"type":"clipboard","text"}`. Both come from a `PollingBroadcaster<T>`, which polls its source
+once per second only while at least one connection subscribes and reports only changes. Media is
+subscribed for every connection and announces the current state on subscribe; the clipboard
+broadcaster is subscribed only after the device sends `{"type":"clipboardSync","enabled":true}`
+(kept in the connection's `RemoteActionSession`), and it never sends content that was already in
+the clipboard when sync started. `ClipboardReadNotifier.NotifySyncEnabled` shows a tray balloon
+once per device and run. In the Client, `ClipboardSyncService` writes pushed text into the
+device clipboard and, when the app regains focus, sends newly copied device text via
+`POST /clipboard/text`. That needs the Async Clipboard API, so it works over HTTPS only.
+
 **Controller mode (Windows only).** A `gamepad` action carries the full controller state
 (`GamepadState`: XInput button bitmask, stick axes, triggers) instead of single button events, so a
 lost message cannot leave a button stuck. `RemoteActionHandler` plugs a virtual Xbox 360 controller
@@ -206,7 +219,9 @@ are a fixed allowlist in `WindowsInputService.VirtualKeys`; anything else throws
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
 `NotifyIcon` context menu (version, status, device address, open-in-browser, copy-address,
-PIN display/copy/regenerate, a "Gekoppelte Geräte" submenu for revoking devices, an HTTPS
+PIN display/copy/regenerate, a "Gekoppelte Geräte" submenu for revoking devices (connected ones
+checked, live via `WebSocketConnectionRegistry.ConnectionsChanged`, which also drives the tooltip
+and status line), an HTTPS
 toggle, update check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
 check ~1.5s after launch, then every 6 hours) via `UpdateService` (thin wrapper over Velopack's
 `UpdateManager`, pointed at public GitHub Releases of this repo). `CanUpdate` is

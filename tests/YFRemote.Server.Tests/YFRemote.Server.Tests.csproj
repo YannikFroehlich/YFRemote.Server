@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0-windows;net10.0</TargetFrameworks>
+    <TargetFrameworks>net10.0-windows10.0.17763.0;net10.0</TargetFrameworks>
     <!-- Siehe EnableWindowsTargeting in YFRemote.Server.csproj: noetig, damit Restore/Build
          dieses ebenfalls crosstargeted Projekts auf einem echten Linux Build Host nicht mit
          NETSDK1100 abbricht, auch wenn nur das net10.0 Ziel gebraucht wird. -->
@@ -9,7 +9,7 @@
     <!-- Nur fuer WindowsClipboardServiceTests (System.Windows.Forms.Clipboard/System.Drawing.Bitmap) -
          spiegelt UseWindowsForms aus YFRemote.Server.csproj, das per ProjectReference nicht
          mituebernommen wird. -->
-    <UseWindowsForms Condition="'$(TargetFramework)' == 'net10.0-windows'">true</UseWindowsForms>
+    <UseWindowsForms Condition="'$(TargetFramework)' == 'net10.0-windows10.0.17763.0'">true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -18,12 +18,12 @@
 
   <!-- Spiegelt die Ausschluesse in YFRemote.Server.csproj: Tests fuer Windows-only-Dienste und
        fuer Updates/ (Velopack) koennen auf dem Linux-Ziel nicht kompilieren. -->
-  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows'">
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows10.0.17763.0'">
     <Compile Remove="**\Windows*Tests.cs" />
     <Compile Remove="Updates\**\*.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.17763.0'">
     <Compile Remove="**\Linux*Tests.cs" />
   </ItemGroup>
 

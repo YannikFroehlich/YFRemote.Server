@@ -183,6 +183,23 @@
           <span>{{ i18n.t('settings.haptics') }}</span>
         </button>
 
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="form.controls.clipboardSync.value"
+          [disabled]="!clipboardSync.available()"
+          (click)="toggleSetting('clipboardSync')"
+        >
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>{{ i18n.t('settings.clipboardSync') }}</span>
+        </button>
+        @if (!clipboardSync.secureContextAvailable) {
+          <p class="settings-hint">{{ i18n.t('settings.clipboardSync.httpsHint') }}</p>
+        } @else if (!clipboardSync.available()) {
+          <p class="settings-hint">{{ i18n.t('settings.clipboardSync.unsupported') }}</p>
+        }
+
         <label class="field" for="settings-language">
           <span>{{ i18n.t('settings.language.label') }}</span>
           <select id="settings-language" formControlName="language">

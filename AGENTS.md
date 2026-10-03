@@ -38,9 +38,13 @@ into the publish output.
   host or port performs a full-page navigation to the new server so the connection
   remains same-origin. The Angular development server proxies these paths to the
   default local Server on port `5050`.
-- The Server multi-targets `net10.0-windows;net10.0` (see [Linux support](#linux-support)
-  below). On `net10.0-windows` it uses Windows Forms and has `OutputType=WinExe`, so a
+- The Server multi-targets `net10.0-windows10.0.17763.0;net10.0` (see [Linux support](#linux-support)
+  below). On `net10.0-windows10.0.17763.0` it uses Windows Forms and has `OutputType=WinExe`, so a
   normal installed launch has no terminal window; on plain `net10.0` it is a console `Exe`.
+  The Windows target names platform version 10.0.17763 (Windows 10 1809) because
+  `WindowsMediaStatusReader` uses the WinRT `GlobalSystemMediaTransportControlsSessionManager`;
+  that pulls `Microsoft.Windows.SDK.NET.dll` (~23 MB) into the publish output. Every
+  `-f`/`--framework` and every `Condition` on the target name has to use the full TFM.
   Only the Windows build ships or is released today.
 - Only one Server instance may run at a time (Windows: a named `Mutex`; the headless build
   has no tray/mutex and relies on the port bind failing instead).
@@ -56,7 +60,7 @@ into the publish output.
 
 ## Linux support
 
-The project multi-targets `net10.0-windows;net10.0` from one `.csproj` (no separate class
+The project multi-targets `net10.0-windows10.0.17763.0;net10.0` from one `.csproj` (no separate class
 library) so the same code and Git history serve both platforms. `Tray\**`, `Services\Windows*.cs`
 (the `SendInput`-based `WindowsInputSender`/`WindowsInputService`/`WindowsMouseService` and
 `WindowsStartupService`), and `Updates\**` (Velopack) are excluded from the `net10.0` compile via
@@ -67,11 +71,11 @@ compiles only there, and `RunLinux` (`BuildApplication` + blocking `app.Run()`, 
 `Console.Error` instead of a `MessageBox`) only for `net10.0`. The three DI registrations for
 `IInputService`/`IMouseService` (plus the sender they depend on) in `Program.BuildApplication` are
 `#if WINDOWS`/`#else` conditional: `WindowsInputSender`/`WindowsInputService`/`WindowsMouseService`
-on `net10.0-windows`, `LinuxInputSender`/`LinuxInputService`/`LinuxMouseService` on `net10.0`.
+on `net10.0-windows10.0.17763.0`, `LinuxInputSender`/`LinuxInputService`/`LinuxMouseService` on `net10.0`.
 `NetworkAddressService` and `PairingQrCodePayload` live in `Services/` (not `Tray/`) because they
 are BCL-only and needed on both platforms. The test project mirrors this:
 `tests/YFRemote.Server.Tests.csproj` also multi-targets, excluding `**\Windows*Tests.cs` and
-`Updates\**` for `net10.0`, and `**\Linux*Tests.cs` for `net10.0-windows`.
+`Updates\**` for `net10.0`, and `**\Linux*Tests.cs` for `net10.0-windows10.0.17763.0`.
 
 **Linux input backend (`Services/LinuxInputSender.cs`, `LinuxInputService.cs`,
 `LinuxMouseService.cs`).** Registers a virtual keyboard and a virtual mouse with the kernel via
@@ -155,10 +159,10 @@ locking. This is a real gap in the original Linux plan's assumption that "Pairin
 Integration" tests would run unchanged on both platforms; they mostly do, but not these two.
 
 **Multi-targeting broke `dotnet publish` without `-f`.** `dotnet publish YFRemote.Server.csproj`
-used to infer the single `net10.0-windows` target; once the project multi-targets, `publish`
+used to infer the single `net10.0-windows10.0.17763.0` target; once the project multi-targets, `publish`
 (unlike `build`/`test`, which happily build/run every target) refuses to guess and fails with
 `NETSDK1129`. `release.yml`'s existing Windows publish step now passes
-`--framework net10.0-windows` explicitly. Keep this in mind for any other `dotnet publish`
+`--framework net10.0-windows10.0.17763.0` explicitly. Keep this in mind for any other `dotnet publish`
 invocation added later (locally or in a workflow) — it needs an explicit `-f`/`--framework` now.
 
 **Multi-targeting also needs `EnableWindowsTargeting=true` to restore/build at all on a
@@ -166,7 +170,7 @@ non-Windows host** (set in both `YFRemote.Server.csproj` and the test project). 
 only scopes which single `TargetFramework` a `build`/`test`/`publish` invocation *builds*; the
 *restore* step for a crosstargeted project always evaluates the complete `TargetFrameworks` list
 first to compute the NuGet dependency graph, regardless of `-f`. Without this property, that
-restore-time evaluation of `net10.0-windows` fails on a real Linux host with `NETSDK1100` ("set
+restore-time evaluation of `net10.0-windows10.0.17763.0` fails on a real Linux host with `NETSDK1100` ("set
 the EnableWindowsTargeting property to true") — this bit the first real run of `ci.yml`'s `linux`
 job even with `--framework net10.0` already on every command. The property lets restore/build
 resolve Windows-only reference assemblies from NuGet on any host OS (it doesn't let you produce a
@@ -198,7 +202,7 @@ label was valid and available; and the Windows `--icon client/public/favicon.ico
 packaged without issue for the Linux `vpk pack` step too.
 
 **CI (`linux` job in `ci.yml`).** Runs on every PR alongside `build-and-test` (Windows,
-`net10.0-windows`) and `client`, building and testing the `net10.0` target on `ubuntu-latest`. Not
+`net10.0-windows10.0.17763.0`) and `client`, building and testing the `net10.0` target on `ubuntu-latest`. Not
 named `build-and-test` and not a required check, matching the existing `client` job's status —
 see "Release automation" above for why the required check's name must not change. Note that
 `build-and-test` itself now also builds/tests `net10.0` on `windows-latest` as a side effect of

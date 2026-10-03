@@ -3,6 +3,7 @@ import {
   GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY,
   GAMEPAD_GYRO_STORAGE_KEY,
   GamepadComponent,
+  ORIENTATION_BRIDGE,
   rumblePattern,
   tiltToStick,
 } from './gamepad.component';
@@ -393,6 +394,27 @@ describe('GamepadComponent', () => {
     expect(pad.stored.get(GAMEPAD_GYRO_STORAGE_KEY)).toBe('false');
   });
 
+  it('uses the Android app sensor bridge for tilt control over plain http', async () => {
+    const calls: boolean[] = [];
+    const pad = await setupGamepad({
+      pageUrl: 'http://192.168.1.44:5050/',
+      orientationBridge: { setOrientationEnabled: (enabled) => calls.push(enabled) },
+    });
+
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.flushEffects();
+    pad.tilt(40, 0);
+    pad.tilt(65, 0);
+    pad.nextFrame(100);
+
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, rightY: 32767 } });
+    expect(calls.at(-1)).toBe(true);
+
+    pad.destroy();
+    expect(calls.at(-1)).toBe(false);
+  });
+
   it('explains that tilt control needs HTTPS instead of switching on over plain http', async () => {
     const pad = await setupGamepad({ pageUrl: 'http://192.168.1.44:5050/' });
 
@@ -416,7 +438,12 @@ const neutral = {
 };
 
 async function setupGamepad(
-  options: { layout?: unknown; pageUrl?: string; inAndroidApp?: boolean } = {},
+  options: {
+    layout?: unknown;
+    pageUrl?: string;
+    inAndroidApp?: boolean;
+    orientationBridge?: { setOrientationEnabled(enabled: boolean): void };
+  } = {},
 ) {
   const stored = new Map<string, string>();
   if (options.layout) {
@@ -446,6 +473,7 @@ async function setupGamepad(
       ...(options.pageUrl
         ? [{ provide: SERVER_LOCATION, useValue: new URL(options.pageUrl) }]
         : []),
+      { provide: ORIENTATION_BRIDGE, useValue: options.orientationBridge ?? null },
       { provide: DOWNLOAD_BRIDGE, useValue: options.inAndroidApp ? { download: () => true } : null },
       { provide: REMOTE_VIBRATE, useValue: (pattern: VibratePattern) => vibrations.push(pattern) },
       {

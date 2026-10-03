@@ -384,12 +384,17 @@ internal static class Program
         });
 
         var gamepadService = app.Services.GetService<IGamepadService>();
-        app.MapGet("/health", () => new HealthResponse(
-            "ok",
-            "YFRemote.Server",
-            OperatingSystem.IsWindows() ? "windows" : "linux",
-            gamepadService?.IsAvailable ?? false,
-            NetworkAddressService.GetDeviceMacAddress()));
+        app.MapGet("/health", () =>
+        {
+            var adapter = NetworkAddressService.GetDeviceAdapter();
+            return new HealthResponse(
+                "ok",
+                "YFRemote.Server",
+                OperatingSystem.IsWindows() ? "windows" : "linux",
+                gamepadService?.IsAvailable ?? false,
+                adapter.MacAddress,
+                adapter.Wireless);
+        });
 
         if (httpsOptions.Enabled)
         {

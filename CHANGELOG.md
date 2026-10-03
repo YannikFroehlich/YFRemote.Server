@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android-App: "Zurück" schließt im Controller jetzt den Controller (und steckt ihn am PC ab), statt nur das Vollbild zu verlassen und ihn hochkant offen zu lassen. Im Browser bleibt es wie bisher: Dort endet das Vollbild auch beim Wechsel in eine andere App, und der Controller soll dabei nicht verschwinden.
+
 ## [2.28.1] - 2026-10-03
 
 ### Fixed

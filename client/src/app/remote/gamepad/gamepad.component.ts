@@ -11,6 +11,7 @@ import {
 import { GamepadState } from '../remote.models';
 import { REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
 import { GAMEPAD_TRANSPORT } from './gamepad-transport';
+import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
 import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
 import {
@@ -181,6 +182,7 @@ interface Tilt {
     '(document:visibilitychange)': 'releaseAll()',
     '(window:blur)': 'releaseAll()',
     '(window:deviceorientation)': 'onOrientation($event)',
+    '(document:fullscreenchange)': 'onFullscreenChange()',
   },
 })
 export class GamepadComponent implements OnDestroy {
@@ -190,6 +192,11 @@ export class GamepadComponent implements OnDestroy {
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly location = inject(SERVER_LOCATION);
   protected readonly i18n = inject(TranslationService);
+  // Nur die Android-App (RemoteWebActivity) haengt diese Bruecke ein. Dort verlaesst allein die
+  // Zurueck-Taste das Vollbild, und die soll den Controller schliessen - sonst bliebe er hochkant
+  // offen. Im Browser endet Vollbild auch beim App-Wechsel; dort bleibt der Controller offen.
+  private readonly inAndroidApp = inject(DOWNLOAD_BRIDGE) !== null;
+  private wasFullscreen = false;
 
   protected readonly presetIds = GAMEPAD_PRESET_IDS;
   protected readonly presets = GAMEPAD_PRESETS;
@@ -319,6 +326,14 @@ export class GamepadComponent implements OnDestroy {
     const sensitivity = parseGyroSensitivity(value);
     this.gyroSensitivity.set(sensitivity);
     this.storage?.setItem(GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY, sensitivity);
+  }
+
+  protected onFullscreenChange(): void {
+    if (globalThis.document?.fullscreenElement) {
+      this.wasFullscreen = true;
+    } else if (this.wasFullscreen && this.inAndroidApp) {
+      this.closed.emit();
+    }
   }
 
   protected label(key: GamepadLabelKey): string {

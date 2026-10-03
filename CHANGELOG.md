@@ -21,6 +21,22 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Die Neigungssteuerung des Controllers funktioniert jetzt auch in der App. Bisher meldete sie dort immer "braucht HTTPS", weil die App den PC über HTTP öffnet und das WebView dann keine Bewegungssensoren herausgibt. Die App liest die Lage des Handys jetzt selbst aus, solange die Neigung eingeschaltet ist. Braucht diese App-Version und einen PC mit dieser oder einer neueren YFRemote-Version.
+- Android-App: Hängt der PC nur im WLAN, weist die App nach "Aufwecken" darauf hin, dass der Weckruf meist nur per Kabel wirkt. Über WLAN wachen die meisten PCs nicht auf. Dafür meldet der Server in `GET /health` zusätzlich `macAddressWireless`.
+
+### Changed
+
+- Android-App: "Zurück" schließt im Controller jetzt den Controller (und steckt ihn am PC ab), statt nur das Vollbild zu verlassen und ihn hochkant offen zu lassen. Im Browser bleibt es wie bisher: Dort endet das Vollbild auch beim Wechsel in eine andere App, und der Controller soll dabei nicht verschwinden.
+
+### Fixed
+
+- Android-App: Die Benachrichtigung des laufenden Dienstes ließ sich ab Android 14 wegwischen, obwohl der Dienst weiterlief - damit fehlten PIN und "Stoppen" in der Benachrichtigungsleiste. Sie kommt jetzt sofort zurück und verschwindet nur, wenn der Dienst endet.
+- Android-App: In der Geräteliste unter "Steuern" ging gelegentlich ein Tipp verloren ("Aufwecken", "Entfernen" oder ein Gerät öffnen), weil die App die Liste alle 2 Sekunden komplett neu aufbaute. Sie baut sie jetzt nur noch neu auf, wenn sich ein Gerät oder dessen Status geändert hat.
+
+## [2.28.1] - 2026-10-03
+
 ### Fixed
 
 - Android-App: Der Controller im eingebetteten Web-Client ging nicht in den Vollbildmodus und drehte nicht ins Querformat - das WebView lehnte Vollbild ab, und bei ausgeschaltetem Auto-Drehen blieb er hochkant mit dem Hinweis "Handy quer halten". Jetzt läuft er wie im Browser im Vollbild, quer und ohne Statusleiste; "Zurück" verlässt zuerst das Vollbild.

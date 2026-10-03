@@ -3,6 +3,7 @@ import {
   GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY,
   GAMEPAD_GYRO_STORAGE_KEY,
   GamepadComponent,
+  ORIENTATION_BRIDGE,
   rumblePattern,
   tiltToStick,
 } from './gamepad.component';
@@ -16,6 +17,7 @@ import {
   RemoteSocket,
 } from '../remote.service';
 import { SERVER_LOCATION } from '../server-config';
+import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
 
 class MockRemoteSocket implements RemoteSocket {
   readonly sentMessages: string[] = [];
@@ -46,6 +48,7 @@ describe('GamepadComponent', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.unstubAllGlobals();
+    delete (document as { fullscreenElement?: unknown }).fullscreenElement;
   });
 
   it('sends the pressed face button as XInput bit and releases it again', async () => {
@@ -291,6 +294,25 @@ describe('GamepadComponent', () => {
     expect(pad.sent()).toEqual([{ type: 'gamepadDisconnect' }]);
   });
 
+  it('closes when the Android app leaves fullscreen (back button)', async () => {
+    const pad = await setupGamepad({ inAndroidApp: true });
+
+    pad.setFullscreen(true);
+    expect(pad.closedCount()).toBe(0);
+    pad.setFullscreen(false);
+
+    expect(pad.closedCount()).toBe(1);
+  });
+
+  it('stays open when a browser leaves fullscreen', async () => {
+    const pad = await setupGamepad();
+
+    pad.setFullscreen(true);
+    pad.setFullscreen(false);
+
+    expect(pad.closedCount()).toBe(0);
+  });
+
   it('maps tilt since the reference to stick axes for every screen rotation', () => {
     const reference = { beta: 40, gamma: 0 };
 
@@ -372,6 +394,27 @@ describe('GamepadComponent', () => {
     expect(pad.stored.get(GAMEPAD_GYRO_STORAGE_KEY)).toBe('false');
   });
 
+  it('uses the Android app sensor bridge for tilt control over plain http', async () => {
+    const calls: boolean[] = [];
+    const pad = await setupGamepad({
+      pageUrl: 'http://192.168.1.44:5050/',
+      orientationBridge: { setOrientationEnabled: (enabled) => calls.push(enabled) },
+    });
+
+    pad.button('Neigungssteuerung (rechter Stick)').click();
+    await new Promise((resolve) => setTimeout(resolve));
+    pad.flushEffects();
+    pad.tilt(40, 0);
+    pad.tilt(65, 0);
+    pad.nextFrame(100);
+
+    expect(pad.sent().at(-1)).toEqual({ type: 'gamepad', gamepad: { ...neutral, rightY: 32767 } });
+    expect(calls.at(-1)).toBe(true);
+
+    pad.destroy();
+    expect(calls.at(-1)).toBe(false);
+  });
+
   it('explains that tilt control needs HTTPS instead of switching on over plain http', async () => {
     const pad = await setupGamepad({ pageUrl: 'http://192.168.1.44:5050/' });
 
@@ -394,7 +437,14 @@ const neutral = {
   rightTrigger: 0,
 };
 
-async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}) {
+async function setupGamepad(
+  options: {
+    layout?: unknown;
+    pageUrl?: string;
+    inAndroidApp?: boolean;
+    orientationBridge?: { setOrientationEnabled(enabled: boolean): void };
+  } = {},
+) {
   const stored = new Map<string, string>();
   if (options.layout) {
     stored.set(GAMEPAD_LAYOUT_STORAGE_KEY, JSON.stringify(options.layout));
@@ -423,6 +473,8 @@ async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}
       ...(options.pageUrl
         ? [{ provide: SERVER_LOCATION, useValue: new URL(options.pageUrl) }]
         : []),
+      { provide: ORIENTATION_BRIDGE, useValue: options.orientationBridge ?? null },
+      { provide: DOWNLOAD_BRIDGE, useValue: options.inAndroidApp ? { download: () => true } : null },
       { provide: REMOTE_VIBRATE, useValue: (pattern: VibratePattern) => vibrations.push(pattern) },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
@@ -440,6 +492,8 @@ async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}
   sockets[0].open();
 
   const fixture = TestBed.createComponent(GamepadComponent);
+  let closedCount = 0;
+  fixture.componentInstance.closed.subscribe(() => closedCount++);
   fixture.detectChanges();
   const root = fixture.nativeElement as HTMLElement;
 
@@ -470,6 +524,14 @@ async function setupGamepad(options: { layout?: unknown; pageUrl?: string } = {}
     },
     sent: () => sockets[0].sentMessages.map((message) => JSON.parse(message) as unknown),
     destroy: () => fixture.destroy(),
+    closedCount: () => closedCount,
+    setFullscreen: (on: boolean) => {
+      Object.defineProperty(document, 'fullscreenElement', {
+        configurable: true,
+        get: () => (on ? document.documentElement : null),
+      });
+      document.dispatchEvent(new Event('fullscreenchange'));
+    },
     storedLayout: () => {
       const raw = stored.get(GAMEPAD_LAYOUT_STORAGE_KEY);
       return raw ? (JSON.parse(raw) as ReturnType<typeof presetLayout>) : null;

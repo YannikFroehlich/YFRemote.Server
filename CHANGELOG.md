@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Android-App: Der Controller im eingebetteten Web-Client ging nicht in den Vollbildmodus und drehte nicht ins Querformat - das WebView lehnte Vollbild ab, und bei ausgeschaltetem Auto-Drehen blieb er hochkant mit dem Hinweis "Handy quer halten". Jetzt läuft er wie im Browser im Vollbild, quer und ohne Statusleiste; "Zurück" verlässt zuerst das Vollbild.
+
+## [2.28.0] - 2026-10-02
+
 ### Added
 
 - Android-App: Ist das Handy in mehreren lokalen Netzen zugleich, etwa im WLAN und mit eingeschaltetem Hotspot, zeigt "Freigeben" unter der Hauptadresse auch die übrigen ("Auch erreichbar: 10.93.70.108:5050"). Ein Gerät im Hotspot-Netz fand bisher keine passende Adresse. Der QR-Code enthält weiter die Hauptadresse.

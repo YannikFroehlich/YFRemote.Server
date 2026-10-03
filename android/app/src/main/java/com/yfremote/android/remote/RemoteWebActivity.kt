@@ -3,10 +3,15 @@ package com.yfremote.android.remote
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -22,6 +27,8 @@ class RemoteWebActivity : Activity() {
 
     private lateinit var webView: WebView
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var fullscreenView: View? = null
+    private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,8 +45,38 @@ class RemoteWebActivity : Activity() {
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
             webViewClient = WebViewClient()
             addJavascriptInterface(DownloadBridge(origin), "YFRemoteDownloads")
-            // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden").
+            // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden"),
+            // ohne onShowCustomView lehnt das WebView requestFullscreen() ab ("Fullscreen is not
+            // supported") - der Controller bliebe dann hochkant mit Browser-Rand.
             webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                    if (fullscreenView != null) {
+                        callback.onCustomViewHidden()
+                        return
+                    }
+                    fullscreenView = view
+                    fullscreenCallback = callback
+                    (window.decorView as ViewGroup).addView(
+                        view,
+                        ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+                    )
+                    setSystemBarsHidden(true)
+                    // screen.orientation.lock() kann das WebView nicht; Vollbild verlangt bisher nur
+                    // der Controller, und der gehoert quer.
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+
+                override fun onHideCustomView() {
+                    val view = fullscreenView ?: return
+                    val callback = fullscreenCallback
+                    fullscreenView = null
+                    fullscreenCallback = null
+                    (window.decorView as ViewGroup).removeView(view)
+                    setSystemBarsHidden(false)
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    callback?.onCustomViewHidden()
+                }
+
                 override fun onShowFileChooser(
                     view: WebView,
                     callback: ValueCallback<Array<Uri>>,
@@ -85,6 +122,38 @@ class RemoteWebActivity : Activity() {
             } catch (e: Exception) {
                 false
             }
+        }
+    }
+
+    @Suppress("DEPRECATION") // systemUiVisibility: der Ersatz insetsController kam erst mit Android 11.
+    private fun setSystemBarsHidden(hidden: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.run {
+                if (hidden) {
+                    hide(WindowInsets.Type.systemBars())
+                    systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                } else {
+                    show(WindowInsets.Type.systemBars())
+                }
+            }
+        } else {
+            window.decorView.systemUiVisibility = if (hidden) {
+                View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            } else {
+                0
+            }
+        }
+    }
+
+    // Zurueck verlaesst zuerst das Vollbild, wie im Browser.
+    @Deprecated("Activity ohne AndroidX - onBackPressed ist hier der einfachste Weg.")
+    override fun onBackPressed() {
+        if (fullscreenView != null) {
+            webView.webChromeClient?.onHideCustomView()
+        } else {
+            @Suppress("DEPRECATION")
+            super.onBackPressed()
         }
     }
 

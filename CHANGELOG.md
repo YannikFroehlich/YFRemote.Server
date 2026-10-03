@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.29.0] - 2026-10-03
+
 ### Added
 
 - Android-App: Die Neigungssteuerung des Controllers funktioniert jetzt auch in der App. Bisher meldete sie dort immer "braucht HTTPS", weil die App den PC über HTTP öffnet und das WebView dann keine Bewegungssensoren herausgibt. Die App liest die Lage des Handys jetzt selbst aus, solange die Neigung eingeschaltet ist. Braucht diese App-Version und einen PC mit dieser oder einer neueren YFRemote-Version.

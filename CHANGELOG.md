@@ -23,6 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Android-App: Die Neigungssteuerung des Controllers funktioniert jetzt auch in der App. Bisher meldete sie dort immer "braucht HTTPS", weil die App den PC über HTTP öffnet und das WebView dann keine Bewegungssensoren herausgibt. Die App liest die Lage des Handys jetzt selbst aus, solange die Neigung eingeschaltet ist. Braucht diese App-Version und einen PC mit dieser oder einer neueren YFRemote-Version.
 - Android-App: Hängt der PC nur im WLAN, weist die App nach "Aufwecken" darauf hin, dass der Weckruf meist nur per Kabel wirkt. Über WLAN wachen die meisten PCs nicht auf. Dafür meldet der Server in `GET /health` zusätzlich `macAddressWireless`.
 
 ### Changed

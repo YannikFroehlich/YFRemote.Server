@@ -4,6 +4,7 @@ import {
   computed,
   effect,
   inject,
+  InjectionToken,
   OnDestroy,
   output,
   signal,
@@ -155,6 +156,18 @@ const RUMBLE_PERIOD_MS = 50;
 const RUMBLE_PULSES = 49;
 const RUMBLE_RENEW_MS = 2000;
 
+/** Haengt die Android-App (remote/RemoteWebActivity.kt) als window.YFRemoteSensors ein: Ueber
+ *  http://<LAN-IP> liefert das WebView keine Bewegungssensoren (nur in sicheren Kontexten), die App
+ *  liest die Lage deshalb selbst und schickt sie als deviceorientation-Ereignis an die Seite. */
+export interface OrientationBridge {
+  setOrientationEnabled(enabled: boolean): void;
+}
+
+export const ORIENTATION_BRIDGE = new InjectionToken<OrientationBridge | null>('ORIENTATION_BRIDGE', {
+  providedIn: 'root',
+  factory: () => (globalThis as { YFRemoteSensors?: OrientationBridge }).YFRemoteSensors ?? null,
+});
+
 export const GAMEPAD_GYRO_STORAGE_KEY = 'yfremote.gamepadGyro';
 export const GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY = 'yfremote.gamepadGyroSensitivity';
 // Neigung in Grad, bei der der Stick voll ausschlaegt.
@@ -196,6 +209,7 @@ export class GamepadComponent implements OnDestroy {
   // Zurueck-Taste das Vollbild, und die soll den Controller schliessen - sonst bliebe er hochkant
   // offen. Im Browser endet Vollbild auch beim App-Wechsel; dort bleibt der Controller offen.
   private readonly inAndroidApp = inject(DOWNLOAD_BRIDGE) !== null;
+  private readonly orientationBridge = inject(ORIENTATION_BRIDGE);
   private wasFullscreen = false;
 
   protected readonly presetIds = GAMEPAD_PRESET_IDS;
@@ -232,6 +246,11 @@ export class GamepadComponent implements OnDestroy {
   );
   private gyroReference: Tilt | null = null;
   private gyroStick = { x: 0, y: 0 };
+
+  // Die App liest den Sensor nur, solange die Neigung an ist (Akku).
+  private readonly orientationBridgeEffect = effect(() =>
+    this.orientationBridge?.setOrientationEnabled(this.gyro()),
+  );
 
   // Nur ein Stufenwechsel erreicht das Handy; derselbe Wert erneut aendert das Signal nicht.
   private readonly rumbleLevel = computed(() =>
@@ -284,8 +303,9 @@ export class GamepadComponent implements OnDestroy {
       return;
     }
 
-    // Browser liefern Bewegungssensoren nur in einem sicheren Kontext (HTTPS oder localhost).
-    if (!isTrustworthyOrigin(this.location)) {
+    // Browser liefern Bewegungssensoren nur in einem sicheren Kontext (HTTPS oder localhost) -
+    // ausser die Android-App reicht sie selbst durch.
+    if (!isTrustworthyOrigin(this.location) && this.orientationBridge === null) {
       this.gyroHint.set('gamepad.gyroInsecureOrigin');
       return;
     }
@@ -479,6 +499,7 @@ export class GamepadComponent implements OnDestroy {
     }
 
     this.vibrate(0);
+    this.orientationBridge?.setOrientationEnabled(false);
     exitFullscreen();
   }
 

@@ -43,7 +43,7 @@ class RemoteDevicesTest {
 
     @Test
     fun `devices survive serialize and parse`() {
-        val devices = listOf(RemoteDevice("http://a:5050", "PC", "00:1A:2B:3C:4D:5E"), RemoteDevice("http://b:5050", "Tablet"))
+        val devices = listOf(RemoteDevice("http://a:5050", "PC", "00:1A:2B:3C:4D:5E", macWireless = true), RemoteDevice("http://b:5050", "Tablet"))
         assertEquals(devices, RemoteDevices.parse(RemoteDevices.serialize(devices)))
     }
 

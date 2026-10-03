@@ -35,8 +35,9 @@ internal static class NetworkAddressService
     }
 
     // MAC-Adresse der Netzwerkkarte hinter GetDeviceAddress, fuer Wake-on-LAN von einem anderen
-    // Geraet aus. Ohne brauchbare IPv4-Adresse oder MAC (z. B. nur Loopback) null.
-    public static string? GetDeviceMacAddress()
+    // Geraet aus, und ob sie WLAN ist - darueber wecken die meisten PCs nicht auf. Ohne brauchbare
+    // IPv4-Adresse oder MAC (z. B. nur Loopback) ist MacAddress null.
+    public static (string? MacAddress, bool Wireless) GetDeviceAdapter()
     {
         try
         {
@@ -49,12 +50,13 @@ internal static class NetworkAddressService
                     .Any(unicastAddress => IsUsableIpv4Address(unicastAddress.Address)));
 
             return networkInterface is null
-                ? null
-                : FormatMacAddress(networkInterface.GetPhysicalAddress().GetAddressBytes());
+                ? (null, false)
+                : (FormatMacAddress(networkInterface.GetPhysicalAddress().GetAddressBytes()),
+                    networkInterface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211);
         }
         catch (NetworkInformationException)
         {
-            return null;
+            return (null, false);
         }
     }
 

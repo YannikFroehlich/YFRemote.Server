@@ -617,7 +617,10 @@ class SetupActivity : Activity() {
                     val health = fetchHealth(device.url)
                     remoteStatus[device.url] = health?.optString("platform") ?: OFFLINE
                     val mac = health?.optString("macAddress").orEmpty()
-                    if (mac.isNotEmpty() && mac != device.mac) remoteDevices.setMac(device.url, mac)
+                    val wireless = health?.optBoolean("macAddressWireless") == true
+                    if (mac.isNotEmpty() && (mac != device.mac || wireless != device.macWireless)) {
+                        remoteDevices.setMac(device.url, mac, wireless)
+                    }
                 }
             } finally {
                 remoteCheckRunning.set(false)
@@ -646,10 +649,17 @@ class SetupActivity : Activity() {
         remoteCheckExecutor.execute {
             val sent = runCatching { WakeOnLan.send(mac) }.getOrDefault(false)
             runOnUiThread {
+                // Ueber WLAN wachen die meisten PCs nicht auf - gesendet wird trotzdem, manche koennen es.
+                val text = when {
+                    !sent -> "Weckruf konnte nicht gesendet werden"
+                    device.macWireless -> "Weckruf an ${device.name} gesendet. Der PC hängt im WLAN - " +
+                        "aufwecken klappt meist nur, wenn er per Kabel verbunden ist."
+                    else -> "Weckruf an ${device.name} gesendet"
+                }
                 Toast.makeText(
                     this,
-                    if (sent) "Weckruf an ${device.name} gesendet" else "Weckruf konnte nicht gesendet werden",
-                    Toast.LENGTH_SHORT,
+                    text,
+                    if (device.macWireless) Toast.LENGTH_LONG else Toast.LENGTH_SHORT,
                 ).show()
             }
         }

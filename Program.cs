@@ -25,6 +25,7 @@ internal static class Program
     internal const string RestartWaitArgument = "--wait-for-previous-instance";
 
     private static readonly TimeSpan RestartWaitTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan BroadcastPollInterval = TimeSpan.FromSeconds(1);
 
     [STAThread]
     private static void Main(string[] args)
@@ -355,6 +356,12 @@ internal static class Program
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
         builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
+        builder.Services.AddSingleton<WindowsMediaStatusReader>();
+        builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
+            services.GetRequiredService<WindowsMediaStatusReader>().ReadAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
 #else
         builder.Services.AddSingleton<LinuxInputSender>();
         builder.Services.AddSingleton<IInputService, LinuxInputService>();
@@ -362,6 +369,18 @@ internal static class Program
         builder.Services.AddSingleton<IPowerService, LinuxPowerService>();
         builder.Services.AddSingleton<IClipboardService, LinuxClipboardService>();
 #endif
+        builder.Services.AddSingleton(services =>
+        {
+            var clipboardService = services.GetRequiredService<IClipboardService>();
+            return new PollingBroadcaster<ClipboardMessage?>(
+                async () => await clipboardService.GetTextAsync() is { Length: > 0 } text
+                    && text.Length <= clipboardOptions.MaxTextLength
+                        ? new ClipboardMessage(text)
+                        : null,
+                BroadcastPollInterval,
+                announceCurrent: false,
+                services.GetRequiredService<ILogger<PollingBroadcaster<ClipboardMessage?>>>());
+        });
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
         builder.Services.AddSingleton<WebSocketConnectionRegistry>();

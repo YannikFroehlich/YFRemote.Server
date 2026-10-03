@@ -7,7 +7,9 @@ public sealed class RemoteActionHandler(
     IMouseService mouseService,
     IPowerService powerService,
     ILogger<RemoteActionHandler> logger,
-    IGamepadService? gamepadService = null)
+    IGamepadService? gamepadService = null,
+    PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
+    ClipboardReadNotifier? clipboardReadNotifier = null)
 {
     private const int MinMouseMoveDelta = -5000;
     private const int MaxMouseMoveDelta = 5000;
@@ -43,6 +45,7 @@ public sealed class RemoteActionHandler(
                 "sleep" => HandlePower(powerService.Sleep, "sleep"),
                 "gamepad" => HandleGamepad(request, session),
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
+                "clipboardsync" => HandleClipboardSync(request, session),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -276,7 +279,42 @@ public sealed class RemoteActionHandler(
 
     private static RemoteActionResponse HandleGamepadDisconnect(RemoteActionSession? session)
     {
-        session?.Dispose();
+        session?.DisconnectGamepad();
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleClipboardSync(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (clipboardSync is null || session is null)
+        {
+            return Fail("Clipboard sync is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'clipboardSync' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.ClipboardSubscription?.Dispose();
+            session.ClipboardSubscription = null;
+            return RemoteActionResponse.Ok();
+        }
+
+        if (session.ClipboardSubscription is null)
+        {
+            session.ClipboardSubscription = clipboardSync.Subscribe(message =>
+            {
+                if (message is not null)
+                {
+                    session.PushClipboard(message);
+                }
+            });
+            logger.LogInformation("Clipboard sync enabled for {DeviceName}.", session.DeviceName);
+            clipboardReadNotifier?.NotifySyncEnabled(session.DeviceName);
+        }
+
         return RemoteActionResponse.Ok();
     }
 

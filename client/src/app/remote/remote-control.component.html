@@ -177,6 +177,51 @@
       }
     }
 
+    @if (activeView() === 'remote' && !editMode()) {
+      @if (mediaStatus(); as media) {
+        <div class="media-strip" role="status">
+          <span class="media-strip__now">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths['play-pause']"></path>
+            </svg>
+            @if (media.title) {
+              <span class="media-strip__title">
+                {{ media.title }}@if (media.artist) {
+                  <span class="media-strip__artist"> · {{ media.artist }}</span>
+                }
+              </span>
+              <span class="visually-hidden">
+                {{ i18n.t(media.playing ? 'media.playing' : 'media.paused') }}
+              </span>
+            } @else {
+              <span class="media-strip__title media-strip__title--empty">
+                {{ i18n.t('media.nothing') }}
+              </span>
+            }
+          </span>
+          @if (media.volume !== undefined) {
+            <span
+              class="media-strip__volume"
+              [class.media-strip__volume--muted]="media.muted"
+              [attr.aria-label]="
+                media.muted
+                  ? i18n.t('media.muted')
+                  : i18n.t('media.volume', { volume: '' + media.volume })
+              "
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths[media.muted ? 'volume-mute' : 'volume-plus']"></path>
+              </svg>
+              <span class="media-strip__bar" aria-hidden="true">
+                <span [style.width.%]="media.volume"></span>
+              </span>
+              <span aria-hidden="true">{{ media.volume }}</span>
+            </span>
+          }
+        </div>
+      }
+    }
+
     @if (lastError(); as errorMessage) {
       <p class="toast" role="status" aria-live="polite">{{ errorMessage }}</p>
     }

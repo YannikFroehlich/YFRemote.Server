@@ -72,6 +72,17 @@ manual `ChangeDetectorRef` calls.
    - `createSocketUrl` appends `?token=...` from `PairingService.token()` when a pairing token
      exists — the server rejects a `/ws` handshake without one. `RemoteService` injects
      `PairingService`, never the other way around (see below), so there is no DI cycle.
+   - Besides `rumble` and `fileOffer`, `handleResponse` takes two more server pushes out of the
+     response path: `media` (`mediaStatus` signal, the strip above the Remote buttons, reset on
+     disconnect) and `clipboard` (`pcClipboard` signal). `clipboardSync` is a persisted preference
+     (`yfremote.clipboardSync`); after `/health` reports `windows`/`linux`
+     (`clipboardSyncSupported`) the service sends `{type:'clipboardSync', enabled}` on every
+     connect, because the server forgets it per connection. `ClipboardSyncService`
+     (`clipboard-sync.service.ts`, injected by `RemoteControlComponent`) does the device side:
+     it writes pushed text via `DEVICE_CLIPBOARD_WRITER` (deferred until the document has focus),
+     and on `focus`/`visibilitychange` it reads `DEVICE_CLIPBOARD_READER` and sends changed text
+     with `ClipboardService.sendText`. The first read only sets the baseline, and the PC's echo of
+     sent text is skipped.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

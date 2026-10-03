@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Remote-Ansicht: Eine Leiste über den Tasten zeigt, was am Windows-PC gerade läuft (Titel und Interpret aus der Windows-Mediensteuerung, also z.B. Spotify oder ein Browser-Tab), und die aktuelle Lautstärke samt Stummschaltung. Sie aktualisiert sich etwa im Sekundentakt, auch nach "Lauter"/"Leiser". Der Server schickt dafür die neue WebSocket-Nachricht `{"type":"media",...}`.
+- Zwischenablage automatisch abgleichen (Einstellungen): Was am PC kopiert wird, landet von selbst in der Zwischenablage des Geräts. Was auf dem Gerät kopiert wird, geht beim Zurückkehren in YFRemote an den PC. Funktioniert nur über HTTPS (Browser-Vorgabe) und mit einem Windows- oder Linux-PC. Gerät→PC braucht einen Browser, der das Lesen der Zwischenablage erlaubt (Chrome auf Android ja, Safari und Firefox nein). Schaltet ein Gerät den Abgleich zum ersten Mal ein, meldet der Tray das mit einer Sprechblase.
+- Tray: Zeigt live, welche Geräte gerade verbunden sind: im Tooltip und in der Statuszeile ("2 Geräte verbunden") sowie mit Häkchen unter "Gekoppelte Geräte".
+
+### Changed
+
+- Windows: Mindestversion ist jetzt Windows 10 1809 (Ziel `net10.0-windows10.0.17763.0`), weil die Medienanzeige die WinRT-Mediensteuerung braucht. Installer und erstes Update werden dadurch etwa 23 MB größer.
+
 ## [2.29.0] - 2026-10-03
 
 ### Added

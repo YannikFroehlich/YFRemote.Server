@@ -22,6 +22,34 @@ export const DEVICE_CLIPBOARD_WRITER = new InjectionToken<DeviceClipboardWriter 
   },
 );
 
+export type DeviceClipboardReader = () => Promise<string>;
+
+/** `null` wie beim Schreiben. Safari und Firefox kennen die Berechtigung `clipboard-read` nicht;
+ *  dort scheitert das Lesen bewusst, statt bei jeder Rückkehr in die App nachzufragen. */
+export const DEVICE_CLIPBOARD_READER = new InjectionToken<DeviceClipboardReader | null>(
+  'DEVICE_CLIPBOARD_READER',
+  {
+    providedIn: 'root',
+    factory: () => {
+      const navigator = globalThis.navigator;
+      const clipboard = globalThis.isSecureContext ? navigator?.clipboard : undefined;
+      if (!clipboard?.readText || !navigator.permissions) {
+        return null;
+      }
+
+      return async () => {
+        const permission = await navigator.permissions.query({
+          name: 'clipboard-read' as PermissionName,
+        });
+        if (permission.state === 'denied') {
+          throw new Error('clipboard-read denied');
+        }
+        return clipboard.readText();
+      };
+    },
+  },
+);
+
 export interface ClipboardSendResult {
   readonly success: boolean;
   readonly error?: string;

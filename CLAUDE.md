@@ -123,7 +123,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 - `GET /health` → `HealthResponse`, including the server platform (`windows`/`linux`), from
   which the Client picks its built-in button set, `gamepad` (controller mode available), and
   `macAddress` of the LAN adapter behind the shown device address (`NetworkAddressService`), which
-  the Android app stores to wake the PC later via Wake-on-LAN.
+  the Android app stores to wake the PC later via Wake-on-LAN, plus `macAddressWireless` (that
+  adapter is Wi-Fi, so waking it will most likely fail; the app warns after sending).
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).

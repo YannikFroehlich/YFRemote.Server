@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Hängt der PC nur im WLAN, weist die App nach "Aufwecken" darauf hin, dass der Weckruf meist nur per Kabel wirkt. Über WLAN wachen die meisten PCs nicht auf. Dafür meldet der Server in `GET /health` zusätzlich `macAddressWireless`.
+
 ### Changed
 
 - Android-App: "Zurück" schließt im Controller jetzt den Controller (und steckt ihn am PC ab), statt nur das Vollbild zu verlassen und ihn hochkant offen zu lassen. Im Browser bleibt es wie bisher: Dort endet das Vollbild auch beim Wechsel in eine andere App, und der Controller soll dabei nicht verschwinden.

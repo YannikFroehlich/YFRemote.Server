@@ -115,9 +115,12 @@ internal sealed class PairingQrCodeDialog : Form
             Margin = new Padding(0)
         };
 
+        // GrowAndShrink: Mit dem Standard GrowOnly behalten die Buttons die beim DPI-Skalieren
+        // ein zweites Mal vergrößerte Höhe (bei 300 % fast 200 px).
         var closeButton = new Button
         {
             AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Text = "Schließen",
             DialogResult = DialogResult.Cancel,
             Margin = new Padding(8, 0, 0, 0)
@@ -126,6 +129,7 @@ internal sealed class PairingQrCodeDialog : Form
         copyLinkButton = new Button
         {
             AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Text = "Link kopieren",
             Margin = new Padding(0)
         };
@@ -164,7 +168,7 @@ internal sealed class PairingQrCodeDialog : Form
 
     // Kleine Bildschirme (z.B. 1366x768 bei 125 %): Fenster auf den Arbeitsbereich kürzen, der
     // QR-Code schrumpft dann mit, statt unten aus dem Bild zu laufen.
-    internal static void FitToWorkingArea(Form form)
+    private static void FitToWorkingArea(Form form)
     {
         var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
         form.Height = Math.Min(form.Height, workingArea.Height);

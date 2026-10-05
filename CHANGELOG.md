@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tray: Das Fenster "YFRemote-Zertifikat installieren" zeigt den QR-Code jetzt auch bei hoher Skalierung (z.B. 4K-Fernseher). Der lange Anleitungstext hat ihn dort ganz aus dem Fenster gedrückt. Text und QR-Code stehen jetzt nebeneinander, und das Fenster passt sich dem Inhalt an. Außerdem sind die Buttons in beiden QR-Fenstern bei hoher Skalierung nicht mehr übergroß.
+
 ## [2.30.1] - 2026-10-05
 
 ### Fixed

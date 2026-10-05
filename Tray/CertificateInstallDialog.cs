@@ -17,6 +17,10 @@ internal sealed class CertificateInstallDialog : Form
         MinimizeBox = false;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterScreen;
+        // Ohne AutoScaleDimensions skaliert WinForms die Pixelmaße nicht mit, nur die Schrift
+        // (in Punkt) wächst mit der Windows-Skalierung - bei 4K mit 200-300 % war der QR-Code
+        // dann abgeschnitten.
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Color.FromArgb(13, 20, 24);
         ForeColor = Color.FromArgb(242, 247, 248);
@@ -32,10 +36,10 @@ internal sealed class CertificateInstallDialog : Form
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 292F));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         var titleLabel = new Label
@@ -60,9 +64,7 @@ internal sealed class CertificateInstallDialog : Form
 
         qrPictureBox = new PictureBox
         {
-            Size = new Size(280, 280),
-            Anchor = AnchorStyles.None,
-            BackColor = Color.White,
+            Dock = DockStyle.Fill,
             SizeMode = PictureBoxSizeMode.Zoom,
             AccessibleName = "QR-Code für das YFRemote-Zertifikat",
             Image = PairingQrCodeDialog.CreateQrCodeImage(certificateUrl),
@@ -130,6 +132,12 @@ internal sealed class CertificateInstallDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        PairingQrCodeDialog.FitToWorkingArea(this);
     }
 
     protected override void Dispose(bool disposing)

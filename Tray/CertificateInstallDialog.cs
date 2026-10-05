@@ -11,7 +11,10 @@ internal sealed class CertificateInstallDialog : Form
         this.certificateUrl = certificateUrl;
 
         Text = "YFRemote-Zertifikat installieren";
-        ClientSize = new Size(430, 640);
+        // Zweispaltig und an den Inhalt angepasst: Der lange Anleitungstext stand vorher über und
+        // unter dem QR-Code und hat ihn bei hoher Skalierung ganz aus dem Fenster gedrückt.
+        AutoSize = true;
+        AutoSizeMode = AutoSizeMode.GrowAndShrink;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -28,19 +31,18 @@ internal sealed class CertificateInstallDialog : Form
 
         var layout = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 7,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 5,
             Padding = new Padding(24, 20, 24, 20)
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        for (var row = 0; row < layout.RowCount; row++)
+        {
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        }
 
         var titleLabel = new Label
         {
@@ -64,11 +66,11 @@ internal sealed class CertificateInstallDialog : Form
 
         qrPictureBox = new PictureBox
         {
-            Dock = DockStyle.Fill,
+            Size = new Size(280, 280),
             SizeMode = PictureBoxSizeMode.Zoom,
             AccessibleName = "QR-Code für das YFRemote-Zertifikat",
             Image = PairingQrCodeDialog.CreateQrCodeImage(certificateUrl),
-            Margin = new Padding(0, 0, 0, 12)
+            Margin = new Padding(0, 0, 24, 12)
         };
 
         var addressTextBox = new TextBox
@@ -107,6 +109,7 @@ internal sealed class CertificateInstallDialog : Form
         var closeButton = new Button
         {
             AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Text = "Schließen",
             DialogResult = DialogResult.Cancel,
             Margin = new Padding(8, 0, 0, 0)
@@ -115,6 +118,7 @@ internal sealed class CertificateInstallDialog : Form
         copyLinkButton = new Button
         {
             AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Text = "Link kopieren",
             Margin = new Padding(0)
         };
@@ -124,20 +128,18 @@ internal sealed class CertificateInstallDialog : Form
         buttonPanel.Controls.Add(copyLinkButton);
 
         layout.Controls.Add(titleLabel, 0, 0);
-        layout.Controls.Add(descriptionLabel, 0, 1);
-        layout.Controls.Add(qrPictureBox, 0, 2);
+        layout.SetColumnSpan(titleLabel, 2);
+        layout.Controls.Add(qrPictureBox, 0, 1);
+        layout.SetRowSpan(qrPictureBox, 2);
+        layout.Controls.Add(descriptionLabel, 1, 1);
+        layout.Controls.Add(instructionsLabel, 1, 2);
         layout.Controls.Add(addressTextBox, 0, 3);
-        layout.Controls.Add(instructionsLabel, 0, 4);
-        layout.Controls.Add(buttonPanel, 0, 6);
+        layout.SetColumnSpan(addressTextBox, 2);
+        layout.Controls.Add(buttonPanel, 0, 4);
+        layout.SetColumnSpan(buttonPanel, 2);
 
         Controls.Add(layout);
         CancelButton = closeButton;
-    }
-
-    protected override void OnLoad(EventArgs e)
-    {
-        base.OnLoad(e);
-        PairingQrCodeDialog.FitToWorkingArea(this);
     }
 
     protected override void Dispose(bool disposing)

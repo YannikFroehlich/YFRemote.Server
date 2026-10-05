@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tray: Das Fenster "YFRemote-Zertifikat installieren" zeigt den QR-Code jetzt auch bei hoher Skalierung (z.B. 4K-Fernseher). Der lange Anleitungstext hat ihn dort ganz aus dem Fenster gedrückt. Text und QR-Code stehen jetzt nebeneinander, und das Fenster passt sich dem Inhalt an. Außerdem sind die Buttons in beiden QR-Fenstern bei hoher Skalierung nicht mehr übergroß.
+
+## [2.30.1] - 2026-10-05
+
+### Fixed
+
+- Tray: Die Fenster "Mit YFRemote verbinden" und "YFRemote-Zertifikat installieren" wachsen jetzt mit der Windows-Skalierung mit. Bei hoher Skalierung (z.B. 4K-Fernseher mit 200-300 %) wurde bisher nur die Schrift größer und der QR-Code war abgeschnitten. Auf kleinen Bildschirmen wird das Fenster auf die Bildschirmhöhe gekürzt, der QR-Code schrumpft dann mit.
+
 ## [2.30.0] - 2026-10-03
 
 ### Added
@@ -32,10 +42,6 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Changed
 
 - Windows: Mindestversion ist jetzt Windows 10 1809 (Ziel `net10.0-windows10.0.17763.0`), weil die Medienanzeige die WinRT-Mediensteuerung braucht. Installer und erstes Update werden dadurch etwa 23 MB größer.
-
-### Fixed
-
-- Tray: Die Fenster "Mit YFRemote verbinden" und "YFRemote-Zertifikat installieren" wachsen jetzt mit der Windows-Skalierung mit. Bei hoher Skalierung (z.B. 4K-Fernseher mit 200-300 %) wurde bisher nur die Schrift größer und der QR-Code war abgeschnitten. Auf kleinen Bildschirmen wird das Fenster auf die Bildschirmhöhe gekürzt, der QR-Code schrumpft dann mit.
 
 ## [2.29.0] - 2026-10-03
 

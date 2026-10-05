@@ -28,6 +28,10 @@ internal sealed class PairingQrCodeDialog : Form
         MinimizeBox = false;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterScreen;
+        // Ohne AutoScaleDimensions skaliert WinForms die Pixelmaße nicht mit, nur die Schrift
+        // (in Punkt) wächst mit der Windows-Skalierung - bei 4K mit 200-300 % war der QR-Code
+        // dann abgeschnitten.
+        AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Color.FromArgb(13, 20, 24);
         ForeColor = Color.FromArgb(242, 247, 248);
@@ -44,11 +48,11 @@ internal sealed class PairingQrCodeDialog : Form
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 322F));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         var titleLabel = new Label
@@ -70,9 +74,7 @@ internal sealed class PairingQrCodeDialog : Form
 
         qrPictureBox = new PictureBox
         {
-            Size = new Size(310, 310),
-            Anchor = AnchorStyles.None,
-            BackColor = Color.White,
+            Dock = DockStyle.Fill,
             SizeMode = PictureBoxSizeMode.Zoom,
             AccessibleName = "QR-Code für die YFRemote-Verbindung",
             Margin = new Padding(0, 0, 0, 12)
@@ -152,6 +154,20 @@ internal sealed class PairingQrCodeDialog : Form
         FormClosed += (_, _) => refreshTimer.Stop();
 
         RefreshQrCode();
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        FitToWorkingArea(this);
+    }
+
+    // Kleine Bildschirme (z.B. 1366x768 bei 125 %): Fenster auf den Arbeitsbereich kürzen, der
+    // QR-Code schrumpft dann mit, statt unten aus dem Bild zu laufen.
+    internal static void FitToWorkingArea(Form form)
+    {
+        var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
+        form.Height = Math.Min(form.Height, workingArea.Height);
     }
 
     protected override void Dispose(bool disposing)

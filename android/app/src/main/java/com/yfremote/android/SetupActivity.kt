@@ -111,7 +111,6 @@ class SetupActivity : Activity() {
         remoteDevices = RemoteDevices(this)
         requestNotificationPermissionIfNeeded()
         setContentView(buildLayout())
-        ensureServiceRunning()
     }
 
     override fun onResume() {
@@ -493,10 +492,6 @@ class SetupActivity : Activity() {
     private fun column(): LinearLayout =
         LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-    private fun ensureServiceRunning() {
-        ContextCompat.startForegroundService(this, Intent(this, YFRemoteForegroundService::class.java))
-    }
-
     private fun regeneratePin() {
         YFRemoteForegroundService.instance?.pairing?.regeneratePin()
         refreshUi()
@@ -509,7 +504,7 @@ class SetupActivity : Activity() {
                     .setAction(YFRemoteForegroundService.ACTION_STOP),
             )
         } else {
-            ensureServiceRunning()
+            ContextCompat.startForegroundService(this, Intent(this, YFRemoteForegroundService::class.java))
         }
         refreshHandler.postDelayed({ refreshUi() }, 300)
     }

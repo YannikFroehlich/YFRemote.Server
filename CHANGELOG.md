@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android-App: Der YFRemote-Dienst startet nicht mehr automatisch beim Öffnen der App, sondern erst nach Tippen auf "Dienst starten". Wer die App nur öffnet, um ein anderes Gerät zu steuern, startet so keinen Server auf dem Handy mehr.
+
 ## [2.30.2] - 2026-10-05
 
 ### Fixed

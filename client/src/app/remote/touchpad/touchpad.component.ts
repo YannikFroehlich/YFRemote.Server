@@ -1,6 +1,6 @@
 import { Component, computed, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
 import { ClipboardService, DEVICE_CLIPBOARD_WRITER } from '../clipboard.service';
-import { FileTransferService } from '../file-transfer.service';
+import { DOWNLOAD_BRIDGE, FileTransferService } from '../file-transfer.service';
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
@@ -31,13 +31,80 @@ export interface SpeechRecognitionResultEvent {
 
 export type SpeechRecognizerFactory = () => SpeechRecognizer | null;
 
+/** Haengt die Android-App (remote/RemoteWebActivity.kt) als window.YFRemoteSpeech ein: Ueber
+ *  http://<LAN-IP> gibt das WebView kein Mikrofon heraus (nur in sicheren Kontexten), die App
+ *  erkennt deshalb selbst und meldet sich mit APP_SPEECH_EVENT-Ereignissen zurueck. */
+export interface SpeechBridge {
+  start(lang: string): void;
+  stop(): void;
+}
+
+export const SPEECH_BRIDGE = new InjectionToken<SpeechBridge | null>('SPEECH_BRIDGE', {
+  providedIn: 'root',
+  factory: () => (globalThis as { YFRemoteSpeech?: SpeechBridge }).YFRemoteSpeech ?? null,
+});
+
+export const APP_SPEECH_EVENT = 'yfremote-speech';
+
+export type AppSpeechEvent =
+  | { readonly type: 'result'; readonly text: string }
+  | { readonly type: 'error'; readonly error: string }
+  | { readonly type: 'end' };
+
 /** Wie REMOTE_WEBSOCKET_FACTORY/REMOTE_VIBRATE in remote.service.ts: jede Browser-API hinter
  *  einem Token, damit Tests eine Fake-Erkennung einsetzen koennen. null bedeutet "Browser kann
  *  das nicht" (z. B. Firefox) - der Diktier-Knopf bleibt dann einfach unsichtbar. */
 export const SPEECH_RECOGNIZER_FACTORY = new InjectionToken<SpeechRecognizerFactory>(
   'SPEECH_RECOGNIZER_FACTORY',
-  { providedIn: 'root', factory: () => createBrowserSpeechRecognizer },
+  {
+    providedIn: 'root',
+    factory: () => {
+      const bridge = inject(SPEECH_BRIDGE);
+      return bridge ? () => new AppSpeechRecognizer(bridge) : createBrowserSpeechRecognizer;
+    },
+  },
 );
+
+/** Bildet die App-Bruecke auf dieselbe Schnittstelle ab wie die Web-Speech-API, damit das
+ *  Diktieren unten nur einen Weg kennt. */
+class AppSpeechRecognizer implements SpeechRecognizer {
+  lang = '';
+  continuous = false;
+  interimResults = false;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null = null;
+  onerror: ((event: { readonly error: string }) => void) | null = null;
+  onend: (() => void) | null = null;
+
+  private readonly listener = (event: Event): void => {
+    const detail = (event as CustomEvent<AppSpeechEvent>).detail;
+
+    switch (detail.type) {
+      case 'result':
+        this.onresult?.({ results: { length: 1, 0: { 0: { transcript: detail.text } } } });
+        break;
+      case 'error':
+        this.onerror?.({ error: detail.error });
+        break;
+      case 'end':
+        // Vor onend abmelden: onend startet die naechste Aeusserung und meldet sich neu an.
+        globalThis.removeEventListener(APP_SPEECH_EVENT, this.listener);
+        this.onend?.();
+        break;
+    }
+  };
+
+  constructor(private readonly bridge: SpeechBridge) {}
+
+  start(): void {
+    globalThis.addEventListener(APP_SPEECH_EVENT, this.listener);
+    this.bridge.start(this.lang);
+  }
+
+  stop(): void {
+    globalThis.removeEventListener(APP_SPEECH_EVENT, this.listener);
+    this.bridge.stop();
+  }
+}
 
 function createBrowserSpeechRecognizer(): SpeechRecognizer | null {
   const globalWithSpeech = globalThis as unknown as {
@@ -99,6 +166,8 @@ export class TouchpadComponent implements OnDestroy {
   private readonly clipboard = inject(ClipboardService);
   private readonly writeDeviceClipboard = inject(DEVICE_CLIPBOARD_WRITER);
   private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
+  private readonly speechBridge = inject(SPEECH_BRIDGE);
+  private readonly inAndroidApp = inject(DOWNLOAD_BRIDGE) !== null;
   private readonly location = inject(SERVER_LOCATION);
   protected readonly i18n = inject(TranslationService);
   private readonly pointers = new Map<number, PointerPosition>();
@@ -454,9 +523,14 @@ export class TouchpadComponent implements OnDestroy {
 
   private startDictation(input: HTMLInputElement): void {
     // Ueber http://<LAN-IP> verweigert der Browser das Mikrofon grundsaetzlich und bietet dafuer
-    // auch keine Freigabe an - ohne eigenen Hinweis stuende hier nur "Zugriff verweigert".
-    if (!isTrustworthyOrigin(this.location)) {
-      this.showStatus('touchpad.dictationError.insecureOrigin');
+    // auch keine Freigabe an - ohne eigenen Hinweis stuende hier nur "Zugriff verweigert". Die
+    // App-Bruecke braucht kein HTTPS; eine App ohne sie laedt die Seite aber immer ueber HTTP.
+    if (this.speechBridge === null && !isTrustworthyOrigin(this.location)) {
+      this.showStatus(
+        this.inAndroidApp
+          ? 'touchpad.dictationError.appUpdate'
+          : 'touchpad.dictationError.insecureOrigin',
+      );
       return;
     }
 

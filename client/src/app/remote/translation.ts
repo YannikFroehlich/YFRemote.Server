@@ -188,8 +188,12 @@ export const TRANSLATIONS = {
     en: 'Microphone access was denied.',
   },
   'touchpad.dictationError.insecureOrigin': {
-    de: 'Diktieren geht nur über HTTPS. Setze dafür in der appsettings.json des Servers "Https": { "Enabled": true } und starte ihn neu.',
-    en: 'Dictation needs HTTPS. Set "Https": { "Enabled": true } in the server\'s appsettings.json and restart it.',
+    de: 'Diktieren geht nur über HTTPS: am PC im Infobereich "HTTPS verwenden" einschalten und diese Seite über https:// und Port 5443 öffnen.',
+    en: 'Dictation needs HTTPS: turn on "HTTPS verwenden" in the PC\'s tray and open this page via https:// on port 5443.',
+  },
+  'touchpad.dictationError.appUpdate': {
+    de: 'Diktieren braucht eine neuere YFRemote-App. Bis dahin das Mikrofon der Handy-Tastatur verwenden.',
+    en: 'Dictation needs a newer YFRemote app. Until then, use the microphone on your phone keyboard.',
   },
   'touchpad.dictationError.noSpeech': { de: 'Kein Ton erkannt.', en: 'No sound detected.' },
   'touchpad.dictationError.failed': { de: 'Diktat fehlgeschlagen.', en: 'Dictation failed.' },

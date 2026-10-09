@@ -23,8 +23,13 @@ import {
   SERVER_LOCATION,
   ServerLocation,
 } from '../server-config';
+import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
 import {
+  APP_SPEECH_EVENT,
+  AppSpeechEvent,
+  SPEECH_BRIDGE,
   SPEECH_RECOGNIZER_FACTORY,
+  SpeechBridge,
   SpeechRecognitionResultEvent,
   SpeechRecognizer,
   TouchpadComponent,
@@ -567,6 +572,51 @@ describe('TouchpadComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Diktieren geht nur über HTTPS');
   });
 
+  it('dictates through the Android app bridge on a plain-HTTP LAN address', async () => {
+    const started: string[] = [];
+    let stopped = false;
+    const bridge: SpeechBridge = {
+      start: (lang) => started.push(lang),
+      stop: () => (stopped = true),
+    };
+    const appEvent = (detail: AppSpeechEvent) =>
+      globalThis.dispatchEvent(new CustomEvent(APP_SPEECH_EVENT, { detail }));
+    const { fixture } = await setupTouchpad({
+      speechBridge: bridge,
+      pageUrl: 'http://192.168.178.41:5050/',
+    });
+    const { textInput } = textControls(fixture);
+
+    micButton(fixture)!.click();
+    expect(started).toEqual(['de-DE']);
+
+    appEvent({ type: 'result', text: 'erster satz' });
+    appEvent({ type: 'end' });
+    appEvent({ type: 'result', text: 'zweiter satz' });
+    expect(started).toEqual(['de-DE', 'de-DE']);
+    expect(textInput.value).toBe('erster satz zweiter satz');
+
+    micButton(fixture)!.click();
+    appEvent({ type: 'result', text: 'nach dem stopp' });
+    expect(stopped).toBe(true);
+    expect(textInput.value).toBe('erster satz zweiter satz');
+  });
+
+  it('asks for a newer app instead of HTTPS in an app without the speech bridge', async () => {
+    const recognizer = new MockSpeechRecognizer();
+    const { fixture } = await setupTouchpad({
+      dictationRecognizer: recognizer,
+      pageUrl: 'http://192.168.178.41:5050/',
+      inAndroidApp: true,
+    });
+
+    micButton(fixture)!.click();
+    fixture.detectChanges();
+
+    expect(recognizer.startCount).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('neuere YFRemote-App');
+  });
+
   it('sends dictated text immediately when live typing is on', async () => {
     const recognizer = new MockSpeechRecognizer();
     const { fixture, sockets } = await setupTouchpad({ dictationRecognizer: recognizer });
@@ -818,6 +868,8 @@ async function setupTouchpad(
     readonly sensitivity?: number;
     readonly stored?: Readonly<Record<string, string>>;
     readonly dictationRecognizer?: MockSpeechRecognizer;
+    readonly speechBridge?: SpeechBridge;
+    readonly inAndroidApp?: boolean;
     readonly pageUrl?: string;
     readonly serverPlatform?: ServerPlatform;
     readonly pcClipboardResponse?: { readonly success: boolean; readonly text?: string | null };
@@ -860,9 +912,16 @@ async function setupTouchpad(
           return socket;
         },
       },
+      // Mit Bruecke bleibt die echte Factory, damit der App-Adapter mitgetestet wird.
+      options.speechBridge
+        ? { provide: SPEECH_BRIDGE, useValue: options.speechBridge }
+        : {
+            provide: SPEECH_RECOGNIZER_FACTORY,
+            useValue: () => options.dictationRecognizer ?? null,
+          },
       {
-        provide: SPEECH_RECOGNIZER_FACTORY,
-        useValue: () => options.dictationRecognizer ?? null,
+        provide: DOWNLOAD_BRIDGE,
+        useValue: options.inAndroidApp ? { download: () => true } : null,
       },
       {
         provide: SERVER_LOCATION,

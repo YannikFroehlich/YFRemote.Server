@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.30.5] - 2026-10-09
+
 ### Security
 
 - Client: Angular auf 21.2.25 (Framework) bzw. 21.2.26 (CLI/Build) angehoben und das Lockfile aktualisiert. Damit sind die Dependabot-Warnungen zu `proxy-addr` (kritisch), `@modelcontextprotocol/sdk`, `source-map-js` und `http-cache-semantics` behoben. Alle vier stecken nur in den Build- und Test-Werkzeugen (Angular CLI/Build, jsdom), nicht im ausgelieferten Client. Das npm-`overrides` für `piscina` ist entfernt, weil `@angular/build` die sichere Version 5.3.2 jetzt selbst verlangt.

@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android-App: Der Dialog "Gerät hinzufügen" (Steuern > Adresse eingeben) hat jetzt denselben Stil wie der Rest der App statt des grauen System-Dialogs: dunkle Karte, abgerundete Eingabefelder mit Akzentrand beim Tippen und die üblichen Buttons. Eine ungültige Adresse steht als roter Hinweis unter dem Feld.
+
 ## [2.30.5] - 2026-10-09
 
 ### Security

@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android-App: Der YFRemote-Dienst startet nicht mehr automatisch beim Öffnen der App, sondern erst nach Tippen auf "Dienst starten". Wer die App nur öffnet, um ein anderes Gerät zu steuern, startet so keinen Server auf dem Handy mehr.
+
+## [2.30.2] - 2026-10-05
+
 ### Fixed
 
 - Tray: Das Fenster "YFRemote-Zertifikat installieren" zeigt den QR-Code jetzt auch bei hoher Skalierung (z.B. 4K-Fernseher). Der lange Anleitungstext hat ihn dort ganz aus dem Fenster gedrückt. Text und QR-Code stehen jetzt nebeneinander, und das Fenster passt sich dem Inhalt an. Außerdem sind die Buttons in beiden QR-Fenstern bei hoher Skalierung nicht mehr übergroß.

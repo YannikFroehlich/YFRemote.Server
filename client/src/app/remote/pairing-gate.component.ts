@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, InjectionToken, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PairingService } from './pairing.service';
 import {
@@ -14,6 +14,18 @@ import { SERVER_LOCATION } from './server-config';
 import { TranslationKey } from './translation';
 import { TranslationService } from './translation.service';
 
+/** Haengt die Android-App (remote/RemoteWebActivity.kt) als window.YFRemoteDevice ein: Sie kennt
+ *  den Geraetenamen aus den Android-Einstellungen, den ein Browser nie erfaehrt - ohne sie bleibt
+ *  nur die grobe Vorbelegung aus dem User-Agent ("Android-Geraet"). */
+export interface DeviceNameBridge {
+  name(): string;
+}
+
+export const DEVICE_NAME_BRIDGE = new InjectionToken<DeviceNameBridge | null>('DEVICE_NAME_BRIDGE', {
+  providedIn: 'root',
+  factory: () => (globalThis as { YFRemoteDevice?: DeviceNameBridge }).YFRemoteDevice ?? null,
+});
+
 @Component({
   selector: 'app-pairing-gate',
   imports: [ReactiveFormsModule],
@@ -25,6 +37,8 @@ export class PairingGateComponent {
   private readonly history = inject(PAIRING_HISTORY);
   protected readonly i18n = inject(TranslationService);
   private readonly initialPin = getPairingPinFromHash(this.serverLocation.hash ?? '');
+  private readonly initialDeviceName =
+    normalizeDeviceName(inject(DEVICE_NAME_BRIDGE)?.name() ?? '') || this.i18n.t(guessDeviceName());
 
   protected readonly lastError = this.pairing.lastError;
   private readonly serverPlatform = this.pairing.serverPlatform;
@@ -49,7 +63,7 @@ export class PairingGateComponent {
       nonNullable: true,
       validators: [Validators.required, pinValidator],
     }),
-    deviceName: new FormControl(this.i18n.t(guessDeviceName()), {
+    deviceName: new FormControl(this.initialDeviceName, {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(DEVICE_NAME_MAX_LENGTH)],
     }),

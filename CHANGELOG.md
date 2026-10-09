@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.30.4] - 2026-10-09
+
 ### Changed
 
 - CI/Release-Pipeline: GitHub Actions auf Versionen mit Node.js 24 angehoben (`upload-artifact` v7, `download-artifact` v8, `setup-java` v6, `setup-gradle` v5, `github-tag-action` v7). Damit verschwinden die Node.js-20-Warnungen in den Läufen. `setup-gradle` bleibt bewusst auf v5, weil v6 für sein Caching neue, proprietäre Lizenzbedingungen voraussetzt. Mit `github-tag-action` v7 führt `feat!:` jetzt wie dokumentiert zu einem Major-Release, und ein manueller Auto-Tag-Lauf erzwingt die gewählte Versionsstufe über `force_bump`.

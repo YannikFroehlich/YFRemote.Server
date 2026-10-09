@@ -17,6 +17,14 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <!-- Diktieren in RemoteWebActivity (SpeechRecognizer). Die queries machen den Erkennungsdienst
+         ab Android 11 sichtbar, sonst meldet isRecognitionAvailable immer false. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 
     <!-- usesCleartextTraffic: gesteuerte Geraete sprechen im LAN nur http://<IP> (HTTPS ist dort
          optional und haengt an einer lokalen CA, der das WebView nicht vertraut). -->

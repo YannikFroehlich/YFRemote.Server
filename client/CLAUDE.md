@@ -166,7 +166,10 @@ manual `ChangeDetectorRef` calls.
      the same swap-every-browser-API convention as `RemoteService`'s tokens; the factory returns
      `null` on a browser without support (Firefox), and the button simply does not render.
      Recognition restarts itself on `onend` for as long as dictation is still toggled on, so
-     multiple sentences append instead of overwriting each other.
+     multiple sentences append instead of overwriting each other. Inside the Android app the
+     default factory returns `AppSpeechRecognizer` instead, an adapter over the app's
+     `window.YFRemoteSpeech` (`SPEECH_BRIDGE`): the app recognizes natively and answers with
+     `yfremote-speech` events, so dictation works over plain HTTP there and skips the HTTPS hint.
    - `GamepadComponent` (`gamepad/`) — the controller view, shown only when `/health` reports
      `platform: windows` and `gamepad: true` (`RemoteService.gamepadAvailable`). It renders as a
      `position: fixed` layer at `<main>` level, not inside `.remote-panel`, whose

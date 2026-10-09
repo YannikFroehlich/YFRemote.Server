@@ -24,10 +24,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Android-App: Beim Koppeln mit einem PC oder Handy steht unter "Gerätename" jetzt der Name des Handys aus den Android-Einstellungen (z. B. "Galaxy S25 Ultra") statt nur "Android-Gerät". Die App reicht ihn an die Kopplungsseite weiter, weil ein Browser ihn nicht erfährt. Im normalen Browser bleibt es bei der groben Vorbelegung. Damit der Name erscheint, braucht das Zielgerät diese Version.
+- Android-App: Diktieren (Mikrofon-Knopf über dem Touchpad) funktioniert jetzt auch in der App. Bisher kam dort immer der Hinweis, man solle HTTPS einschalten, obwohl die App den PC grundsätzlich über HTTP öffnet. Die App erkennt die Sprache jetzt selbst mit der Android-Spracherkennung und fragt dafür beim ersten Mal nach der Mikrofon-Berechtigung. HTTPS ist dafür nicht nötig. Auch hier braucht das Zielgerät diese Version.
 
 ### Changed
 
 - Android-App: Der Dialog "Gerät hinzufügen" (Steuern > Adresse eingeben) hat jetzt denselben Stil wie der Rest der App statt des grauen System-Dialogs: dunkle Karte, abgerundete Eingabefelder mit Akzentrand beim Tippen und die üblichen Buttons. Eine ungültige Adresse steht als roter Hinweis unter dem Feld.
+- Client: Der HTTPS-Hinweis beim Diktieren verweist jetzt auf "HTTPS verwenden" im Infobereich und auf die https-Adresse (Port 5443) statt auf die `appsettings.json`. In einer älteren YFRemote-App ohne eigene Spracherkennung rät er stattdessen zum Mikrofon der Handy-Tastatur.
 
 ## [2.30.5] - 2026-10-09
 

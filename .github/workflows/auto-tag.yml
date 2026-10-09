@@ -51,10 +51,13 @@ jobs:
 
       - name: Naechste Version aus Commits ermitteln
         id: next
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: ${{ github.event_name == 'workflow_dispatch' && inputs.bump || 'patch' }}
+          default_bump: patch
+          # Seit v7 ergibt default_bump ohne neue Commits keine Version mehr. Nur force_bump
+          # erlaubt das manuelle Nachholen eines Releases.
+          force_bump: ${{ github.event_name == 'workflow_dispatch' && inputs.bump || '' }}
           release_branches: main
           tag_prefix: v
           dry_run: true

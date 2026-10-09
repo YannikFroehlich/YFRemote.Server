@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -74,6 +75,7 @@ class RemoteWebActivity : Activity() {
             webViewClient = WebViewClient()
             addJavascriptInterface(DownloadBridge(origin), "YFRemoteDownloads")
             addJavascriptInterface(SensorBridge(), "YFRemoteSensors")
+            addJavascriptInterface(DeviceBridge(), "YFRemoteDevice")
             // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden"),
             // ohne onShowCustomView lehnt das WebView requestFullscreen() ab ("Fullscreen is not
             // supported") - der Controller bliebe dann hochkant mit Browser-Rand.
@@ -165,6 +167,15 @@ class RemoteWebActivity : Activity() {
                 updateOrientationSensor(resumed = true)
             }
         }
+    }
+
+    // Vorbelegung des Geraetenamens beim Koppeln: Ein Browser erfaehrt den Namen nie, der Web-Client
+    // schluege sonst nur "Android-Geraet" vor (client/src/app/remote/pairing-gate.component.ts,
+    // DEVICE_NAME_BRIDGE).
+    private inner class DeviceBridge {
+        @JavascriptInterface
+        fun name(): String =
+            Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
     }
 
     private fun updateOrientationSensor(resumed: Boolean) {

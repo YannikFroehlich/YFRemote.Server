@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Beim Koppeln mit einem PC oder Handy steht unter "Gerätename" jetzt der Name des Handys aus den Android-Einstellungen (z. B. "Galaxy S25 Ultra") statt nur "Android-Gerät". Die App reicht ihn an die Kopplungsseite weiter, weil ein Browser ihn nicht erfährt. Im normalen Browser bleibt es bei der groben Vorbelegung. Damit der Name erscheint, braucht das Zielgerät diese Version.
+
 ### Changed
 
 - Android-App: Der Dialog "Gerät hinzufügen" (Steuern > Adresse eingeben) hat jetzt denselben Stil wie der Rest der App statt des grauen System-Dialogs: dunkle Karte, abgerundete Eingabefelder mit Akzentrand beim Tippen und die üblichen Buttons. Eine ungültige Adresse steht als roter Hinweis unter dem Feld.

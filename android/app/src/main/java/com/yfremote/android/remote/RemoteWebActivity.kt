@@ -1,9 +1,11 @@
 package com.yfremote.android.remote
 
+import android.Manifest
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -12,6 +14,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -25,6 +31,7 @@ import android.webkit.WebViewClient
 import com.yfremote.android.R
 import com.yfremote.android.server.sanitizeFileName
 import java.util.Locale
+import org.json.JSONObject
 import kotlin.math.PI
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -38,6 +45,9 @@ class RemoteWebActivity : Activity() {
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
     private var orientationWanted = false
+    private var speech: SpeechRecognizer? = null
+    // Sprache des Diktats, das auf die Mikrofon-Berechtigung wartet.
+    private var pendingSpeechLang: String? = null
     private val rotationMatrix = FloatArray(9)
     private val orientationListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -74,6 +84,8 @@ class RemoteWebActivity : Activity() {
             webViewClient = WebViewClient()
             addJavascriptInterface(DownloadBridge(origin), "YFRemoteDownloads")
             addJavascriptInterface(SensorBridge(), "YFRemoteSensors")
+            addJavascriptInterface(DeviceBridge(), "YFRemoteDevice")
+            addJavascriptInterface(SpeechBridge(), "YFRemoteSpeech")
             // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden"),
             // ohne onShowCustomView lehnt das WebView requestFullscreen() ab ("Fullscreen is not
             // supported") - der Controller bliebe dann hochkant mit Browser-Rand.
@@ -167,6 +179,104 @@ class RemoteWebActivity : Activity() {
         }
     }
 
+    // Vorbelegung des Geraetenamens beim Koppeln: Ein Browser erfaehrt den Namen nie, der Web-Client
+    // schluege sonst nur "Android-Geraet" vor (client/src/app/remote/pairing-gate.component.ts,
+    // DEVICE_NAME_BRIDGE).
+    private inner class DeviceBridge {
+        @JavascriptInterface
+        fun name(): String =
+            Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
+    }
+
+    // Diktieren: Ueber http://<LAN-IP> gibt das WebView kein Mikrofon heraus (nur in sicheren
+    // Kontexten), also erkennt die App selbst (client/src/app/remote/touchpad/touchpad.component.ts,
+    // SPEECH_BRIDGE). Ergebnisse gehen als 'yfremote-speech'-Ereignis an die Seite zurueck.
+    private inner class SpeechBridge {
+        @JavascriptInterface
+        fun start(lang: String) = runOnUiThread { startSpeech(lang) }
+
+        @JavascriptInterface
+        fun stop() = runOnUiThread { speech?.stopListening() }
+    }
+
+    private fun startSpeech(lang: String) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            pendingSpeechLang = lang
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), AUDIO_REQUEST)
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            sendSpeechError("service-not-allowed")
+            return
+        }
+        val recognizer = speech ?: SpeechRecognizer.createSpeechRecognizer(this).also {
+            it.setRecognitionListener(speechListener)
+            speech = it
+        }
+        recognizer.startListening(
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang)
+                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true),
+        )
+    }
+
+    private val speechListener = object : RecognitionListener {
+        override fun onPartialResults(partialResults: Bundle) = sendSpeechResult(partialResults)
+
+        override fun onResults(results: Bundle) {
+            sendSpeechResult(results)
+            sendSpeech(JSONObject().put("type", "end"))
+        }
+
+        override fun onError(error: Int) {
+            // ERROR_CLIENT kommt nur als Echo auf stopListening - die Seite hat dann schon aufgehoert.
+            if (error == SpeechRecognizer.ERROR_CLIENT) return
+            val name = when (error) {
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "not-allowed"
+                SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "no-speech"
+                else -> "network"
+            }
+            sendSpeechError(name)
+        }
+
+        override fun onReadyForSpeech(params: Bundle?) = Unit
+        override fun onBeginningOfSpeech() = Unit
+        override fun onRmsChanged(rmsdB: Float) = Unit
+        override fun onBufferReceived(buffer: ByteArray?) = Unit
+        override fun onEndOfSpeech() = Unit
+        override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    private fun sendSpeechResult(bundle: Bundle) {
+        val text = bundle.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: return
+        sendSpeech(JSONObject().put("type", "result").put("text", text))
+    }
+
+    private fun sendSpeechError(error: String) {
+        sendSpeech(JSONObject().put("type", "error").put("error", error))
+        sendSpeech(JSONObject().put("type", "end"))
+    }
+
+    private fun sendSpeech(detail: JSONObject) {
+        webView.evaluateJavascript(
+            "dispatchEvent(new CustomEvent('yfremote-speech',{detail:$detail}))",
+            null,
+        )
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != AUDIO_REQUEST) return
+        val lang = pendingSpeechLang ?: return
+        pendingSpeechLang = null
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            startSpeech(lang)
+        } else {
+            sendSpeechError("not-allowed")
+        }
+    }
+
     private fun updateOrientationSensor(resumed: Boolean) {
         val sensors = getSystemService(SensorManager::class.java)
         sensors.unregisterListener(orientationListener)
@@ -230,6 +340,7 @@ class RemoteWebActivity : Activity() {
     }
 
     override fun onDestroy() {
+        speech?.destroy()
         webView.destroy()
         super.onDestroy()
     }
@@ -238,6 +349,7 @@ class RemoteWebActivity : Activity() {
         const val EXTRA_URL = "url"
         const val EXTRA_NAME = "name"
         private const val FILE_REQUEST = 1
+        private const val AUDIO_REQUEST = 2
     }
 }
 

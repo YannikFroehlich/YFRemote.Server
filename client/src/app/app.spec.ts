@@ -9,6 +9,7 @@ import {
   REMOTE_WEBSOCKET_FACTORY,
   RemoteSocket,
 } from './remote/remote.service';
+import { DEVICE_NAME_BRIDGE } from './remote/pairing-gate.component';
 import { PAIRING_FETCH } from './remote/pairing.service';
 import { PAIRING_HISTORY, PAIRING_TOKEN_STORAGE_KEY, PairingHistory } from './remote/pairing';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
@@ -528,6 +529,16 @@ describe('App', () => {
 
     expect(queryInput(compiled, '#pairing-pin').value).toBe('123456');
     expect(pairingHistory.replacements).toEqual(['/']);
+  });
+
+  it('prefills the device name from the Android app bridge', async () => {
+    const { fixture } = await setupApp({
+      paired: false,
+      providers: [{ provide: DEVICE_NAME_BRIDGE, useValue: { name: () => ' Pixel 9 von Alex ' } }],
+    });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(queryInput(compiled, '#pairing-device-name').value).toBe('Pixel 9 von Alex');
   });
 
   it('pairs successfully through the gate and reveals the remote control', async () => {

@@ -3,13 +3,15 @@ package com.yfremote.android
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.AlertDialog
+import android.app.Dialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.StateListDrawable
 import android.net.ConnectivityManager
 import android.net.Network
@@ -24,6 +26,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebStorage
 import android.widget.Button
@@ -489,6 +492,28 @@ class SetupActivity : Activity() {
         setTextColor(color(R.color.brand_text_muted))
     }
 
+    private fun textInput(hint: String): EditText = EditText(this).apply {
+        fun box(stroke: Int) = GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setColor(color(R.color.brand_background))
+            setStroke(dp(1), stroke)
+        }
+
+        this.hint = hint
+        setSingleLine()
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        setTextColor(color(R.color.brand_text))
+        setHintTextColor(color(R.color.brand_text_muted))
+        background = StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), box(color(R.color.brand_accent)))
+            addState(intArrayOf(), box(color(R.color.brand_surface_stroke)))
+        }
+        setPadding(dp(14), 0, dp(14), 0)
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
+            topMargin = dp(8)
+        }
+    }
+
     private fun column(): LinearLayout =
         LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -509,49 +534,68 @@ class SetupActivity : Activity() {
         refreshHandler.postDelayed({ refreshUi() }, 300)
     }
 
+    // Eigener Dialog statt AlertDialog: der kommt im grauen System-Look und passt nicht zu den
+    // Karten und Buttons der App.
     private fun showAddDeviceDialog() {
-        val addressInput = EditText(this).apply {
-            hint = "IP-Adresse, z. B. 192.168.0.10"
+        val dialog = Dialog(this)
+        val addressInput = textInput("IP-Adresse, z. B. 192.168.0.10").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            setSingleLine()
         }
-        val nameInput = EditText(this).apply {
-            hint = "Name (optional)"
-            setSingleLine()
+        // Statt EditText.error, dessen Popup ebenfalls im grauen System-Look erscheint.
+        val addressError = mutedText().apply {
+            text = "Ungültige Adresse"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextColor(color(R.color.brand_error))
+            setPadding(dp(4), dp(6), 0, 0)
+            visibility = View.GONE
         }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Gerät hinzufügen")
-            .setMessage("Port ${RemoteDevices.DEFAULT_PORT}, falls keiner angegeben ist. Die PIN fragt das Gerät danach ab.")
-            .setView(
-                column().apply {
-                    setPadding(dp(20), 0, dp(20), 0)
-                    addView(addressInput)
-                    addView(nameInput)
-                },
-            )
-            .setPositiveButton("Verbinden", null)
-            .setNegativeButton("Abbrechen", null)
-            .create()
+        val nameInput = textInput("Name (optional)")
 
-        // Eigener Listener statt setPositiveButton-Callback: der wuerde den Dialog auch bei einer
-        // ungueltigen Adresse schliessen.
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val url = RemoteDevices.normalizeAddress(addressInput.text.toString())
-                if (url == null) {
-                    addressInput.error = "Ungültige Adresse"
-                    return@setOnClickListener
-                }
-                val device = RemoteDevice(
-                    url,
-                    nameInput.text.toString().trim().ifEmpty { url.removePrefix("http://") },
-                )
-                remoteDevices.add(device)
-                dialog.dismiss()
-                openRemote(device)
-            }
+        val connect = primaryButton("Verbinden") {
+            val url = RemoteDevices.normalizeAddress(addressInput.text.toString())
+            addressError.visibility = if (url == null) View.VISIBLE else View.GONE
+            if (url == null) return@primaryButton
+            val device = RemoteDevice(
+                url,
+                nameInput.text.toString().trim().ifEmpty { url.removePrefix("http://") },
+            )
+            remoteDevices.add(device)
+            dialog.dismiss()
+            openRemote(device)
         }
+        val cancel = secondaryButton("Abbrechen") { dialog.dismiss() }
+
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(
+            card("Gerät hinzufügen").apply {
+                addView(
+                    mutedText().apply {
+                        text = "Port ${RemoteDevices.DEFAULT_PORT}, falls keiner angegeben ist. " +
+                            "Die PIN fragt das Gerät danach ab."
+                        setPadding(0, 0, 0, dp(6))
+                    },
+                )
+                addView(addressInput)
+                addView(addressError)
+                addView(nameInput)
+                addView(
+                    LinearLayout(this@SetupActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, dp(10), 0, 0)
+                        addView(
+                            cancel.apply {
+                                layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) }
+                            },
+                        )
+                        addView(connect.apply { layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f) })
+                    },
+                )
+            },
+        )
+        // Der Abstand zum Bildschirmrand kommt aus dem Hintergrund, so wie beim System-Dialog.
+        dialog.window?.setBackgroundDrawable(InsetDrawable(ColorDrawable(Color.TRANSPARENT), dp(20)))
         dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     // IntentIntegrator ist zugunsten von ScanContract (AndroidX Activity Result API) veraltet -

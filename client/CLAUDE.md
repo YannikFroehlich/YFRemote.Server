@@ -170,6 +170,11 @@ manual `ChangeDetectorRef` calls.
      default factory returns `AppSpeechRecognizer` instead, an adapter over the app's
      `window.YFRemoteSpeech` (`SPEECH_BRIDGE`): the app recognizes natively and answers with
      `yfremote-speech` events, so dictation works over plain HTTP there and skips the HTTPS hint.
+     The clipboard button's "Vom PC holen" shows the PC's text or, when it has none and the server
+     is a PC, the image from `GET /clipboard/image` (`ClipboardService.readImage`) with "Kopieren"
+     (`DEVICE_CLIPBOARD_IMAGE_WRITER`, secure context only) and "Speichern" (`FILE_SAVER`). Inside
+     the Android app `FILE_SAVER` goes through `YFRemoteDownloads.save` (base64), because the
+     WebView ignores `blob:` links; the settings dialog's JSON exports use it too.
    - `GamepadComponent` (`gamepad/`) — the controller view, shown only when `/health` reports
      `gamepad: true` (`RemoteService.gamepadAvailable`; Windows with ViGEmBus or Linux with
      `/dev/uinput`, never the Android server). It renders as a

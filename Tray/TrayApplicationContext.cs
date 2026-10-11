@@ -65,7 +65,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         uiDispatcher.CreateControl();
         fileTransferService.FileReceived += OnFileReceived;
         fileOfferService.Downloaded += OnOfferedFileDownloaded;
-        clipboardReadNotifier.TextRead += OnClipboardTextRead;
+        clipboardReadNotifier.Read += OnClipboardRead;
         clipboardReadNotifier.SyncEnabled += OnClipboardSyncEnabled;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
@@ -225,7 +225,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             fileTransferService.FileReceived -= OnFileReceived;
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
-            clipboardReadNotifier.TextRead -= OnClipboardTextRead;
+            clipboardReadNotifier.Read -= OnClipboardRead;
             clipboardReadNotifier.SyncEnabled -= OnClipboardSyncEnabled;
             connectionRegistry.ConnectionsChanged -= OnConnectionsChanged;
             initialUpdateTimer.Dispose();
@@ -420,7 +420,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     // Wie OnFileReceived vom HTTP-Request-Thread aufgerufen, daher ueber den uiDispatcher.
-    private void OnClipboardTextRead(string deviceName) =>
+    private void OnClipboardRead(string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
             notifyIcon.ShowBalloonTip(
                 3000,

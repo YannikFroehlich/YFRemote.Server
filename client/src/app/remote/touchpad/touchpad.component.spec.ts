@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   CLIPBOARD_FETCH,
+  DEVICE_CLIPBOARD_IMAGE_WRITER,
   DEVICE_CLIPBOARD_WRITER,
   DeviceClipboardWriter,
 } from '../clipboard.service';
@@ -23,7 +24,7 @@ import {
   SERVER_LOCATION,
   ServerLocation,
 } from '../server-config';
-import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
+import { DOWNLOAD_BRIDGE, FILE_SAVER } from '../file-transfer.service';
 import {
   APP_SPEECH_EVENT,
   AppSpeechEvent,
@@ -809,9 +810,81 @@ describe('TouchpadComponent', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.pc-clipboard')).toBeNull();
     expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
-      'Die Zwischenablage am PC enthält keinen Text.',
+      'Die Zwischenablage am PC enthält weder Text noch Bild.',
     );
     expect(root.querySelector('.settings-message--success')).toBeNull();
+  });
+
+  describe('with an image in the PC clipboard', () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const createObjectURL = URL.createObjectURL;
+    const revokeObjectURL = URL.revokeObjectURL;
+    let revoked: string[];
+
+    beforeEach(() => {
+      revoked = [];
+      // jsdom kennt keine Object-URLs.
+      URL.createObjectURL = () => 'blob:pc-clipboard';
+      URL.revokeObjectURL = (url: string) => void revoked.push(url);
+    });
+
+    afterEach(() => {
+      URL.createObjectURL = createObjectURL;
+      URL.revokeObjectURL = revokeObjectURL;
+    });
+
+    it('shows it when there is no text and saves it as PNG', async () => {
+      const saved: { blob: Blob; fileName: string }[] = [];
+      const { fixture } = await setupTouchpad({
+        serverPlatform: 'windows',
+        pcClipboardResponse: { success: true, text: null },
+        pcClipboardImage: png,
+        fileSaver: async (blob, fileName) => saved.push({ blob, fileName }) > 0,
+      });
+
+      await fetchPcClipboard(fixture);
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector<HTMLImageElement>('.pc-clipboard__image')!.src).toBe(
+        'blob:pc-clipboard',
+      );
+      // Kopieren nur, wo das Geraet Bilder in die Zwischenablage schreiben kann.
+      expect(root.querySelector('.pc-clipboard .primary-button')).toBeNull();
+
+      Array.from(root.querySelectorAll<HTMLButtonElement>('.pc-clipboard button'))
+        .find((button) => button.textContent?.trim() === 'Speichern')!
+        .click();
+      await settle(fixture);
+
+      expect(saved).toHaveLength(1);
+      expect(saved[0].fileName).toMatch(/^zwischenablage-[\d-]+\.png$/);
+      expect(new Uint8Array(await saved[0].blob.arrayBuffer())).toEqual(png);
+      expect(root.querySelector('.pc-clipboard')).toBeNull();
+      expect(revoked).toEqual(['blob:pc-clipboard']);
+      expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe('Bild gespeichert.');
+    });
+
+    it('copies it to the device clipboard where that is possible', async () => {
+      const copied: Blob[] = [];
+      const { fixture } = await setupTouchpad({
+        serverPlatform: 'windows',
+        pcClipboardResponse: { success: true, text: null },
+        pcClipboardImage: png,
+        deviceClipboardImageWriter: async (image) => {
+          copied.push(image);
+        },
+      });
+
+      await fetchPcClipboard(fixture);
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.pc-clipboard .primary-button')!.click();
+      await settle(fixture);
+
+      expect(copied.map((image) => image.type)).toEqual(['image/png']);
+      expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
+        'In die Zwischenablage kopiert.',
+      );
+    });
   });
 });
 
@@ -874,6 +947,9 @@ async function setupTouchpad(
     readonly serverPlatform?: ServerPlatform;
     readonly pcClipboardResponse?: { readonly success: boolean; readonly text?: string | null };
     readonly deviceClipboardWriter?: DeviceClipboardWriter | null;
+    readonly pcClipboardImage?: Uint8Array<ArrayBuffer>;
+    readonly deviceClipboardImageWriter?: ((image: Blob) => Promise<void>) | null;
+    readonly fileSaver?: (blob: Blob, fileName: string) => Promise<boolean>;
   } = {},
 ): Promise<TouchpadHarness> {
   const sockets: MockRemoteSocket[] = [];
@@ -936,12 +1012,24 @@ async function setupTouchpad(
       },
       {
         provide: CLIPBOARD_FETCH,
-        useValue: async () => new Response(JSON.stringify(options.pcClipboardResponse ?? {})),
+        useValue: async (input: RequestInfo | URL) => {
+          if (!String(input).endsWith('/clipboard/image')) {
+            return new Response(JSON.stringify(options.pcClipboardResponse ?? {}));
+          }
+          return options.pcClipboardImage
+            ? new Response(options.pcClipboardImage, { headers: { 'Content-Type': 'image/png' } })
+            : new Response(null, { status: 204 });
+        },
       },
       {
         provide: DEVICE_CLIPBOARD_WRITER,
         useValue: options.deviceClipboardWriter ?? null,
       },
+      {
+        provide: DEVICE_CLIPBOARD_IMAGE_WRITER,
+        useValue: options.deviceClipboardImageWriter ?? null,
+      },
+      ...(options.fileSaver ? [{ provide: FILE_SAVER, useValue: options.fileSaver }] : []),
     ],
   }).compileComponents();
 

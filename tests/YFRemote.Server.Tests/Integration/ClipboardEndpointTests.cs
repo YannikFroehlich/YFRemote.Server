@@ -206,7 +206,7 @@ public sealed class ClipboardEndpointTests
         var token = await PairAndGetTokenAsync();
         fakeClipboard.TextToReturn = "Hallo vom PC";
         var notifiedDevices = new List<string>();
-        app.Services.GetRequiredService<ClipboardReadNotifier>().TextRead += notifiedDevices.Add;
+        app.Services.GetRequiredService<ClipboardReadNotifier>().Read += notifiedDevices.Add;
 
         await GetTextAsync(token);
 
@@ -218,7 +218,7 @@ public sealed class ClipboardEndpointTests
     {
         var token = await PairAndGetTokenAsync();
         var notifiedDevices = new List<string>();
-        app.Services.GetRequiredService<ClipboardReadNotifier>().TextRead += notifiedDevices.Add;
+        app.Services.GetRequiredService<ClipboardReadNotifier>().Read += notifiedDevices.Add;
 
         await GetTextAsync(token);
         fakeClipboard.TextToReturn = new string('x', 21);
@@ -278,9 +278,74 @@ public sealed class ClipboardEndpointTests
         Assert.AreEqual(HttpStatusCode.NotImplemented, response.StatusCode);
     }
 
-    private async Task<HttpResponseMessage> GetTextAsync(string? token, string? origin = null)
+    [TestMethod]
+    public async Task ReadImage_WithoutBearerToken_IsUnauthorized()
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/clipboard/text");
+        fakeClipboard.ImageToReturn = [0x89, 0x50, 0x4E, 0x47];
+
+        var response = await GetAsync("/clipboard/image", token: null);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task ReadImage_WithImage_ReturnsPngWithoutCachingAndNotifies()
+    {
+        var token = await PairAndGetTokenAsync();
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3];
+        fakeClipboard.ImageToReturn = png;
+        var notifiedDevices = new List<string>();
+        app.Services.GetRequiredService<ClipboardReadNotifier>().Read += notifiedDevices.Add;
+
+        var response = await GetAsync("/clipboard/image", token);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("image/png", response.Content.Headers.ContentType!.MediaType);
+        CollectionAssert.AreEqual(png, await response.Content.ReadAsByteArrayAsync());
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        CollectionAssert.AreEqual(new[] { "Testgerät" }, notifiedDevices);
+    }
+
+    [TestMethod]
+    public async Task ReadImage_WhenClipboardHasNoImage_ReturnsNoContent()
+    {
+        var token = await PairAndGetTokenAsync();
+
+        var response = await GetAsync("/clipboard/image", token);
+
+        Assert.AreEqual(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task ReadImage_ExceedingConfiguredMaxSize_IsRejected()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.ImageToReturn = new byte[1025];
+
+        var response = await GetAsync("/clipboard/image", token);
+        var body = await response.Content.ReadFromJsonAsync<ClipboardResponse>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.IsFalse(body!.Success);
+    }
+
+    [TestMethod]
+    public async Task ReadImage_WhenClipboardServiceThrowsNotSupported_ReturnsNotImplemented()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.ThrowOnNextCall = new NotSupportedException("xclip is not installed.");
+
+        var response = await GetAsync("/clipboard/image", token);
+
+        Assert.AreEqual(HttpStatusCode.NotImplemented, response.StatusCode);
+    }
+
+    private Task<HttpResponseMessage> GetTextAsync(string? token, string? origin = null) =>
+        GetAsync("/clipboard/text", token, origin);
+
+    private async Task<HttpResponseMessage> GetAsync(string path, string? token, string? origin = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
         if (origin is not null)
         {
             request.Headers.Add("Origin", origin);

@@ -110,8 +110,9 @@ for insecure origins, not a setting, so dictation in the touchpad's text field
 needs HTTPS (or the phone keyboard's own dictation, which is plain typing). The
 YFRemote Android app is the exception: it recognizes speech itself and needs no
 HTTPS for dictation.
-Likewise, text fetched from the PC's clipboard can only be copied with one tap
-over HTTPS; over plain HTTP it is shown for you to select and copy manually.
+Likewise, text or an image fetched from the PC's clipboard can only be copied with one tap
+over HTTPS; over plain HTTP text is shown for you to select and copy manually, and an
+image can be saved instead.
 
 Still, only use YFRemote on a trusted private network, and don't forward port
 `5050` (or `5443` with HTTPS enabled) to the internet on your router. See

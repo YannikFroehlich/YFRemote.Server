@@ -149,14 +149,62 @@ internal static class ClipboardEndpoints
                         $"Clipboard text is longer than {clipboardOptions.MaxTextLength} characters.");
                 }
 
-                var deviceName = context.RequestServices.GetRequiredService<PairingService>()
-                    .GetPairedDevices()
-                    .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
-                app.Logger.LogInformation("Clipboard text sent to paired device {DeviceName}.", deviceName);
-                context.RequestServices.GetRequiredService<ClipboardReadNotifier>().NotifyTextRead(deviceName);
+                NotifyRead(context, app.Logger, deviceId, "text");
                 return ClipboardResponse.WithText(text);
             });
         });
+
+        // Wie GET /clipboard/text, nur steht das Bild als PNG im Rumpf; 204 ohne Bild. Der Client
+        // fragt erst danach, wenn die Zwischenablage keinen Text enthaelt.
+        app.MapGet("/clipboard/image", async context =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is not { } deviceId)
+            {
+                return;
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+
+            var clipboardOptions = context.RequestServices.GetRequiredService<ClipboardOptions>();
+            var clipboardService = context.RequestServices.GetRequiredService<IClipboardService>();
+            byte[]? image = null;
+            await RunClipboardOperationAsync(context, app.Logger, async () =>
+            {
+                var png = await clipboardService.GetImageAsync();
+                if (png is null)
+                {
+                    context.Response.StatusCode = StatusCodes.Status204NoContent;
+                    return null;
+                }
+
+                if (png.Length > clipboardOptions.MaxImageSizeBytes)
+                {
+                    context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+                    return ClipboardResponse.Fail("Clipboard image is too large.");
+                }
+
+                image = png;
+                return null;
+            });
+
+            if (image is null)
+            {
+                return;
+            }
+
+            NotifyRead(context, app.Logger, deviceId, "image");
+            context.Response.ContentType = "image/png";
+            await context.Response.Body.WriteAsync(image, context.RequestAborted);
+        });
+    }
+
+    private static void NotifyRead(HttpContext context, ILogger logger, Guid deviceId, string kind)
+    {
+        var deviceName = context.RequestServices.GetRequiredService<PairingService>()
+            .GetPairedDevices()
+            .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
+        logger.LogInformation("Clipboard {Kind} sent to paired device {DeviceName}.", kind, deviceName);
+        context.RequestServices.GetRequiredService<ClipboardReadNotifier>().NotifyRead(deviceName);
     }
 
     private static Task TrySetClipboardAsync(HttpContext context, ILogger logger, Func<Task> operation) =>
@@ -166,12 +214,13 @@ internal static class ClipboardEndpoints
             return ClipboardResponse.Ok();
         });
 
+    // Liefert operation null, antwortet der Aufrufer selbst (Bild statt JSON, 204).
     private static async Task RunClipboardOperationAsync(
         HttpContext context,
         ILogger logger,
-        Func<Task<ClipboardResponse>> operation)
+        Func<Task<ClipboardResponse?>> operation)
     {
-        ClipboardResponse response;
+        ClipboardResponse? response;
         try
         {
             response = await operation();
@@ -188,6 +237,9 @@ internal static class ClipboardEndpoints
             response = ClipboardResponse.Fail("Clipboard operation failed.");
         }
 
-        await context.Response.WriteAsJsonAsync(response, context.RequestAborted);
+        if (response is not null)
+        {
+            await context.Response.WriteAsJsonAsync(response, context.RequestAborted);
+        }
     }
 }

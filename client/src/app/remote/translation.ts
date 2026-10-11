@@ -251,9 +251,23 @@ export const TRANSLATIONS = {
     de: 'Kopieren fehlgeschlagen - Text bitte manuell markieren.',
     en: 'Copying failed - please select the text manually.',
   },
+  'touchpad.pcClipboard.copyImageError': {
+    de: 'Kopieren fehlgeschlagen - Bild bitte speichern.',
+    en: 'Copying failed - please save the image instead.',
+  },
+  'touchpad.pcClipboard.imageAlt': {
+    de: 'Bild aus der Zwischenablage des PCs',
+    en: "Image from the PC's clipboard",
+  },
+  'touchpad.pcClipboard.save': { de: 'Speichern', en: 'Save' },
+  'touchpad.pcClipboard.saved': { de: 'Bild gespeichert.', en: 'Image saved.' },
+  'touchpad.pcClipboard.saveError': {
+    de: 'Bild konnte nicht gespeichert werden.',
+    en: 'The image could not be saved.',
+  },
   'touchpad.pcClipboard.empty': {
-    de: 'Die Zwischenablage am PC enthält keinen Text.',
-    en: "The PC's clipboard contains no text.",
+    de: 'Die Zwischenablage am PC enthält weder Text noch Bild.',
+    en: "The PC's clipboard contains neither text nor an image.",
   },
   'touchpad.pcClipboard.error': {
     de: 'Zwischenablage konnte nicht vom PC geholt werden.',

@@ -22,6 +22,22 @@ export const DEVICE_CLIPBOARD_WRITER = new InjectionToken<DeviceClipboardWriter 
   },
 );
 
+export type DeviceClipboardImageWriter = (image: Blob) => Promise<void>;
+
+/** Wie DEVICE_CLIPBOARD_WRITER, nur für ein Bild (PNG) über `ClipboardItem`. */
+export const DEVICE_CLIPBOARD_IMAGE_WRITER = new InjectionToken<DeviceClipboardImageWriter | null>(
+  'DEVICE_CLIPBOARD_IMAGE_WRITER',
+  {
+    providedIn: 'root',
+    factory: () => {
+      const clipboard = globalThis.isSecureContext ? globalThis.navigator?.clipboard : undefined;
+      return clipboard?.write && typeof ClipboardItem !== 'undefined'
+        ? (image) => clipboard.write([new ClipboardItem({ [image.type]: image })])
+        : null;
+    },
+  },
+);
+
 export type DeviceClipboardReader = () => Promise<string>;
 
 /** `null` wie beim Schreiben. Safari und Firefox kennen die Berechtigung `clipboard-read` nicht;
@@ -59,6 +75,13 @@ export interface ClipboardReadResult {
   readonly success: boolean;
   /** `null`, wenn die PC-Zwischenablage gerade keinen Text enthält. */
   readonly text?: string | null;
+  readonly error?: string;
+}
+
+export interface ClipboardImageResult {
+  readonly success: boolean;
+  /** `null`, wenn die PC-Zwischenablage gerade kein Bild enthält. */
+  readonly image?: Blob | null;
   readonly error?: string;
 }
 
@@ -103,36 +126,68 @@ export class ClipboardService {
     return { success: true, text: typeof body.text === 'string' && body.text ? body.text : null };
   }
 
+  /** Nur PC-Server: der Android-Server kennt `GET /clipboard/image` nicht. */
+  async readImage(): Promise<ClipboardImageResult> {
+    try {
+      const response = await this.fetchWithToken('/clipboard/image', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+      if (response?.status === 204) {
+        return { success: true, image: null };
+      }
+      if (response?.ok) {
+        return { success: true, image: await response.blob() };
+      }
+      return response === null ? { success: false } : toSendResult(await readBody(response));
+    } catch {
+      return { success: false };
+    }
+  }
+
   private async request(
     path: string,
     init: RequestInit & { headers?: Record<string, string> },
   ): Promise<ClipboardResponseBody> {
-    const token = this.pairing.token();
-    if (token === null) {
-      return { success: false };
-    }
-
     try {
-      const response = await this.fetchFn(`${getServerHttpBaseUrl(this.serverLocation)}${path}`, {
-        ...init,
-        headers: { ...init.headers, Authorization: `Bearer ${token}` },
-      });
-
-      let body: ClipboardResponseBody | null = null;
-      try {
-        body = (await response.json()) as ClipboardResponseBody;
-      } catch {
-        // Fehlerantworten ohne JSON (z. B. 401) verwenden den generischen Fallback unten.
+      const response = await this.fetchWithToken(path, init);
+      if (response === null) {
+        return { success: false };
       }
 
-      if (!response.ok || !body?.success) {
-        return { success: false, error: body?.error?.trim() || undefined };
-      }
-
-      return body;
+      const body = await readBody(response);
+      return response.ok ? body : { success: false, error: body.error ?? undefined };
     } catch {
       return { success: false };
     }
+  }
+
+  /** `null` ohne Pairing-Token. */
+  private async fetchWithToken(
+    path: string,
+    init: RequestInit & { headers?: Record<string, string> },
+  ): Promise<Response | null> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return null;
+    }
+
+    return this.fetchFn(`${getServerHttpBaseUrl(this.serverLocation)}${path}`, {
+      ...init,
+      headers: { ...init.headers, Authorization: `Bearer ${token}` },
+    });
+  }
+}
+
+async function readBody(response: Response): Promise<ClipboardResponseBody> {
+  try {
+    const body = (await response.json()) as ClipboardResponseBody | null;
+    return body?.success
+      ? body
+      : { success: false, error: body?.error?.trim() || undefined };
+  } catch {
+    // Fehlerantworten ohne JSON (z. B. 401) verwenden den generischen Fallback.
+    return { success: false };
   }
 }
 

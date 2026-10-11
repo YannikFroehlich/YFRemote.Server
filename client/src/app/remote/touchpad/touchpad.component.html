@@ -173,6 +173,33 @@
     </div>
   }
 
+  @if (pcClipboardImage(); as image) {
+    <div
+      class="pc-clipboard"
+      role="group"
+      [attr.aria-label]="i18n.t('touchpad.pcClipboard.panelLabel')"
+    >
+      <img
+        class="pc-clipboard__image"
+        [src]="image.url"
+        [attr.alt]="i18n.t('touchpad.pcClipboard.imageAlt')"
+      />
+      <div class="pc-clipboard__actions">
+        @if (canCopyImageToDevice) {
+          <button class="primary-button" type="button" (click)="copyPcClipboardImage(image.blob)">
+            {{ i18n.t('touchpad.pcClipboard.copy') }}
+          </button>
+        }
+        <button class="secondary-button" type="button" (click)="savePcClipboardImage(image.blob)">
+          {{ i18n.t('touchpad.pcClipboard.save') }}
+        </button>
+        <button class="secondary-button" type="button" (click)="closePcClipboard()">
+          {{ i18n.t('touchpad.pcClipboard.close') }}
+        </button>
+      </div>
+    </div>
+  }
+
   @if (statusMessage(); as status) {
     <p
       class="settings-message"

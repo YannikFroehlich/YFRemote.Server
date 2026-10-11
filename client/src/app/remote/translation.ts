@@ -439,6 +439,7 @@ export const TRANSLATIONS = {
     en: 'Layout profiles were imported.',
   },
   'settings.msg.importFailed': { de: 'Import fehlgeschlagen.', en: 'Import failed.' },
+  'settings.msg.exportFailed': { de: 'Export fehlgeschlagen.', en: 'Export failed.' },
   'settings.msg.unpairFailed': {
     de: 'Entkopplung fehlgeschlagen. Die Kopplung bleibt erhalten.',
     en: 'Unpairing failed. The pairing remains in place.',

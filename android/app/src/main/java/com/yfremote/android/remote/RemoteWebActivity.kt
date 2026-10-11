@@ -3,9 +3,11 @@ package com.yfremote.android.remote
 import android.Manifest
 import android.app.Activity
 import android.app.DownloadManager
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -14,10 +16,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Base64
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -28,6 +32,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import com.yfremote.android.R
 import com.yfremote.android.server.sanitizeFileName
 import java.util.Locale
@@ -46,6 +51,9 @@ class RemoteWebActivity : Activity() {
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
     private var orientationWanted = false
     private var speech: SpeechRecognizer? = null
+    // Bridge-Aufrufe kommen auf einem eigenen Thread; webView.url duerfte dort nicht gelesen werden.
+    @Volatile
+    private var pageOrigin: String? = null
     // Sprache des Diktats, das auf die Mikrofon-Berechtigung wartet.
     private var pendingSpeechLang: String? = null
     private val rotationMatrix = FloatArray(9)
@@ -72,7 +80,7 @@ class RemoteWebActivity : Activity() {
         super.onCreate(savedInstanceState)
         title = intent.getStringExtra(EXTRA_NAME)
         val url = intent.getStringExtra(EXTRA_URL) ?: return finish()
-        val origin = Uri.parse(url).let { "${it.scheme}://${it.encodedAuthority}" }
+        val origin = originOf(url)
 
         webView = WebView(this).apply {
             setBackgroundColor(getColor(R.color.brand_background))
@@ -81,7 +89,11 @@ class RemoteWebActivity : Activity() {
             // index.html und brand-mark.png haben keinen Hash im Namen - aus dem Cache kaeme nach
             // einem Update des Zielgeraets noch die alte Oberflaeche. Im LAN kostet frisch laden nichts.
             settings.cacheMode = WebSettings.LOAD_NO_CACHE
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                    pageOrigin = originOf(url)
+                }
+            }
             addJavascriptInterface(DownloadBridge(origin), "YFRemoteDownloads")
             addJavascriptInterface(SensorBridge(), "YFRemoteSensors")
             addJavascriptInterface(DeviceBridge(), "YFRemoteDevice")
@@ -161,6 +173,34 @@ class RemoteWebActivity : Activity() {
                 )
                 true
             } catch (e: Exception) {
+                false
+            }
+        }
+
+        // Exporte (Stile, Layout-Profile) und Bilder aus der PC-Zwischenablage entstehen erst im
+        // Web-Client - es gibt keine URL zum Laden, also kommt der Inhalt als Base64 mit
+        // (client/src/app/remote/file-transfer.service.ts, FILE_SAVER).
+        @JavascriptInterface
+        fun save(fileName: String, mimeType: String, base64: String): Boolean {
+            // Nur die Oberflaeche des Zielgeraets, keine Seite hinter einem Link darauf.
+            if (pageOrigin != origin) return false
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+
+            val name = sanitizeFileName(fileName)
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/YFRemote")
+            }
+            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return false
+            return try {
+                contentResolver.openOutputStream(uri)!!.use { it.write(Base64.decode(base64, Base64.DEFAULT)) }
+                runOnUiThread {
+                    Toast.makeText(this@RemoteWebActivity, "Gespeichert in Download/YFRemote", Toast.LENGTH_SHORT).show()
+                }
+                true
+            } catch (e: Exception) {
+                contentResolver.delete(uri, null, null)
                 false
             }
         }
@@ -352,6 +392,8 @@ class RemoteWebActivity : Activity() {
         private const val AUDIO_REQUEST = 2
     }
 }
+
+private fun originOf(url: String): String = Uri.parse(url).let { "${it.scheme}://${it.encodedAuthority}" }
 
 /** Rotationsmatrix (zeilenweise, 3x3, aus SensorManager.getRotationMatrixFromVector) -> alpha, beta,
  *  gamma in Grad wie DeviceOrientationEvent, nach dem Rechenweg der W3C-Spezifikation (auch so in

@@ -308,7 +308,14 @@ loads the bundled Angular Client from `assets/www` under `https://appassets.andr
 `GAMEPAD_TRANSPORT` sends each `GamepadState` through that bridge instead of `RemoteService`
 (`client/src/app/remote/gamepad/gamepad-transport.ts`). `bluetooth/GamepadReport` holds the HID
 descriptor and the XInput-to-HID mapping (Linux/Android generic gamepad button order, sticks X/Y and
-Z/Rz, triggers Brake/Gas, D-pad as hat). No rumble back from the host.
+Z/Rz, triggers Brake/Gas, D-pad as hat). No rumble back from the host, and an HID output report
+alone would not change that: hosts only send rumble to gamepads whose driver knows the report
+format, chosen by the vendor/product ID (Linux/Android `hid-microsoft`, `hid-playstation`, ...).
+Over Bluetooth that ID comes from the phone's Device ID SDP record, which
+`BluetoothHidDeviceAppSdpSettings` cannot set, so the host always binds the generic driver
+(`hid-generic`, no force feedback). Only Windows DirectInput would honor a full HID PID
+force-feedback descriptor (with its Set Effect/Block Load reports), and XInput games don't see a
+generic HID gamepad at all.
 
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no

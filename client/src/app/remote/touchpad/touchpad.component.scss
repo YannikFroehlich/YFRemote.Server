@@ -272,6 +272,14 @@
   outline: 3px solid rgba(var(--accent-rgb), 0.12);
 }
 
+.pc-clipboard__image {
+  justify-self: center;
+  max-width: 100%;
+  max-height: 40vh;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(13px * var(--radius-scale));
+}
+
 .pc-clipboard__hint {
   margin: 0;
   color: var(--muted);

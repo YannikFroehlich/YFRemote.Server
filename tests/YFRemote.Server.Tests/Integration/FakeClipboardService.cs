@@ -15,6 +15,8 @@ public sealed class FakeClipboardService : IClipboardService
 
     public string? TextToReturn { get; set; }
 
+    public byte[]? ImageToReturn { get; set; }
+
     public Task<string?> GetTextAsync()
     {
         if (ThrowOnNextCall is { } exception)
@@ -24,6 +26,17 @@ public sealed class FakeClipboardService : IClipboardService
         }
 
         return Task.FromResult(TextToReturn);
+    }
+
+    public Task<byte[]?> GetImageAsync()
+    {
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        return Task.FromResult(ImageToReturn);
     }
 
     public Task SetTextAsync(string text)

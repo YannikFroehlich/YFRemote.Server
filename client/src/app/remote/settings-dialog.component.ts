@@ -3,6 +3,7 @@ import { ClipboardSyncService } from './clipboard-sync.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
+import { FILE_SAVER } from './file-transfer.service';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ServerConfig } from './remote.models';
 import { RemoteService } from './remote.service';
@@ -42,6 +43,8 @@ export class SettingsDialogComponent {
   protected readonly theme = inject(ThemeService);
   protected readonly i18n = inject(TranslationService);
   protected readonly clipboardSync = inject(ClipboardSyncService);
+  // Ueber die App-Bruecke, wo es eine gibt: im WebView der Android-App tut ein blob:-Link nichts.
+  private readonly saveFile = inject(FILE_SAVER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
 
   readonly closed = output<void>();
@@ -184,9 +187,12 @@ export class SettingsDialogComponent {
     return `linear-gradient(135deg, ${v.accent} 0 30%, ${v.raised} 30% 65%, ${v.background} 65%)`;
   }
 
-  protected exportCustomThemes(): void {
-    this.download(this.theme.exportCustomThemes(), 'yfremote-stile.json');
-    this.showOperationMessage(this.i18n.t('settings.msg.stylesExported'), true);
+  protected exportCustomThemes(): Promise<void> {
+    return this.exportJson(
+      this.theme.exportCustomThemes(),
+      'yfremote-stile.json',
+      'settings.msg.stylesExported',
+    );
   }
 
   protected async importCustomThemes(event: Event): Promise<void> {
@@ -231,16 +237,12 @@ export class SettingsDialogComponent {
     }
   }
 
-  private download(content: string, fileName: string): void {
-    const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    try {
-      anchor.click();
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+  private async exportJson(content: string, fileName: string, successKey: string): Promise<void> {
+    const saved = await this.saveFile(new Blob([content], { type: 'application/json' }), fileName);
+    this.showOperationMessage(
+      this.i18n.t(saved ? successKey : 'settings.msg.exportFailed'),
+      saved,
+    );
   }
 
   protected toggleSetting(
@@ -326,19 +328,12 @@ export class SettingsDialogComponent {
     );
   }
 
-  protected exportProfiles(): void {
-    const blob = new Blob([this.layout.exportProfiles()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'yfremote-layout-profile.json';
-
-    try {
-      anchor.click();
-      this.showOperationMessage(this.i18n.t('settings.msg.profilesExported'), true);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+  protected exportProfiles(): Promise<void> {
+    return this.exportJson(
+      this.layout.exportProfiles(),
+      'yfremote-layout-profile.json',
+      'settings.msg.profilesExported',
+    );
   }
 
   protected async importProfiles(event: Event): Promise<void> {

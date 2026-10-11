@@ -1,6 +1,10 @@
 import { Component, computed, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
-import { ClipboardService, DEVICE_CLIPBOARD_WRITER } from '../clipboard.service';
-import { DOWNLOAD_BRIDGE, FileTransferService } from '../file-transfer.service';
+import {
+  ClipboardService,
+  DEVICE_CLIPBOARD_IMAGE_WRITER,
+  DEVICE_CLIPBOARD_WRITER,
+} from '../clipboard.service';
+import { DOWNLOAD_BRIDGE, FILE_SAVER, FileTransferService } from '../file-transfer.service';
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
@@ -165,6 +169,8 @@ export class TouchpadComponent implements OnDestroy {
   private readonly fileTransfer = inject(FileTransferService);
   private readonly clipboard = inject(ClipboardService);
   private readonly writeDeviceClipboard = inject(DEVICE_CLIPBOARD_WRITER);
+  private readonly writeDeviceClipboardImage = inject(DEVICE_CLIPBOARD_IMAGE_WRITER);
+  private readonly saveFile = inject(FILE_SAVER);
   private readonly createRecognizer = inject(SPEECH_RECOGNIZER_FACTORY);
   private readonly speechBridge = inject(SPEECH_BRIDGE);
   private readonly inAndroidApp = inject(DOWNLOAD_BRIDGE) !== null;
@@ -199,7 +205,11 @@ export class TouchpadComponent implements OnDestroy {
   protected readonly clipboardMenuOpen = signal(false);
   protected readonly pcClipboardLoading = signal(false);
   protected readonly pcClipboardText = signal<string | null>(null);
+  protected readonly pcClipboardImage = signal<{ readonly blob: Blob; readonly url: string } | null>(
+    null,
+  );
   protected readonly canCopyToDevice = this.writeDeviceClipboard !== null;
+  protected readonly canCopyImageToDevice = this.writeDeviceClipboardImage !== null;
 
   private recognizer: SpeechRecognizer | null = null;
   private dictationBaseText = '';
@@ -484,22 +494,32 @@ export class TouchpadComponent implements OnDestroy {
 
   protected async fetchPcClipboard(): Promise<void> {
     this.clipboardMenuOpen.set(false);
+    this.closePcClipboard();
     this.pcClipboardLoading.set(true);
     const result = await this.clipboard.readText();
+    // Ohne Text fragt der PC-Client noch nach einem Bild (Screenshot); der Android-Server kann das nicht.
+    const imageResult =
+      result.success && !result.text && this.remote.serverPlatform() !== 'android'
+        ? await this.clipboard.readImage()
+        : null;
     this.pcClipboardLoading.set(false);
 
-    if (!result.success) {
+    if (!result.success || imageResult?.success === false) {
       // Linux hat einen eigenen Fehlertext: dort fehlt meist wl-clipboard bzw. xclip.
       this.showStatus(
         this.remote.serverPlatform() === 'linux'
           ? 'touchpad.pcClipboard.error.linux'
           : 'touchpad.pcClipboard.error' + this.targetSuffix(),
       );
-    } else if (!result.text) {
-      this.pcClipboardText.set(null);
-      this.showStatus('touchpad.pcClipboard.empty' + this.targetSuffix());
-    } else {
+    } else if (result.text) {
       this.pcClipboardText.set(result.text);
+    } else if (imageResult?.image) {
+      this.pcClipboardImage.set({
+        blob: imageResult.image,
+        url: URL.createObjectURL(imageResult.image),
+      });
+    } else {
+      this.showStatus('touchpad.pcClipboard.empty' + this.targetSuffix());
     }
   }
 
@@ -513,8 +533,33 @@ export class TouchpadComponent implements OnDestroy {
     }
   }
 
+  protected async copyPcClipboardImage(image: Blob): Promise<void> {
+    try {
+      await this.writeDeviceClipboardImage!(image);
+      this.closePcClipboard();
+      this.showStatus('touchpad.pcClipboard.copied', undefined, true);
+    } catch {
+      this.showStatus('touchpad.pcClipboard.copyImageError');
+    }
+  }
+
+  protected async savePcClipboardImage(image: Blob): Promise<void> {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    if (await this.saveFile(image, `zwischenablage-${stamp}.png`)) {
+      this.closePcClipboard();
+      this.showStatus('touchpad.pcClipboard.saved', undefined, true);
+    } else {
+      this.showStatus('touchpad.pcClipboard.saveError');
+    }
+  }
+
   protected closePcClipboard(): void {
     this.pcClipboardText.set(null);
+    const image = this.pcClipboardImage();
+    if (image !== null) {
+      URL.revokeObjectURL(image.url);
+      this.pcClipboardImage.set(null);
+    }
   }
 
   private showSendStatus(success: boolean): void {
@@ -658,6 +703,7 @@ export class TouchpadComponent implements OnDestroy {
     this.resetPointers();
     this.releaseAllHeldButtons();
     this.stopDictation();
+    this.closePcClipboard();
 
     if (this.statusTimer !== null) {
       clearTimeout(this.statusTimer);

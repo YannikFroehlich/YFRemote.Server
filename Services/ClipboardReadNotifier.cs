@@ -10,11 +10,11 @@ public sealed class ClipboardReadNotifier
 {
     private readonly ConcurrentDictionary<string, bool> syncAnnounced = new();
 
-    public event Action<string>? TextRead;
+    public event Action<string>? Read;
 
     public event Action<string>? SyncEnabled;
 
-    public void NotifyTextRead(string deviceName) => TextRead?.Invoke(deviceName);
+    public void NotifyRead(string deviceName) => Read?.Invoke(deviceName);
 
     public void NotifySyncEnabled(string deviceName)
     {

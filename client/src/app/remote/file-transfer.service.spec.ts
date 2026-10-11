@@ -100,7 +100,10 @@ function setupFileTransferService(
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: PAIRING_FETCH, useValue: async () => new Response(null, { status: 500 }) },
       { provide: FILE_TRANSFER_FETCH, useValue: fakeFetch.fetch },
-      { provide: FILE_SAVER, useValue: (blob: Blob, fileName: string) => saved.push({ blob, fileName }) },
+      {
+        provide: FILE_SAVER,
+        useValue: async (blob: Blob, fileName: string) => saved.push({ blob, fileName }) > 0,
+      },
       { provide: DOWNLOAD_BRIDGE, useValue: options.downloadBridge ?? null },
       {
         provide: SERVER_LOCATION,
@@ -226,5 +229,30 @@ describe('FileTransferService', () => {
     expect(calls).toEqual([['http://192.168.1.44:5050/files/o1', 'tok-123', 'notiz.txt']]);
     expect(fakeFetch.calls).toHaveLength(0);
     expect(saved).toEqual([]);
+  });
+});
+
+describe('FILE_SAVER', () => {
+  it('hands files to the app bridge as base64, because its WebView cannot save blob: links', async () => {
+    const calls: unknown[][] = [];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: DOWNLOAD_BRIDGE,
+          useValue: {
+            download: () => false,
+            save: (...args: unknown[]) => calls.push(args) > 0,
+          } satisfies DownloadBridge,
+        },
+      ],
+    });
+
+    const saved = await TestBed.inject(FILE_SAVER)(
+      new Blob(['{"a":1}'], { type: 'application/json' }),
+      'yfremote-stile.json',
+    );
+
+    expect(saved).toBe(true);
+    expect(calls).toEqual([['yfremote-stile.json', 'application/json', btoa('{"a":1}')]]);
   });
 });

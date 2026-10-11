@@ -8,23 +8,38 @@ export const FILE_TRANSFER_FETCH = new InjectionToken<typeof fetch>('FILE_TRANSF
   factory: () => globalThis.fetch.bind(globalThis),
 });
 
-/** Legt die geladene Datei im Download-Ordner des Geraets ab; austauschbar fuer Tests. */
-export const FILE_SAVER = new InjectionToken<(blob: Blob, fileName: string) => void>('FILE_SAVER', {
-  providedIn: 'root',
-  factory: () => saveBlobAsDownload,
-});
-
 /** Haengt die Android-App (Bereich "Steuern", remote/RemoteWebActivity.kt) als
  *  window.YFRemoteDownloads ein: Ihr WebView kann blob:-Downloads nicht speichern, deshalb laedt
  *  die App die Datei selbst (Android-DownloadManager, gestreamt, mit Fortschrittsanzeige). */
 export interface DownloadBridge {
   download(url: string, token: string, fileName: string): boolean;
+  /** Erst im Web-Client entstandene Dateien (Exporte, Bild aus der PC-Zwischenablage); fehlt in
+   *  aelteren App-Versionen. */
+  save?(fileName: string, mimeType: string, base64: string): boolean;
 }
 
 export const DOWNLOAD_BRIDGE = new InjectionToken<DownloadBridge | null>('DOWNLOAD_BRIDGE', {
   providedIn: 'root',
   factory: () => (globalThis as { YFRemoteDownloads?: DownloadBridge }).YFRemoteDownloads ?? null,
 });
+
+/** Legt eine Datei im Download-Ordner des Geraets ab; austauschbar fuer Tests. */
+export const FILE_SAVER = new InjectionToken<(blob: Blob, fileName: string) => Promise<boolean>>(
+  'FILE_SAVER',
+  {
+    providedIn: 'root',
+    factory: () => {
+      const bridge = inject(DOWNLOAD_BRIDGE);
+      if (bridge === null) {
+        return saveBlobAsDownload;
+      }
+      // Eine aeltere App ohne save(): ein blob:-Link taete dort nichts, also ehrlich scheitern.
+      return async (blob, fileName) =>
+        bridge.save?.(fileName, blob.type || 'application/octet-stream', await toBase64(blob)) ??
+        false;
+    },
+  },
+);
 
 export interface FileSendResult {
   readonly success: boolean;
@@ -76,8 +91,7 @@ export class FileTransferService {
         return false;
       }
 
-      this.saveFile(await response.blob(), offer.name);
-      return true;
+      return await this.saveFile(await response.blob(), offer.name);
     } catch {
       return false;
     } finally {
@@ -123,7 +137,7 @@ export class FileTransferService {
   }
 }
 
-function saveBlobAsDownload(blob: Blob, fileName: string): void {
+async function saveBlobAsDownload(blob: Blob, fileName: string): Promise<boolean> {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -131,4 +145,17 @@ function saveBlobAsDownload(blob: Blob, fileName: string): void {
   link.click();
   // Sofortiges Freigeben bricht den Download in manchen Browsern ab, bevor er begonnen hat.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return true;
+}
+
+function toBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      resolve(dataUrl.slice(dataUrl.indexOf(',') + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }

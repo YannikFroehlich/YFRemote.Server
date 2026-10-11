@@ -154,8 +154,13 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   ("Vom Gerät holen" for the Android app's own `GET /clipboard/text`, which answers `409` unless
   the YFRemote keyboard is the selected IME - Android 10+ only lets that IME read the
   clipboard). Every successful
-  read calls `ClipboardReadNotifier.NotifyTextRead(deviceName)`, which the tray turns into a
+  read calls `ClipboardReadNotifier.NotifyRead(deviceName)`, which the tray turns into a
   "Zwischenablage gesendet" balloon so an unexpected read is visible at the PC.
+- `GET /clipboard/image` → the same gate and `no-store`, but the clipboard image as `image/png`
+  in the body (`204` without one, `422` beyond `Clipboard:MaxImageSizeBytes`). The Client asks for
+  it only when `GET /clipboard/text` found no text, and never on the Android server, which has no
+  such endpoint. `WindowsClipboardService` converts the bitmap to PNG; Linux asks
+  `wl-paste`/`xclip` for `image/png`.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over

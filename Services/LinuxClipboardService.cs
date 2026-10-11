@@ -33,25 +33,35 @@ public sealed class LinuxClipboardService : IClipboardService
         await WriteAsync(bytes, mimeType);
     }
 
-    public async Task<string?> GetTextAsync()
+    public async Task<string?> GetTextAsync() =>
+        await ReadAsync(mimeType: null) is { } bytes ? Encoding.UTF8.GetString(bytes) : null;
+
+    // Bietet die Quell-App kein PNG an, melden wl-paste/xclip das wie eine leere Zwischenablage.
+    public Task<byte[]?> GetImageAsync() => ReadAsync("image/png");
+
+    private static async Task<byte[]?> ReadAsync(string? mimeType)
     {
         var backend = GetBackend();
-        var startInfo = backend.Kind == ClipboardBackendKind.Wayland
-            ? CreateStartInfo(backend, "wl-paste", "--no-newline", "--type", "text")
-            : CreateStartInfo(backend, "xclip", "-selection", "clipboard", "-out");
+        string[] arguments = backend.Kind == ClipboardBackendKind.Wayland
+            ? mimeType is null ? ["--no-newline", "--type", "text"] : ["--type", mimeType]
+            : mimeType is null
+                ? ["-selection", "clipboard", "-out"]
+                : ["-selection", "clipboard", "-target", mimeType, "-out"];
+        var startInfo = CreateStartInfo(backend, backend.Kind == ClipboardBackendKind.Wayland ? "wl-paste" : "xclip", arguments);
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
-        startInfo.StandardOutputEncoding = Encoding.UTF8;
 
         using var process = Start(startInfo);
         using var timeout = new CancellationTokenSource(CommandTimeout);
-        var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        using var output = new MemoryStream();
+        var copy = process.StandardOutput.BaseStream.CopyToAsync(output, timeout.Token);
         var error = process.StandardError.ReadToEndAsync(timeout.Token);
         await WaitAsync(process, timeout.Token);
+        await copy;
 
         if (process.ExitCode == 0)
         {
-            return await output;
+            return output.ToArray();
         }
 
         var message = (await error).Trim();

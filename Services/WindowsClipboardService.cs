@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Drawing.Imaging;
 
 namespace YFRemote.Server.Services;
 
@@ -29,6 +30,20 @@ public sealed class WindowsClipboardService : IClipboardService, IDisposable
 
     public Task<string?> GetTextAsync() =>
         RunOnStaThread(() => Clipboard.ContainsText() ? Clipboard.GetText() : null);
+
+    // Screenshots und "Bild kopieren" liegen als Bitmap vor; PNG zeigt und speichert jedes Geraet.
+    public Task<byte[]?> GetImageAsync() => RunOnStaThread(() =>
+    {
+        using var image = Clipboard.ContainsImage() ? Clipboard.GetImage() : null;
+        if (image is null)
+        {
+            return null;
+        }
+
+        using var stream = new MemoryStream();
+        image.Save(stream, ImageFormat.Png);
+        return (byte[]?)stream.ToArray();
+    });
 
     public void Dispose() => workItems.CompleteAdding();
 

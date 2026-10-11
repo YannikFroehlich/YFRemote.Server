@@ -283,9 +283,14 @@ hands "Laden" on a file offer to it (`DOWNLOAD_BRIDGE`) instead of fetching: the
 `Downloads/YFRemote`), only for URLs on the loaded target's own origin. The WebView refuses the
 microphone over `http://`, so dictation goes through a second bridge, `window.YFRemoteSpeech`:
 the app recognizes speech with Android's `SpeechRecognizer` (asking for `RECORD_AUDIO` on first
-use) and answers with `yfremote-speech` events (`SPEECH_BRIDGE` in the Client). Known limits of
-the WebView: the settings dialog's JSON exports (styles, layout profiles) are still `blob:` links
-and do nothing there, and HTTPS targets with the local CA aren't trusted.
+use) and answers with `yfremote-speech` events (`SPEECH_BRIDGE` in the Client). Files that only
+exist in the Client (the settings dialog's JSON exports, an image fetched from the PC clipboard)
+have no URL for `DownloadManager`, so the Client's `FILE_SAVER` hands them to
+`YFRemoteDownloads.save(fileName, mimeType, base64)`, which writes them through
+`MediaStore.Downloads` into `Downloads/YFRemote` - only while the loaded page is still on the
+target's origin. An older app without `save` makes `FILE_SAVER` report failure instead of
+clicking a dead `blob:` link. Known limit of the WebView: HTTPS targets with the local CA aren't
+trusted.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as
@@ -303,7 +308,14 @@ loads the bundled Angular Client from `assets/www` under `https://appassets.andr
 `GAMEPAD_TRANSPORT` sends each `GamepadState` through that bridge instead of `RemoteService`
 (`client/src/app/remote/gamepad/gamepad-transport.ts`). `bluetooth/GamepadReport` holds the HID
 descriptor and the XInput-to-HID mapping (Linux/Android generic gamepad button order, sticks X/Y and
-Z/Rz, triggers Brake/Gas, D-pad as hat). No rumble back from the host.
+Z/Rz, triggers Brake/Gas, D-pad as hat). No rumble back from the host, and an HID output report
+alone would not change that: hosts only send rumble to gamepads whose driver knows the report
+format, chosen by the vendor/product ID (Linux/Android `hid-microsoft`, `hid-playstation`, ...).
+Over Bluetooth that ID comes from the phone's Device ID SDP record, which
+`BluetoothHidDeviceAppSdpSettings` cannot set, so the host always binds the generic driver
+(`hid-generic`, no force feedback). Only Windows DirectInput would honor a full HID PID
+force-feedback descriptor (with its Set Effect/Block Load reports), and XInput games don't see a
+generic HID gamepad at all.
 
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no

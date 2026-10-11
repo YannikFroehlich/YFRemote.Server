@@ -7,4 +7,7 @@ public interface IClipboardService
     Task SetImageAsync(Stream imageStream);
 
     Task<string?> GetTextAsync();
+
+    // Als PNG; null, wenn die Zwischenablage kein Bild enthaelt.
+    Task<byte[]?> GetImageAsync();
 }

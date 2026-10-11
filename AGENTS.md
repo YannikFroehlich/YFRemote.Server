@@ -107,6 +107,25 @@ that would keep redirected stdout/stderr pipes open forever. Images are PNG or J
 (sniffed from the magic bytes, the tools need a MIME type). **Unverified on a real Linux session**
 — only backend selection and image sniffing are unit-tested (`LinuxClipboardServiceTests`).
 
+**Linux controller (`Services/LinuxGamepadService.cs`).** Each `gamepad` connection gets its own
+`uinput` device (`LinuxInputSender.UinputDevice` with `EV_ABS` axes), announced as a wired Xbox
+360 pad (USB `045e:028e`, version `0x0114`, name "Microsoft X-Box 360 pad") with the exact
+button/axis codes and ranges the kernel's `xpad` driver uses — `BTN_X`/`BTN_Y` by label, Y axes
+mirrored with `~`, D-pad as `ABS_HAT0X`/`ABS_HAT0Y` — so SDL's controller database, Steam, and
+Proton treat it like the real thing. No driver and no slot cap; it needs the same `/dev/uinput`
+access as keyboard and mouse, and `IsAvailable` only checks that `/dev/uinput` exists (a missing
+group membership fails at connect with the same hint). No rumble: that would need reading
+`UI_BEGIN_FF_UPLOAD` requests back from the device. **Unverified on a real Linux kernel** — only the
+XInput-to-evdev mapping is unit-tested (`LinuxGamepadServiceTests`).
+
+**Linux media status (`Services/LinuxMediaStatusReader.cs`).** Volume and mute from `pactl`
+(`get-sink-volume`/`get-sink-mute @DEFAULT_SINK@`, so PulseAudio and PipeWire via
+`pipewire-pulse`), title/artist/playing from `playerctl metadata` (any MPRIS player). Every command
+runs with `LANGUAGE=en` because `pactl` translates "Mute: yes". A missing tool or a failing command
+just leaves its part empty, like Windows without a playback device, so the strip still shows.
+**Unverified on a real Linux session** — only output parsing is unit-tested
+(`LinuxMediaStatusReaderTests`).
+
 **Current status: both stages of the plan's proof have now passed, on x86_64 only.** Manually
 tested on a Linux Mint 22 (Cinnamon) VM in VirtualBox: (1) the standalone `/dev/uinput`
 round-trip via `--uinput-smoke-test` (typed text and moved/clicked/scrolled the mouse with no
@@ -138,13 +157,10 @@ dotnet publish -c Release -f net10.0 -r linux-arm64 --self-contained true -o pub
 
 The publish output should be an ELF binary with no `System.Windows.Forms.dll`, `Velopack.dll`, or
 `QRCoder.dll` — `System.Drawing*.dll` is expected (a baseline self-contained-deployment assembly,
-not evidence of a WinForms dependency). The two integration tests that open a real WebSocket
-(`WebSocket_WithValidTokenAndOrigin_Connects`,
-`Unpair_WithValidToken_RevokesTokenAndForceClosesOpenSocket` in
-`tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) are still `#if WINDOWS`-only:
-they exercise the full `/ws` pipeline including a real input-service call, which this repo's
-Windows-hosted CI can't do for the Linux target either. Two `PairingServiceTests` are `#if
-WINDOWS`-only for a related but different reason:
+not evidence of a WinForms dependency). The integration tests that open a real WebSocket
+(`tests/YFRemote.Server.Tests/Integration/ServerEndpointsTests.cs`) run on both targets: they swap
+`FakeInputService` in for the input services via `BuildApplication`'s `configureServices` hook, so
+no real `SendInput`/`uinput` call happens. Two `PairingServiceTests` are `#if WINDOWS`-only:
 `RemoveDevice_WhenWriteFails_RollsBackAndCanBeRetried` and
 `RemoveDeviceByToken_WhenWriteFails_KeepsTheTokenValidForRetry` simulate a write failure by
 opening `devices.json` with `FileShare.None`. Windows enforces that as a mandatory lock (a second
@@ -155,8 +171,7 @@ exception from `PersistDevicesAtomically`) is shared by `TryPair`/`RemoveDevice`
 `RemoveDeviceByToken` alike and stays covered on both platforms via
 `TryPair_WhenWriteFails_RollsBackDeviceAndKeepsPinUsable`, which induces the failure with a
 blocking file in place of a directory instead — a portable failure mode, unlike exclusive
-locking. This is a real gap in the original Linux plan's assumption that "Pairing, WebSockets,
-Integration" tests would run unchanged on both platforms; they mostly do, but not these two.
+locking.
 
 **Multi-targeting broke `dotnet publish` without `-f`.** `dotnet publish YFRemote.Server.csproj`
 used to infer the single `net10.0-windows10.0.17763.0` target; once the project multi-targets, `publish`
@@ -265,9 +280,12 @@ per-origin `localStorage`, exactly like a browser. No native protocol code on th
 `RemoteWebActivity` injects `window.YFRemoteDownloads` and the Client's `FileTransferService`
 hands "Laden" on a file offer to it (`DOWNLOAD_BRIDGE`) instead of fetching: the app enqueues
 `GET /files/{id}` with the `Bearer` token in Android's `DownloadManager` (Android 10+,
-`Downloads/YFRemote`), only for URLs on the loaded target's own origin. Known limits of the
-WebView: the settings dialog's JSON exports (styles, layout profiles) are still `blob:` links and
-do nothing there, dictation doesn't work, and HTTPS targets with the local CA aren't trusted.
+`Downloads/YFRemote`), only for URLs on the loaded target's own origin. The WebView refuses the
+microphone over `http://`, so dictation goes through a second bridge, `window.YFRemoteSpeech`:
+the app recognizes speech with Android's `SpeechRecognizer` (asking for `RECORD_AUDIO` on first
+use) and answers with `yfremote-speech` events (`SPEECH_BRIDGE` in the Client). Known limits of
+the WebView: the settings dialog's JSON exports (styles, layout profiles) are still `blob:` links
+and do nothing there, and HTTPS targets with the local CA aren't trusted.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as

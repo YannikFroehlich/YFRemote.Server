@@ -19,8 +19,9 @@ public sealed class LinuxInputSender : IDisposable
     public const ushort BtnMiddle = 0x112;
 
     private const ushort EvSyn = 0x00;
-    private const ushort EvKey = 0x01;
+    internal const ushort EvKey = 0x01;
     private const ushort EvRel = 0x02;
+    internal const ushort EvAbs = 0x03;
     private const ushort SynReport = 0x00;
     private const ushort RelX = 0x00;
     private const ushort RelY = 0x01;
@@ -92,7 +93,7 @@ public sealed class LinuxInputSender : IDisposable
             keyCodes: [BtnLeft, BtnRight, BtnMiddle],
             relCodes: [RelX, RelY, RelWheel, RelHWheel]);
 
-    private sealed class UinputDevice : IDisposable
+    internal sealed class UinputDevice : IDisposable
     {
         private const int OWronly = 0x0001;
         private const int ONonblock = 0x0800;
@@ -102,10 +103,15 @@ public sealed class LinuxInputSender : IDisposable
         private const uint UiSetEvBit = 0x40045564;
         private const uint UiSetKeyBit = 0x40045565;
         private const uint UiSetRelBit = 0x40045566;
+        private const uint UiSetAbsBit = 0x40045567;
 
         private const int UinputMaxNameSize = 80;
         private const int AbsCnt = 64;
-        private const int UinputUserDevSize = UinputMaxNameSize + 8 + 4 + (4 * AbsCnt * 4);
+        // name[80], struct input_id (4 x u16), u32 ff_effects_max, dann je int[64] absmax,
+        // absmin, absfuzz, absflat.
+        private const int AbsMaxOffset = UinputMaxNameSize + 8 + 4;
+        private const int AbsArraySize = AbsCnt * 4;
+        private const int UinputUserDevSize = AbsMaxOffset + (4 * AbsArraySize);
         private const ushort BusUsb = 0x03;
 
         // ponytail: fester Wert statt auf das Erscheinen des Geraets zu warten (waere
@@ -126,7 +132,9 @@ public sealed class LinuxInputSender : IDisposable
         public static UinputDevice Create(
             string name,
             IReadOnlyCollection<ushort> keyCodes,
-            IReadOnlyCollection<ushort>? relCodes = null)
+            IReadOnlyCollection<ushort>? relCodes = null,
+            IReadOnlyCollection<UinputAbsAxis>? absAxes = null,
+            UinputId id = default)
         {
             var fd = open("/dev/uinput", OWronly | ONonblock);
             if (fd < 0)
@@ -155,7 +163,16 @@ public sealed class LinuxInputSender : IDisposable
                     }
                 }
 
-                device.WriteDeviceDescriptor(name);
+                if (absAxes is { Count: > 0 })
+                {
+                    device.SetEvBit(EvAbs);
+                    foreach (var axis in absAxes)
+                    {
+                        device.CheckedIoctl(UiSetAbsBit, axis.Code);
+                    }
+                }
+
+                device.WriteDeviceDescriptor(name, id, absAxes ?? []);
                 device.CheckedIoctl(UiDevCreate, 0, "Geraet konnte nicht angelegt werden");
                 // X11/libinput oeffnen ein neues Geraet erst einen Moment nach UI_DEV_CREATE;
                 // Events, die sofort danach kommen, gehen verloren (auf einer Mint-VM fehlte der
@@ -202,7 +219,7 @@ public sealed class LinuxInputSender : IDisposable
             }
         }
 
-        private void WriteDeviceDescriptor(string name)
+        private void WriteDeviceDescriptor(string name, UinputId id, IReadOnlyCollection<UinputAbsAxis> absAxes)
         {
             var buffer = new byte[UinputUserDevSize];
             var nameBytes = Encoding.ASCII.GetBytes(name);
@@ -210,10 +227,21 @@ public sealed class LinuxInputSender : IDisposable
             nameBytes.AsSpan(0, nameLength).CopyTo(buffer);
 
             // struct input_id direkt hinter dem Namen: bustype, vendor, product, version (je
-            // u16). vendor/product/version bleiben 0 - rein virtuelles Geraet ohne echte
-            // PCI-/USB-ID. absmax/absmin/absfuzz/absflat bleiben 0, da keine ABS-Achsen
-            // benutzt werden (nur Tasten und relative Mausbewegung).
+            // u16). Tastatur und Maus lassen vendor/product/version auf 0 - rein virtuelle
+            // Geraete ohne echte USB-ID; nur der Controller gibt sich als Xbox 360 aus.
             BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize, 2), BusUsb);
+            BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize + 2, 2), id.Vendor);
+            BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize + 4, 2), id.Product);
+            BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize + 6, 2), id.Version);
+
+            foreach (var axis in absAxes)
+            {
+                var offset = AbsMaxOffset + (axis.Code * 4);
+                BitConverter.TryWriteBytes(buffer.AsSpan(offset, 4), axis.Max);
+                BitConverter.TryWriteBytes(buffer.AsSpan(offset + AbsArraySize, 4), axis.Min);
+                BitConverter.TryWriteBytes(buffer.AsSpan(offset + (2 * AbsArraySize), 4), axis.Fuzz);
+                BitConverter.TryWriteBytes(buffer.AsSpan(offset + (3 * AbsArraySize), 4), axis.Flat);
+            }
 
             WriteAll(buffer);
         }
@@ -242,3 +270,8 @@ public sealed class LinuxInputSender : IDisposable
         private static extern int ioctl(int fd, nuint request, int arg);
     }
 }
+
+// Wertebereich einer absoluten Achse (Stick, Trigger, Steuerkreuz) fuer struct uinput_user_dev.
+internal readonly record struct UinputAbsAxis(ushort Code, int Min, int Max, int Fuzz = 0, int Flat = 0);
+
+internal readonly record struct UinputId(ushort Vendor, ushort Product, ushort Version);

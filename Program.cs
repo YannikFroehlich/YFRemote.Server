@@ -368,6 +368,13 @@ internal static class Program
         builder.Services.AddSingleton<IMouseService, LinuxMouseService>();
         builder.Services.AddSingleton<IPowerService, LinuxPowerService>();
         builder.Services.AddSingleton<IClipboardService, LinuxClipboardService>();
+        builder.Services.AddSingleton<IGamepadService, LinuxGamepadService>();
+        builder.Services.AddSingleton<LinuxMediaStatusReader>();
+        builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
+            services.GetRequiredService<LinuxMediaStatusReader>().ReadAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
 #endif
         builder.Services.AddSingleton(services =>
         {

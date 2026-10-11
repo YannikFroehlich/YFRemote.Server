@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Linux (Beta): Controller-Modus. Jedes verbundene Gerät wird über `/dev/uinput` zu einem eigenen virtuellen Xbox-360-Controller, ganz ohne zusätzlichen Treiber. Spiele, Steam und Proton sehen ihn wie einen per USB angesteckten Controller. Vibration gibt es unter Linux noch nicht. Noch nicht auf einem echten Linux-System getestet.
+- Linux (Beta): Lautstärke und laufender Titel erscheinen jetzt auch bei einem Linux-PC über den Knöpfen der Fernbedienung. Die Lautstärke kommt von `pactl` (PulseAudio oder PipeWire), der Titel von `playerctl` (Spotify, Browser, VLC und alle anderen MPRIS-Player). Fehlt eines der Werkzeuge, bleibt nur dieser Teil leer. Noch nicht auf einem echten Linux-System getestet.
+
 ## [2.31.0] - 2026-10-10
 
 ### Added

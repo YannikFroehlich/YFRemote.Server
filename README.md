@@ -104,7 +104,9 @@ devices need to pair again.
 Without HTTPS the browser refuses the microphone, the camera, and clipboard
 access on a page served over a plain-HTTP LAN address — that is a browser rule
 for insecure origins, not a setting, so dictation in the touchpad's text field
-needs HTTPS (or the phone keyboard's own dictation, which is plain typing).
+needs HTTPS (or the phone keyboard's own dictation, which is plain typing). The
+YFRemote Android app is the exception: it recognizes speech itself and needs no
+HTTPS for dictation.
 Likewise, text fetched from the PC's clipboard can only be copied with one tap
 over HTTPS; over plain HTTP it is shown for you to select and copy manually.
 

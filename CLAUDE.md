@@ -178,8 +178,9 @@ backstop against a flooding bug or a misbehaving already-paired device — legit
 move/scroll traffic tops out around one message per animation frame.
 
 **Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
-`{"type":"media","volume","muted","title","artist","playing"}` (Windows only:
-`WindowsMediaStatusReader` reads Core Audio over COM and the WinRT media session manager) and
+`{"type":"media","volume","muted","title","artist","playing"}` (`WindowsMediaStatusReader` reads
+Core Audio over COM and the WinRT media session manager; `LinuxMediaStatusReader` shells out to
+`pactl` and `playerctl`, leaving a part empty when its tool is missing) and
 `{"type":"clipboard","text"}`. Both come from a `PollingBroadcaster<T>`, which polls its source
 once per second only while at least one connection subscribes and reports only changes. Media is
 subscribed for every connection and announces the current state on subscribe; the clipboard
@@ -190,7 +191,7 @@ once per device and run. In the Client, `ClipboardSyncService` writes pushed tex
 device clipboard and, when the app regains focus, sends newly copied device text via
 `POST /clipboard/text`. That needs the Async Clipboard API, so it works over HTTPS only.
 
-**Controller mode (Windows only).** A `gamepad` action carries the full controller state
+**Controller mode.** A `gamepad` action carries the full controller state
 (`GamepadState`: XInput button bitmask, stick axes, triggers) instead of single button events, so a
 lost message cannot leave a button stuck. `RemoteActionHandler` plugs a virtual Xbox 360 controller
 in through `IGamepadService` on the first `gamepad` message of a connection and keeps it in that
@@ -205,8 +206,10 @@ uses the ViGEmBus driver via `Nefarius.ViGEm.Client` and caps at 4 controllers (
 driver needs admin rights and is not bundled with the per-user Velopack install: without it
 `/health` reports `gamepad: false`, the Client hides the tab, and the tray shows
 "Controller-Treiber installieren..." linking to the ViGEmBus releases page. Availability is
-re-checked on every call, so installing the driver needs no restart. Linux registers no
-`IGamepadService`, so `gamepad` is rejected there.
+re-checked on every call, so installing the driver needs no restart. On Linux,
+`LinuxGamepadService` creates one `uinput` device per controller with the USB ID and the
+button/axis codes of a wired Xbox 360 pad under the kernel's `xpad` driver, so SDL/Steam map it
+without a custom mapping; available whenever `/dev/uinput` exists, no slot cap, no rumble yet.
 
 **Input simulation.** `WindowsInputService`/`WindowsMouseService` translate high-level actions
 into raw Win32 `SendInput` calls via the shared `WindowsInputSender`, which serializes all

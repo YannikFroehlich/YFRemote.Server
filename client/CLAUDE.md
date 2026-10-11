@@ -171,7 +171,8 @@ manual `ChangeDetectorRef` calls.
      `window.YFRemoteSpeech` (`SPEECH_BRIDGE`): the app recognizes natively and answers with
      `yfremote-speech` events, so dictation works over plain HTTP there and skips the HTTPS hint.
    - `GamepadComponent` (`gamepad/`) — the controller view, shown only when `/health` reports
-     `platform: windows` and `gamepad: true` (`RemoteService.gamepadAvailable`). It renders as a
+     `gamepad: true` (`RemoteService.gamepadAvailable`; Windows with ViGEmBus or Linux with
+     `/dev/uinput`, never the Android server). It renders as a
      `position: fixed` layer at `<main>` level, not inside `.remote-panel`, whose
      `backdrop-filter` would otherwise become the containing block. Pointer Events per control
      (multi-touch: one `pointerId` per finger), combined into one `GamepadState` that is sent

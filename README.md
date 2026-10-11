@@ -45,12 +45,14 @@ flowchart LR
   Velopack, sourced from this repository's public GitHub Releases.
 - **Traceable diagnostics** — rotating log files that never contain PINs, tokens,
   or typed text, reachable directly from the tray menu.
-- **Controller mode (Windows)** — turns the phone into a virtual Xbox 360
-  controller for games; every connected device becomes its own player (up to 4).
+- **Controller mode** — turns the phone into a virtual Xbox 360
+  controller for games; every connected device becomes its own player (up to 4
+  on Windows).
   Presets for Xbox, PlayStation, Nintendo Switch and Retro (SNES) labels and
   layouts; every button and stick can be moved, resized or hidden.
-  Needs the free [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
-  driver once; the tray menu links to it while it is missing.
+  Windows needs the free [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
+  driver once; the tray menu links to it while it is missing. Linux needs no
+  driver, only the same `/dev/uinput` access as keyboard and mouse (no rumble yet).
 - **Wake-on-LAN (Android app)** — the YFRemote Android app remembers each PC's
   network adapter and can wake it from sleep with "Aufwecken" while it is
   offline. The PC must allow it once: in Device Manager, on the network
@@ -60,7 +62,8 @@ flowchart LR
 - **Linux support (beta)** — a `uinput`-based input backend, verified end-to-end
   on x86_64; arm64 and the installed package are not yet verified
   (details in [`AGENTS.md`](AGENTS.md)). Clipboard sync needs `wl-clipboard`
-  (Wayland) or `xclip` (X11) on the target.
+  (Wayland) or `xclip` (X11) on the target; the volume and now-playing strip
+  needs `pactl` and `playerctl`.
 
 ## Getting started
 

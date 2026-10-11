@@ -107,6 +107,25 @@ that would keep redirected stdout/stderr pipes open forever. Images are PNG or J
 (sniffed from the magic bytes, the tools need a MIME type). **Unverified on a real Linux session**
 — only backend selection and image sniffing are unit-tested (`LinuxClipboardServiceTests`).
 
+**Linux controller (`Services/LinuxGamepadService.cs`).** Each `gamepad` connection gets its own
+`uinput` device (`LinuxInputSender.UinputDevice` with `EV_ABS` axes), announced as a wired Xbox
+360 pad (USB `045e:028e`, version `0x0114`, name "Microsoft X-Box 360 pad") with the exact
+button/axis codes and ranges the kernel's `xpad` driver uses — `BTN_X`/`BTN_Y` by label, Y axes
+mirrored with `~`, D-pad as `ABS_HAT0X`/`ABS_HAT0Y` — so SDL's controller database, Steam, and
+Proton treat it like the real thing. No driver and no slot cap; it needs the same `/dev/uinput`
+access as keyboard and mouse, and `IsAvailable` only checks that `/dev/uinput` exists (a missing
+group membership fails at connect with the same hint). No rumble: that would need reading
+`UI_BEGIN_FF_UPLOAD` requests back from the device. **Unverified on a real Linux kernel** — only the
+XInput-to-evdev mapping is unit-tested (`LinuxGamepadServiceTests`).
+
+**Linux media status (`Services/LinuxMediaStatusReader.cs`).** Volume and mute from `pactl`
+(`get-sink-volume`/`get-sink-mute @DEFAULT_SINK@`, so PulseAudio and PipeWire via
+`pipewire-pulse`), title/artist/playing from `playerctl metadata` (any MPRIS player). Every command
+runs with `LANGUAGE=en` because `pactl` translates "Mute: yes". A missing tool or a failing command
+just leaves its part empty, like Windows without a playback device, so the strip still shows.
+**Unverified on a real Linux session** — only output parsing is unit-tested
+(`LinuxMediaStatusReaderTests`).
+
 **Current status: both stages of the plan's proof have now passed, on x86_64 only.** Manually
 tested on a Linux Mint 22 (Cinnamon) VM in VirtualBox: (1) the standalone `/dev/uinput`
 round-trip via `--uinput-smoke-test` (typed text and moved/clicked/scrolled the mouse with no

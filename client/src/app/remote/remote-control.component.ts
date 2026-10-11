@@ -51,10 +51,8 @@ export class RemoteControlComponent {
   );
   protected readonly fileDownloading = this.fileTransfer.downloading;
   protected readonly fileOfferError = signal(false);
-  // Virtuelle Xbox-Controller gibt es nur auf einem Windows-Server mit ViGEmBus-Treiber.
-  protected readonly gamepadAvailable = computed(
-    () => this.remote.serverPlatform() === 'windows' && this.remote.gamepadAvailable(),
-  );
+  // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
+  protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');

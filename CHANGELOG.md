@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-10-11
+
 ### Added
 
 - Linux (Beta): Controller-Modus. Jedes verbundene Gerät wird über `/dev/uinput` zu einem eigenen virtuellen Xbox-360-Controller, ganz ohne zusätzlichen Treiber. Spiele, Steam und Proton sehen ihn wie einen per USB angesteckten Controller. Vibration gibt es unter Linux noch nicht. Noch nicht auf einem echten Linux-System getestet.

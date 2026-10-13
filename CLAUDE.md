@@ -227,14 +227,14 @@ are a fixed allowlist in `WindowsInputService.VirtualKeys`; anything else throws
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
 `NotifyIcon` context menu (version, status, device address, open-in-browser, copy-address,
-PIN display/copy/regenerate, a "Gekoppelte Geräte" submenu for revoking devices (connected ones
-checked, live via `WebSocketConnectionRegistry.ConnectionsChanged`, which also drives the tooltip
-and status line), an HTTPS
+PIN display/copy/regenerate, a "Gekoppelte Geräte" entry whose device/connection count updates live
+via `WebSocketConnectionRegistry.ConnectionsChanged` (which also drives the tooltip and status line)
+and which opens `UnpairDevicesDialog` to revoke several devices at once, an HTTPS
 toggle, update check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
 check ~1.5s after launch, then every 6 hours) via `UpdateService` (thin wrapper over Velopack's
 `UpdateManager`, pointed at public GitHub Releases of this repo). `CanUpdate` is
 `UpdateManager.IsInstalled` — a `dotnet run` dev build is never "installed" and update UI stays
-disabled for it. The PIN text and the paired-devices submenu are refreshed on the
+disabled for it. The PIN text and the paired-devices entry are refreshed on the
 `ContextMenuStrip.Opening` event rather than a polling `Timer`, since nothing needs to be
 current while the menu is closed. `WindowsStartupService` writes/reads the per-user
 `HKCU\...\CurrentVersion\Run` registry value and only offers autostart when running from an

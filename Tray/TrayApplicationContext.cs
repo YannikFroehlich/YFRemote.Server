@@ -123,6 +123,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         regeneratePinItem.Click += (_, _) => RegeneratePin();
 
         pairedDevicesItem = new ToolStripMenuItem("Gekoppelte Geräte");
+        pairedDevicesItem.Click += (_, _) => ShowPairedDevicesDialog();
 
         updateItem = new ToolStripMenuItem(
             updateService.CanUpdate
@@ -436,8 +437,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
                 ToolTipIcon.Info));
 
-    // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteliste
-    // sofort neu aufgebaut, sonst reicht das naechste Opening.
+    // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteanzahl
+    // sofort aktualisiert, sonst reicht das naechste Opening.
     private void OnConnectionsChanged() =>
         uiDispatcher.BeginInvoke(() =>
         {
@@ -589,60 +590,59 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var pairedDevices = pairingService.GetPairedDevices();
         var connectedCount = pairedDevices.Count(device => connectionRegistry.IsConnected(device.Id));
         pairedDevicesItem.Text = connectedCount == 0
-            ? $"Gekoppelte Geräte ({pairedDevices.Count})"
-            : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)";
-        pairedDevicesItem.DropDownItems.Clear();
-
-        if (pairedDevices.Count == 0)
-        {
-            pairedDevicesItem.DropDownItems.Add(new ToolStripMenuItem("Keine gekoppelten Geräte")
-            {
-                Enabled = false
-            });
-            return;
-        }
-
-        foreach (var device in pairedDevices
-            .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
-            .ThenByDescending(device => device.LastSeenUtc))
-        {
-            var deviceItem = new ToolStripMenuItem(connectionRegistry.IsConnected(device.Id)
-                ? $"{device.Name} (verbunden)"
-                : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})")
-            {
-                Checked = connectionRegistry.IsConnected(device.Id)
-            };
-            deviceItem.Click += (_, _) => HandleRemoveDeviceClick(device);
-            pairedDevicesItem.DropDownItems.Add(deviceItem);
-        }
+            ? $"Gekoppelte Geräte ({pairedDevices.Count})..."
+            : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)...";
+        pairedDevicesItem.Enabled = pairedDevices.Count > 0;
     }
 
-    private void HandleRemoveDeviceClick(PairedDeviceInfo device)
+    private void ShowPairedDevicesDialog()
     {
-        var answer = MessageBox.Show(
-            $"Gerät \"{device.Name}\" entkoppeln?\n\nEs kann sich danach nur mit einer neuen PIN erneut verbinden.",
-            "YFRemote",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question);
+        var entries = pairingService.GetPairedDevices()
+            .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
+            .ThenByDescending(device => device.LastSeenUtc)
+            .Select(device => (device, connectionRegistry.IsConnected(device.Id)
+                ? $"{device.Name} (verbunden)"
+                : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})"))
+            .ToList();
 
-        if (answer != DialogResult.Yes)
+        using var dialog = new UnpairDevicesDialog(entries);
+        if (dialog.ShowDialog() != DialogResult.OK)
         {
             return;
         }
 
-        if (pairingService.RemoveDevice(device.Id))
+        var removed = new List<string>();
+        var failed = new List<string>();
+        foreach (var selected in dialog.SelectedDevices)
         {
-            connectionRegistry.CloseConnections(device.Id);
-            notifyIcon.ShowBalloonTip(3000, "Gerät entkoppelt", device.Name, ToolTipIcon.Info);
-            return;
+            if (pairingService.RemoveDevice(selected.Id))
+            {
+                connectionRegistry.CloseConnections(selected.Id);
+                removed.Add(selected.Name);
+                continue;
+            }
+
+            logger.LogWarning("Failed to permanently unpair device {DeviceId}.", selected.Id);
+            failed.Add(selected.Name);
         }
 
-        logger.LogWarning("Failed to permanently unpair device {DeviceId}.", device.Id);
-        MessageBox.Show(
-            "Das Gerät konnte nicht dauerhaft entkoppelt werden. Bitte erneut versuchen.",
-            "YFRemote",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Error);
+        if (removed.Count > 0)
+        {
+            notifyIcon.ShowBalloonTip(
+                3000,
+                removed.Count == 1 ? "Gerät entkoppelt" : $"{removed.Count} Geräte entkoppelt",
+                string.Join(", ", removed),
+                ToolTipIcon.Info);
+        }
+
+        if (failed.Count > 0)
+        {
+            MessageBox.Show(
+                $"Nicht dauerhaft entkoppelt: {string.Join(", ", failed)}\n\nBitte erneut versuchen.",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
     private void CopyPin()

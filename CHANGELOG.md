@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-10-13
+
 ### Added
 
 - Neue Buttons "Sperren" und "Bildschirm aus" für den PC. Win+L lässt sich per Tastendruck aus der Ferne nicht auslösen, "Sperren" ruft deshalb Windows direkt auf. "Bildschirm aus" gibt es unter Linux nicht.

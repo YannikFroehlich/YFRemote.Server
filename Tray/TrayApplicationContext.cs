@@ -602,13 +602,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        foreach (var device in pairedDevices
-            .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
-            .ThenByDescending(device => device.LastSeenUtc))
+        foreach (var (device, label) in GetDeviceEntries(pairedDevices))
         {
-            var deviceItem = new ToolStripMenuItem(connectionRegistry.IsConnected(device.Id)
-                ? $"{device.Name} (verbunden)"
-                : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})")
+            var deviceItem = new ToolStripMenuItem(label)
             {
                 Checked = connectionRegistry.IsConnected(device.Id)
             };
@@ -617,32 +613,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
+    private List<(PairedDeviceInfo Device, string Label)> GetDeviceEntries(IEnumerable<PairedDeviceInfo> devices) =>
+        devices
+            .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
+            .ThenByDescending(device => device.LastSeenUtc)
+            .Select(device => (device, connectionRegistry.IsConnected(device.Id)
+                ? $"{device.Name} (verbunden)"
+                : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})"))
+            .ToList();
+
     private void HandleRemoveDeviceClick(PairedDeviceInfo device)
     {
-        var answer = MessageBox.Show(
-            $"Gerät \"{device.Name}\" entkoppeln?\n\nEs kann sich danach nur mit einer neuen PIN erneut verbinden.",
-            "YFRemote",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question);
-
-        if (answer != DialogResult.Yes)
+        using var dialog = new UnpairDevicesDialog(GetDeviceEntries(pairingService.GetPairedDevices()), device.Id);
+        if (dialog.ShowDialog() != DialogResult.OK)
         {
             return;
         }
 
-        if (pairingService.RemoveDevice(device.Id))
+        var removed = new List<string>();
+        var failed = new List<string>();
+        foreach (var selected in dialog.SelectedDevices)
         {
-            connectionRegistry.CloseConnections(device.Id);
-            notifyIcon.ShowBalloonTip(3000, "Gerät entkoppelt", device.Name, ToolTipIcon.Info);
-            return;
+            if (pairingService.RemoveDevice(selected.Id))
+            {
+                connectionRegistry.CloseConnections(selected.Id);
+                removed.Add(selected.Name);
+                continue;
+            }
+
+            logger.LogWarning("Failed to permanently unpair device {DeviceId}.", selected.Id);
+            failed.Add(selected.Name);
         }
 
-        logger.LogWarning("Failed to permanently unpair device {DeviceId}.", device.Id);
-        MessageBox.Show(
-            "Das Gerät konnte nicht dauerhaft entkoppelt werden. Bitte erneut versuchen.",
-            "YFRemote",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Error);
+        if (removed.Count > 0)
+        {
+            notifyIcon.ShowBalloonTip(
+                3000,
+                removed.Count == 1 ? "Gerät entkoppelt" : $"{removed.Count} Geräte entkoppelt",
+                string.Join(", ", removed),
+                ToolTipIcon.Info);
+        }
+
+        if (failed.Count > 0)
+        {
+            MessageBox.Show(
+                $"Nicht dauerhaft entkoppelt: {string.Join(", ", failed)}\n\nBitte erneut versuchen.",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
     private void CopyPin()

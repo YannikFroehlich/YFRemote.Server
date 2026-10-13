@@ -30,6 +30,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem pinItem;
     private readonly ToolStripMenuItem pairedDevicesItem;
     private readonly ToolStripMenuItem gamepadDriverItem;
+    private readonly ToolStripMenuItem shutdownTimerItem;
+    private readonly ShutdownTimer shutdownTimer;
     private readonly System.Windows.Forms.Timer initialUpdateTimer;
     private readonly System.Windows.Forms.Timer periodicUpdateTimer;
     private readonly Control uiDispatcher = new();
@@ -53,6 +55,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         fileOfferService = app.Services.GetRequiredService<FileOfferService>();
         clipboardReadNotifier = app.Services.GetRequiredService<ClipboardReadNotifier>();
         gamepadService = app.Services.GetRequiredService<IGamepadService>();
+        shutdownTimer = app.Services.GetRequiredService<ShutdownTimer>();
         httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
         var scheme = httpsOptions.Enabled ? "https" : "http";
         var port = httpsOptions.Enabled ? httpsOptions.Port : serverOptions.Port;
@@ -67,6 +70,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         fileOfferService.Downloaded += OnOfferedFileDownloaded;
         clipboardReadNotifier.Read += OnClipboardRead;
         clipboardReadNotifier.SyncEnabled += OnClipboardSyncEnabled;
+        shutdownTimer.Changed += OnShutdownTimerChanged;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
         {
@@ -80,6 +84,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             Enabled = false
         };
+        shutdownTimerItem = new ToolStripMenuItem();
+        shutdownTimerItem.Click += (_, _) => shutdownTimer.Cancel(deviceName: null);
         var openItem = new ToolStripMenuItem("Im Browser öffnen");
         openItem.Click += (_, _) => OpenInBrowser();
 
@@ -150,6 +156,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             versionItem,
             statusItem,
             addressItem,
+            shutdownTimerItem,
             new ToolStripSeparator(),
             openItem,
             copyAddressItem,
@@ -177,9 +184,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             RefreshPairingMenu();
             // Nach der Treiberinstallation verschwindet der Eintrag ohne Neustart.
             gamepadDriverItem.Visible = !gamepadService.IsAvailable;
+            // Ein abgelaufener Termin meldet sich nicht, das Menue holt ihn hier nach.
+            RefreshShutdownTimerItem();
         };
         RefreshPairingMenu();
         gamepadDriverItem.Visible = !gamepadService.IsAvailable;
+        RefreshShutdownTimerItem();
 
         trayIcon = LoadTrayIcon();
         notifyIcon = new NotifyIcon
@@ -228,6 +238,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.Read -= OnClipboardRead;
             clipboardReadNotifier.SyncEnabled -= OnClipboardSyncEnabled;
+            shutdownTimer.Changed -= OnShutdownTimerChanged;
             connectionRegistry.ConnectionsChanged -= OnConnectionsChanged;
             initialUpdateTimer.Dispose();
             periodicUpdateTimer.Dispose();
@@ -436,6 +447,42 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 "Zwischenablage-Abgleich",
                 $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
                 ToolTipIcon.Info));
+
+    // Ein Geraet plant das Herunterfahren aus der Ferne - wer am PC sitzt, soll das sehen und
+    // ueber das Tray-Menue abbrechen koennen, bevor ungespeicherte Arbeit im Weg steht.
+    private void OnShutdownTimerChanged(string? deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+        {
+            RefreshShutdownTimerItem();
+            if (deviceName is null)
+            {
+                return;
+            }
+
+            if (shutdownTimer.DueAt is { } dueAt)
+            {
+                notifyIcon.ShowBalloonTip(
+                    5000,
+                    "Herunterfahren geplant",
+                    $"\"{deviceName}\" fährt den PC um {dueAt:HH:mm} Uhr herunter. Abbrechen über das Tray-Menü.",
+                    ToolTipIcon.Warning);
+            }
+            else
+            {
+                notifyIcon.ShowBalloonTip(
+                    3000,
+                    "Herunterfahren abgebrochen",
+                    $"\"{deviceName}\" hat das geplante Herunterfahren abgebrochen.",
+                    ToolTipIcon.Info);
+            }
+        });
+
+    private void RefreshShutdownTimerItem()
+    {
+        var dueAt = shutdownTimer.DueAt;
+        shutdownTimerItem.Visible = dueAt is not null;
+        shutdownTimerItem.Text = $"Herunterfahren um {dueAt:HH:mm} Uhr abbrechen";
+    }
 
     // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteanzahl
     // sofort aktualisiert, sonst reicht das naechste Opening.

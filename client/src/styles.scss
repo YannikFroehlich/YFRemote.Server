@@ -853,26 +853,18 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-.media-strip__bar {
-  width: 56px;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--line);
-}
-
-.media-strip__bar > span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
+.media-strip__slider {
+  width: 96px;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .media-strip__volume--muted {
   color: var(--muted);
 }
 
-.media-strip__volume--muted .media-strip__bar > span {
-  background: var(--muted);
+.media-strip__volume--muted .media-strip__slider {
+  accent-color: var(--muted);
 }
 
 .update-banner {

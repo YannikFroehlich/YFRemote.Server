@@ -139,6 +139,19 @@ export const TRANSLATIONS = {
     de: 'Rechner wirklich herunterfahren? Nicht gespeicherte Arbeit geht verloren.',
     en: 'Really shut down the computer? Unsaved work will be lost.',
   },
+  'button.lock-screen.label': { de: 'Sperren', en: 'Lock' },
+  'button.lock-screen.ariaLabel': { de: 'Rechner sperren', en: 'Lock the computer' },
+  'button.display-off.label': { de: 'Bildschirm aus', en: 'Screen off' },
+  'button.display-off.ariaLabel': { de: 'Bildschirm ausschalten', en: 'Turn off the screen' },
+  'button.shutdown-timer.label': { de: 'Timer', en: 'Timer' },
+  'button.shutdown-timer.ariaLabel': {
+    de: 'Herunterfahren planen',
+    en: 'Schedule a shutdown',
+  },
+  'button.shutdown-timer.prompt': {
+    de: 'In wie vielen Minuten herunterfahren? 0 bricht einen geplanten Termin ab.',
+    en: 'Shut down in how many minutes? 0 cancels a scheduled shutdown.',
+  },
 
   'keyGroup.modifiers': { de: 'Modifikatoren', en: 'Modifiers' },
   'keyGroup.functionKeys': { de: 'Funktionstasten', en: 'Function keys' },
@@ -351,6 +364,7 @@ export const TRANSLATIONS = {
   'media.paused': { de: 'pausiert', en: 'paused' },
   'media.muted': { de: 'Ton aus', en: 'Muted' },
   'media.volume': { de: 'Lautstärke {{volume}} %', en: 'Volume {{volume}}%' },
+  'media.setVolume': { de: 'PC-Lautstärke', en: 'PC volume' },
   'settings.language.label': { de: 'Sprache', en: 'Language' },
   'settings.themeMode.label': { de: 'Darstellung', en: 'Appearance' },
   'settings.themeMode.system': { de: 'Wie das Gerät (System)', en: 'Same as device (System)' },

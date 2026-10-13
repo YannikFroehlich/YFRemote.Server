@@ -9,8 +9,11 @@ public sealed class RemoteActionHandler(
     ILogger<RemoteActionHandler> logger,
     IGamepadService? gamepadService = null,
     PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
-    ClipboardReadNotifier? clipboardReadNotifier = null)
+    ClipboardReadNotifier? clipboardReadNotifier = null,
+    IVolumeService? volumeService = null,
+    ShutdownTimer? shutdownTimer = null)
 {
+    private const int MaxShutdownTimerMinutes = 24 * 60;
     private const int MinMouseMoveDelta = -5000;
     private const int MaxMouseMoveDelta = 5000;
     private const int MinMouseScrollDelta = -1200;
@@ -43,6 +46,10 @@ public sealed class RemoteActionHandler(
                 "shutdown" => HandlePower(powerService.Shutdown, "shutdown"),
                 "restart" => HandlePower(powerService.Restart, "restart"),
                 "sleep" => HandlePower(powerService.Sleep, "sleep"),
+                "lock" => HandlePower(powerService.Lock, "lock"),
+                "displayoff" => HandlePower(powerService.TurnOffDisplay, "displayOff"),
+                "shutdowntimer" => HandleShutdownTimer(request, session),
+                "volume" => HandleVolume(request),
                 "gamepad" => HandleGamepad(request, session),
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 "clipboardsync" => HandleClipboardSync(request, session),
@@ -55,6 +62,10 @@ public sealed class RemoteActionHandler(
             response = Fail(ex.Message);
         }
         catch (GamepadUnavailableException ex)
+        {
+            response = Fail(ex.Message);
+        }
+        catch (NotSupportedException ex)
         {
             response = Fail(ex.Message);
         }
@@ -253,6 +264,50 @@ public sealed class RemoteActionHandler(
         // soll im Standardprotokoll auffindbar sein, anders als normale Tasten-/Mausaktionen.
         logger.LogInformation("Executing power action: {Action}", actionName);
         execute();
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // minutes 0 bricht einen geplanten Termin ab.
+    private RemoteActionResponse HandleShutdownTimer(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (shutdownTimer is null)
+        {
+            return Fail("Shutdown timer is not supported.");
+        }
+
+        if (request.Minutes is not { } minutes || !IsInRange(minutes, 0, MaxShutdownTimerMinutes))
+        {
+            return Fail($"Action 'shutdownTimer' requires minutes between 0 and {MaxShutdownTimerMinutes}.");
+        }
+
+        var deviceName = session?.DeviceName ?? "Unbekanntes Gerät";
+        if (minutes == 0)
+        {
+            shutdownTimer.Cancel(deviceName);
+        }
+        else
+        {
+            shutdownTimer.Schedule(TimeSpan.FromMinutes(minutes), deviceName);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleVolume(RemoteActionRequest request)
+    {
+        if (volumeService is null)
+        {
+            return Fail("Setting the volume is not supported.");
+        }
+
+        if (request.Volume is not { } volume || !IsInRange(volume, 0, 100))
+        {
+            return Fail("Action 'volume' requires volume between 0 and 100.");
+        }
+
+        logger.LogDebug("Setting volume to {Volume}.", volume);
+        volumeService.SetVolume(volume);
 
         return RemoteActionResponse.Ok();
     }

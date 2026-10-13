@@ -8,7 +8,7 @@ namespace YFRemote.Server.Services;
 // die System-Mediensteuerung (dieselbe Quelle wie das Lautstaerke-Overlay von Windows: Spotify,
 // Browser-Tabs, Filme & TV, ...). Beides wird bei jeder Abfrage neu geholt, weil sich das
 // Standardgeraet und die aktive Medien-App jederzeit aendern koennen.
-public sealed class WindowsMediaStatusReader
+public sealed class WindowsMediaStatusReader : IVolumeService
 {
     private const int ERender = 0;
     private const int EConsole = 0;
@@ -25,7 +25,34 @@ public sealed class WindowsMediaStatusReader
         return new MediaStatusMessage(volume, muted, title, artist, playing);
     }
 
-    private static (int? Volume, bool Muted) ReadVolume()
+    // Wie der Lautstaerkeregler von Windows: wer die Lautstaerke zieht, will auch etwas hoeren.
+    public void SetVolume(int percent)
+    {
+        var applied = WithEndpointVolume(volume =>
+        {
+            var context = Guid.Empty;
+            Marshal.ThrowExceptionForHR(volume.SetMasterVolumeLevelScalar(percent / 100f, ref context));
+            Marshal.ThrowExceptionForHR(volume.SetMute(false, ref context));
+            return true;
+        });
+
+        if (!applied)
+        {
+            throw new InvalidOperationException("No playback device.");
+        }
+    }
+
+    private static (int? Volume, bool Muted) ReadVolume() =>
+        WithEndpointVolume<(int?, bool)>(volume =>
+        {
+            Marshal.ThrowExceptionForHR(volume.GetMasterVolumeLevelScalar(out var level));
+            Marshal.ThrowExceptionForHR(volume.GetMute(out var muted));
+            return ((int)Math.Round(level * 100), muted);
+        });
+
+    // Liefert default, wenn es kein Wiedergabegeraet gibt (z.B. Kopfhoerer abgezogen, keins mehr
+    // uebrig) - das ist kein Fehler.
+    private static T? WithEndpointVolume<T>(Func<IAudioEndpointVolume, T> use)
     {
         var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
         IMMDevice? device = null;
@@ -33,18 +60,14 @@ public sealed class WindowsMediaStatusReader
 
         try
         {
-            // Kein Wiedergabegeraet (z.B. Kopfhoerer abgezogen, keins mehr uebrig): kein Fehler.
             if (enumerator.GetDefaultAudioEndpoint(ERender, EConsole, out device) != 0)
             {
-                return (null, false);
+                return default;
             }
 
             var iid = AudioEndpointVolumeId;
             Marshal.ThrowExceptionForHR(device.Activate(ref iid, ClsCtxAll, IntPtr.Zero, out endpoint));
-            var volume = (IAudioEndpointVolume)endpoint;
-            Marshal.ThrowExceptionForHR(volume.GetMasterVolumeLevelScalar(out var level));
-            Marshal.ThrowExceptionForHR(volume.GetMute(out var muted));
-            return ((int)Math.Round(level * 100), muted);
+            return use((IAudioEndpointVolume)endpoint);
         }
         finally
         {

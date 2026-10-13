@@ -269,6 +269,14 @@ public sealed class YFRemoteWebSocketHandlerTests
         public void Sleep()
         {
         }
+
+        public void Lock()
+        {
+        }
+
+        public void TurnOffDisplay()
+        {
+        }
     }
 
     private static YFRemoteWebSocketHandler CreateHandler(

@@ -27,7 +27,19 @@ export interface MouseScrollAction {
 
 /** Energieaktion des Rechners; ohne Rueckmeldung, da der Rechner danach weg ist. */
 export interface PowerAction {
-  readonly type: 'shutdown' | 'restart' | 'sleep';
+  readonly type: 'shutdown' | 'restart' | 'sleep' | 'lock' | 'displayOff';
+}
+
+/** Faehrt den PC nach `minutes` Minuten herunter (max. 1440); 0 bricht einen Termin ab. */
+export interface ShutdownTimerAction {
+  readonly type: 'shutdownTimer';
+  readonly minutes: number;
+}
+
+/** Setzt die PC-Lautstaerke (0-100) und hebt die Stummschaltung auf. */
+export interface VolumeAction {
+  readonly type: 'volume';
+  readonly volume: number;
 }
 
 export interface TextAction {
@@ -103,6 +115,8 @@ export type RemoteAction =
   | MouseButtonAction
   | MouseScrollAction
   | PowerAction
+  | ShutdownTimerAction
+  | VolumeAction
   | TextAction
   | GamepadAction
   | GamepadDisconnectAction
@@ -168,6 +182,9 @@ export type RemoteIcon =
   | 'power'
   | 'restart'
   | 'sleep'
+  | 'lock'
+  | 'monitor'
+  | 'timer'
   | 'mic'
   | 'upload'
   | 'download'

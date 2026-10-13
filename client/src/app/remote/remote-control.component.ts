@@ -80,6 +80,11 @@ export class RemoteControlComponent {
       : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  protected setVolume(event: Event): void {
+    const volume = (event.target as HTMLInputElement).valueAsNumber;
+    this.remote.sendAction({ type: 'volume', volume });
+  }
+
   protected openSettings(): void {
     this.editMode.set(false);
     this.settingsOpen.set(true);

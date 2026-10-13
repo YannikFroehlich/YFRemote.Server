@@ -357,6 +357,8 @@ internal static class Program
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
         builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
         builder.Services.AddSingleton<WindowsMediaStatusReader>();
+        builder.Services.AddSingleton<IVolumeService>(services =>
+            services.GetRequiredService<WindowsMediaStatusReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
             services.GetRequiredService<WindowsMediaStatusReader>().ReadAsync,
             BroadcastPollInterval,
@@ -370,6 +372,8 @@ internal static class Program
         builder.Services.AddSingleton<IClipboardService, LinuxClipboardService>();
         builder.Services.AddSingleton<IGamepadService, LinuxGamepadService>();
         builder.Services.AddSingleton<LinuxMediaStatusReader>();
+        builder.Services.AddSingleton<IVolumeService>(services =>
+            services.GetRequiredService<LinuxMediaStatusReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
             services.GetRequiredService<LinuxMediaStatusReader>().ReadAsync,
             BroadcastPollInterval,
@@ -388,6 +392,7 @@ internal static class Program
                 announceCurrent: false,
                 services.GetRequiredService<ILogger<PollingBroadcaster<ClipboardMessage?>>>());
         });
+        builder.Services.AddSingleton<ShutdownTimer>();
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
         builder.Services.AddSingleton<WebSocketConnectionRegistry>();

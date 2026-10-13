@@ -142,6 +142,8 @@ public sealed class RemoteActionHandlerTests
     [DataRow("shutdown")]
     [DataRow("restart")]
     [DataRow("sleep")]
+    [DataRow("lock")]
+    [DataRow("displayOff")]
     public void Handle_PowerAction_ForwardsToPowerService(string type)
     {
         var powerService = new RecordingPowerService();
@@ -151,6 +153,80 @@ public sealed class RemoteActionHandlerTests
 
         Assert.IsTrue(response.Success, response.Error);
         Assert.AreEqual(type, powerService.LastAction);
+    }
+
+    [TestMethod]
+    public void Handle_UnsupportedPowerAction_ReturnsItsMessage()
+    {
+        var handler = CreateHandler(powerService: new ThrowingPowerService());
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "displayOff" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("not here", response.Error);
+    }
+
+    [TestMethod]
+    public void Handle_Volume_ForwardsToVolumeService()
+    {
+        var volumeService = new RecordingVolumeService();
+        var handler = CreateHandler(volumeService: volumeService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "volume", Volume = 42 });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(42, volumeService.LastVolume);
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow(-1)]
+    [DataRow(101)]
+    public void Handle_Volume_OutOfRange_Fails(int? volume)
+    {
+        var volumeService = new RecordingVolumeService();
+        var handler = CreateHandler(volumeService: volumeService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "volume", Volume = volume });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Action 'volume' requires volume between 0 and 100.", response.Error);
+        Assert.IsNull(volumeService.LastVolume);
+    }
+
+    [TestMethod]
+    public void Handle_ShutdownTimer_SchedulesAndCancels()
+    {
+        using var shutdownTimer = new ShutdownTimer(new RecordingPowerService(), NullLogger<ShutdownTimer>.Instance);
+        var handler = CreateHandler(shutdownTimer: shutdownTimer);
+        var before = DateTimeOffset.Now;
+
+        var scheduled = handler.Handle(new RemoteActionRequest { Type = "shutdownTimer", Minutes = 30 });
+
+        Assert.IsTrue(scheduled.Success, scheduled.Error);
+        Assert.IsNotNull(shutdownTimer.DueAt);
+        Assert.IsTrue(shutdownTimer.DueAt >= before.AddMinutes(30));
+
+        var cancelled = handler.Handle(new RemoteActionRequest { Type = "shutdownTimer", Minutes = 0 });
+
+        Assert.IsTrue(cancelled.Success, cancelled.Error);
+        Assert.IsNull(shutdownTimer.DueAt);
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow(-1)]
+    [DataRow(1441)]
+    public void Handle_ShutdownTimer_OutOfRange_Fails(int? minutes)
+    {
+        using var shutdownTimer = new ShutdownTimer(new RecordingPowerService(), NullLogger<ShutdownTimer>.Instance);
+        var handler = CreateHandler(shutdownTimer: shutdownTimer);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "shutdownTimer", Minutes = minutes });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Action 'shutdownTimer' requires minutes between 0 and 1440.", response.Error);
+        Assert.IsNull(shutdownTimer.DueAt);
     }
 
     [TestMethod]
@@ -171,18 +247,36 @@ public sealed class RemoteActionHandlerTests
         public void Restart() => throw new InvalidOperationException("nope");
 
         public void Sleep() => throw new InvalidOperationException("nope");
+
+        public void Lock() => throw new InvalidOperationException("nope");
+
+        public void TurnOffDisplay() => throw new NotSupportedException("not here");
+    }
+
+    private sealed class RecordingVolumeService : IVolumeService
+    {
+        public int? LastVolume { get; private set; }
+
+        public void SetVolume(int percent)
+        {
+            LastVolume = percent;
+        }
     }
 
     private static RemoteActionHandler CreateHandler(
         IInputService? inputService = null,
         RecordingMouseService? mouseService = null,
-        IPowerService? powerService = null)
+        IPowerService? powerService = null,
+        IVolumeService? volumeService = null,
+        ShutdownTimer? shutdownTimer = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
             mouseService ?? new RecordingMouseService(),
             powerService ?? new RecordingPowerService(),
-            NullLogger<RemoteActionHandler>.Instance);
+            NullLogger<RemoteActionHandler>.Instance,
+            volumeService: volumeService,
+            shutdownTimer: shutdownTimer);
     }
 
     private sealed class RecordingPowerService : IPowerService
@@ -202,6 +296,16 @@ public sealed class RemoteActionHandlerTests
         public void Sleep()
         {
             LastAction = "sleep";
+        }
+
+        public void Lock()
+        {
+            LastAction = "lock";
+        }
+
+        public void TurnOffDisplay()
+        {
+            LastAction = "displayOff";
         }
     }
 

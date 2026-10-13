@@ -97,6 +97,22 @@ export class ButtonCanvasComponent implements OnDestroy {
       return;
     }
 
+    const action = item.button.action;
+
+    if (action?.type === 'shutdownTimer') {
+      const answer = globalThis.prompt(
+        this.i18n.t('button.shutdown-timer.prompt'),
+        String(action.minutes),
+      );
+
+      // Ungueltige Eingaben lehnt der Server mit Meldung ab, abbrechen schickt nichts.
+      if (answer !== null && answer.trim() !== '') {
+        this.remote.sendAction({ type: 'shutdownTimer', minutes: Number.parseInt(answer, 10) });
+      }
+
+      return;
+    }
+
     const steps = resolveButtonSteps(item.button);
 
     if (steps.length === 0) {

@@ -172,7 +172,9 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `shutdown`, `restart`,
-`sleep`) into `IInputService` / `IMouseService` / `IPowerService`, validates
+`sleep`, `lock`, `displayOff`, `volume`, `shutdownTimer`) into `IInputService` /
+`IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
+it also unmutes, like the Windows volume slider), validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
 through to the socket — exceptions become `Success:false` responses). An optional `requestId`
 from the action is echoed in that response so the Client can correlate macro steps with their
@@ -181,6 +183,14 @@ multiple clients can connect concurrently. Each connection also carries its own 
 rate limit (120 messages/second; a `Fail` response beyond that, connection stays open) as a
 backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
 move/scroll traffic tops out around one message per animation frame.
+
+**Shutdown timer.** `shutdownTimer` with `minutes` 1-1440 schedules a shutdown in the singleton
+`ShutdownTimer`, `minutes: 0` cancels it. It deliberately runs its own in-process timer instead of
+`shutdown.exe /s /t N`: any `/t` above 0 implies `/f` and would close apps with unsaved work
+without asking; when due it calls the normal `IPowerService.Shutdown`. The timer is lost when
+YFRemote exits. The tray shows a balloon naming the device and a "Herunterfahren um HH:mm Uhr
+abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()` and does
+not know whether a timer is pending.
 
 **Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
 `{"type":"media","volume","muted","title","artist","playing"}` (`WindowsMediaStatusReader` reads

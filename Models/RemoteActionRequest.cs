@@ -21,4 +21,8 @@ public sealed record RemoteActionRequest
     public GamepadState? Gamepad { get; init; }
 
     public bool? Enabled { get; init; }
+
+    public int? Volume { get; init; }
+
+    public int? Minutes { get; init; }
 }

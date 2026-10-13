@@ -101,6 +101,19 @@ describe('ButtonCanvasComponent', () => {
     expect(confirmSpy).toHaveBeenCalledTimes(2);
   });
 
+  it('asks for the minutes before scheduling a shutdown', async () => {
+    const { sockets, button } = await setupCanvas(false);
+    const promptSpy = vi.fn().mockReturnValueOnce(null).mockReturnValueOnce('45');
+    vi.stubGlobal('prompt', promptSpy);
+
+    button('Herunterfahren planen').click();
+    expect(sockets[0].sentMessages).toEqual([]);
+
+    button('Herunterfahren planen').click();
+    expect(sockets[0].sentMessages).toEqual(['{"type":"shutdownTimer","minutes":45}']);
+    expect(promptSpy).toHaveBeenLastCalledWith(expect.any(String), '30');
+  });
+
   it('does not send an action when clicked in edit mode', async () => {
     const { sockets, button } = await setupCanvas(true);
 

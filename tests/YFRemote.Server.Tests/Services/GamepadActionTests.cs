@@ -208,5 +208,7 @@ public sealed class GamepadActionTests
         public void Shutdown() { }
         public void Restart() { }
         public void Sleep() { }
+        public void Lock() { }
+        public void TurnOffDisplay() { }
     }
 }

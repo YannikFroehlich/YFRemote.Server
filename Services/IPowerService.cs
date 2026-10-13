@@ -7,4 +7,8 @@ public interface IPowerService
     void Restart();
 
     void Sleep();
+
+    void Lock();
+
+    void TurnOffDisplay();
 }

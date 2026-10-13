@@ -170,6 +170,28 @@ export const POWER_ACTIONS: readonly RemoteButtonConfig[] = [
     action: { type: 'shutdown' },
     confirm: 'button.shutdown.confirm',
   },
+  {
+    id: 'lock-screen',
+    label: 'button.lock-screen.label',
+    ariaLabel: 'button.lock-screen.ariaLabel',
+    icon: 'lock',
+    action: { type: 'lock' },
+  },
+  {
+    id: 'display-off',
+    label: 'button.display-off.label',
+    ariaLabel: 'button.display-off.ariaLabel',
+    icon: 'monitor',
+    action: { type: 'displayOff' },
+  },
+  {
+    // `minutes` ist nur der Vorschlag: ButtonCanvasComponent fragt vor dem Senden nach.
+    id: 'shutdown-timer',
+    label: 'button.shutdown-timer.label',
+    ariaLabel: 'button.shutdown-timer.ariaLabel',
+    icon: 'timer',
+    action: { type: 'shutdownTimer', minutes: 30 },
+  },
 ];
 
 /** Nur fuer einen Android-Server: Home, Uebersicht und Sperren gibt es auf dem PC nicht, und
@@ -240,6 +262,9 @@ export const DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
   { id: 'sleep', col: 0, row: 14, colSpan: 4, rowSpan: 2 },
   { id: 'restart', col: 4, row: 14, colSpan: 4, rowSpan: 2 },
   { id: 'shutdown', col: 8, row: 14, colSpan: 4, rowSpan: 2 },
+  { id: 'lock-screen', col: 0, row: 16, colSpan: 4, rowSpan: 2 },
+  { id: 'display-off', col: 4, row: 16, colSpan: 4, rowSpan: 2 },
+  { id: 'shutdown-timer', col: 8, row: 16, colSpan: 4, rowSpan: 2 },
 ];
 
 /** Standard-Anordnung fuer das Android-Profil (12 Spalten), ohne die PC-Buttons. */

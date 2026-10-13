@@ -11,7 +11,7 @@ namespace YFRemote.Server.Services;
 // Windows ohne Wiedergabegeraet oder Medien-App.
 // ponytail: bis zu drei Prozessstarts pro Sekunde, solange ein Geraet verbunden ist; D-Bus/pactl
 // subscribe erst, wenn das auf schwacher Hardware messbar stoert.
-public sealed partial class LinuxMediaStatusReader
+public sealed partial class LinuxMediaStatusReader : IVolumeService
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(2);
 
@@ -23,6 +23,17 @@ public sealed partial class LinuxMediaStatusReader
         var (title, artist, playing) = ParseNowPlaying(
             await RunAsync("playerctl", "metadata", "--format", "{{status}}\t{{title}}\t{{artist}}"));
         return new MediaStatusMessage(volume, muted, title, artist, playing);
+    }
+
+    // Wie unter Windows: wer die Lautstaerke zieht, will auch etwas hoeren. Der Aufrufer ist
+    // synchron, pactl kehrt sofort zurueck.
+    public void SetVolume(int percent)
+    {
+        if (RunAsync("pactl", "set-sink-volume", "@DEFAULT_SINK@", $"{percent}%").GetAwaiter().GetResult() is null
+            || RunAsync("pactl", "set-sink-mute", "@DEFAULT_SINK@", "0").GetAwaiter().GetResult() is null)
+        {
+            throw new InvalidOperationException("pactl failed or is not installed.");
+        }
     }
 
     // "Volume: front-left: 29491 /  45% / -20.81 dB,   front-right: ..." - der erste Kanal zaehlt.

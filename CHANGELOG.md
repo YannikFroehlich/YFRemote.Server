@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Neue Buttons "Sperren" und "Bildschirm aus" für den PC. Win+L lässt sich per Tastendruck aus der Ferne nicht auslösen, "Sperren" ruft deshalb Windows direkt auf. "Bildschirm aus" gibt es unter Linux nicht.
+- Button "Timer": fährt den PC nach einer wählbaren Zahl Minuten herunter (bis 24 Stunden), 0 bricht den Termin ab. Am PC erscheint ein Hinweis mit Uhrzeit und Gerät, im Tray-Menü lässt sich der Termin abbrechen. Apps mit ungespeicherter Arbeit werden dabei nicht zwangsweise geschlossen.
+- Die Lautstärke in der Medienleiste ist jetzt ein Regler: Ziehen setzt die PC-Lautstärke direkt und hebt die Stummschaltung auf.
+
 ## [2.33.0] - 2026-10-13
 
 ### Changed

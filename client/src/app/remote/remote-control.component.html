@@ -200,21 +200,26 @@
             }
           </span>
           @if (media.volume !== undefined) {
-            <span
-              class="media-strip__volume"
-              [class.media-strip__volume--muted]="media.muted"
-              [attr.aria-label]="
-                media.muted
-                  ? i18n.t('media.muted')
-                  : i18n.t('media.volume', { volume: '' + media.volume })
-              "
-            >
+            <span class="media-strip__volume" [class.media-strip__volume--muted]="media.muted">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path [attr.d]="iconPaths[media.muted ? 'volume-mute' : 'volume-plus']"></path>
               </svg>
-              <span class="media-strip__bar" aria-hidden="true">
-                <span [style.width.%]="media.volume"></span>
-              </span>
+              <!-- (change) statt (input): erst beim Loslassen senden, sonst setzt der
+                   sekuendliche Status den Regler mitten im Ziehen zurueck. -->
+              <input
+                class="media-strip__slider"
+                type="range"
+                min="0"
+                max="100"
+                [value]="media.volume"
+                [attr.aria-label]="i18n.t('media.setVolume')"
+                [attr.aria-valuetext]="
+                  media.muted
+                    ? i18n.t('media.muted')
+                    : i18n.t('media.volume', { volume: '' + media.volume })
+                "
+                (change)="setVolume($event)"
+              />
               <span aria-hidden="true">{{ media.volume }}</span>
             </span>
           }

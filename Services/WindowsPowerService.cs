@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace YFRemote.Server.Services;
 
@@ -21,6 +23,37 @@ public sealed class WindowsPowerService : IPowerService
             throw new InvalidOperationException("SetSuspendState was refused by Windows.");
         }
     }
+
+    // Win+L laesst sich per SendInput nicht ausloesen, Windows filtert die Kombination heraus.
+    public void Lock()
+    {
+        if (!LockWorkStation())
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "LockWorkStation failed.");
+        }
+    }
+
+    // PostMessage statt SendMessage: ein haengendes Fenster wuerde den Broadcast sonst blockieren.
+    public void TurnOffDisplay()
+    {
+        if (!PostMessage(HwndBroadcast, WmSysCommand, ScMonitorPower, MonitorOff))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Turning off the display failed.");
+        }
+    }
+
+    private const nint HwndBroadcast = 0xFFFF;
+    private const uint WmSysCommand = 0x0112;
+    private const nint ScMonitorPower = 0xF170;
+    private const nint MonitorOff = 2;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool LockWorkStation();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessage(nint window, uint message, nint wParam, nint lParam);
 
     private static void RunShutdown(string arguments)
     {

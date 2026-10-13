@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Tray: "Gekoppelte Geräte" öffnet jetzt ein Fenster mit allen gekoppelten Geräten statt eines Untermenüs. Dort lassen sich mehrere Geräte anhaken und auf einmal entkoppeln, statt für jedes einzeln das Tray-Menü neu zu öffnen.
+
 ## [2.32.0] - 2026-10-11
 
 ### Added

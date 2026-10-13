@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Während am PC die Benutzerkontensteuerung ("Ja"/"Nein") oder der Sperrbildschirm angezeigt wird, steht am Gerät jetzt ein klarer Hinweis statt "Action failed.". Windows blockt in dieser Zeit jede ferngesteuerte Eingabe, auch Touchpad und Tasten; die Verbindung bleibt bestehen, "Neu verbinden" ist nicht nötig. Den Dialog selbst kann YFRemote nicht bestätigen.
+
 ## [2.34.0] - 2026-10-13
 
 ### Added

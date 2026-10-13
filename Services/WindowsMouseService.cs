@@ -26,7 +26,7 @@ public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouse
             {
                 if (!GetCursorPos(out var cursor))
                 {
-                    throw new Win32Exception(Marshal.GetLastWin32Error(), "GetCursorPos failed.");
+                    throw WindowsInputSender.LastWin32Failure("GetCursorPos failed.");
                 }
 
                 var left = GetSystemMetrics(SmXVirtualScreen);

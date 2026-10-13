@@ -234,6 +234,11 @@ Hotkeys press all modifiers down, then non-modifier keys, then release modifiers
 order, with `finally`-based best-effort cleanup if a send fails partway through. Supported keys
 are a fixed allowlist in `WindowsInputService.VirtualKeys`; anything else throws
 `UnsupportedKeyException`, which `RemoteActionHandler` converts into a `Fail` response.
+While the secure desktop is active (UAC prompt, lock screen), `SendInput` and `GetCursorPos` fail
+with `ERROR_ACCESS_DENIED` (measured on a real UAC prompt). `WindowsInputSender.LastWin32Failure`
+turns that into `InputBlockedException`. The Client recognizes its fixed message text and shows a
+translated hint, and the socket stays open. A non-SYSTEM process cannot answer the UAC prompt
+itself.
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
 `NotifyIcon` context menu (version, status, device address, open-in-browser, copy-address,

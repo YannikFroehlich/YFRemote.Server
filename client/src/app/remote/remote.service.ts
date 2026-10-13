@@ -80,6 +80,9 @@ const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
 const ERROR_VISIBLE_MS = 4200;
 const ACTION_CONFIRMATION_TIMEOUT_MS = 5000;
 const HAPTIC_PULSE_MS = 10;
+/** Wortgleich mit InputBlockedException des Servers: Windows weist waehrend der
+ *  Benutzerkontensteuerung und des Sperrbildschirms jede Eingabe ab. */
+const INPUT_BLOCKED_ERROR = 'Input is blocked by a secure desktop (UAC prompt or lock screen).';
 // Nur für einzelne Tipp-Aktionen vibrieren, nicht für den Strom aus Bewegungen, Scrollen und
 // Text (die Handy-Tastatur gibt beim Tippen schon selbst Rückmeldung).
 const HAPTIC_ACTION_TYPES: ReadonlySet<RemoteAction['type']> = new Set([
@@ -511,7 +514,12 @@ export class RemoteService implements OnDestroy {
       return;
     }
 
-    this.showError(response.error?.trim() || this.i18n.t('remoteService.error.actionRejected'));
+    const error = response.error?.trim();
+    this.showError(
+      error === INPUT_BLOCKED_ERROR
+        ? this.i18n.t('remoteService.error.inputBlocked')
+        : error || this.i18n.t('remoteService.error.actionRejected'),
+    );
   }
 
   private isRemoteResponse(value: unknown): value is RemoteResponse {

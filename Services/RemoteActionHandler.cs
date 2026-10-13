@@ -69,6 +69,10 @@ public sealed class RemoteActionHandler(
         {
             response = Fail(ex.Message);
         }
+        catch (InputBlockedException ex)
+        {
+            response = Fail(ex.Message);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Action {ActionType} failed.", request.Type);

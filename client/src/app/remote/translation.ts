@@ -703,6 +703,10 @@ export const TRANSLATIONS = {
     de: 'Aktion wurde vom Server abgelehnt.',
     en: 'The server rejected the action.',
   },
+  'remoteService.error.inputBlocked': {
+    de: 'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bitte am PC bestätigen, danach geht die Steuerung wieder.',
+    en: 'The PC is showing a UAC prompt or the lock screen. Confirm it at the PC, then remote control works again.',
+  },
 
   'pairingService.error.connectFailed': {
     de: 'Verbindung zum Server fehlgeschlagen: {{message}}',

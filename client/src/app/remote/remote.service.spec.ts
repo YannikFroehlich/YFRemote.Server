@@ -318,6 +318,24 @@ describe('RemoteService', () => {
     expect(remote.lastError()).toBe('Taste nicht erlaubt');
   });
 
+  it('explains input blocked by the UAC prompt instead of showing the raw server error', () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    sockets[0].receive(
+      JSON.stringify({
+        success: false,
+        error: 'Input is blocked by a secure desktop (UAC prompt or lock screen).',
+      }),
+    );
+
+    expect(remote.lastError()).toBe(
+      'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bitte am PC bestätigen, danach geht die Steuerung wieder.',
+    );
+    expect(remote.status()).toBe('connected');
+  });
+
   it('stops a macro when the server confirmation times out', async () => {
     const { remote, sockets } = setupRemoteService();
     remote.connect();

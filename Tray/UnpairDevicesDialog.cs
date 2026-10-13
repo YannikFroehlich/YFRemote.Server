@@ -2,18 +2,18 @@ using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Tray;
 
-// Ersetzt die Rückfrage je Gerät: Das angeklickte Gerät ist vorausgewählt, weitere lassen sich
-// dazunehmen. Vorher schloss sich nach jedem einzelnen Gerät das Tray-Menü.
+// Ersetzt das Untermenü mit einer Rückfrage je Gerät: Dort schloss sich nach jedem Entkoppeln das
+// Tray-Menü, hier lassen sich mehrere Geräte auf einmal auswählen.
 internal sealed class UnpairDevicesDialog : Form
 {
     private readonly IReadOnlyList<PairedDeviceInfo> devices;
     private readonly CheckedListBox deviceList;
 
-    public UnpairDevicesDialog(IReadOnlyList<(PairedDeviceInfo Device, string Label)> entries, Guid preselectedDeviceId)
+    public UnpairDevicesDialog(IReadOnlyList<(PairedDeviceInfo Device, string Label)> entries)
     {
         devices = entries.Select(entry => entry.Device).ToList();
 
-        Text = "Geräte entkoppeln";
+        Text = "Gekoppelte Geräte";
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -46,8 +46,8 @@ internal sealed class UnpairDevicesDialog : Form
             AutoSize = true,
             MaximumSize = new Size(382, 0),
             ForeColor = Color.FromArgb(167, 181, 187),
-            Text = "Ausgewählte Geräte werden entkoppelt. Sie können sich danach nur mit einer "
-                + "neuen PIN erneut verbinden.",
+            Text = "Geräte zum Entkoppeln anhaken. Sie können sich danach nur mit einer neuen "
+                + "PIN erneut verbinden.",
             Margin = new Padding(0, 0, 0, 12)
         };
 
@@ -60,9 +60,9 @@ internal sealed class UnpairDevicesDialog : Form
             ForeColor = ForeColor,
             Margin = new Padding(0, 0, 0, 12)
         };
-        foreach (var (device, label) in entries)
+        foreach (var (_, label) in entries)
         {
-            deviceList.Items.Add(label, device.Id == preselectedDeviceId);
+            deviceList.Items.Add(label);
         }
 
         var buttonPanel = new FlowLayoutPanel
@@ -89,7 +89,7 @@ internal sealed class UnpairDevicesDialog : Form
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Text = "Entkoppeln",
             DialogResult = DialogResult.OK,
-            Enabled = deviceList.CheckedIndices.Count > 0,
+            Enabled = false,
             Margin = new Padding(0)
         };
         // ItemCheck kommt vor der Änderung, CheckedIndices zählt also noch den alten Zustand.

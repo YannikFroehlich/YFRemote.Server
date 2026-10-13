@@ -123,6 +123,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         regeneratePinItem.Click += (_, _) => RegeneratePin();
 
         pairedDevicesItem = new ToolStripMenuItem("Gekoppelte Geräte");
+        pairedDevicesItem.Click += (_, _) => ShowPairedDevicesDialog();
 
         updateItem = new ToolStripMenuItem(
             updateService.CanUpdate
@@ -436,8 +437,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
                 ToolTipIcon.Info));
 
-    // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteliste
-    // sofort neu aufgebaut, sonst reicht das naechste Opening.
+    // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteanzahl
+    // sofort aktualisiert, sonst reicht das naechste Opening.
     private void OnConnectionsChanged() =>
         uiDispatcher.BeginInvoke(() =>
         {
@@ -589,32 +590,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var pairedDevices = pairingService.GetPairedDevices();
         var connectedCount = pairedDevices.Count(device => connectionRegistry.IsConnected(device.Id));
         pairedDevicesItem.Text = connectedCount == 0
-            ? $"Gekoppelte Geräte ({pairedDevices.Count})"
-            : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)";
-        pairedDevicesItem.DropDownItems.Clear();
-
-        if (pairedDevices.Count == 0)
-        {
-            pairedDevicesItem.DropDownItems.Add(new ToolStripMenuItem("Keine gekoppelten Geräte")
-            {
-                Enabled = false
-            });
-            return;
-        }
-
-        foreach (var (device, label) in GetDeviceEntries(pairedDevices))
-        {
-            var deviceItem = new ToolStripMenuItem(label)
-            {
-                Checked = connectionRegistry.IsConnected(device.Id)
-            };
-            deviceItem.Click += (_, _) => HandleRemoveDeviceClick(device);
-            pairedDevicesItem.DropDownItems.Add(deviceItem);
-        }
+            ? $"Gekoppelte Geräte ({pairedDevices.Count})..."
+            : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)...";
+        pairedDevicesItem.Enabled = pairedDevices.Count > 0;
     }
 
-    private List<(PairedDeviceInfo Device, string Label)> GetDeviceEntries(IEnumerable<PairedDeviceInfo> devices) =>
-        devices
+    private void ShowPairedDevicesDialog()
+    {
+        var entries = pairingService.GetPairedDevices()
             .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
             .ThenByDescending(device => device.LastSeenUtc)
             .Select(device => (device, connectionRegistry.IsConnected(device.Id)
@@ -622,9 +605,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})"))
             .ToList();
 
-    private void HandleRemoveDeviceClick(PairedDeviceInfo device)
-    {
-        using var dialog = new UnpairDevicesDialog(GetDeviceEntries(pairingService.GetPairedDevices()), device.Id);
+        using var dialog = new UnpairDevicesDialog(entries);
         if (dialog.ShowDialog() != DialogResult.OK)
         {
             return;

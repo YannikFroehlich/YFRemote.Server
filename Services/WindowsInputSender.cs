@@ -81,11 +81,17 @@ public sealed class WindowsInputSender
         var sent = SendInput(1, [input], Marshal.SizeOf<Input>());
         if (sent != 1)
         {
-            throw new Win32Exception(
-                Marshal.GetLastWin32Error(),
-                $"SendInput failed for {description}.");
+            throw LastWin32Failure($"SendInput failed for {description}.");
         }
     }
+
+    internal static Exception LastWin32Failure(string message)
+    {
+        var error = Marshal.GetLastWin32Error();
+        return error == ErrorAccessDenied ? new InputBlockedException() : new Win32Exception(error, message);
+    }
+
+    private const int ErrorAccessDenied = 5;
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint inputCount, Input[] inputs, int inputSize);

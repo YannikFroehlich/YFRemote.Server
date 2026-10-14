@@ -167,6 +167,17 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_InputBlockedBySecureDesktop_ReturnsItsMessage()
+    {
+        var handler = CreateHandler(new BlockedInputService());
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "key", Keys = ["UP"] });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Input is blocked by a secure desktop (UAC prompt or lock screen).", response.Error);
+    }
+
+    [TestMethod]
     public void Handle_Volume_ForwardsToVolumeService()
     {
         var volumeService = new RecordingVolumeService();
@@ -251,6 +262,19 @@ public sealed class RemoteActionHandlerTests
         public void Lock() => throw new InvalidOperationException("nope");
 
         public void TurnOffDisplay() => throw new NotSupportedException("not here");
+    }
+
+    private sealed class BlockedInputService : IInputService
+    {
+        public void PressKey(string key) => throw new InputBlockedException();
+
+        public void PressHotkey(IReadOnlyList<string> keys) => throw new InputBlockedException();
+
+        public void TypeText(string text) => throw new InputBlockedException();
+
+        public void KeyDown(string key) => throw new InputBlockedException();
+
+        public void KeyUp(string key) => throw new InputBlockedException();
     }
 
     private sealed class RecordingVolumeService : IVolumeService

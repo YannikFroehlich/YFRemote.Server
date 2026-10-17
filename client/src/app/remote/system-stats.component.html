@@ -1,0 +1,20 @@
+<div class="system-stats" role="status">
+  @if (rows(); as rows) {
+    @for (row of rows; track row.label) {
+      <div class="stats-tile">
+        <div class="stats-tile__head">
+          <span>{{ row.label }}</span>
+          <span class="stats-tile__value">{{
+            row.load === undefined ? '–' : row.load + ' %'
+          }}</span>
+        </div>
+        <div class="stats-bar" aria-hidden="true">
+          <span [style.width.%]="row.load ?? 0"></span>
+        </div>
+        <span class="stats-tile__detail">{{ row.detail }}</span>
+      </div>
+    }
+  } @else {
+    <p class="stats-waiting">{{ i18n.t('stats.waiting') }}</p>
+  }
+</div>

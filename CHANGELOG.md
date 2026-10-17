@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Neuer Tab "PC": Auslastung von CPU, GPU und Arbeitsspeicher sowie die GPU-Temperatur des PCs, sekündlich aktualisiert. Gemessen wird nur, solange ein Gerät den Tab offen hat - sonst kostet die Anzeige den PC nichts. Windows selbst gibt die CPU-Temperatur nicht heraus, und die GPU-Temperatur nur bei Grafikkarten, die sie auch im Task-Manager zeigen. Läuft am PC [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) mit eingeschaltetem "Remote Web Server" (Options → Remote Web Server → Run, Port 8085), übernimmt YFRemote die fehlenden Temperaturen von dort. YFRemote selbst braucht dafür keine Adminrechte. Unter Linux kommen die Temperaturen aus hwmon, die GPU-Auslastung nur von AMD-Karten.
+
 ## [2.34.1] - 2026-10-14
 
 ### Fixed

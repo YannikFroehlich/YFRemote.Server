@@ -11,7 +11,8 @@ public sealed class RemoteActionHandler(
     PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
     ClipboardReadNotifier? clipboardReadNotifier = null,
     IVolumeService? volumeService = null,
-    ShutdownTimer? shutdownTimer = null)
+    ShutdownTimer? shutdownTimer = null,
+    PollingBroadcaster<SystemStatsMessage>? systemStats = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const int MinMouseMoveDelta = -5000;
@@ -53,6 +54,7 @@ public sealed class RemoteActionHandler(
                 "gamepad" => HandleGamepad(request, session),
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 "clipboardsync" => HandleClipboardSync(request, session),
+                "systemstats" => HandleSystemStats(request, session),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -372,6 +374,33 @@ public sealed class RemoteActionHandler(
             });
             logger.LogInformation("Clipboard sync enabled for {DeviceName}.", session.DeviceName);
             clipboardReadNotifier?.NotifySyncEnabled(session.DeviceName);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Das Geraet schaltet die Anzeige nur ein, solange sie sichtbar ist - ohne Zuhoerer misst der
+    // PC gar nichts.
+    private RemoteActionResponse HandleSystemStats(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (systemStats is null || session is null)
+        {
+            return Fail("System stats are not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'systemStats' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.SystemStatsSubscription?.Dispose();
+            session.SystemStatsSubscription = null;
+        }
+        else
+        {
+            session.SystemStatsSubscription ??= systemStats.Subscribe(session.PushSystemStats);
         }
 
         return RemoteActionResponse.Ok();

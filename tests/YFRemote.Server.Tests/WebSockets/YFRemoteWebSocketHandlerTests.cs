@@ -148,6 +148,40 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_SystemStatsEnabled_PushesStatsUntilDisabled()
+    {
+        var polls = 0;
+        var systemStats = new PollingBroadcaster<SystemStatsMessage>(
+            () => Task.FromResult(new SystemStatsMessage(++polls, null, 10, 55, 4000, 16000)),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: true,
+            NullLogger.Instance);
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(systemStats: systemStats)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        await SendTextAsync(pair.Client, """{"type":"systemStats","enabled":true}""");
+        Assert.IsTrue((await ReceiveResponseAsync(pair.Client)).Success);
+        await systemStats.PollAsync();
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("systemStats", pushed.GetProperty("type").GetString());
+        Assert.AreEqual(1, pushed.GetProperty("cpuLoad").GetInt32());
+        Assert.AreEqual(55, pushed.GetProperty("gpuTemperature").GetInt32());
+        Assert.IsFalse(pushed.TryGetProperty("cpuTemperature", out _));
+
+        await SendTextAsync(pair.Client, """{"type":"systemStats","enabled":false,"requestId":"off"}""");
+        Assert.AreEqual("off", (await ReceiveResponseAsync(pair.Client)).RequestId);
+        await systemStats.PollAsync();
+
+        // Nach dem Ausschalten kommt kein Push mehr - die naechste Nachricht ist die Antwort.
+        await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"],"requestId":"next"}""");
+        Assert.AreEqual("next", (await ReceiveResponseAsync(pair.Client)).RequestId);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_InvalidJson_SendsFailureResponse()
     {
         await using var pair = await WebSocketPair.CreateAsync();
@@ -286,7 +320,8 @@ public sealed class YFRemoteWebSocketHandlerTests
         IGamepadService? gamepadService = null,
         FileOfferService? fileOfferService = null,
         PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
-        PollingBroadcaster<MediaStatusMessage>? mediaStatus = null)
+        PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
+        PollingBroadcaster<SystemStatsMessage>? systemStats = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -294,7 +329,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             new NoOpPowerService(),
             NullLogger<RemoteActionHandler>.Instance,
             gamepadService,
-            clipboardSync);
+            clipboardSync,
+            systemStats: systemStats);
 
         return new YFRemoteWebSocketHandler(
             actionHandler,

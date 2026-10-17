@@ -91,6 +91,25 @@ export interface ClipboardSyncAction {
   readonly enabled: boolean;
 }
 
+/** Schaltet fuer diese Verbindung die Systemanzeige ein oder aus; der PC misst nur, solange
+ *  mindestens ein Geraet sie eingeschaltet hat. */
+export interface SystemStatsAction {
+  readonly type: 'systemStats';
+  readonly enabled: boolean;
+}
+
+/** Auslastung in Prozent, Temperaturen in Grad Celsius; ein Wert fehlt, wenn der PC ihn nicht
+ *  liefert (CPU-Temperatur unter Windows, GPU-Temperatur bei integrierter Grafik). */
+export interface SystemStatsMessage {
+  readonly type: 'systemStats';
+  readonly cpuLoad?: number;
+  readonly cpuTemperature?: number;
+  readonly gpuLoad?: number;
+  readonly gpuTemperature?: number;
+  readonly memoryUsedMb: number;
+  readonly memoryTotalMb: number;
+}
+
 /** Lautstaerke und laufendes Medium am PC; kommt ungefragt beim Verbinden und bei jeder Aenderung.
  *  `volume` fehlt ohne Wiedergabegeraet, `title` wenn keine App Medien meldet. */
 export interface MediaStatusMessage {
@@ -120,7 +139,8 @@ export type RemoteAction =
   | TextAction
   | GamepadAction
   | GamepadDisconnectAction
-  | ClipboardSyncAction;
+  | ClipboardSyncAction
+  | SystemStatsAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

@@ -84,6 +84,11 @@ manual `ChangeDetectorRef` calls.
      and on `focus`/`visibilitychange` it reads `DEVICE_CLIPBOARD_READER` and sends changed text
      with `ClipboardService.sendText`. The first read only sets the baseline, and the PC's echo of
      sent text is skipped.
+   - `systemStats` pushes land in the `systemStats` signal, but only while
+     `watchSystemStats(true)` is in effect: `SystemStatsComponent` (the "PC" tab, shown where
+     `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
+     and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
+     measures only while a device watches, so never subscribe to it in the background.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

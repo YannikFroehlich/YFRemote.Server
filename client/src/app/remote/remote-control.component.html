@@ -149,6 +149,21 @@
             <span>{{ i18n.t('shell.tabGamepad') }}</span>
           </button>
         }
+        @if (systemStatsSupported()) {
+          <button
+            class="view-tab"
+            [class.view-tab--active]="activeView() === 'system'"
+            type="button"
+            role="tab"
+            [attr.aria-selected]="activeView() === 'system'"
+            (click)="selectView('system')"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 19h16v2H4v-2Zm1-8h3v6H5v-6Zm5-6h3v12h-3V5Zm5 3h3v9h-3V8Z" />
+            </svg>
+            <span>{{ i18n.t('shell.tabSystem') }}</span>
+          </button>
+        }
       </div>
     </div>
 
@@ -295,6 +310,8 @@
         <app-touchpad />
       } @else if (activeView() === 'keyboard') {
         <app-keyboard-pad />
+      } @else if (activeView() === 'system' && systemStatsSupported()) {
+        <app-system-stats />
       }
     </section>
   </section>

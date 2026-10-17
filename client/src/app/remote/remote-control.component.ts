@@ -10,10 +10,11 @@ import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ConnectionStatus, FileOfferMessage } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SettingsDialogComponent } from './settings-dialog.component';
+import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
 
-type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad';
+type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system';
 
 @Component({
   selector: 'app-remote-control',
@@ -24,6 +25,7 @@ type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad';
     ButtonEditorDialogComponent,
     KeyboardPadComponent,
     GamepadComponent,
+    SystemStatsComponent,
   ],
   templateUrl: './remote-control.component.html',
 })
@@ -53,6 +55,7 @@ export class RemoteControlComponent {
   protected readonly fileOfferError = signal(false);
   // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
+  protected readonly systemStatsSupported = this.remote.systemStatsSupported;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');

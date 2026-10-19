@@ -48,6 +48,43 @@ public sealed class WindowsSystemStatsReaderTests
         Assert.IsTrue(second.MemoryUsedMb > 0 && second.MemoryUsedMb <= second.MemoryTotalMb);
     }
 
+    // Laeuft LibreHardwareMonitor nicht, dauert die abgewiesene Verbindung rund zwei Sekunden -
+    // darauf wartet die Messung nicht.
+    [TestMethod]
+    public async Task ReadAsync_DoesNotWaitForTheSensorTool()
+    {
+        using var reader = new WindowsSystemStatsReader(() => new TaskCompletionSource<string>().Task);
+
+        var read = reader.ReadAsync();
+
+        Assert.IsTrue(read.IsCompleted);
+        Assert.IsNull((await read).CpuTemperature);
+    }
+
+    [TestMethod]
+    public async Task ReadAsync_TakesSensorToolTemperaturesFromTheNextReadOn()
+    {
+        using var reader = new WindowsSystemStatsReader(() => Task.FromResult("""
+            {"Children":[{"Text":"CPU Package","Value":"55,4 °C","SensorId":"/intelcpu/0/temperature/6","Type":"Temperature"}]}
+            """));
+
+        Assert.IsNull((await reader.ReadAsync()).CpuTemperature);
+        Assert.AreEqual(55, (await reader.ReadAsync()).CpuTemperature);
+    }
+
+    // Antwortet auf Port 8085 ein anderes Programm mit JSON, bleiben die uebrigen Werte erhalten.
+    [TestMethod]
+    public async Task ReadAsync_SurvivesForeignJsonOnTheSensorToolPort()
+    {
+        using var reader = new WindowsSystemStatsReader(() => Task.FromResult("[1, 2]"));
+
+        await reader.ReadAsync();
+        var second = await reader.ReadAsync();
+
+        Assert.IsNull(second.CpuTemperature);
+        Assert.IsTrue(second.MemoryTotalMb > 0);
+    }
+
     // Ausschnitt aus einer echten data.json von LibreHardwareMonitor 0.9.6 (deutsches Windows).
     [TestMethod]
     public void ParseSensorToolTemperatures_PrefersCpuPackageAndGpuCore()

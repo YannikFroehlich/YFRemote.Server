@@ -10,14 +10,20 @@ namespace YFRemote.Server.Services;
 // Leistungsindikatoren "GPU Engine" (dieselbe Quelle wie der Task-Manager) und GPU-Temperatur ueber
 // D3DKMT - alles ohne Adminrechte und ohne Treiber. Eine CPU-Temperatur gibt Windows ohne
 // Kerneltreiber nicht heraus; die kommt nur, wenn LibreHardwareMonitor mit eingeschaltetem
-// Webserver laeuft (siehe ReadSensorToolTemperaturesAsync), sonst bleibt sie null.
+// Webserver laeuft (siehe RefreshSensorToolTemperaturesAsync), sonst bleibt sie null.
 // Abgefragt wird nur, solange ein Geraet die Systemanzeige offen hat (PollingBroadcaster).
-public sealed partial class WindowsSystemStatsReader : IDisposable
+// fetchSensorTool ersetzen nur Tests, damit sie nicht vom echten Port 8085 abhaengen.
+public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSensorTool = null) : IDisposable
 {
     private const uint PdhFormatDouble = 0x00000200;
     private const int PdhMoreData = unchecked((int)0x800007D2);
     private const int KmtQueryAdapterPerfData = 62;
     private static readonly TimeSpan SensorToolRetryDelay = TimeSpan.FromSeconds(30);
+
+    // Nach einer laengeren Pause (niemand hatte die Anzeige offen) waeren die Vergleichswerte alt:
+    // Die erste CPU- und GPU-Last zeigte das Mittel ueber die ganze Pause, die Temperaturen den
+    // Stand von damals.
+    private static readonly TimeSpan ResumeAfter = TimeSpan.FromSeconds(5);
 
     // ponytail: fester Standardport von LibreHardwareMonitor ("Remote Web Server"); einstellbar
     // erst, wenn jemand ihn dort aendert.
@@ -27,32 +33,48 @@ public sealed partial class WindowsSystemStatsReader : IDisposable
         Timeout = TimeSpan.FromSeconds(2)
     };
 
+    private readonly Func<Task<string>> fetchSensorTool =
+        fetchSensorTool ?? (() => SensorToolClient.GetStringAsync("data.json"));
     private readonly object syncRoot = new();
     private long previousIdle;
     private long previousTotal;
     private IntPtr gpuQuery;
     private IntPtr gpuCounter;
     private bool gpuCounterUnavailable;
+    private DateTime lastReadUtc;
+    private (int? Cpu, int? Gpu) sensorToolTemperatures;
+    private int sensorToolRefreshing;
     private DateTime sensorToolRetryAtUtc;
 
-    public async Task<SystemStatsMessage> ReadAsync()
+    public Task<SystemStatsMessage> ReadAsync()
     {
-        var (sensorToolCpu, sensorToolGpu) = await ReadSensorToolTemperaturesAsync();
-
+        SystemStatsMessage stats;
         lock (syncRoot)
         {
+            var now = DateTime.UtcNow;
+            var resumed = now - lastReadUtc > ResumeAfter;
+            lastReadUtc = now;
+            if (resumed)
+            {
+                previousTotal = 0;
+                sensorToolTemperatures = default;
+            }
+
             var memory = new MemoryStatusEx { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
             GlobalMemoryStatusEx(ref memory);
             const long bytesPerMb = 1024 * 1024;
 
-            return new SystemStatsMessage(
+            stats = new SystemStatsMessage(
                 ReadCpuLoad(),
-                sensorToolCpu,
-                ReadGpuLoad(),
-                ReadGpuTemperature() ?? sensorToolGpu,
+                sensorToolTemperatures.Cpu,
+                ReadGpuLoad(resumed),
+                ReadGpuTemperature() ?? sensorToolTemperatures.Gpu,
                 (long)(memory.TotalPhys - memory.AvailPhys) / bytesPerMb,
                 (long)memory.TotalPhys / bytesPerMb);
         }
+
+        _ = RefreshSensorToolTemperaturesAsync();
+        return Task.FromResult(stats);
     }
 
     public void Dispose()
@@ -69,23 +91,38 @@ public sealed partial class WindowsSystemStatsReader : IDisposable
 
     // LibreHardwareMonitor liest die Sensoren mit eigenem Treiber und Adminrechten; sein
     // "Remote Web Server" gibt sie als data.json heraus - YFRemote selbst braucht dafuer keine
-    // Rechte. Laeuft er nicht, erst nach einer Pause wieder fragen: eine abgewiesene Verbindung
-    // dauert unter Windows rund zwei Sekunden.
-    private async Task<(int? Cpu, int? Gpu)> ReadSensorToolTemperaturesAsync()
+    // Rechte. Die Antwort zaehlt erst ab der naechsten Messung: Laeuft er nicht, dauert eine
+    // abgewiesene Verbindung unter Windows rund zwei Sekunden, so lange soll die Anzeige nicht
+    // stehen. Danach erst nach einer Pause wieder fragen.
+    private async Task RefreshSensorToolTemperaturesAsync()
     {
-        if (DateTime.UtcNow < sensorToolRetryAtUtc)
+        if (DateTime.UtcNow < sensorToolRetryAtUtc || Interlocked.Exchange(ref sensorToolRefreshing, 1) == 1)
         {
-            return (null, null);
+            return;
         }
 
         try
         {
-            return ParseSensorToolTemperatures(await SensorToolClient.GetStringAsync("data.json"));
+            var temperatures = ParseSensorToolTemperatures(await fetchSensorTool());
+            lock (syncRoot)
+            {
+                sensorToolTemperatures = temperatures;
+            }
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        catch
         {
+            // Auch fremdes JSON auf dem Port (anderes Programm, andere LHM-Version) darf die
+            // uebrigen Werte nicht mitreissen.
+            lock (syncRoot)
+            {
+                sensorToolTemperatures = default;
+            }
+
             sensorToolRetryAtUtc = DateTime.UtcNow + SensorToolRetryDelay;
-            return (null, null);
+        }
+        finally
+        {
+            Volatile.Write(ref sensorToolRefreshing, 0);
         }
     }
 
@@ -168,7 +205,7 @@ public sealed partial class WindowsSystemStatsReader : IDisposable
         return load is null ? null : Math.Clamp(load.Value, 0, 100);
     }
 
-    private int? ReadGpuLoad()
+    private int? ReadGpuLoad(bool resumed)
     {
         if (gpuCounterUnavailable)
         {
@@ -186,7 +223,8 @@ public sealed partial class WindowsSystemStatsReader : IDisposable
             }
         }
 
-        if (PdhCollectQueryData(gpuQuery) != 0)
+        // Nach einer Pause setzt diese Abfrage nur den neuen Vergleichswert.
+        if (PdhCollectQueryData(gpuQuery) != 0 || resumed)
         {
             return null;
         }

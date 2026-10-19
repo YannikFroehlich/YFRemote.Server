@@ -213,7 +213,11 @@ so Windows itself yields no CPU temperature. If LibreHardwareMonitor runs (it ha
 admin rights) with its "Remote Web Server" on the default port, `http://localhost:8085/data.json`
 fills the CPU temperature and a missing GPU temperature (`ParseSensorToolTemperatures`; values are
 formatted in LHM's UI language, "55,0 °C"). LHM 0.9.x no longer publishes WMI. Without the web
-server the reader retries only every 30 s, because a refused localhost connection takes ~2 s. `LinuxSystemStatsReader` reads `/proc/stat`, `/proc/meminfo`,
+server the reader retries only every 30 s, because a refused localhost connection takes ~2 s; the
+request runs beside the poll and its answer counts from the next reading on, so it never stalls the
+display, and any failure (also foreign JSON on that port) only drops the temperatures. After a pause
+of more than 5 s both readers start over like on the first read (CPU/GPU load `null` once) instead
+of reporting the average over the whole pause. `LinuxSystemStatsReader` reads `/proc/stat`, `/proc/meminfo`,
 hwmon (`coretemp`/`k10temp`/..., `amdgpu`/...) and amdgpu's `gpu_busy_percent`. A missing value is
 `null` and the Client shows it as unavailable. In the Client, `ClipboardSyncService` writes pushed text into the
 device clipboard and, when the app regains focus, sends newly copied device text via

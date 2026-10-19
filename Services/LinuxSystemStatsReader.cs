@@ -21,11 +21,24 @@ public sealed class LinuxSystemStatsReader
             .FirstOrDefault(File.Exists)
         : null);
 
+    // Nach einer laengeren Pause (niemand hatte die Anzeige offen) waere der Vergleichswert alt und
+    // die erste CPU-Last das Mittel ueber die ganze Pause - dann wie beim ersten Lesen null.
+    private static readonly TimeSpan ResumeAfter = TimeSpan.FromSeconds(5);
+
     private long previousIdle;
     private long previousTotal;
+    private DateTime lastReadUtc;
 
     public async Task<SystemStatsMessage> ReadAsync()
     {
+        var now = DateTime.UtcNow;
+        if (now - lastReadUtc > ResumeAfter)
+        {
+            previousTotal = 0;
+        }
+
+        lastReadUtc = now;
+
         var (idle, total) = ParseCpuTimes(await File.ReadAllTextAsync("/proc/stat"));
         int? cpuLoad = previousTotal == 0 || total == previousTotal
             ? null

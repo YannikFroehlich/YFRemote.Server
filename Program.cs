@@ -364,6 +364,12 @@ internal static class Program
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
+        builder.Services.AddSingleton<WindowsSystemStatsReader>();
+        builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
+            services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));
 #else
         builder.Services.AddSingleton<LinuxInputSender>();
         builder.Services.AddSingleton<IInputService, LinuxInputService>();
@@ -379,6 +385,12 @@ internal static class Program
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
+        builder.Services.AddSingleton<LinuxSystemStatsReader>();
+        builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
+            services.GetRequiredService<LinuxSystemStatsReader>().ReadAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));
 #endif
         builder.Services.AddSingleton(services =>
         {

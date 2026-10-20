@@ -10,6 +10,7 @@ import {
   RemoteResponse,
   ServerConfig,
   ServerPlatform,
+  SystemStatsMessage,
 } from './remote.models';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
@@ -142,6 +143,8 @@ export class RemoteService implements OnDestroy {
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
+  private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
+  private systemStatsWatched = false;
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
   // wieder auftauchen.
   private dismissedFileOfferId: string | null = null;
@@ -181,6 +184,10 @@ export class RemoteService implements OnDestroy {
   readonly clipboardSyncSupported = computed(
     () => this.serverPlatformSignal() === 'windows' || this.serverPlatformSignal() === 'linux',
   );
+  /** Zuletzt gemeldete Auslastung des PCs; `null`, solange niemand zusieht oder nichts kam. */
+  readonly systemStats = this.systemStatsSignal.asReadonly();
+  /** Auch die Systemanzeige koennen nur die PC-Server. */
+  readonly systemStatsSupported = this.clipboardSyncSupported;
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -301,6 +308,15 @@ export class RemoteService implements OnDestroy {
     this.clipboardSyncSignal.set(enabled);
     this.storage?.setItem(CLIPBOARD_SYNC_STORAGE_KEY, String(enabled));
     this.sendClipboardSync();
+  }
+
+  /** Nur solange die Anzeige sichtbar ist - ohne Zuhoerer misst der PC nichts. */
+  watchSystemStats(enabled: boolean): void {
+    this.systemStatsWatched = enabled;
+    if (!enabled) {
+      this.systemStatsSignal.set(null);
+    }
+    this.sendSystemStats();
   }
 
   dismissFileOffer(): void {
@@ -453,6 +469,7 @@ export class RemoteService implements OnDestroy {
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
       this.mediaStatusSignal.set(null);
+      this.systemStatsSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -487,6 +504,13 @@ export class RemoteService implements OnDestroy {
 
     if (isClipboardPushMessage(message)) {
       this.pcClipboardSignal.set(message);
+      return;
+    }
+
+    if (isSystemStatsMessage(message)) {
+      if (this.systemStatsWatched) {
+        this.systemStatsSignal.set(message);
+      }
       return;
     }
 
@@ -573,11 +597,20 @@ export class RemoteService implements OnDestroy {
     if (this.clipboardSyncSignal()) {
       this.sendClipboardSync();
     }
+    if (this.systemStatsWatched) {
+      this.sendSystemStats();
+    }
   }
 
   private sendClipboardSync(): void {
     if (this.clipboardSyncSupported() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'clipboardSync', enabled: this.clipboardSyncSignal() });
+    }
+  }
+
+  private sendSystemStats(): void {
+    if (this.systemStatsSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'systemStats', enabled: this.systemStatsWatched });
     }
   }
 
@@ -606,6 +639,7 @@ export class RemoteService implements OnDestroy {
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
     this.fileOfferSignal.set(null);
     this.mediaStatusSignal.set(null);
+    this.systemStatsSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -751,6 +785,20 @@ function isMediaStatusMessage(value: unknown): value is MediaStatusMessage {
 function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
   const message = value as Partial<ClipboardPushMessage> | null;
   return message?.type === 'clipboard' && typeof message.text === 'string';
+}
+
+function isSystemStatsMessage(value: unknown): value is SystemStatsMessage {
+  const message = value as Partial<SystemStatsMessage> | null;
+  const optionalNumber = (field: unknown) => field === undefined || typeof field === 'number';
+  return (
+    message?.type === 'systemStats' &&
+    optionalNumber(message.cpuLoad) &&
+    optionalNumber(message.cpuTemperature) &&
+    optionalNumber(message.gpuLoad) &&
+    optionalNumber(message.gpuTemperature) &&
+    typeof message.memoryUsedMb === 'number' &&
+    typeof message.memoryTotalMb === 'number'
+  );
 }
 
 function isFileOfferMessage(value: unknown): value is FileOfferMessage {

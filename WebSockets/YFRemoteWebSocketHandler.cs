@@ -44,7 +44,8 @@ public sealed class YFRemoteWebSocketHandler(
         var sendLock = new SemaphoreSlim(1, 1);
         using var session = new RemoteActionSession(
             rumble => _ = SendPushAsync(socket, sendLock, rumble, client, cancellationToken),
-            clipboard => _ = SendPushAsync(socket, sendLock, clipboard, client, cancellationToken))
+            clipboard => _ = SendPushAsync(socket, sendLock, clipboard, client, cancellationToken),
+            stats => _ = SendPushAsync(socket, sendLock, stats, client, cancellationToken))
         {
             DeviceName = deviceName ?? client
         };

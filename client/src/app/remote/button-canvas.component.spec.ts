@@ -114,6 +114,19 @@ describe('ButtonCanvasComponent', () => {
     expect(promptSpy).toHaveBeenLastCalledWith(expect.any(String), '30');
   });
 
+  it('offers the remaining minutes of a pending shutdown timer', async () => {
+    const { sockets, button } = await setupCanvas(false);
+    const promptSpy = vi.fn().mockReturnValue(null);
+    vi.stubGlobal('prompt', promptSpy);
+
+    sockets[0].onmessage?.(
+      new MessageEvent('message', { data: '{"type":"shutdownTimer","remainingSeconds":530}' }),
+    );
+    button('Herunterfahren planen').click();
+
+    expect(promptSpy).toHaveBeenLastCalledWith(expect.any(String), '9');
+  });
+
   it('does not send an action when clicked in edit mode', async () => {
     const { sockets, button } = await setupCanvas(true);
 

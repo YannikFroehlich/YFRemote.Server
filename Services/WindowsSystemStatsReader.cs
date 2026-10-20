@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using YFRemote.Server.Configuration;
 using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Services;
@@ -12,8 +13,10 @@ namespace YFRemote.Server.Services;
 // Kerneltreiber nicht heraus; die kommt nur, wenn LibreHardwareMonitor mit eingeschaltetem
 // Webserver laeuft (siehe RefreshSensorToolTemperaturesAsync), sonst bleibt sie null.
 // Abgefragt wird nur, solange ein Geraet die Systemanzeige offen hat (PollingBroadcaster).
-// fetchSensorTool ersetzen nur Tests, damit sie nicht vom echten Port 8085 abhaengen.
-public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSensorTool = null) : IDisposable
+// fetchSensorTool ersetzen nur Tests, damit sie nicht vom echten Port abhaengen.
+public sealed partial class WindowsSystemStatsReader(
+    Func<Task<string>>? fetchSensorTool = null,
+    SystemStatsOptions? options = null) : IDisposable
 {
     private const uint PdhFormatDouble = 0x00000200;
     private const int PdhMoreData = unchecked((int)0x800007D2);
@@ -27,16 +30,11 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
     // Stand von damals.
     private static readonly TimeSpan ResumeAfter = TimeSpan.FromSeconds(5);
 
-    // ponytail: fester Standardport von LibreHardwareMonitor ("Remote Web Server"); einstellbar
-    // erst, wenn jemand ihn dort aendert.
-    private static readonly HttpClient SensorToolClient = new()
-    {
-        BaseAddress = new Uri("http://localhost:8085/"),
-        Timeout = TimeSpan.FromSeconds(2)
-    };
+    private static readonly HttpClient SensorToolClient = new() { Timeout = TimeSpan.FromSeconds(2) };
 
     private readonly Func<Task<string>> fetchSensorTool =
-        fetchSensorTool ?? (() => SensorToolClient.GetStringAsync("data.json"));
+        fetchSensorTool ?? (() => SensorToolClient.GetStringAsync(
+            $"http://localhost:{(options ?? new SystemStatsOptions()).SensorToolPort}/data.json"));
     private readonly object syncRoot = new();
     private long previousIdle;
     private long previousTotal;

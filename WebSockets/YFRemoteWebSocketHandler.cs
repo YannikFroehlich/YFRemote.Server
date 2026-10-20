@@ -13,7 +13,8 @@ public sealed class YFRemoteWebSocketHandler(
     FileOfferService fileOfferService,
     TimeProvider timeProvider,
     ILogger<YFRemoteWebSocketHandler> logger,
-    PollingBroadcaster<MediaStatusMessage>? mediaStatus = null)
+    PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
+    ShutdownTimer? shutdownTimer = null)
 {
     private const int BufferSize = 4096;
     private const int MaxMessageBytes = 16 * 1024;
@@ -52,6 +53,13 @@ public sealed class YFRemoteWebSocketHandler(
         void OnFileOffered(FileOfferMessage offer) =>
             _ = SendPushAsync(socket, sendLock, offer, client, cancellationToken);
         fileOfferService.Offered += OnFileOffered;
+        // Jedes Geraet soll den Termin sehen und abbrechen koennen, nicht nur das, das ihn gesetzt hat.
+        void OnShutdownTimerChanged(string? changedBy) =>
+            _ = SendPushAsync(socket, sendLock, shutdownTimer!.Status, client, cancellationToken);
+        if (shutdownTimer is not null)
+        {
+            shutdownTimer.Changed += OnShutdownTimerChanged;
+        }
         using var mediaSubscription = mediaStatus?.Subscribe(status =>
             _ = SendPushAsync(socket, sendLock, status, client, cancellationToken));
 
@@ -61,6 +69,11 @@ public sealed class YFRemoteWebSocketHandler(
             if (fileOfferService.Current is { } currentOffer)
             {
                 await SendJsonAsync(socket, sendLock, currentOffer, cancellationToken);
+            }
+
+            if (shutdownTimer?.Status is { RemainingSeconds: not null } timerStatus)
+            {
+                await SendJsonAsync(socket, sendLock, timerStatus, cancellationToken);
             }
 
             while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
@@ -100,6 +113,10 @@ public sealed class YFRemoteWebSocketHandler(
         finally
         {
             fileOfferService.Offered -= OnFileOffered;
+            if (shutdownTimer is not null)
+            {
+                shutdownTimer.Changed -= OnShutdownTimerChanged;
+            }
             logger.LogInformation("WebSocket client disconnected: {Client}", client);
         }
     }

@@ -73,9 +73,12 @@ manual `ChangeDetectorRef` calls.
    - `createSocketUrl` appends `?token=...` from `PairingService.token()` when a pairing token
      exists — the server rejects a `/ws` handshake without one. `RemoteService` injects
      `PairingService`, never the other way around (see below), so there is no DI cycle.
-   - Besides `rumble` and `fileOffer`, `handleResponse` takes two more server pushes out of the
+   - Besides `rumble` and `fileOffer`, `handleResponse` takes three more server pushes out of the
      response path: `media` (`mediaStatus` signal, the strip above the Remote buttons, reset on
-     disconnect) and `clipboard` (`pcClipboard` signal). `clipboardSync` is a persisted preference
+     disconnect), `shutdownTimer` (`shutdownDeadline` signal, a local `Date.now()` deadline
+     computed from `remainingSeconds`, reset on disconnect; `RemoteControlComponent` ticks a
+     countdown strip with "Abbrechen" from it only while it is set) and `clipboard`
+     (`pcClipboard` signal). `clipboardSync` is a persisted preference
      (`yfremote.clipboardSync`); after `/health` reports `windows`/`linux`
      (`clipboardSyncSupported`) the service sends `{type:'clipboardSync', enabled}` on every
      connect, because the server forgets it per connection. `ClipboardSyncService`

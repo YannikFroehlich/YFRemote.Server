@@ -189,8 +189,12 @@ move/scroll traffic tops out around one message per animation frame.
 `shutdown.exe /s /t N`: any `/t` above 0 implies `/f` and would close apps with unsaved work
 without asking; when due it calls the normal `IPowerService.Shutdown`. The timer is lost when
 YFRemote exits. The tray shows a balloon naming the device and a "Herunterfahren um HH:mm Uhr
-abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()` and does
-not know whether a timer is pending.
+abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()`. Every
+change (scheduled, cancelled, elapsed) is pushed to all connected devices as
+`{"type":"shutdownTimer","remainingSeconds"}` (`ShutdownTimer.Status`; no `remainingSeconds` = none
+pending), and again on connect while one is pending. Remaining seconds rather than a time of day,
+because the device clock may differ from the PC's. The Client shows a countdown with "Abbrechen"
+above the Remote buttons.
 
 **Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
 `{"type":"media","volume","muted","title","artist","playing"}` (`WindowsMediaStatusReader` reads

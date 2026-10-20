@@ -24,6 +24,9 @@ public sealed class ShutdownTimerTests
 
         Assert.AreEqual(1, powerService.Shutdowns);
         Assert.IsNull(shutdownTimer.DueAt);
+        // Auch der Ablauf meldet sich, damit Tray und Geraete den Termin nicht weiter zeigen.
+        Assert.IsNull(changedBy);
+        Assert.IsNull(shutdownTimer.Status.RemainingSeconds);
     }
 
     [TestMethod]

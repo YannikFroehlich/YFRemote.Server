@@ -315,6 +315,11 @@ internal static class Program
             .Get<InputOptions>() ?? new InputOptions();
         inputOptions.Validate();
 
+        var systemStatsOptions = builder.Configuration
+            .GetSection(SystemStatsOptions.SectionName)
+            .Get<SystemStatsOptions>() ?? new SystemStatsOptions();
+        systemStatsOptions.Validate();
+
         if (httpsOptions.Enabled)
         {
             if (!IPAddress.TryParse(serverOptions.Host, out var bindAddress))
@@ -348,6 +353,7 @@ internal static class Program
         builder.Services.AddSingleton<FileOfferService>();
         builder.Services.AddSingleton(clipboardOptions);
         builder.Services.AddSingleton(inputOptions);
+        builder.Services.AddSingleton(systemStatsOptions);
         builder.Services.AddSingleton<ClipboardReadNotifier>();
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();

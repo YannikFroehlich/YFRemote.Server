@@ -214,8 +214,9 @@ kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing o
 `\GPU Engine(*)\Utilization Percentage` (summed per engine, busiest engine wins, like Task Manager)
 and `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` for the GPU temperature - no admin rights,
 so Windows itself yields no CPU temperature. If LibreHardwareMonitor runs (it has its own driver and
-admin rights) with its "Remote Web Server" on the default port, `http://localhost:8085/data.json`
-fills the CPU temperature and a missing GPU temperature (`ParseSensorToolTemperatures`; values are
+admin rights) with its "Remote Web Server", `http://localhost:8085/data.json` (port from
+`SystemStats:SensorToolPort`, `SystemStatsOptions`, default 8085 like LHM; set it in
+`%LOCALAPPDATA%\YFRemote\settings.json`, which survives updates) fills the CPU temperature and a missing GPU temperature (`ParseSensorToolTemperatures`; values are
 formatted in LHM's UI language, "55,0 °C"). LHM 0.9.x no longer publishes WMI. Without the web
 server the reader retries only every 30 s, because a refused localhost connection takes ~2 s; the
 request runs beside the poll and its answer counts from the next reading on, so it never stalls the

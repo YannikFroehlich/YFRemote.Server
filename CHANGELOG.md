@@ -24,6 +24,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Ist am PC ein Herunterfahren geplant (Button "Timer"), zeigt die Fernbedienung jetzt auf jedem verbundenen Gerät die Restzeit über den Knöpfen, mit "Abbrechen" direkt daneben. Bisher wusste nur das Tray-Menü am PC, ob ein Termin läuft.
+- Läuft schon ein Termin, schlägt der Button "Timer" dessen Restminuten vor statt 30 - zum Verlängern oder Verkürzen nur die Zahl ändern.
+- Tab "PC": Läuft der "Remote Web Server" von LibreHardwareMonitor nicht auf Port 8085, lässt sich der Port jetzt einstellen: in `%LOCALAPPDATA%\YFRemote\settings.json` als `{ "SystemStats": { "SensorToolPort": 8086 } }` eintragen und YFRemote neu starten. Die Datei bleibt bei Updates erhalten.
 
 ### Fixed
 

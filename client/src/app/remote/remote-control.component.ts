@@ -59,6 +59,13 @@ export class RemoteControlComponent {
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');
+  // Faellt die Systemanzeige weg (Android-Server, /health fehlgeschlagen), verschwindet ihr Tab -
+  // ohne Wechsel bliebe die Ansicht leer und kein Tab ausgewaehlt.
+  private readonly systemViewEffect = effect(() => {
+    if (!this.systemStatsSupported() && this.activeView() === 'system') {
+      this.activeView.set('remote');
+    }
+  });
   protected readonly editMode = signal(false);
   protected readonly editorOpen = signal(false);
   protected readonly editorTargetId = signal<string | null>(null);

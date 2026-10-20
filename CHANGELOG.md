@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tab "PC": Ist LibreHardwareMonitor auf Fahrenheit eingestellt, zeigt YFRemote die Temperaturen jetzt richtig in °C umgerechnet statt den Fahrenheit-Wert als °C. Bei mehreren Grafikkarten zählt jetzt die heißeste, nicht die zuerst genannte.
+- Tab "PC": Wird die GPU-Auslastung beim ersten Öffnen nicht gefunden (etwa kurz nach der Anmeldung oder einem Treiberupdate), versucht YFRemote es nach 30 Sekunden erneut, statt sie bis zum Neustart wegzulassen.
+- Linux (Beta), Tab "PC": Bei mehreren Grafikkarten oder CPU-Sockeln zählen jetzt wie unter Windows die heißeste und die am stärksten ausgelastete, statt zufällig einer davon. Ein erst nach dem Start geladener Treiber wird jetzt ohne Neustart gefunden.
+- Fällt der Tab "PC" weg, während er offen ist (etwa bei einem Verbindungsproblem), wechselt die App zur Fernbedienung statt eine leere Seite ohne ausgewählten Tab zu zeigen.
+- Auf schmalen Handys fehlten seit 2.35.0 die Symbole der Tabs auch dann, wenn nur vier Tabs da sind. Ausgeblendet werden sie jetzt nur noch bei fünf Tabs.
+
 ## [2.35.0] - 2026-10-20
 
 ### Added

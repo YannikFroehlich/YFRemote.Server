@@ -2450,13 +2450,21 @@ select:focus-visible {
     align-items: center;
     justify-content: center;
     gap: 5px;
-    padding: 0 4px;
     font-size: 0.68rem;
   }
 
-  // Fuenf Tabs passen auf ein schmales Telefon nur ohne Symbole.
   .view-tab svg {
-    display: none;
+    width: 15px;
+    height: 15px;
+  }
+
+  // Fuenf Tabs passen auf ein schmales Telefon nur ohne Symbole.
+  .view-tabs:has(> .view-tab:nth-child(5)) .view-tab {
+    padding: 0 4px;
+
+    svg {
+      display: none;
+    }
   }
 
   .control-button span {

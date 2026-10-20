@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.35.1] - 2026-10-20
+
 ### Fixed
 
 - Tab "PC": Ist LibreHardwareMonitor auf Fahrenheit eingestellt, zeigt YFRemote die Temperaturen jetzt richtig in °C umgerechnet statt den Fahrenheit-Wert als °C. Bei mehreren Grafikkarten zählt jetzt die heißeste, nicht die zuerst genannte.

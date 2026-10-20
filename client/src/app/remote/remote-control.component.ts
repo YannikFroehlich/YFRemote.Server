@@ -46,6 +46,22 @@ export class RemoteControlComponent {
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
   protected readonly mediaStatus = this.remote.mediaStatus;
+  private readonly now = signal(Date.now());
+  // Tickt nur, solange am PC ein Herunterfahren geplant ist.
+  private readonly shutdownTickEffect = effect((onCleanup) => {
+    if (this.remote.shutdownDeadline() === null) {
+      return;
+    }
+
+    this.now.set(Date.now());
+    const interval = setInterval(() => this.now.set(Date.now()), 1000);
+    onCleanup(() => clearInterval(interval));
+  });
+  protected readonly shutdownCountdown = computed(() => {
+    const deadline = this.remote.shutdownDeadline();
+    const seconds = deadline === null ? 0 : Math.ceil((deadline - this.now()) / 1000);
+    return seconds > 0 ? formatCountdown(seconds) : null;
+  });
   // Lebt, solange die Fernbedienung offen ist - sonst haette niemand die Zwischenablage im Blick.
   private readonly clipboardSync = inject(ClipboardSyncService);
   protected readonly fileOfferTitleKey = computed(() =>
@@ -88,6 +104,10 @@ export class RemoteControlComponent {
     return bytes < 1024 * 1024
       ? `${Math.max(1, Math.round(bytes / 1024))} KB`
       : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  protected cancelShutdownTimer(): void {
+    this.remote.sendAction({ type: 'shutdownTimer', minutes: 0 });
   }
 
   protected setVolume(event: Event): void {
@@ -166,4 +186,13 @@ export class RemoteControlComponent {
         return this.i18n.t('status.disconnected');
     }
   }
+}
+
+function formatCountdown(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
+    : `${minutes}:${seconds}`;
 }

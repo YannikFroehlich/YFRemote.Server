@@ -366,6 +366,11 @@ export const TRANSLATIONS = {
   'media.muted': { de: 'Ton aus', en: 'Muted' },
   'media.volume': { de: 'Lautstärke {{volume}} %', en: 'Volume {{volume}}%' },
   'media.setVolume': { de: 'PC-Lautstärke', en: 'PC volume' },
+  'shutdownTimer.remaining': {
+    de: 'Herunterfahren in {{time}}',
+    en: 'Shutting down in {{time}}',
+  },
+  'shutdownTimer.cancel': { de: 'Abbrechen', en: 'Cancel' },
   'stats.waiting': { de: 'Warte auf Messwerte vom PC …', en: 'Waiting for readings from the PC …' },
   'stats.memory': { de: 'Arbeitsspeicher', en: 'Memory' },
   'stats.noTemperature': { de: 'Temperatur nicht verfügbar', en: 'Temperature not available' },

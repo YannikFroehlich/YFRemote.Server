@@ -859,6 +859,19 @@ h2 {
   accent-color: var(--accent);
 }
 
+/* Geplantes Herunterfahren; der Abbrechen-Knopf bleibt klein, sonst waere die Leiste 48px hoch. */
+.timer-strip {
+  padding-block: 4px;
+  border-color: rgba(var(--warning-rgb), 0.4);
+  color: var(--warning);
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-strip .secondary-button {
+  min-height: 32px;
+  padding: 0 12px;
+}
+
 .system-stats {
   display: grid;
   gap: 10px;

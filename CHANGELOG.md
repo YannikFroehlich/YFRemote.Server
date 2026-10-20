@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Ist am PC ein Herunterfahren geplant (Button "Timer"), zeigt die Fernbedienung jetzt auf jedem verbundenen Gerät die Restzeit über den Knöpfen, mit "Abbrechen" direkt daneben. Bisher wusste nur das Tray-Menü am PC, ob ein Termin läuft.
+
+### Fixed
+
+- Schlägt das geplante Herunterfahren fehl, zeigt das Tray-Menü nicht mehr weiter "Herunterfahren um ... Uhr abbrechen" für einen Termin, der schon vorbei ist.
+
 ## [2.35.1] - 2026-10-20
 
 ### Fixed

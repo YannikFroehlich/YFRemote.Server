@@ -193,6 +193,22 @@
     }
 
     @if (activeView() === 'remote' && !editMode()) {
+      <!-- Ohne role="status": der sekuendliche Countdown wuerde sonst staendig vorgelesen. -->
+      @if (shutdownCountdown(); as countdown) {
+        <div class="media-strip timer-strip">
+          <span class="media-strip__now">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths.timer"></path>
+            </svg>
+            <span class="media-strip__title">
+              {{ i18n.t('shutdownTimer.remaining', { time: countdown }) }}
+            </span>
+          </span>
+          <button class="secondary-button" type="button" (click)="cancelShutdownTimer()">
+            {{ i18n.t('shutdownTimer.cancel') }}
+          </button>
+        </div>
+      }
       @if (mediaStatus(); as media) {
         <div class="media-strip" role="status">
           <span class="media-strip__now">

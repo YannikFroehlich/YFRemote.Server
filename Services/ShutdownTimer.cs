@@ -1,3 +1,4 @@
+using YFRemote.Server.Models;
 using Timer = System.Threading.Timer;
 
 namespace YFRemote.Server.Services;
@@ -11,6 +12,9 @@ public sealed class ShutdownTimer(IPowerService powerService, ILogger<ShutdownTi
     private Timer? timer;
 
     public DateTimeOffset? DueAt { get; private set; }
+
+    public ShutdownTimerMessage Status =>
+        new(DueAt is { } dueAt ? (int)Math.Ceiling(Math.Max(0, (dueAt - DateTimeOffset.Now).TotalSeconds)) : null);
 
     // Geplant oder abgebrochen; deviceName ist null, wenn der Tray selbst abbricht. Kommt vom
     // Thread der Verbindung bzw. des Tray.
@@ -62,6 +66,9 @@ public sealed class ShutdownTimer(IPowerService powerService, ILogger<ShutdownTi
             timer = null;
             DueAt = null;
         }
+
+        // Schlaegt das Herunterfahren fehl, zeigten Tray und Geraete sonst weiter den alten Termin.
+        Changed?.Invoke(null);
 
         try
         {

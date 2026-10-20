@@ -10,6 +10,7 @@ import {
   RemoteResponse,
   ServerConfig,
   ServerPlatform,
+  ShutdownTimerMessage,
   SystemStatsMessage,
 } from './remote.models';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
@@ -142,6 +143,7 @@ export class RemoteService implements OnDestroy {
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
+  private readonly shutdownDeadlineSignal = signal<number | null>(null);
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
   private systemStatsWatched = false;
@@ -177,6 +179,9 @@ export class RemoteService implements OnDestroy {
   readonly fileOffer = this.fileOfferSignal.asReadonly();
   /** Lautstaerke und laufendes Medium am PC; `null`, solange die Gegenstelle keine meldet. */
   readonly mediaStatus = this.mediaStatusSignal.asReadonly();
+  /** Zeitpunkt (`Date.now()`-Basis), zu dem der PC herunterfaehrt; `null` ohne geplanten Termin.
+   *  Aus der gemeldeten Restzeit berechnet, weil die Uhr des Geraets von der des PCs abweichen kann. */
+  readonly shutdownDeadline = this.shutdownDeadlineSignal.asReadonly();
   /** Zuletzt vom PC gemeldeter Zwischenablage-Text (nur bei eingeschaltetem Abgleich). Ein neues
    *  Objekt pro Meldung, damit auch derselbe Text erneut auslöst. */
   readonly pcClipboard = this.pcClipboardSignal.asReadonly();
@@ -469,6 +474,7 @@ export class RemoteService implements OnDestroy {
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
       this.mediaStatusSignal.set(null);
+      this.shutdownDeadlineSignal.set(null);
       this.systemStatsSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
@@ -504,6 +510,13 @@ export class RemoteService implements OnDestroy {
 
     if (isClipboardPushMessage(message)) {
       this.pcClipboardSignal.set(message);
+      return;
+    }
+
+    if (isShutdownTimerMessage(message)) {
+      this.shutdownDeadlineSignal.set(
+        message.remainingSeconds === undefined ? null : Date.now() + message.remainingSeconds * 1000,
+      );
       return;
     }
 
@@ -639,6 +652,8 @@ export class RemoteService implements OnDestroy {
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
     this.fileOfferSignal.set(null);
     this.mediaStatusSignal.set(null);
+    // Ein noch geplanter Termin kommt beim naechsten Verbinden wieder.
+    this.shutdownDeadlineSignal.set(null);
     this.systemStatsSignal.set(null);
 
     if (this.socket === null) {
@@ -779,6 +794,14 @@ function isMediaStatusMessage(value: unknown): value is MediaStatusMessage {
     (message.title === undefined || typeof message.title === 'string') &&
     (message.artist === undefined || typeof message.artist === 'string') &&
     typeof message.playing === 'boolean'
+  );
+}
+
+function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
+  const message = value as Partial<ShutdownTimerMessage> | null;
+  return (
+    message?.type === 'shutdownTimer' &&
+    (message.remainingSeconds === undefined || typeof message.remainingSeconds === 'number')
   );
 }
 

@@ -456,6 +456,40 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages).toEqual([]);
   });
 
+  it('asks the PC for system stats only while they are watched, also after reconnecting', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
+    const stats = {
+      type: 'systemStats',
+      cpuLoad: 12,
+      gpuTemperature: 60,
+      memoryUsedMb: 4096,
+      memoryTotalMb: 16384,
+    };
+
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+    expect(sockets[0].sentMessages).toEqual([]);
+
+    remote.watchSystemStats(true);
+    expect(sockets[0].sentMessages).toEqual(['{"type":"systemStats","enabled":true}']);
+    sockets[0].receive(JSON.stringify(stats));
+    expect(remote.systemStats()).toEqual(stats);
+
+    sockets[0].closeFromServer();
+    expect(remote.systemStats()).toBeNull();
+    vi.advanceTimersByTime(2000);
+    sockets[1].open();
+    await vi.waitFor(() =>
+      expect(sockets[1].sentMessages).toEqual(['{"type":"systemStats","enabled":true}']),
+    );
+
+    remote.watchSystemStats(false);
+    expect(sockets[1].sentMessages.at(-1)).toBe('{"type":"systemStats","enabled":false}');
+    sockets[1].receive(JSON.stringify(stats));
+    expect(remote.systemStats()).toBeNull();
+  });
+
   it('reconnects with increasing capped delays', () => {
     const { remote, sockets } = setupRemoteService();
 

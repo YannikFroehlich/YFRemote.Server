@@ -123,4 +123,27 @@ public sealed class WindowsSystemStatsReaderTests
         Assert.AreEqual(66, cpu);
         Assert.IsNull(gpu);
     }
+
+    // Bei mehreren Grafikkarten zaehlt wie bei D3DKMT die heisseste, nicht die zuerst genannte.
+    [TestMethod]
+    public void ParseSensorToolTemperatures_TakesTheHottestGpuCore()
+    {
+        var (_, gpu) = WindowsSystemStatsReader.ParseSensorToolTemperatures("""
+            {"Children":[
+              {"Text":"GPU Core","Value":"45,0 °C","SensorId":"/gpu-intel-integrated/0/temperature/0","Type":"Temperature"},
+              {"Text":"GPU Core","Value":"62,0 °C","SensorId":"/gpu-nvidia/0/temperature/0","Type":"Temperature"}]}
+            """);
+
+        Assert.AreEqual(62, gpu);
+    }
+
+    [TestMethod]
+    public void ParseSensorToolTemperatures_ConvertsFahrenheit()
+    {
+        var (cpu, _) = WindowsSystemStatsReader.ParseSensorToolTemperatures("""
+            {"Children":[{"Text":"CPU Package","Value":"131,0 °F","SensorId":"/intelcpu/0/temperature/6","Type":"Temperature"}]}
+            """);
+
+        Assert.AreEqual(55, cpu);
+    }
 }

@@ -18,7 +18,9 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
     private const uint PdhFormatDouble = 0x00000200;
     private const int PdhMoreData = unchecked((int)0x800007D2);
     private const int KmtQueryAdapterPerfData = 62;
-    private static readonly TimeSpan SensorToolRetryDelay = TimeSpan.FromSeconds(30);
+    // Pause, bevor eine Quelle ohne Ergebnis (LibreHardwareMonitor, GPU-Indikator, GPU-Temperatur)
+    // wieder gefragt wird.
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(30);
 
     // Nach einer laengeren Pause (niemand hatte die Anzeige offen) waeren die Vergleichswerte alt:
     // Die erste CPU- und GPU-Last zeigte das Mittel ueber die ganze Pause, die Temperaturen den
@@ -40,7 +42,8 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
     private long previousTotal;
     private IntPtr gpuQuery;
     private IntPtr gpuCounter;
-    private bool gpuCounterUnavailable;
+    private DateTime gpuCounterRetryAtUtc;
+    private DateTime gpuTemperatureRetryAtUtc;
     private DateTime lastReadUtc;
     private (int? Cpu, int? Gpu) sensorToolTemperatures;
     private int sensorToolRefreshing;
@@ -118,7 +121,7 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
                 sensorToolTemperatures = default;
             }
 
-            sensorToolRetryAtUtc = DateTime.UtcNow + SensorToolRetryDelay;
+            sensorToolRetryAtUtc = DateTime.UtcNow + RetryDelay;
         }
         finally
         {
@@ -127,8 +130,9 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
     }
 
     // data.json ist ein Baum; Sensoren tragen "SensorId" ("/intelcpu/0/temperature/6"), "Type"
-    // und einen in der Sprache von LibreHardwareMonitor formatierten Wert ("55,0 °C"). Bevorzugt
-    // der Wert, den das Programm selbst zuerst nennt; "Distance to TjMax" ist keine Temperatur.
+    // und einen in Sprache und Temperatureinheit von LibreHardwareMonitor formatierten Wert
+    // ("55,0 °C", "131,0 °F"). Bevorzugt die Hauptsensoren; bei mehreren zaehlt wie bei D3DKMT der
+    // heisseste. "Distance to TjMax" ist keine Temperatur.
     internal static (int? Cpu, int? Gpu) ParseSensorToolTemperatures(string json)
     {
         var sensors = new List<(string SensorId, string Name, double Value)>();
@@ -136,10 +140,10 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
         {
             if (node.TryGetProperty("Type", out var type) && type.GetString() == "Temperature"
                 && node.TryGetProperty("SensorId", out var sensorId)
-                && node.TryGetProperty("Value", out var value)
-                && LeadingNumber().Match(value.GetString() ?? string.Empty) is { Success: true } number
-                && double.TryParse(number.Value.Replace(',', '.'), CultureInfo.InvariantCulture, out var celsius)
-                && celsius > 0)
+                && node.TryGetProperty("Value", out var value) && value.GetString() is { } reading
+                && LeadingNumber().Match(reading) is { Success: true } number
+                && double.TryParse(number.Value.Replace(',', '.'), CultureInfo.InvariantCulture, out var degrees)
+                && (reading.Contains("°F", StringComparison.Ordinal) ? (degrees - 32) * 5 / 9 : degrees) is > 0d and var celsius)
             {
                 var name = node.TryGetProperty("Text", out var text) ? text.GetString() ?? string.Empty : string.Empty;
                 if (!name.Contains("Distance", StringComparison.Ordinal))
@@ -175,7 +179,7 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
             var celsius = candidates
                 .Where(sensor => preferredNames.Contains(sensor.Name))
                 .Select(sensor => (double?)sensor.Value)
-                .FirstOrDefault() ?? candidates.Max(sensor => sensor.Value);
+                .Max() ?? candidates.Max(sensor => sensor.Value);
             return (int)Math.Round(celsius);
         }
 
@@ -207,18 +211,25 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
 
     private int? ReadGpuLoad(bool resumed)
     {
-        if (gpuCounterUnavailable)
-        {
-            return null;
-        }
-
         if (gpuQuery == IntPtr.Zero)
         {
+            if (DateTime.UtcNow < gpuCounterRetryAtUtc)
+            {
+                return null;
+            }
+
             if (PdhOpenQuery(null, IntPtr.Zero, out gpuQuery) != 0
                 || PdhAddEnglishCounter(gpuQuery, @"\GPU Engine(*)\Utilization Percentage", IntPtr.Zero, out gpuCounter) != 0)
             {
-                // Ohne WDDM-2-Grafiktreiber gibt es den Indikator nicht - dann nie wieder versuchen.
-                gpuCounterUnavailable = true;
+                // Ohne WDDM-2-Grafiktreiber gibt es den Indikator nicht; kurz nach der Anmeldung oder
+                // einem Treiberupdate fehlt er vielleicht nur noch - nach einer Pause neu versuchen.
+                if (gpuQuery != IntPtr.Zero)
+                {
+                    PdhCloseQuery(gpuQuery);
+                    gpuQuery = IntPtr.Zero;
+                }
+
+                gpuCounterRetryAtUtc = DateTime.UtcNow + RetryDelay;
                 return null;
             }
         }
@@ -296,8 +307,25 @@ public sealed partial class WindowsSystemStatsReader(Func<Task<string>>? fetchSe
     }
 
     // Dieselbe Quelle wie die GPU-Temperatur im Task-Manager. Integrierte Grafik meldet meist 0 -
-    // dann null statt "0 Grad".
-    private static int? ReadGpuTemperature()
+    // dann null statt "0 Grad", und die Adapter werden erst nach einer Pause wieder abgefragt
+    // statt sekuendlich ohne Aussicht auf einen Wert.
+    private int? ReadGpuTemperature()
+    {
+        if (DateTime.UtcNow < gpuTemperatureRetryAtUtc)
+        {
+            return null;
+        }
+
+        var hottest = QueryHottestAdapterTemperature();
+        if (hottest is null)
+        {
+            gpuTemperatureRetryAtUtc = DateTime.UtcNow + RetryDelay;
+        }
+
+        return hottest;
+    }
+
+    private static int? QueryHottestAdapterTemperature()
     {
         var enumeration = new EnumAdapters2();
         if (D3DKMTEnumAdapters2(ref enumeration) != 0 || enumeration.NumAdapters == 0)

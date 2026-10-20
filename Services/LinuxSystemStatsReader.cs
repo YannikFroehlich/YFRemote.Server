@@ -13,14 +13,6 @@ public sealed class LinuxSystemStatsReader
     private static readonly string[] CpuSensorNames = ["coretemp", "k10temp", "zenpower", "cpu_thermal"];
     private static readonly string[] GpuSensorNames = ["amdgpu", "nouveau", "radeon"];
 
-    private readonly Lazy<string?> cpuTemperaturePath = new(() => FindHwmonInput(CpuSensorNames));
-    private readonly Lazy<string?> gpuTemperaturePath = new(() => FindHwmonInput(GpuSensorNames));
-    private readonly Lazy<string?> gpuBusyPath = new(() => Directory.Exists("/sys/class/drm")
-        ? Directory.EnumerateDirectories("/sys/class/drm", "card*")
-            .Select(card => Path.Combine(card, "device", "gpu_busy_percent"))
-            .FirstOrDefault(File.Exists)
-        : null);
-
     // Nach einer laengeren Pause (niemand hatte die Anzeige offen) waere der Vergleichswert alt und
     // die erste CPU-Last das Mittel ueber die ganze Pause - dann wie beim ersten Lesen null.
     private static readonly TimeSpan ResumeAfter = TimeSpan.FromSeconds(5);
@@ -50,9 +42,9 @@ public sealed class LinuxSystemStatsReader
 
         return new SystemStatsMessage(
             cpuLoad,
-            ReadMilliCelsius(cpuTemperaturePath.Value),
-            ReadInt(gpuBusyPath.Value),
-            ReadMilliCelsius(gpuTemperaturePath.Value),
+            HottestSensor(CpuSensorNames),
+            BusiestGpu(),
+            HottestSensor(GpuSensorNames),
             usedMb,
             totalMb);
     }
@@ -84,27 +76,29 @@ public sealed class LinuxSystemStatsReader
         return ((totalKb - ReadKb("MemAvailable")) / 1024, totalKb / 1024);
     }
 
-    private static string? FindHwmonInput(string[] sensorNames)
-    {
-        if (!Directory.Exists("/sys/class/hwmon"))
-        {
-            return null;
-        }
-
-        return Directory.EnumerateDirectories("/sys/class/hwmon")
-            .Where(directory => File.Exists(Path.Combine(directory, "temp1_input"))
-                && sensorNames.Contains(TryRead(Path.Combine(directory, "name"))?.Trim()))
-            .Select(directory => Path.Combine(directory, "temp1_input"))
-            .FirstOrDefault();
-    }
-
-    private static int? ReadMilliCelsius(string? path) =>
-        ReadInt(path) is { } milli ? (int)Math.Round(milli / 1000.0) : null;
-
-    private static int? ReadInt(string? path) =>
-        path is not null && int.TryParse(TryRead(path), CultureInfo.InvariantCulture, out var value)
-            ? value
+    // Wie unter Windows ein Wert fuer alle Grafikkarten (bzw. CPU-Sockel) zusammen: die heisseste
+    // und die vollste zaehlen - unabhaengig von der Reihenfolge der Verzeichnisse. Jedes Mal neu
+    // gesucht, sonst fiele ein spaet geladener Treiber oder ein neu nummeriertes hwmon-Verzeichnis
+    // bis zum Neustart aus; das sind nur ein paar sysfs-Dateien.
+    private static int? HottestSensor(string[] sensorNames) =>
+        Directory.Exists("/sys/class/hwmon")
+            ? Directory.EnumerateDirectories("/sys/class/hwmon")
+                .Where(directory => sensorNames.Contains(TryRead(Path.Combine(directory, "name"))?.Trim()))
+                .Select(directory => ReadInt(Path.Combine(directory, "temp1_input")) is { } milli
+                    ? (int?)Math.Round(milli / 1000.0)
+                    : null)
+                .Max()
             : null;
+
+    private static int? BusiestGpu() =>
+        Directory.Exists("/sys/class/drm")
+            ? Directory.EnumerateDirectories("/sys/class/drm", "card*")
+                .Select(card => ReadInt(Path.Combine(card, "device", "gpu_busy_percent")))
+                .Max()
+            : null;
+
+    private static int? ReadInt(string path) =>
+        int.TryParse(TryRead(path), CultureInfo.InvariantCulture, out var value) ? value : null;
 
     private static string? TryRead(string path)
     {

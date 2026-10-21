@@ -50,6 +50,20 @@ public sealed class LinuxClipboardServiceTests
     }
 
     [TestMethod]
+    public void SelectBackend_FromSystemdUserEnvironment_KeepsXAuthority()
+    {
+        var environment = LinuxClipboardService.ParseEnvironment(
+            "HOME=/home/yannik\nLESSOPEN=| /usr/bin/lesspipe %s=x\nDISPLAY=:0\n" +
+            $"XAUTHORITY=/run/user/1000/gdm/Xauthority\nXDG_RUNTIME_DIR={runtimeDirectory}\n");
+
+        var backend = LinuxClipboardService.SelectBackend(name => environment.GetValueOrDefault(name));
+
+        Assert.AreEqual(
+            new ClipboardBackend(ClipboardBackendKind.X11, ":0", "/run/user/1000/gdm/Xauthority"), backend);
+        Assert.AreEqual("| /usr/bin/lesspipe %s=x", environment["LESSOPEN"]);
+    }
+
+    [TestMethod]
     public void SelectBackend_WithoutAnySession_ReturnsNull()
     {
         Assert.IsNull(LinuxClipboardService.SelectBackend(Environment(("XDG_RUNTIME_DIR", runtimeDirectory))));

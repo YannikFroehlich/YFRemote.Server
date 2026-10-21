@@ -41,7 +41,7 @@ public sealed class LinuxClipboardService : IClipboardService
 
     private static async Task<byte[]?> ReadAsync(string? mimeType)
     {
-        var backend = GetBackend();
+        var backend = await GetBackendAsync();
         string[] arguments = backend.Kind == ClipboardBackendKind.Wayland
             ? mimeType is null ? ["--no-newline", "--type", "text"] : ["--type", mimeType]
             : mimeType is null
@@ -99,7 +99,25 @@ public sealed class LinuxClipboardService : IClipboardService
         }
 
         var display = getEnvironmentVariable("DISPLAY");
-        return string.IsNullOrEmpty(display) ? null : new ClipboardBackend(ClipboardBackendKind.X11, display);
+        return string.IsNullOrEmpty(display)
+            ? null
+            : new ClipboardBackend(ClipboardBackendKind.X11, display, getEnvironmentVariable("XAUTHORITY"));
+    }
+
+    // "systemctl --user show-environment" gibt je Variable eine Zeile NAME=Wert aus.
+    internal static Dictionary<string, string> ParseEnvironment(string output)
+    {
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var line in output.Split('\n'))
+        {
+            var separator = line.IndexOf('=');
+            if (separator > 0)
+            {
+                environment[line[..separator]] = line[(separator + 1)..];
+            }
+        }
+
+        return environment;
     }
 
     // Windows dekodiert jedes Bildformat selbst; wl-copy/xclip brauchen dagegen den MIME-Typ, und
@@ -116,7 +134,7 @@ public sealed class LinuxClipboardService : IClipboardService
 
     private static async Task WriteAsync(byte[] content, string? mimeType)
     {
-        var backend = GetBackend();
+        var backend = await GetBackendAsync();
         string[] arguments = backend.Kind == ClipboardBackendKind.Wayland
             ? mimeType is null ? [] : ["--type", mimeType]
             : mimeType is null
@@ -141,10 +159,23 @@ public sealed class LinuxClipboardService : IClipboardService
         }
     }
 
-    private static ClipboardBackend GetBackend() =>
-        SelectBackend(Environment.GetEnvironmentVariable)
+    private static async Task<ClipboardBackend> GetBackendAsync()
+    {
+        if (SelectBackend(Environment.GetEnvironmentVariable) is { } backend)
+        {
+            return backend;
+        }
+
+        // Unter X11 gibt es keinen Socket im Laufzeitordner, und DISPLAY fehlt dem systemd --user-Dienst.
+        // Die Sitzung meldet DISPLAY und XAUTHORITY aber an systemd (Xsession ruft
+        // dbus-update-activation-environment --systemd auf) - erst nach dem Dienststart, deshalb bei
+        // jedem Aufruf nachfragen.
+        var systemdEnvironment = ParseEnvironment(
+            await LinuxMediaStatusReader.RunAsync("systemctl", "--user", "show-environment") ?? "");
+        return SelectBackend(name => systemdEnvironment.GetValueOrDefault(name))
             ?? throw new NotSupportedException(
-                "No graphical session found (neither WAYLAND_DISPLAY nor DISPLAY is set).");
+                "No graphical session found (neither WAYLAND_DISPLAY nor DISPLAY is set, not even in the systemd user environment).");
+    }
 
     private static ProcessStartInfo CreateStartInfo(ClipboardBackend backend, string fileName, params string[] arguments)
     {
@@ -155,6 +186,11 @@ public sealed class LinuxClipboardService : IClipboardService
         };
         startInfo.Environment[backend.Kind == ClipboardBackendKind.Wayland ? "WAYLAND_DISPLAY" : "DISPLAY"] =
             backend.Display;
+        if (backend.XAuthority is not null)
+        {
+            startInfo.Environment["XAUTHORITY"] = backend.XAuthority;
+        }
+
         return startInfo;
     }
 
@@ -191,4 +227,4 @@ public enum ClipboardBackendKind
     X11
 }
 
-public sealed record ClipboardBackend(ClipboardBackendKind Kind, string Display);
+public sealed record ClipboardBackend(ClipboardBackendKind Kind, string Display, string? XAuthority = null);

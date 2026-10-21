@@ -61,7 +61,7 @@ public sealed partial class LinuxMediaStatusReader : IVolumeService
 
     // null, wenn das Werkzeug fehlt oder scheitert - playerctl ohne laufenden Player endet z.B.
     // mit "No players found" und Exitcode 1.
-    private static async Task<string?> RunAsync(string fileName, params string[] arguments)
+    internal static async Task<string?> RunAsync(string fileName, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo(fileName, arguments)
         {

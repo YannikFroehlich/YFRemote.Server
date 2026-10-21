@@ -140,7 +140,7 @@ YFRemote lives entirely in this repository:
 | Area | Location | Technology |
 | --- | --- | --- |
 | Server, tray app, installer, releases | Repository root | .NET (`net10.0-windows10.0.17763.0` / `net10.0`) |
-| Control UI | [`client/`](client) | Angular 21, zoneless, signals |
+| Control UI | [`client/`](client) | Angular 22, zoneless, signals |
 
 Start the server:
 

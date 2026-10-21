@@ -1,4 +1,4 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, inject, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -35,6 +35,7 @@ const CUSTOM_STYLE_PREFIX = 'custom:';
 @Component({
   selector: 'app-settings-dialog',
   imports: [ReactiveFormsModule, ThemeEditorDialogComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './settings-dialog.component.html',
 })
 export class SettingsDialogComponent {
@@ -239,10 +240,7 @@ export class SettingsDialogComponent {
 
   private async exportJson(content: string, fileName: string, successKey: string): Promise<void> {
     const saved = await this.saveFile(new Blob([content], { type: 'application/json' }), fileName);
-    this.showOperationMessage(
-      this.i18n.t(saved ? successKey : 'settings.msg.exportFailed'),
-      saved,
-    );
+    this.showOperationMessage(this.i18n.t(saved ? successKey : 'settings.msg.exportFailed'), saved);
   }
 
   protected toggleSetting(
@@ -378,9 +376,7 @@ export class SettingsDialogComponent {
 
     if (!unpaired) {
       this.unpairPending.set(false);
-      this.showOperationMessage(
-        this.lastError() ?? this.i18n.t('settings.msg.unpairFailed'),
-      );
+      this.showOperationMessage(this.lastError() ?? this.i18n.t('settings.msg.unpairFailed'));
     }
   }
 

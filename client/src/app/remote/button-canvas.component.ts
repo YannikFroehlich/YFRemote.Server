@@ -8,6 +8,7 @@ import {
   output,
   signal,
   viewChild,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { ButtonLayoutService } from './button-layout.service';
 import {
@@ -45,6 +46,7 @@ interface DragPosition {
 @Component({
   selector: 'app-button-canvas',
   templateUrl: './button-canvas.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './button-canvas.component.scss',
 })
 export class ButtonCanvasComponent implements OnDestroy {
@@ -71,11 +73,13 @@ export class ButtonCanvasComponent implements OnDestroy {
       return this.layout.visibleButtons();
     }
 
-    return this.layout.visibleButtons().map((item) =>
-      item.placement.id === draggingId
-        ? { ...item, placement: { ...item.placement, col: preview.col, row: preview.row } }
-        : item,
-    );
+    return this.layout
+      .visibleButtons()
+      .map((item) =>
+        item.placement.id === draggingId
+          ? { ...item, placement: { ...item.placement, col: preview.col, row: preview.row } }
+          : item,
+      );
   });
 
   private readonly canvasRef = viewChild<ElementRef<HTMLElement>>('canvas');
@@ -102,8 +106,7 @@ export class ButtonCanvasComponent implements OnDestroy {
     if (action?.type === 'shutdownTimer') {
       // Laeuft schon ein Termin, steht seine Restzeit im Feld - so ist Verlaengern nur ein Tippen.
       const deadline = this.remote.shutdownDeadline();
-      const remainingMinutes =
-        deadline === null ? 0 : Math.ceil((deadline - Date.now()) / 60_000);
+      const remainingMinutes = deadline === null ? 0 : Math.ceil((deadline - Date.now()) / 60_000);
       const answer = globalThis.prompt(
         this.i18n.t('button.shutdown-timer.prompt'),
         String(remainingMinutes > 0 ? remainingMinutes : action.minutes),
@@ -125,7 +128,10 @@ export class ButtonCanvasComponent implements OnDestroy {
 
     // Energieaktionen sind nicht umkehrbar: lieber einmal nachfragen, als den Rechner durch
     // einen Fehlgriff auf dem Touchscreen herunterzufahren.
-    if (item.button.confirm !== undefined && !globalThis.confirm(this.i18n.t(item.button.confirm))) {
+    if (
+      item.button.confirm !== undefined &&
+      !globalThis.confirm(this.i18n.t(item.button.confirm))
+    ) {
       return;
     }
 

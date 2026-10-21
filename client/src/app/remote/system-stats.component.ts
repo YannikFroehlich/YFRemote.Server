@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnDestroy } from '@angular/core';
+import { Component, computed, inject, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -12,6 +12,7 @@ interface StatsRow {
 // Verlassen des Tabs.
 @Component({
   selector: 'app-system-stats',
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './system-stats.component.html',
 })
 export class SystemStatsComponent implements OnDestroy {

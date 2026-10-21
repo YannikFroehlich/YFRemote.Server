@@ -1,4 +1,11 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
@@ -27,6 +34,7 @@ type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system';
     GamepadComponent,
     SystemStatsComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './remote-control.component.html',
 })
 export class RemoteControlComponent {

@@ -1,4 +1,4 @@
-import { Component, inject, InjectionToken } from '@angular/core';
+import { Component, inject, InjectionToken, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { SwUpdate } from '@angular/service-worker';
 import { EMPTY, filter, map } from 'rxjs';
@@ -20,6 +20,7 @@ export const PAGE_RELOAD = new InjectionToken<() => void>('PAGE_RELOAD', {
   selector: 'app-root',
   imports: [RemoteControlComponent, PairingGateComponent, GamepadComponent],
   templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.scss',
 })
 export class App {

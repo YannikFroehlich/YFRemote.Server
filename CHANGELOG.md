@@ -27,6 +27,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Läuft schon ein Termin, schlägt der Button "Timer" dessen Restminuten vor statt 30 - zum Verlängern oder Verkürzen nur die Zahl ändern.
 - Tab "PC": Läuft der "Remote Web Server" von LibreHardwareMonitor nicht auf Port 8085, lässt sich der Port jetzt einstellen: in `%LOCALAPPDATA%\YFRemote\settings.json` als `{ "SystemStats": { "SensorToolPort": 8086 } }` eintragen und YFRemote neu starten. Die Datei bleibt bei Updates erhalten.
 
+### Changed
+
+- Abhängigkeiten ohne Major-Sprung aktualisiert: Server `QRCoder` 1.8.1, Tests `MSTest` 4.5.1, Client `@angular/build`/`@angular/cli` 21.2.27, `prettier` 3.9.10 und `vitest` 4.1.12. `npm audit fix` hebt außerdem `hono` auf 4.13.13 (moderate Warnung). Die übrigen vier `npm audit`-Warnungen (`vite`, `@modelcontextprotocol/sdk`) lassen sich erst mit Angular 22 beheben. Alle betreffen nur die Build- und Test-Werkzeuge, nicht den ausgelieferten Client.
+
 ### Fixed
 
 - Schlägt das geplante Herunterfahren fehl, zeigt das Tray-Menü nicht mehr weiter "Herunterfahren um ... Uhr abbrechen" für einen Termin, der schon vorbei ist.

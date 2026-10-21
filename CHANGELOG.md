@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.36.1] - 2026-10-21
+
 ### Fixed
 
 - Linux: Läuft YFRemote als systemd-Dienst (`packaging/linux/yfremote.service`) in einer X11-Sitzung, funktioniert die Zwischenablage jetzt auch. Der Dienst startet vor der grafischen Sitzung und kannte deshalb `DISPLAY` nicht, sodass "Vom PC holen", "An PC senden" und der automatische Abgleich scheiterten. Jetzt fragt er bei systemd nach, wo die Sitzung `DISPLAY` und `XAUTHORITY` hinterlegt.

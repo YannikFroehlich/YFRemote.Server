@@ -1,5 +1,14 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, effect, inject, input, OnInit, output, signal } from '@angular/core';
+import {
+  Component,
+  effect,
+  inject,
+  input,
+  OnInit,
+  output,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import {
   ADVANCED_THEME_TOKENS,
@@ -30,6 +39,7 @@ const SHAPE_CONTROLS: readonly { key: CustomThemeNumberKey; label: string }[] = 
 
 @Component({
   selector: 'app-theme-editor-dialog',
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './theme-editor-dialog.component.html',
 })
 export class ThemeEditorDialogComponent implements OnInit {
@@ -172,11 +182,7 @@ export class ThemeEditorDialogComponent implements OnInit {
    *  der Praxis unzuverlaessig auf. Deshalb hier bewusst per JS: die eigentliche Toggle-Aktion
    *  wird abgefangen (preventDefault), die echte Inhaltshoehe gemessen und explizit von/auf genau
    *  diesen Pixelwert animiert - das funktioniert unabhaengig vom Browser. */
-  protected toggleAdvanced(
-    event: Event,
-    details: HTMLDetailsElement,
-    body: HTMLDivElement,
-  ): void {
+  protected toggleAdvanced(event: Event, details: HTMLDetailsElement, body: HTMLDivElement): void {
     event.preventDefault();
 
     if (details.open) {

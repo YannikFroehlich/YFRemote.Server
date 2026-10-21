@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Linux: Läuft YFRemote als systemd-Dienst (`packaging/linux/yfremote.service`) in einer X11-Sitzung, funktioniert die Zwischenablage jetzt auch. Der Dienst startet vor der grafischen Sitzung und kannte deshalb `DISPLAY` nicht, sodass "Vom PC holen", "An PC senden" und der automatische Abgleich scheiterten. Jetzt fragt er bei systemd nach, wo die Sitzung `DISPLAY` und `XAUTHORITY` hinterlegt.
+
+### Security
+
+- Client: Angular auf 22.2.3 und TypeScript auf 6.0 angehoben (`ng update`). Damit sind die letzten `npm audit`-Warnungen behoben: Die Angular CLI bringt `@modelcontextprotocol/sdk` nicht mehr mit, und `vite` ist per npm-`overrides` auf 8.3.4 angehoben, weil `@angular/build` 22.2.3 die verwundbare Version 8.3.0 festlegt. Das Override kann weg, sobald `@angular/build` selbst 8.3.3 oder neuer verlangt. Beides steckt nur in den Build- und Test-Werkzeugen, nicht im ausgelieferten Client.
+
+## [2.36.0] - 2026-10-21
+
 ### Added
 
 - Ist am PC ein Herunterfahren geplant (Button "Timer"), zeigt die Fernbedienung jetzt auf jedem verbundenen Gerät die Restzeit über den Knöpfen, mit "Abbrechen" direkt daneben. Bisher wusste nur das Tray-Menü am PC, ob ein Termin läuft.

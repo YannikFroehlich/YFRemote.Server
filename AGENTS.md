@@ -101,7 +101,10 @@ runs `wl-paste`/`wl-copy` from `wl-clipboard` on Wayland and `xclip` on X11, so 
 one of those packages; a missing tool is a `NotSupportedException` → `501` naming the package.
 `SelectBackend` prefers `WAYLAND_DISPLAY`, then a `wayland-*` socket in `XDG_RUNTIME_DIR` (the
 `systemd --user` unit starts before the graphical session and does not inherit its environment),
-then `DISPLAY`; X11 without `DISPLAY` in the service environment is not found on its own. Writers
+then `DISPLAY`. X11 has no such socket, so if the process environment has none of the three, it asks
+the systemd user manager (`systemctl --user show-environment`) on every call: the X session reports
+`DISPLAY` and `XAUTHORITY` there only after the service has started (Debian/Ubuntu's Xsession runs
+`dbus-update-activation-environment --systemd --all`), and `XAUTHORITY` is passed on to `xclip`. Writers
 redirect only stdin, because `wl-copy`/`xclip` leave a background child serving the selection
 that would keep redirected stdout/stderr pipes open forever. Images are PNG or JPEG only
 (sniffed from the magic bytes, the tools need a MIME type). **Unverified on a real Linux session**

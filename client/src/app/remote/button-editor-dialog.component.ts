@@ -1,4 +1,12 @@
-import { Component, inject, input, OnInit, output, signal } from '@angular/core';
+import {
+  Component,
+  inject,
+  input,
+  OnInit,
+  output,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   isCustomButtonId,
@@ -21,6 +29,7 @@ type StepType = 'keys' | 'text' | 'mouseClick';
 @Component({
   selector: 'app-button-editor-dialog',
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './button-editor-dialog.component.html',
 })
 export class ButtonEditorDialogComponent implements OnInit {
@@ -133,7 +142,9 @@ export class ButtonEditorDialogComponent implements OnInit {
 
   protected onPendingDelayInput(event: Event): void {
     const raw = Number((event.target as HTMLInputElement).value);
-    const clamped = Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), 0), this.maxDelayMs) : 0;
+    const clamped = Number.isFinite(raw)
+      ? Math.min(Math.max(Math.round(raw), 0), this.maxDelayMs)
+      : 0;
     this.pendingDelayMs.set(clamped);
   }
 
@@ -189,7 +200,9 @@ export class ButtonEditorDialogComponent implements OnInit {
   protected describeStep(action: RemoteAction): string {
     switch (action.type) {
       case 'key':
-        return this.i18n.t('buttonEditor.describeStep.key', { key: this.i18n.t(keyLabel(action.keys[0])) });
+        return this.i18n.t('buttonEditor.describeStep.key', {
+          key: this.i18n.t(keyLabel(action.keys[0])),
+        });
 
       case 'hotkey':
         return this.i18n.t('buttonEditor.describeStep.hotkey', {

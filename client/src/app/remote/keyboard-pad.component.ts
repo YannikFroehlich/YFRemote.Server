@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import {
   KEY_GROUPS,
   keyLabel,
@@ -12,6 +12,7 @@ import { TranslationService } from './translation.service';
 @Component({
   selector: 'app-keyboard-pad',
   imports: [],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './keyboard-pad.component.html',
 })
 export class KeyboardPadComponent {

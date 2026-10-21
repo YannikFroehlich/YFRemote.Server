@@ -8,6 +8,7 @@ import {
   OnDestroy,
   output,
   signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { GamepadState } from '../remote.models';
 import { REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
@@ -163,10 +164,13 @@ export interface OrientationBridge {
   setOrientationEnabled(enabled: boolean): void;
 }
 
-export const ORIENTATION_BRIDGE = new InjectionToken<OrientationBridge | null>('ORIENTATION_BRIDGE', {
-  providedIn: 'root',
-  factory: () => (globalThis as { YFRemoteSensors?: OrientationBridge }).YFRemoteSensors ?? null,
-});
+export const ORIENTATION_BRIDGE = new InjectionToken<OrientationBridge | null>(
+  'ORIENTATION_BRIDGE',
+  {
+    providedIn: 'root',
+    factory: () => (globalThis as { YFRemoteSensors?: OrientationBridge }).YFRemoteSensors ?? null,
+  },
+);
 
 export const GAMEPAD_GYRO_STORAGE_KEY = 'yfremote.gamepadGyro';
 export const GAMEPAD_GYRO_SENSITIVITY_STORAGE_KEY = 'yfremote.gamepadGyroSensitivity';
@@ -184,6 +188,7 @@ interface Tilt {
   selector: 'app-gamepad',
   templateUrl: './gamepad.component.html',
   styleUrl: './gamepad.component.scss',
+  changeDetection: ChangeDetectionStrategy.Eager,
   host: {
     '(pointermove)': 'onPointerMove($event)',
     '(pointerup)': 'release($event)',
@@ -275,7 +280,13 @@ export class GamepadComponent implements OnDestroy {
 
   protected pressTrigger(event: PointerEvent, side: Side): void {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const trigger: HeldControl = { kind: 'trigger', side, top: rect.top, height: rect.height, value: 0 };
+    const trigger: HeldControl = {
+      kind: 'trigger',
+      side,
+      top: rect.top,
+      height: rect.height,
+      value: 0,
+    };
     moveTrigger(trigger, event);
     this.hold(event, trigger);
   }
@@ -639,14 +650,20 @@ export class GamepadComponent implements OnDestroy {
 
 /** Die Zugposition des Fingers stuft den Trigger ab: oben angetippt = leicht, nach unten gezogen
  *  = voll. Der Finger bleibt per Pointer-Capture am Trigger, auch wenn er ueber den Rand rutscht. */
-function moveTrigger(trigger: Extract<HeldControl, { kind: 'trigger' }>, event: PointerEvent): void {
+function moveTrigger(
+  trigger: Extract<HeldControl, { kind: 'trigger' }>,
+  event: PointerEvent,
+): void {
   // Ohne Layout (Hoehe 0) gibt es keine Zugposition - dann wie bisher voll.
   if (trigger.height <= 0) {
     trigger.value = TRIGGER_MAX;
     return;
   }
 
-  const pull = Math.min(Math.max(event.clientY - trigger.top, 0) / (trigger.height * TRIGGER_FULL_AT), 1);
+  const pull = Math.min(
+    Math.max(event.clientY - trigger.top, 0) / (trigger.height * TRIGGER_FULL_AT),
+    1,
+  );
   trigger.value = Math.round(TRIGGER_MIN + pull * (TRIGGER_MAX - TRIGGER_MIN));
 }
 

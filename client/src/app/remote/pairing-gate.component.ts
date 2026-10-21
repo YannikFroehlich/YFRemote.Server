@@ -1,4 +1,11 @@
-import { Component, computed, inject, InjectionToken, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  InjectionToken,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { PairingService } from './pairing.service';
 import {
@@ -21,14 +28,18 @@ export interface DeviceNameBridge {
   name(): string;
 }
 
-export const DEVICE_NAME_BRIDGE = new InjectionToken<DeviceNameBridge | null>('DEVICE_NAME_BRIDGE', {
-  providedIn: 'root',
-  factory: () => (globalThis as { YFRemoteDevice?: DeviceNameBridge }).YFRemoteDevice ?? null,
-});
+export const DEVICE_NAME_BRIDGE = new InjectionToken<DeviceNameBridge | null>(
+  'DEVICE_NAME_BRIDGE',
+  {
+    providedIn: 'root',
+    factory: () => (globalThis as { YFRemoteDevice?: DeviceNameBridge }).YFRemoteDevice ?? null,
+  },
+);
 
 @Component({
   selector: 'app-pairing-gate',
   imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './pairing-gate.component.html',
 })
 export class PairingGateComponent {

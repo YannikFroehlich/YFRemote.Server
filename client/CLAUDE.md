@@ -7,7 +7,7 @@ anything release-related.
 
 ## What this is
 
-YFRemote.Client is a standalone Angular 21 web app that turns a browser (typically a phone) into
+YFRemote.Client is a standalone Angular 22 web app that turns a browser (typically a phone) into
 a remote control for a PC. A device must first pair with the server via a one-time PIN (shown in
 the server's tray menu, exchanged for a device token over `POST /pair`); once paired, it connects
 over a same-origin WebSocket to a companion server process (`ws(s)://<page-origin>/ws?token=...`) and streams key
@@ -41,7 +41,9 @@ npm test               # ng test — runs the Vitest-based unit test suite once
 dependency — change detection relies on signals. `src/main.ts` bootstraps the root `App` component
 directly with `bootstrapApplication` using [app.config.ts](src/app/app.config.ts). Keep new
 components standalone (`imports: [...]` on the `@Component` decorator) and prefer signals over
-manual `ChangeDetectorRef` calls.
+manual `ChangeDetectorRef` calls. Every component sets `changeDetection: ChangeDetectionStrategy.Eager`:
+Angular 22 made OnPush the default, and its `ng update` migration kept the previous behavior. Give a
+new component the same, unless everything its template reads is a signal or an input.
 
 **Everything meaningful lives under `src/app/remote/`.** The feature has six layers:
 

@@ -1,4 +1,12 @@
-import { Component, computed, inject, InjectionToken, OnDestroy, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  InjectionToken,
+  OnDestroy,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import {
   ClipboardService,
   DEVICE_CLIPBOARD_IMAGE_WRITER,
@@ -162,6 +170,7 @@ const CLIPBOARD_PASTE_TARGET_TIMEOUT_MS = 15000;
 @Component({
   selector: 'app-touchpad',
   templateUrl: './touchpad.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './touchpad.component.scss',
 })
 export class TouchpadComponent implements OnDestroy {
@@ -205,9 +214,10 @@ export class TouchpadComponent implements OnDestroy {
   protected readonly clipboardMenuOpen = signal(false);
   protected readonly pcClipboardLoading = signal(false);
   protected readonly pcClipboardText = signal<string | null>(null);
-  protected readonly pcClipboardImage = signal<{ readonly blob: Blob; readonly url: string } | null>(
-    null,
-  );
+  protected readonly pcClipboardImage = signal<{
+    readonly blob: Blob;
+    readonly url: string;
+  } | null>(null);
   protected readonly canCopyToDevice = this.writeDeviceClipboard !== null;
   protected readonly canCopyImageToDevice = this.writeDeviceClipboardImage !== null;
 
@@ -563,7 +573,11 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   private showSendStatus(success: boolean): void {
-    this.showStatus(success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error', undefined, success);
+    this.showStatus(
+      success ? 'touchpad.clipboard.success' : 'touchpad.clipboard.error',
+      undefined,
+      success,
+    );
   }
 
   private startDictation(input: HTMLInputElement): void {

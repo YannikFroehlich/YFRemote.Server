@@ -425,6 +425,28 @@ describe('RemoteService', () => {
     expect(remote.mediaStatus()).toBeNull();
   });
 
+  it('tracks the pushed shutdown timer until it is cancelled or the connection ends', () => {
+    const { remote, sockets } = setupRemoteService();
+    const before = Date.now();
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive('{"type":"shutdownTimer","remainingSeconds":90}');
+
+    expect(remote.shutdownDeadline()).toBeGreaterThanOrEqual(before + 90_000);
+    expect(remote.shutdownDeadline()).toBeLessThanOrEqual(Date.now() + 90_000);
+    expect(remote.lastError()).toBeNull();
+
+    sockets[0].receive('{"type":"shutdownTimer"}');
+
+    expect(remote.shutdownDeadline()).toBeNull();
+
+    sockets[0].receive('{"type":"shutdownTimer","remainingSeconds":60}');
+    sockets[0].closeFromServer();
+
+    expect(remote.shutdownDeadline()).toBeNull();
+  });
+
   it('turns clipboard sync on after connecting to a PC and off when the setting changes', async () => {
     const { remote, sockets, storage } = setupRemoteService({ health: { platform: 'windows' } });
     remote.saveClipboardSync(true);

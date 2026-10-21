@@ -100,9 +100,13 @@ export class ButtonCanvasComponent implements OnDestroy {
     const action = item.button.action;
 
     if (action?.type === 'shutdownTimer') {
+      // Laeuft schon ein Termin, steht seine Restzeit im Feld - so ist Verlaengern nur ein Tippen.
+      const deadline = this.remote.shutdownDeadline();
+      const remainingMinutes =
+        deadline === null ? 0 : Math.ceil((deadline - Date.now()) / 60_000);
       const answer = globalThis.prompt(
         this.i18n.t('button.shutdown-timer.prompt'),
-        String(action.minutes),
+        String(remainingMinutes > 0 ? remainingMinutes : action.minutes),
       );
 
       // Ungueltige Eingaben lehnt der Server mit Meldung ab, abbrechen schickt nichts.

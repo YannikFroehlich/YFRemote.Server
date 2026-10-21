@@ -189,8 +189,12 @@ move/scroll traffic tops out around one message per animation frame.
 `shutdown.exe /s /t N`: any `/t` above 0 implies `/f` and would close apps with unsaved work
 without asking; when due it calls the normal `IPowerService.Shutdown`. The timer is lost when
 YFRemote exits. The tray shows a balloon naming the device and a "Herunterfahren um HH:mm Uhr
-abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()` and does
-not know whether a timer is pending.
+abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()`. Every
+change (scheduled, cancelled, elapsed) is pushed to all connected devices as
+`{"type":"shutdownTimer","remainingSeconds"}` (`ShutdownTimer.Status`; no `remainingSeconds` = none
+pending), and again on connect while one is pending. Remaining seconds rather than a time of day,
+because the device clock may differ from the PC's. The Client shows a countdown with "Abbrechen"
+above the Remote buttons.
 
 **Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
 `{"type":"media","volume","muted","title","artist","playing"}` (`WindowsMediaStatusReader` reads
@@ -210,8 +214,9 @@ kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing o
 `\GPU Engine(*)\Utilization Percentage` (summed per engine, busiest engine wins, like Task Manager)
 and `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` for the GPU temperature - no admin rights,
 so Windows itself yields no CPU temperature. If LibreHardwareMonitor runs (it has its own driver and
-admin rights) with its "Remote Web Server" on the default port, `http://localhost:8085/data.json`
-fills the CPU temperature and a missing GPU temperature (`ParseSensorToolTemperatures`; values are
+admin rights) with its "Remote Web Server", `http://localhost:8085/data.json` (port from
+`SystemStats:SensorToolPort`, `SystemStatsOptions`, default 8085 like LHM; set it in
+`%LOCALAPPDATA%\YFRemote\settings.json`, which survives updates) fills the CPU temperature and a missing GPU temperature (`ParseSensorToolTemperatures`; values are
 formatted in LHM's UI language, "55,0 °C"). LHM 0.9.x no longer publishes WMI. Without the web
 server the reader retries only every 30 s, because a refused localhost connection takes ~2 s; the
 request runs beside the poll and its answer counts from the next reading on, so it never stalls the

@@ -74,6 +74,12 @@ export interface FileOfferMessage {
   readonly size: number;
 }
 
+/** Geplantes Herunterfahren am PC; ohne `remainingSeconds` ist keines geplant. */
+export interface ShutdownTimerMessage {
+  readonly type: 'shutdownTimer';
+  readonly remainingSeconds?: number;
+}
+
 export interface GamepadRumbleMessage {
   readonly type: 'rumble';
   readonly largeMotor: number;

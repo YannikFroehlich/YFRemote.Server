@@ -80,6 +80,31 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_ShutdownTimer_IsPushedOnConnectAndWhenCancelled()
+    {
+        using var shutdownTimer = new ShutdownTimer(new NoOpPowerService(), NullLogger<ShutdownTimer>.Instance);
+        shutdownTimer.Schedule(TimeSpan.FromMinutes(10), "Handy");
+
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(shutdownTimer: shutdownTimer)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        var onConnect = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("shutdownTimer", onConnect.GetProperty("type").GetString());
+        Assert.IsTrue(onConnect.GetProperty("remainingSeconds").GetInt32() is > 590 and <= 600);
+
+        await SendTextAsync(pair.Client, """{"type":"shutdownTimer","minutes":0}""");
+        var messages = new[] { await ReceiveJsonAsync(pair.Client), await ReceiveJsonAsync(pair.Client) };
+
+        var cancelled = messages.Single(message => message.TryGetProperty("type", out _));
+        Assert.AreEqual("shutdownTimer", cancelled.GetProperty("type").GetString());
+        Assert.IsFalse(cancelled.TryGetProperty("remainingSeconds", out _));
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_ClipboardSyncEnabled_PushesNewClipboardTextUntilDisabled()
     {
         var clipboardText = "vorher";
@@ -321,7 +346,8 @@ public sealed class YFRemoteWebSocketHandlerTests
         FileOfferService? fileOfferService = null,
         PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
         PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
-        PollingBroadcaster<SystemStatsMessage>? systemStats = null)
+        PollingBroadcaster<SystemStatsMessage>? systemStats = null,
+        ShutdownTimer? shutdownTimer = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -330,6 +356,7 @@ public sealed class YFRemoteWebSocketHandlerTests
             NullLogger<RemoteActionHandler>.Instance,
             gamepadService,
             clipboardSync,
+            shutdownTimer: shutdownTimer,
             systemStats: systemStats);
 
         return new YFRemoteWebSocketHandler(
@@ -337,7 +364,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             fileOfferService ?? new FileOfferService(TimeProvider.System),
             timeProvider ?? TimeProvider.System,
             NullLogger<YFRemoteWebSocketHandler>.Instance,
-            mediaStatus);
+            mediaStatus,
+            shutdownTimer);
     }
 
     private static Task SendTextAsync(WebSocket socket, string text) =>

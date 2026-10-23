@@ -1,3 +1,4 @@
+using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Services;
@@ -25,17 +26,18 @@ public sealed class LinuxMediaStatusReaderTests
     }
 
     [TestMethod]
-    public void ParseNowPlaying_SplitsStatusTitleAndArtist()
+    public void ParseNowPlaying_SplitsStatusTimelineTitleAndArtist()
     {
         Assert.AreEqual(
-            ("Song", "Band", true),
-            LinuxMediaStatusReader.ParseNowPlaying("Playing\tSong\tBand\n"));
+            new MediaStatusMessage(null, false, "Song", "Band", true, 83, 215, CanSeek: true),
+            LinuxMediaStatusReader.ParseNowPlaying("Playing\t83500000\t215000000\tSong\tBand\n"));
+        // Livestream: keine Laenge, also auch keine Zeitleiste
         Assert.AreEqual(
-            ("Video", (string?)null, false),
-            LinuxMediaStatusReader.ParseNowPlaying("Paused\tVideo\t\n"));
+            new MediaStatusMessage(null, false, "Video", null, false),
+            LinuxMediaStatusReader.ParseNowPlaying("Paused\t12000000\t\tVideo\t\n"));
         // playerctl ohne laufenden Player
         Assert.AreEqual(
-            ((string?)null, (string?)null, false),
+            new MediaStatusMessage(null, false, null, null, false),
             LinuxMediaStatusReader.ParseNowPlaying(null));
     }
 }

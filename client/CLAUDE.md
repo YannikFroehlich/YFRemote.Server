@@ -77,7 +77,10 @@ new component the same, unless everything its template reads is a signal or an i
      `PairingService`, never the other way around (see below), so there is no DI cycle.
    - Besides `rumble` and `fileOffer`, `handleResponse` takes three more server pushes out of the
      response path: `media` (`mediaStatus` signal, the strip above the Remote buttons, reset on
-     disconnect), `shutdownTimer` (`shutdownDeadline` signal, a local `Date.now()` deadline
+     disconnect; a new `coverId` makes the service fetch `GET /media/cover` with the `Bearer`
+     token into the `mediaCover` data-URL signal, and an answer for an outdated id is dropped; the
+     strip's second row is the timeline, whose `seekPreview` holds the dragged position until
+     shortly after the `mediaSeek` action, since the per-second push would reset it), `shutdownTimer` (`shutdownDeadline` signal, a local `Date.now()` deadline
      computed from `remainingSeconds`, reset on disconnect; `RemoteControlComponent` ticks a
      countdown strip with "Abbrechen" from it only while it is set) and `clipboard`
      (`pcClipboard` signal). `clipboardSync` is a persisted preference

@@ -148,7 +148,9 @@ export interface VoicemeeterMessage {
 }
 
 /** Lautstaerke und laufendes Medium am PC; kommt ungefragt beim Verbinden und bei jeder Aenderung.
- *  `volume` fehlt ohne Wiedergabegeraet, `title` wenn keine App Medien meldet. */
+ *  `volume` fehlt ohne Wiedergabegeraet, `title` wenn keine App Medien meldet. `position` und
+ *  `duration` in Sekunden fehlen ohne Zeitleiste; `coverId` wechselt mit dem Bild hinter
+ *  `GET /media/cover`. */
 export interface MediaStatusMessage {
   readonly type: 'media';
   readonly volume?: number;
@@ -156,6 +158,16 @@ export interface MediaStatusMessage {
   readonly title?: string;
   readonly artist?: string;
   readonly playing: boolean;
+  readonly position?: number;
+  readonly duration?: number;
+  readonly canSeek?: boolean;
+  readonly coverId?: string;
+}
+
+/** Springt in der laufenden Medien-App an `position` Sekunden. */
+export interface MediaSeekAction {
+  readonly type: 'mediaSeek';
+  readonly position: number;
 }
 
 /** Neuer Text in der PC-Zwischenablage, nur bei eingeschaltetem Abgleich. */
@@ -173,6 +185,7 @@ export type RemoteAction =
   | PowerAction
   | ShutdownTimerAction
   | VolumeAction
+  | MediaSeekAction
   | TextAction
   | GamepadAction
   | GamepadDisconnectAction

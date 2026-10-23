@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Medienleiste: Das Albumcover des laufenden Titels steht jetzt vor dem Titel. Darunter zeigt eine Zeitleiste die Stelle im Titel und die Gesamtlänge, und wer den Regler zieht, spult in der Medien-App an diese Stelle. Lässt eine App kein Spulen zu, ist der Regler gesperrt; ohne Längenangabe (Livestream) fehlt die Zeitleiste. Unter Linux gibt es Zeitleiste und Spulen über `playerctl`, aber noch kein Cover.
+
 ## [2.38.0] - 2026-10-23
 
 ### Added

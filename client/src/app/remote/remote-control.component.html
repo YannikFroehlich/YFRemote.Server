@@ -225,11 +225,16 @@
         </div>
       }
       @if (mediaStatus(); as media) {
-        <div class="media-strip" role="status">
-          <span class="media-strip__now">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path [attr.d]="iconPaths['play-pause']"></path>
-            </svg>
+        <div class="media-strip">
+          <!-- role="status" nur hier: die sekuendlich wandernde Zeitleiste soll nicht vorgelesen werden. -->
+          <span class="media-strip__now" role="status">
+            @if (mediaCover(); as cover) {
+              <img class="media-strip__cover" [src]="cover" alt="" />
+            } @else {
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths['play-pause']"></path>
+              </svg>
+            }
             @if (media.title) {
               <span class="media-strip__title">
                 {{ media.title }}@if (media.artist) {
@@ -267,6 +272,30 @@
                 (change)="setVolume($event)"
               />
               <span aria-hidden="true">{{ media.volume }}</span>
+            </span>
+          }
+          @if (media.duration !== undefined) {
+            <span class="media-strip__progress">
+              <span aria-hidden="true">{{ formatTime(seekPreview() ?? media.position ?? 0) }}</span>
+              <input
+                class="media-strip__seek"
+                type="range"
+                min="0"
+                step="1"
+                [max]="media.duration"
+                [value]="seekPreview() ?? media.position ?? 0"
+                [disabled]="!media.canSeek"
+                [attr.aria-label]="i18n.t('media.seek')"
+                [attr.aria-valuetext]="
+                  i18n.t('media.position', {
+                    position: formatTime(seekPreview() ?? media.position ?? 0),
+                    duration: formatTime(media.duration),
+                  })
+                "
+                (input)="previewSeek($event)"
+                (change)="seek($event)"
+              />
+              <span aria-hidden="true">{{ formatTime(media.duration) }}</span>
             </span>
           }
         </div>

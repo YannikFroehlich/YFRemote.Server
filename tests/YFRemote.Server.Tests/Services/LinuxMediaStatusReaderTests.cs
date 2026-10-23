@@ -26,6 +26,41 @@ public sealed class LinuxMediaStatusReaderTests
     }
 
     [TestMethod]
+    public void ParseSinkInputs_ReadsIdNameVolumeAndMute()
+    {
+        const string output = """
+            Sink Input #42
+            	Driver: protocol-native.c
+            	Mute: no
+            	Volume: front-left: 45875 /  70% / -9.29 dB,   front-right: 45875 /  70% / -9.29 dB
+            	        balance 0.00
+            	Properties:
+            		media.name = "Playback"
+            		application.name = "Spotify"
+            Sink Input #57
+            	Mute: yes
+            	Volume: mono: 98304 / 150% / 10.57 dB
+            	Properties:
+            		media.name = "AudioStream"
+            Sink Input #12
+            	Mute: no
+            	Volume: front-left: 65536 / 100% / 0.00 dB
+            	Properties:
+            		application.name = "Firefox"
+            """;
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new AppVolume("12", "Firefox", 100, false),
+                new AppVolume("42", "Spotify", 70, false),
+                new AppVolume("57", "Stream 57", 100, true)
+            },
+            LinuxMediaStatusReader.ParseSinkInputs(output).ToArray());
+        Assert.AreEqual(0, LinuxMediaStatusReader.ParseSinkInputs(null).Count);
+    }
+
+    [TestMethod]
     public void ParseNowPlaying_SplitsStatusTimelineTitleAndArtist()
     {
         Assert.AreEqual(

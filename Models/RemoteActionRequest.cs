@@ -31,4 +31,8 @@ public sealed record RemoteActionRequest
     public double? Value { get; init; }
 
     public double? Position { get; init; }
+
+    public string? Id { get; init; }
+
+    public bool? Muted { get; init; }
 }

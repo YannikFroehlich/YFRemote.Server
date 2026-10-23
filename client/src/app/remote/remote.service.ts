@@ -13,6 +13,7 @@ import {
   ShutdownTimerMessage,
   SystemStatsMessage,
   VoicemeeterMessage,
+  AppVolumesMessage,
 } from './remote.models';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
@@ -153,6 +154,8 @@ export class RemoteService implements OnDestroy {
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private voicemeeterWatched = false;
+  private readonly appsSignal = signal<AppVolumesMessage | null>(null);
+  private appsWatched = false;
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
   // wieder auftauchen.
   private dismissedFileOfferId: string | null = null;
@@ -205,6 +208,8 @@ export class RemoteService implements OnDestroy {
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
+  /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
+  readonly apps = this.appsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -372,6 +377,28 @@ export class RemoteService implements OnDestroy {
     });
   }
 
+  /** Wie `watchSystemStats`: der PC liest die Audio-Sitzungen nur, solange der Mixer offen ist. */
+  watchApps(enabled: boolean): void {
+    this.appsWatched = enabled;
+    if (!enabled) {
+      this.appsSignal.set(null);
+    }
+    this.sendAppsWatch();
+  }
+
+  /** Wie `setVoicemeeterParameter`: sofort anzeigen, die Bestaetigung kommt mit der naechsten Meldung. */
+  setApp(id: string, change: { readonly volume?: number; readonly muted?: boolean }): void {
+    const state = this.appsSignal();
+    if (!this.sendAction({ type: 'appVolume', id, ...change }) || state === null) {
+      return;
+    }
+
+    this.appsSignal.set({
+      ...state,
+      apps: state.apps.map((app) => (app.id === id ? { ...app, ...change } : app)),
+    });
+  }
+
   dismissFileOffer(): void {
     this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
     this.fileOfferSignal.set(null);
@@ -526,6 +553,7 @@ export class RemoteService implements OnDestroy {
       this.shutdownDeadlineSignal.set(null);
       this.systemStatsSignal.set(null);
       this.voicemeeterSignal.set(null);
+      this.appsSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -581,6 +609,13 @@ export class RemoteService implements OnDestroy {
     if (isVoicemeeterMessage(message)) {
       if (this.voicemeeterWatched) {
         this.voicemeeterSignal.set(message);
+      }
+      return;
+    }
+
+    if (isAppVolumesMessage(message)) {
+      if (this.appsWatched) {
+        this.appsSignal.set(message);
       }
       return;
     }
@@ -677,6 +712,9 @@ export class RemoteService implements OnDestroy {
     if (this.voicemeeterWatched) {
       this.sendVoicemeeterWatch();
     }
+    if (this.appsWatched) {
+      this.sendAppsWatch();
+    }
   }
 
   private sendClipboardSync(): void {
@@ -725,6 +763,12 @@ export class RemoteService implements OnDestroy {
     this.mediaCoverSignal.set(null);
   }
 
+  private sendAppsWatch(): void {
+    if (this.systemStatsSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'apps', enabled: this.appsWatched });
+    }
+  }
+
   private sendVoicemeeterWatch(): void {
     if (this.voicemeeterAvailableSignal() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'voicemeeter', enabled: this.voicemeeterWatched });
@@ -761,6 +805,7 @@ export class RemoteService implements OnDestroy {
     this.shutdownDeadlineSignal.set(null);
     this.systemStatsSignal.set(null);
     this.voicemeeterSignal.set(null);
+    this.appsSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -966,6 +1011,22 @@ function isVoicemeeterMessage(value: unknown): value is VoicemeeterMessage {
         ))) &&
     (routes === undefined ||
       (Array.isArray(routes) && routes.every((route) => typeof route === 'string')))
+  );
+}
+
+function isAppVolumesMessage(value: unknown): value is AppVolumesMessage {
+  const message = value as Partial<AppVolumesMessage> | null;
+  const apps = message?.apps as unknown;
+  return (
+    message?.type === 'apps' &&
+    Array.isArray(apps) &&
+    apps.every(
+      (app) =>
+        typeof app?.id === 'string' &&
+        typeof app.name === 'string' &&
+        typeof app.volume === 'number' &&
+        typeof app.muted === 'boolean',
+    )
   );
 }
 

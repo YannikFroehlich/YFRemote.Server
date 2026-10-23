@@ -381,6 +381,8 @@ internal static class Program
             services.GetRequiredService<WindowsMediaStatusReader>());
         builder.Services.AddSingleton<IMediaControl>(services =>
             services.GetRequiredService<WindowsMediaStatusReader>());
+        builder.Services.AddSingleton<IAppVolumeService>(services =>
+            services.GetRequiredService<WindowsMediaStatusReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
             services.GetRequiredService<WindowsMediaStatusReader>().ReadAsync,
             BroadcastPollInterval,
@@ -404,6 +406,8 @@ internal static class Program
             services.GetRequiredService<LinuxMediaStatusReader>());
         builder.Services.AddSingleton<IMediaControl>(services =>
             services.GetRequiredService<LinuxMediaStatusReader>());
+        builder.Services.AddSingleton<IAppVolumeService>(services =>
+            services.GetRequiredService<LinuxMediaStatusReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
             services.GetRequiredService<LinuxMediaStatusReader>().ReadAsync,
             BroadcastPollInterval,
@@ -416,6 +420,11 @@ internal static class Program
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));
 #endif
+        builder.Services.AddSingleton(services => new PollingBroadcaster<AppVolumesMessage>(
+            services.GetRequiredService<IAppVolumeService>().ReadAppsAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<AppVolumesMessage>>>()));
         builder.Services.AddSingleton(services =>
         {
             var clipboardService = services.GetRequiredService<IClipboardService>();

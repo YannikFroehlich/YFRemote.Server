@@ -125,7 +125,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `macAddress` of the LAN adapter behind the shown device address (`NetworkAddressService`), which
   the Android app stores to wake the PC later via Wake-on-LAN, plus `macAddressWireless` (that
   adapter is Wi-Fi, so waking it will most likely fail; the app warns after sending), and
-  `voicemeeter` (Voicemeeter installed; the Client then shows the "Mixer" tab).
+  `voicemeeter` (Voicemeeter installed; the Client then adds its inputs and outputs to the "Mixer" tab).
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -188,6 +188,18 @@ multiple clients can connect concurrently. Each connection also carries its own 
 rate limit (120 messages/second; a `Fail` response beyond that, connection stays open) as a
 backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
 move/scroll traffic tops out around one message per animation frame.
+
+**Volume per app.** The "Mixer" tab subscribes `{"type":"apps","enabled"}` like `systemStats` and
+gets `{"type":"apps","apps":[{id,name,volume,muted}]}` from a `PollingBroadcaster` over
+`IAppVolumeService.ReadAppsAsync`. On Windows (`WindowsMediaStatusReader.Apps.cs`) these are the
+Core Audio sessions of the default playback device, grouped per process (`id` = process id, or
+`system` for the system sounds, which the Client names itself). The name is the session's display
+name or the executable's file description, cached per process id. Session volume also works behind
+Voicemeeter, because Windows applies it before the stream reaches the virtual device. On Linux the
+entries are `pactl list sink-inputs`, one per stream (`id` = sink-input number). `appVolume`
+(`id`, `volume` 0-100 and/or `muted`) only accepts `system` or digits as `id`, so nothing can reach
+`pactl` as an option. Verified on Windows on 2026-10-24 by reading and setting a running process's
+session; Linux is only covered by the parser test.
 
 **Media timeline.** `position`/`duration` in the `media` push are whole seconds; without a track
 length (livestream) both are missing. GSMTC reports the position as of `LastUpdatedTime`, and many

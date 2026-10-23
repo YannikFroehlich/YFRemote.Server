@@ -164,7 +164,7 @@
             <span>{{ i18n.t('shell.tabSystem') }}</span>
           </button>
         }
-        @if (voicemeeterAvailable()) {
+        @if (systemStatsSupported()) {
           <button
             class="view-tab"
             [class.view-tab--active]="activeView() === 'mixer'"
@@ -372,8 +372,8 @@
         <app-keyboard-pad />
       } @else if (activeView() === 'system' && systemStatsSupported()) {
         <app-system-stats />
-      } @else if (activeView() === 'mixer' && voicemeeterAvailable()) {
-        <app-voicemeeter />
+      } @else if (activeView() === 'mixer' && systemStatsSupported()) {
+        <app-mixer />
       }
     </section>
   </section>

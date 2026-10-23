@@ -16,7 +16,9 @@ public sealed partial class RemoteActionHandler(
     PollingBroadcaster<SystemStatsMessage>? systemStats = null,
     IVoicemeeterService? voicemeeter = null,
     PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null,
-    IMediaControl? mediaControl = null)
+    IMediaControl? mediaControl = null,
+    IAppVolumeService? appVolumes = null,
+    PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -63,6 +65,8 @@ public sealed partial class RemoteActionHandler(
                 "systemstats" => HandleSystemStats(request, session),
                 "voicemeeter" => HandleVoicemeeterWatch(request, session),
                 "voicemeeterparameter" => HandleVoicemeeterParameter(request),
+                "apps" => HandleAppsWatch(request, session),
+                "appvolume" => HandleAppVolume(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -496,6 +500,65 @@ public sealed partial class RemoteActionHandler(
 
     [GeneratedRegex(@"^(Strip\[[0-7]\]\.(Mute|Gain|A[1-5]|B[1-3])|Bus\[[0-7]\]\.(Mute|Gain))$")]
     private static partial Regex VoicemeeterParameterPattern();
+
+    // Wie Systemanzeige und Mixer: die Audio-Sitzungen werden nur gelesen, solange ein Geraet zusieht.
+    private RemoteActionResponse HandleAppsWatch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (appVolumeStatus is null || session is null)
+        {
+            return Fail("App volume is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'apps' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.AppsSubscription?.Dispose();
+            session.AppsSubscription = null;
+        }
+        else
+        {
+            session.AppsSubscription ??= appVolumeStatus.Subscribe(session.PushApps);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleAppVolume(RemoteActionRequest request)
+    {
+        if (appVolumes is null)
+        {
+            return Fail("App volume is not supported.");
+        }
+
+        if (request.Id is not { } id || !AppIdPattern().IsMatch(id))
+        {
+            return Fail("Action 'appVolume' requires id.");
+        }
+
+        if (request.Volume is null && request.Muted is null)
+        {
+            return Fail("Action 'appVolume' requires volume or muted.");
+        }
+
+        if (request.Volume is { } volume && !IsInRange(volume, 0, 100))
+        {
+            return Fail("Action 'appVolume' requires volume between 0 and 100.");
+        }
+
+        logger.LogDebug("Setting app {Id}: volume {Volume}, muted {Muted}.", id, request.Volume, request.Muted);
+        appVolumes.SetApp(id, request.Volume, request.Muted);
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Prozessnummer bzw. Sink-Input-Nummer oder die Systemklaenge - nichts, was pactl als Option
+    // lesen koennte.
+    [GeneratedRegex(@"^(system|\d{1,10})$")]
+    private static partial Regex AppIdPattern();
 
     private RemoteActionResponse Fail(string error)
     {

@@ -254,6 +254,39 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow("1234", 40, null)]
+    [DataRow("system", null, true)]
+    [DataRow("7", 0, false)]
+    public void Handle_AppVolume_ForwardsChange(string id, int? volume, bool? muted)
+    {
+        var apps = new RecordingAppVolumeService();
+        var handler = CreateHandler(appVolumes: apps);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "appVolume", Id = id, Volume = volume, Muted = muted });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual((id, volume, muted), apps.LastChange);
+    }
+
+    [TestMethod]
+    [DataRow(null, 40, null)]
+    [DataRow("--help", 40, null)]
+    [DataRow("12 34", 40, null)]
+    [DataRow("1234", null, null)]
+    [DataRow("1234", 101, null)]
+    [DataRow("1234", -1, null)]
+    public void Handle_AppVolume_RejectsInvalidRequest(string? id, int? volume, bool? muted)
+    {
+        var apps = new RecordingAppVolumeService();
+        var handler = CreateHandler(appVolumes: apps);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "appVolume", Id = id, Volume = volume, Muted = muted });
+
+        Assert.IsFalse(response.Success);
+        Assert.IsNull(apps.LastChange);
+    }
+
+    [TestMethod]
     public void Handle_OtherKey_DoesNotAskMixer()
     {
         var volumeService = new RecordingVolumeService(handlesMute: true);
@@ -449,6 +482,18 @@ public sealed class RemoteActionHandlerTests
         }
     }
 
+    private sealed class RecordingAppVolumeService : IAppVolumeService
+    {
+        public (string Id, int? Volume, bool? Muted)? LastChange { get; private set; }
+
+        public Task<AppVolumesMessage> ReadAppsAsync() => Task.FromResult(new AppVolumesMessage([]));
+
+        public void SetApp(string id, int? volume, bool? muted)
+        {
+            LastChange = (id, volume, muted);
+        }
+    }
+
     private static RemoteActionHandler CreateHandler(
         IInputService? inputService = null,
         RecordingMouseService? mouseService = null,
@@ -456,7 +501,8 @@ public sealed class RemoteActionHandlerTests
         IVolumeService? volumeService = null,
         ShutdownTimer? shutdownTimer = null,
         IVoicemeeterService? voicemeeter = null,
-        IMediaControl? mediaControl = null)
+        IMediaControl? mediaControl = null,
+        IAppVolumeService? appVolumes = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -466,7 +512,8 @@ public sealed class RemoteActionHandlerTests
             volumeService: volumeService,
             shutdownTimer: shutdownTimer,
             voicemeeter: voicemeeter,
-            mediaControl: mediaControl);
+            mediaControl: mediaControl,
+            appVolumes: appVolumes);
     }
 
     private sealed class RecordingPowerService : IPowerService

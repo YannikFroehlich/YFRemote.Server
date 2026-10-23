@@ -147,6 +147,34 @@ export interface VoicemeeterMessage {
   readonly routes?: readonly string[];
 }
 
+/** Schaltet fuer diese Verbindung die Lautstaerke pro App ein oder aus (Tab "Mixer"). */
+export interface AppsWatchAction {
+  readonly type: 'apps';
+  readonly enabled: boolean;
+}
+
+/** Setzt Lautstaerke (0-100) und/oder Stummschaltung einer App. */
+export interface AppVolumeAction {
+  readonly type: 'appVolume';
+  readonly id: string;
+  readonly volume?: number;
+  readonly muted?: boolean;
+}
+
+/** Eine App mit Ton am PC; `id` ist die Prozessnummer, unter Linux die Stream-Nummer, oder
+ *  "system" fuer die Systemklaenge. */
+export interface AppVolume {
+  readonly id: string;
+  readonly name: string;
+  readonly volume: number;
+  readonly muted: boolean;
+}
+
+export interface AppVolumesMessage {
+  readonly type: 'apps';
+  readonly apps: readonly AppVolume[];
+}
+
 /** Lautstaerke und laufendes Medium am PC; kommt ungefragt beim Verbinden und bei jeder Aenderung.
  *  `volume` fehlt ohne Wiedergabegeraet, `title` wenn keine App Medien meldet. `position` und
  *  `duration` in Sekunden fehlen ohne Zeitleiste; `coverId` wechselt mit dem Bild hinter
@@ -192,7 +220,9 @@ export type RemoteAction =
   | ClipboardSyncAction
   | SystemStatsAction
   | VoicemeeterWatchAction
-  | VoicemeeterParameterAction;
+  | VoicemeeterParameterAction
+  | AppsWatchAction
+  | AppVolumeAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

@@ -7,6 +7,7 @@ import {
   LAYOUT_COLUMNS,
   MAX_MACRO_STEPS,
   normalizeCustomButtonDefinition,
+  normalizeMacroStep,
   overlaps,
   parseStoredButtonLayout,
   resolveButtonLayout,
@@ -343,6 +344,30 @@ describe('button-layout', () => {
           action: { keys: ['A'] },
         }),
       ).toBeNull();
+    });
+  });
+
+  describe('normalizeMacroStep (Voicemeeter)', () => {
+    it('keeps Voicemeeter switches with toggle, on or off', () => {
+      for (const action of [
+        { type: 'voicemeeterParameter', parameter: 'Strip[3].Mute' },
+        { type: 'voicemeeterParameter', parameter: 'Strip[0].A1', value: 1 },
+        { type: 'voicemeeterParameter', parameter: 'Bus[0].Mute', value: 0 },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toEqual({ action, delayMs: 0 });
+      }
+    });
+
+    it('drops gain, foreign parameters and odd values', () => {
+      for (const action of [
+        { type: 'voicemeeterParameter', parameter: 'Strip[3].Gain', value: -10 },
+        { type: 'voicemeeterParameter', parameter: 'Command.Shutdown', value: 1 },
+        { type: 'voicemeeterParameter', parameter: 'Bus[0].A1' },
+        { type: 'voicemeeterParameter', parameter: 'Strip[3].Mute', value: 0.5 },
+        { type: 'voicemeeterParameter' },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toBeNull();
+      }
     });
   });
 

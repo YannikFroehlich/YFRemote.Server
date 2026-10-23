@@ -206,6 +206,95 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow("VOLUME_MUTE", true, null)]
+    [DataRow("VOLUME_UP", true, null)]
+    [DataRow("VOLUME_DOWN", false, "VOLUME_DOWN")]
+    public void Handle_VolumeKey_GoesToMixerWhenItTakesOver(string key, bool mixerHandlesKey, string? expectedPressedKey)
+    {
+        var inputService = new RecordingInputService();
+        var volumeService = new RecordingVolumeService(mixerHandlesKey);
+        var handler = CreateHandler(inputService, volumeService: volumeService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "key", Keys = [key.ToLowerInvariant()] });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(key, volumeService.LastVolumeKey);
+        Assert.AreEqual(expectedPressedKey, inputService.PressedKey);
+    }
+
+    [TestMethod]
+    public void Handle_OtherKey_DoesNotAskMixer()
+    {
+        var volumeService = new RecordingVolumeService(handlesMute: true);
+        var handler = CreateHandler(volumeService: volumeService);
+
+        handler.Handle(new RemoteActionRequest { Type = "key", Keys = ["MEDIA_PLAY_PAUSE"] });
+
+        Assert.IsNull(volumeService.LastVolumeKey);
+    }
+
+    [TestMethod]
+    [DataRow("Strip[3].Mute", null)]
+    [DataRow("Strip[0].A1", 1d)]
+    [DataRow("Strip[7].B3", 0d)]
+    [DataRow("Bus[0].Mute", 1d)]
+    [DataRow("Bus[4].Gain", -12.5d)]
+    [DataRow("Strip[2].Gain", 12d)]
+    public void Handle_VoicemeeterParameter_ForwardsAllowedValues(string parameter, double? value)
+    {
+        var voicemeeter = new RecordingVoicemeeterService();
+        var handler = CreateHandler(voicemeeter: voicemeeter);
+
+        var response = handler.Handle(new RemoteActionRequest
+        {
+            Type = "voicemeeterParameter",
+            Parameter = parameter,
+            Value = value
+        });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(parameter, voicemeeter.LastParameter);
+        Assert.AreEqual((float?)value, voicemeeter.LastValue);
+    }
+
+    [TestMethod]
+    [DataRow("Command.Shutdown", 1d)]
+    [DataRow("Strip[3].Label", null)]
+    [DataRow("Bus[0].A1", 1d)]
+    [DataRow("Strip[8].Mute", 1d)]
+    [DataRow("Strip[3].Mute; Command.Shutdown", 1d)]
+    [DataRow("Strip[3].Mute", 0.5d)]
+    [DataRow("Strip[3].Gain", null)]
+    [DataRow("Strip[3].Gain", 13d)]
+    [DataRow(null, 1d)]
+    public void Handle_VoicemeeterParameter_RejectsAnythingElse(string? parameter, double? value)
+    {
+        var voicemeeter = new RecordingVoicemeeterService();
+        var handler = CreateHandler(voicemeeter: voicemeeter);
+
+        var response = handler.Handle(new RemoteActionRequest
+        {
+            Type = "voicemeeterParameter",
+            Parameter = parameter,
+            Value = value
+        });
+
+        Assert.IsFalse(response.Success);
+        Assert.IsNull(voicemeeter.LastParameter);
+    }
+
+    [TestMethod]
+    public void Handle_VoicemeeterParameter_NotRunning_Fails()
+    {
+        var handler = CreateHandler(voicemeeter: new RecordingVoicemeeterService(running: false));
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "voicemeeterParameter", Parameter = "Strip[3].Mute" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Voicemeeter is not running.", response.Error);
+    }
+
+    [TestMethod]
     public void Handle_ShutdownTimer_SchedulesAndCancels()
     {
         using var shutdownTimer = new ShutdownTimer(new RecordingPowerService(), NullLogger<ShutdownTimer>.Instance);
@@ -277,13 +366,43 @@ public sealed class RemoteActionHandlerTests
         public void KeyUp(string key) => throw new InputBlockedException();
     }
 
-    private sealed class RecordingVolumeService : IVolumeService
+    private sealed class RecordingVolumeService(bool handlesMute = false) : IVolumeService
     {
         public int? LastVolume { get; private set; }
+
+        public string? LastVolumeKey { get; private set; }
 
         public void SetVolume(int percent)
         {
             LastVolume = percent;
+        }
+
+        public bool TryHandleVolumeKey(string key)
+        {
+            LastVolumeKey = key;
+            return handlesMute;
+        }
+    }
+
+    private sealed class RecordingVoicemeeterService(bool running = true) : IVoicemeeterService
+    {
+        public string? LastParameter { get; private set; }
+
+        public float? LastValue { get; private set; }
+
+        public bool IsInstalled => true;
+
+        public Task<VoicemeeterMessage> ReadAsync() => Task.FromResult(new VoicemeeterMessage(null, null));
+
+        public void SetParameter(string parameter, float? value)
+        {
+            if (!running)
+            {
+                throw new NotSupportedException("Voicemeeter is not running.");
+            }
+
+            LastParameter = parameter;
+            LastValue = value;
         }
     }
 
@@ -292,7 +411,8 @@ public sealed class RemoteActionHandlerTests
         RecordingMouseService? mouseService = null,
         IPowerService? powerService = null,
         IVolumeService? volumeService = null,
-        ShutdownTimer? shutdownTimer = null)
+        ShutdownTimer? shutdownTimer = null,
+        IVoicemeeterService? voicemeeter = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -300,7 +420,8 @@ public sealed class RemoteActionHandlerTests
             powerService ?? new RecordingPowerService(),
             NullLogger<RemoteActionHandler>.Instance,
             volumeService: volumeService,
-            shutdownTimer: shutdownTimer);
+            shutdownTimer: shutdownTimer,
+            voicemeeter: voicemeeter);
     }
 
     private sealed class RecordingPowerService : IPowerService

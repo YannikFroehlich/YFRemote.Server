@@ -4,11 +4,12 @@ namespace YFRemote.Server.Services;
 
 // Zustand einer einzelnen WebSocket-Verbindung. Jede Verbindung bekommt ihren eigenen virtuellen
 // Controller, damit mehrere Geraete als mehrere Spieler erscheinen; mit der Verbindung wird er
-// wieder abgesteckt. Ebenso enden mit ihr Zwischenablage-Abgleich und Systemanzeige des Geraets.
+// wieder abgesteckt. Ebenso enden mit ihr Zwischenablage-Abgleich, Systemanzeige und Mixer des Geraets.
 public sealed class RemoteActionSession(
     Action<GamepadRumble>? onRumble = null,
     Action<ClipboardMessage>? onClipboard = null,
-    Action<SystemStatsMessage>? onSystemStats = null) : IDisposable
+    Action<SystemStatsMessage>? onSystemStats = null,
+    Action<VoicemeeterMessage>? onVoicemeeter = null) : IDisposable
 {
     public string DeviceName { get; init; } = "Unbekanntes Gerät";
 
@@ -18,11 +19,15 @@ public sealed class RemoteActionSession(
 
     internal IDisposable? SystemStatsSubscription { get; set; }
 
+    internal IDisposable? VoicemeeterSubscription { get; set; }
+
     internal void Rumble(GamepadRumble rumble) => onRumble?.Invoke(rumble);
 
     internal void PushClipboard(ClipboardMessage message) => onClipboard?.Invoke(message);
 
     internal void PushSystemStats(SystemStatsMessage message) => onSystemStats?.Invoke(message);
+
+    internal void PushVoicemeeter(VoicemeeterMessage message) => onVoicemeeter?.Invoke(message);
 
     internal void DisconnectGamepad()
     {
@@ -37,5 +42,7 @@ public sealed class RemoteActionSession(
         ClipboardSubscription = null;
         SystemStatsSubscription?.Dispose();
         SystemStatsSubscription = null;
+        VoicemeeterSubscription?.Dispose();
+        VoicemeeterSubscription = null;
     }
 }

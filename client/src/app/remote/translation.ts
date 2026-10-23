@@ -31,6 +31,7 @@ export const TRANSLATIONS = {
   'shell.tabKeyboard': { de: 'Tastatur', en: 'Keyboard' },
   'shell.tabGamepad': { de: 'Controller', en: 'Controller' },
   'shell.tabSystem': { de: 'PC', en: 'PC' },
+  'shell.tabMixer': { de: 'Mixer', en: 'Mixer' },
   'shell.done': { de: 'Fertig', en: 'Done' },
   'shell.add': { de: 'Hinzufügen', en: 'Add' },
   'shell.snapToGrid': { de: 'Raster', en: 'Snap to grid' },
@@ -373,6 +374,15 @@ export const TRANSLATIONS = {
   'shutdownTimer.cancel': { de: 'Abbrechen', en: 'Cancel' },
   'stats.waiting': { de: 'Warte auf Messwerte vom PC …', en: 'Waiting for readings from the PC …' },
   'stats.memory': { de: 'Arbeitsspeicher', en: 'Memory' },
+  'mixer.inputs': { de: 'Eingänge', en: 'Inputs' },
+  'mixer.outputs': { de: 'Ausgänge', en: 'Outputs' },
+  'mixer.mute': { de: '{{name}} stumm schalten', en: 'Mute {{name}}' },
+  'mixer.gain': { de: 'Lautstärke {{name}}', en: '{{name}} volume' },
+  'mixer.waiting': { de: 'Warte auf Voicemeeter …', en: 'Waiting for Voicemeeter …' },
+  'mixer.notRunning': {
+    de: 'Voicemeeter läuft nicht. Starte es am PC, dann erscheinen hier seine Eingänge und Ausgänge.',
+    en: 'Voicemeeter is not running. Start it on the PC to see its inputs and outputs here.',
+  },
   'stats.noTemperature': { de: 'Temperatur nicht verfügbar', en: 'Temperature not available' },
   'stats.noTemperature.windows': {
     de: 'Temperatur: am PC LibreHardwareMonitor mit Remote Web Server starten',
@@ -622,6 +632,19 @@ export const TRANSLATIONS = {
   'buttonEditor.describeStep.hotkey': { de: 'Hotkey: {{keys}}', en: 'Hotkey: {{keys}}' },
   'buttonEditor.describeStep.mouseLeft': { de: 'Klick: links', en: 'Click: left' },
   'buttonEditor.describeStep.mouseRight': { de: 'Klick: rechts', en: 'Click: right' },
+  'buttonEditor.describeStep.voicemeeter': {
+    de: 'Voicemeeter: {{channel}} · {{switch}} {{mode}}',
+    en: 'Voicemeeter: {{channel}} · {{switch}} {{mode}}',
+  },
+  'buttonEditor.voicemeeter.channel': { de: 'Kanal', en: 'Channel' },
+  'buttonEditor.voicemeeter.mute': { de: 'Stumm', en: 'Mute' },
+  'buttonEditor.voicemeeter.toggle': { de: 'umschalten', en: 'toggle' },
+  'buttonEditor.voicemeeter.on': { de: 'ein', en: 'on' },
+  'buttonEditor.voicemeeter.off': { de: 'aus', en: 'off' },
+  'buttonEditor.voicemeeter.notRunning': {
+    de: 'Starte Voicemeeter am PC, um einen Kanal auszuwählen.',
+    en: 'Start Voicemeeter on the PC to pick a channel.',
+  },
 
   'pairingGate.tagline': { de: 'Sicher verbinden', en: 'Secure connection' },
   'pairingGate.regionAriaLabel': { de: 'YFRemote Kopplung', en: 'YFRemote pairing' },

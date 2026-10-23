@@ -46,7 +46,8 @@ public sealed class YFRemoteWebSocketHandler(
         using var session = new RemoteActionSession(
             rumble => _ = SendPushAsync(socket, sendLock, rumble, client, cancellationToken),
             clipboard => _ = SendPushAsync(socket, sendLock, clipboard, client, cancellationToken),
-            stats => _ = SendPushAsync(socket, sendLock, stats, client, cancellationToken))
+            stats => _ = SendPushAsync(socket, sendLock, stats, client, cancellationToken),
+            voicemeeter => _ = SendPushAsync(socket, sendLock, voicemeeter, client, cancellationToken))
         {
             DeviceName = deviceName ?? client
         };

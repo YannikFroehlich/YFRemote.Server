@@ -1,7 +1,9 @@
 import {
   Component,
+  computed,
   inject,
   input,
+  OnDestroy,
   OnInit,
   output,
   signal,
@@ -19,12 +21,14 @@ import { ButtonLayoutService } from './button-layout.service';
 import { KEY_GROUPS, keyLabel, keysToAction, MAX_HOTKEY_KEYS } from './keyboard-keys';
 import { REMOTE_ICON_PATHS, REMOTE_ICONS } from './remote-icons';
 import { MacroStep, RemoteAction, RemoteIcon } from './remote.models';
+import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
 const DEFAULT_CUSTOM_COLOR = '#38bdf8';
 
-type StepType = 'keys' | 'text' | 'mouseClick';
+type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter';
+type VoicemeeterMode = 'toggle' | 'on' | 'off';
 
 @Component({
   selector: 'app-button-editor-dialog',
@@ -32,8 +36,9 @@ type StepType = 'keys' | 'text' | 'mouseClick';
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './button-editor-dialog.component.html',
 })
-export class ButtonEditorDialogComponent implements OnInit {
+export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   private readonly layout = inject(ButtonLayoutService);
+  private readonly remote = inject(RemoteService);
   protected readonly i18n = inject(TranslationService);
 
   readonly targetId = input<string | null>(null);
@@ -60,6 +65,21 @@ export class ButtonEditorDialogComponent implements OnInit {
   protected readonly pendingMouseButton = signal<'left' | 'right'>('left');
   protected readonly pendingDelayMs = signal(0);
 
+  // Voicemeeter-Schritte gibt es nur, wenn der PC es installiert hat; die Kanalnamen kommen aus
+  // derselben Meldung wie im Tab "Mixer", solange der Editor offen ist.
+  protected readonly voicemeeterAvailable = this.remote.voicemeeterAvailable;
+  protected readonly voicemeeterChannels = computed(() => this.remote.voicemeeter()?.channels ?? []);
+  protected readonly pendingVoicemeeterChannel = signal('');
+  protected readonly pendingVoicemeeterSwitch = signal('Mute');
+  protected readonly pendingVoicemeeterMode = signal<VoicemeeterMode>('toggle');
+  protected readonly voicemeeterModes: readonly VoicemeeterMode[] = ['toggle', 'on', 'off'];
+  protected readonly voicemeeterSwitches = computed(() =>
+    this.pendingVoicemeeterChannel().startsWith('Strip[')
+      ? ['Mute', ...(this.remote.voicemeeter()?.routes ?? [])]
+      : ['Mute'],
+  );
+  private watchingVoicemeeter = false;
+
   protected readonly form = new FormGroup({
     label: new FormControl('', {
       nonNullable: true,
@@ -72,6 +92,11 @@ export class ButtonEditorDialogComponent implements OnInit {
   protected readonly colorValue = signal(DEFAULT_CUSTOM_COLOR);
 
   ngOnInit(): void {
+    if (this.voicemeeterAvailable()) {
+      this.watchingVoicemeeter = true;
+      this.remote.watchVoicemeeter(true);
+    }
+
     const id = this.targetId();
 
     if (id === null) {
@@ -101,8 +126,23 @@ export class ButtonEditorDialogComponent implements OnInit {
     }
   }
 
+  ngOnDestroy(): void {
+    if (this.watchingVoicemeeter) {
+      this.remote.watchVoicemeeter(false);
+    }
+  }
+
   protected setStepType(type: StepType): void {
     this.stepType.set(type);
+  }
+
+  protected onVoicemeeterChannelChange(event: Event): void {
+    this.pendingVoicemeeterChannel.set((event.target as HTMLSelectElement).value);
+    this.pendingVoicemeeterSwitch.set('Mute');
+  }
+
+  protected voicemeeterSwitchLabel(name: string): string {
+    return name === 'Mute' ? this.i18n.t('buttonEditor.voicemeeter.mute') : name;
   }
 
   protected togglePendingKey(key: string): void {
@@ -160,6 +200,18 @@ export class ButtonEditorDialogComponent implements OnInit {
 
       case 'mouseClick':
         return { type: 'mouseClick', button: this.pendingMouseButton() };
+
+      case 'voicemeeter': {
+        const channel = this.pendingVoicemeeterChannel();
+        const parameter = `${channel}.${this.pendingVoicemeeterSwitch()}`;
+        const mode = this.pendingVoicemeeterMode();
+        if (channel === '' || !this.voicemeeterSwitches().includes(this.pendingVoicemeeterSwitch())) {
+          return null;
+        }
+        return mode === 'toggle'
+          ? { type: 'voicemeeterParameter', parameter }
+          : { type: 'voicemeeterParameter', parameter, value: mode === 'on' ? 1 : 0 };
+      }
     }
   }
 
@@ -216,6 +268,17 @@ export class ButtonEditorDialogComponent implements OnInit {
         return action.button === 'left'
           ? this.i18n.t('buttonEditor.describeStep.mouseLeft')
           : this.i18n.t('buttonEditor.describeStep.mouseRight');
+
+      case 'voicemeeterParameter': {
+        const [id, name] = action.parameter.split('.');
+        const mode: VoicemeeterMode =
+          action.value === undefined ? 'toggle' : action.value === 1 ? 'on' : 'off';
+        return this.i18n.t('buttonEditor.describeStep.voicemeeter', {
+          channel: this.voicemeeterChannels().find((channel) => channel.id === id)?.name ?? id,
+          switch: this.voicemeeterSwitchLabel(name),
+          mode: this.i18n.t(`buttonEditor.voicemeeter.${mode}`),
+        });
+      }
 
       default:
         return '';

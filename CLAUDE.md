@@ -124,7 +124,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   which the Client picks its built-in button set, `gamepad` (controller mode available), and
   `macAddress` of the LAN adapter behind the shown device address (`NetworkAddressService`), which
   the Android app stores to wake the PC later via Wake-on-LAN, plus `macAddressWireless` (that
-  adapter is Wi-Fi, so waking it will most likely fail; the app warns after sending).
+  adapter is Wi-Fi, so waking it will most likely fail; the app warns after sending), and
+  `voicemeeter` (Voicemeeter installed; the Client then shows the "Mixer" tab).
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -172,7 +173,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `shutdown`, `restart`,
-`sleep`, `lock`, `displayOff`, `volume`, `shutdownTimer`) into `IInputService` /
+`sleep`, `lock`, `displayOff`, `volume`, `shutdownTimer`, `voicemeeterParameter`, ...) into `IInputService` /
 `IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
 it also unmutes, like the Windows volume slider), validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
@@ -198,7 +199,8 @@ above the Remote buttons.
 
 **Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
 `{"type":"media","volume","muted","title","artist","playing"}` (`WindowsMediaStatusReader` reads
-Core Audio over COM and the WinRT media session manager; `LinuxMediaStatusReader` shells out to
+Core Audio over COM and the WinRT media session manager; for a Voicemeeter device see below;
+`LinuxMediaStatusReader` shells out to
 `pactl` and `playerctl`, leaving a part empty when its tool is missing) and
 `{"type":"clipboard","text"}`. Both come from a `PollingBroadcaster<T>`, which polls its source
 once per second only while at least one connection subscribes and reports only changes. Media is
@@ -227,6 +229,24 @@ hwmon (`coretemp`/`k10temp`/..., `amdgpu`/...) and amdgpu's `gpu_busy_percent`. 
 `null` and the Client shows it as unavailable. In the Client, `ClipboardSyncService` writes pushed text into the
 device clipboard and, when the app regains focus, sends newly copied device text via
 `POST /clipboard/text`. That needs the Async Clipboard API, so it works over HTTPS only.
+
+**Voicemeeter (Windows).** Voicemeeter ignores Windows volume and mute on its virtual playback
+devices, so `WindowsVoicemeeter` talks to the Voicemeeter Remote API (`VoicemeeterRemote64.dll`
+from the install folder found via the uninstall registry key, loaded only once that file exists;
+`IsInstalled` feeds `/health`). Strip and bus counts and the routes (`A1`...`B3`) are probed from
+Voicemeeter itself (unknown parameters return an error) instead of hard-coded per version; only the
+hardware-input count per type (2/3/5) is fixed, because the virtual inputs follow it. When the
+default playback device's adapter name (`PKEY_DeviceInterface_FriendlyName`, e.g. "VB-Audio
+Voicemeeter AUX VAIO") is a Voicemeeter one, or `Voicemeeter:Target` (`VoicemeeterOptions`,
+e.g. `Strip[3]`, settable in `settings.json`) names a channel, `WindowsMediaStatusReader` routes
+the media push's `volume`/`muted`, the `volume` action and the `VOLUME_MUTE/UP/DOWN` keys
+(`IVolumeService.TryHandleVolumeKey`, called by `RemoteActionHandler` before `SendInput`) to that
+channel's `Gain`/`Mute`; percent maps linearly to -60...0 dB like Voicemeeter's fader. The
+"Mixer" tab subscribes `{"type":"voicemeeter","enabled"}` like `systemStats` and gets
+`{"type":"voicemeeter","channels":[{id,name,muted,gain}],"routes"}` (no `channels` = not running).
+`voicemeeterParameter` sets only `Strip[n].Mute|Gain|A1-A5|B1-B3` and `Bus[n].Mute|Gain`
+(regex in `RemoteActionHandler`, no free Voicemeeter script that could load files or quit it);
+without `value` a switch toggles. Not verified against a real Voicemeeter yet.
 
 **Controller mode.** A `gamepad` action carries the full controller state
 (`GamepadState`: XInput button bitmask, stick axes, triggers) instead of single button events, so a

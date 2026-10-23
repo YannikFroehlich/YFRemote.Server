@@ -12,6 +12,7 @@ import {
   ServerPlatform,
   ShutdownTimerMessage,
   SystemStatsMessage,
+  VoicemeeterMessage,
 } from './remote.models';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
@@ -147,6 +148,9 @@ export class RemoteService implements OnDestroy {
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
   private systemStatsWatched = false;
+  private readonly voicemeeterAvailableSignal = signal(false);
+  private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
+  private voicemeeterWatched = false;
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
   // wieder auftauchen.
   private dismissedFileOfferId: string | null = null;
@@ -193,6 +197,10 @@ export class RemoteService implements OnDestroy {
   readonly systemStats = this.systemStatsSignal.asReadonly();
   /** Auch die Systemanzeige koennen nur die PC-Server. */
   readonly systemStatsSupported = this.clipboardSyncSupported;
+  /** Ob am PC Voicemeeter installiert ist (`GET /health`); dann gibt es den Tab "Mixer". */
+  readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
+  /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
+  readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -322,6 +330,42 @@ export class RemoteService implements OnDestroy {
       this.systemStatsSignal.set(null);
     }
     this.sendSystemStats();
+  }
+
+  /** Wie `watchSystemStats`: der PC liest Voicemeeter nur, solange Mixer oder Button-Editor offen sind. */
+  watchVoicemeeter(enabled: boolean): void {
+    this.voicemeeterWatched = enabled;
+    if (!enabled) {
+      this.voicemeeterSignal.set(null);
+    }
+    this.sendVoicemeeterWatch();
+  }
+
+  /** Setzt einen Voicemeeter-Wert und zeigt ihn sofort an - die Bestaetigung kommt erst mit der
+   *  naechsten sekuendlichen Meldung. Ohne `value` wird ein Schalter umgeschaltet. */
+  setVoicemeeterParameter(parameter: string, value?: number): void {
+    const sent = this.sendAction(
+      value === undefined
+        ? { type: 'voicemeeterParameter', parameter }
+        : { type: 'voicemeeterParameter', parameter, value },
+    );
+
+    const state = this.voicemeeterSignal();
+    const [id, name] = parameter.split('.');
+    if (!sent || state?.channels === undefined || (name !== 'Mute' && name !== 'Gain')) {
+      return;
+    }
+
+    this.voicemeeterSignal.set({
+      ...state,
+      channels: state.channels.map((channel) =>
+        channel.id !== id
+          ? channel
+          : name === 'Gain'
+            ? { ...channel, gain: value ?? channel.gain }
+            : { ...channel, muted: value === undefined ? !channel.muted : value === 1 },
+      ),
+    });
   }
 
   dismissFileOffer(): void {
@@ -476,6 +520,7 @@ export class RemoteService implements OnDestroy {
       this.mediaStatusSignal.set(null);
       this.shutdownDeadlineSignal.set(null);
       this.systemStatsSignal.set(null);
+      this.voicemeeterSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -523,6 +568,13 @@ export class RemoteService implements OnDestroy {
     if (isSystemStatsMessage(message)) {
       if (this.systemStatsWatched) {
         this.systemStatsSignal.set(message);
+      }
+      return;
+    }
+
+    if (isVoicemeeterMessage(message)) {
+      if (this.voicemeeterWatched) {
+        this.voicemeeterSignal.set(message);
       }
       return;
     }
@@ -593,6 +645,7 @@ export class RemoteService implements OnDestroy {
       const body = (await response.json()) as {
         readonly platform?: unknown;
         readonly gamepad?: unknown;
+        readonly voicemeeter?: unknown;
       };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
@@ -600,9 +653,11 @@ export class RemoteService implements OnDestroy {
           : null,
       );
       this.gamepadAvailableSignal.set(body.gamepad === true);
+      this.voicemeeterAvailableSignal.set(body.voicemeeter === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
+      this.voicemeeterAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,
@@ -612,6 +667,9 @@ export class RemoteService implements OnDestroy {
     }
     if (this.systemStatsWatched) {
       this.sendSystemStats();
+    }
+    if (this.voicemeeterWatched) {
+      this.sendVoicemeeterWatch();
     }
   }
 
@@ -624,6 +682,12 @@ export class RemoteService implements OnDestroy {
   private sendSystemStats(): void {
     if (this.systemStatsSupported() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'systemStats', enabled: this.systemStatsWatched });
+    }
+  }
+
+  private sendVoicemeeterWatch(): void {
+    if (this.voicemeeterAvailableSignal() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'voicemeeter', enabled: this.voicemeeterWatched });
     }
   }
 
@@ -655,6 +719,7 @@ export class RemoteService implements OnDestroy {
     // Ein noch geplanter Termin kommt beim naechsten Verbinden wieder.
     this.shutdownDeadlineSignal.set(null);
     this.systemStatsSignal.set(null);
+    this.voicemeeterSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -821,6 +886,29 @@ function isSystemStatsMessage(value: unknown): value is SystemStatsMessage {
     optionalNumber(message.gpuTemperature) &&
     typeof message.memoryUsedMb === 'number' &&
     typeof message.memoryTotalMb === 'number'
+  );
+}
+
+function isVoicemeeterMessage(value: unknown): value is VoicemeeterMessage {
+  const message = value as Partial<VoicemeeterMessage> | null;
+  if (message?.type !== 'voicemeeter') {
+    return false;
+  }
+
+  const channels = message.channels as unknown;
+  const routes = message.routes as unknown;
+  return (
+    (channels === undefined ||
+      (Array.isArray(channels) &&
+        channels.every(
+          (channel) =>
+            typeof channel?.id === 'string' &&
+            typeof channel.name === 'string' &&
+            typeof channel.muted === 'boolean' &&
+            typeof channel.gain === 'number',
+        ))) &&
+    (routes === undefined ||
+      (Array.isArray(routes) && routes.every((route) => typeof route === 'string')))
   );
 }
 

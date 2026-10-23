@@ -5,11 +5,13 @@ namespace YFRemote.Server.Models;
 // ob der Controller-Modus verfuegbar ist (nur Windows mit installiertem ViGEmBus-Treiber).
 // MacAddress merkt sich die Android-App, um den PC spaeter per Wake-on-LAN zu wecken - im LAN ist
 // sie ohnehin per ARP sichtbar, deshalb ohne Kopplung. MacAddressWireless: die Karte ist WLAN, dann
-// klappt Wake-on-LAN meist nicht - die App weist darauf hin.
+// klappt Wake-on-LAN meist nicht - die App weist darauf hin. Voicemeeter: installiert, der Client
+// zeigt dann den Tab "Mixer".
 public sealed record HealthResponse(
     string Status,
     string Service,
     string Platform,
     bool Gamepad = false,
     string? MacAddress = null,
-    bool MacAddressWireless = false);
+    bool MacAddressWireless = false,
+    bool Voicemeeter = false);

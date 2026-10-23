@@ -1,0 +1,46 @@
+<div class="system-stats">
+  @if (state(); as state) {
+    @if (state.channels) {
+      @for (group of groups(); track group.title) {
+        <p class="mixer__heading">{{ i18n.t(group.title) }}</p>
+        @for (channel of group.channels; track channel.id) {
+          <div class="stats-tile mixer-channel" [class.mixer-channel--muted]="channel.muted">
+            <div class="stats-tile__head">
+              <span>{{ channel.name }}</span>
+              <span class="mixer-channel__gain">{{ formatGain(channel.gain) }}</span>
+            </div>
+            <div class="mixer-channel__controls">
+              <button
+                class="secondary-button mixer-channel__mute"
+                type="button"
+                [class.key-chip--active]="channel.muted"
+                [attr.aria-pressed]="channel.muted"
+                [attr.aria-label]="i18n.t('mixer.mute', { name: channel.name })"
+                (click)="toggleMute(channel)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path [attr.d]="iconPaths[channel.muted ? 'volume-mute' : 'volume-plus']"></path>
+                </svg>
+              </button>
+              <input
+                class="media-strip__slider"
+                type="range"
+                min="-60"
+                max="12"
+                step="0.5"
+                [value]="channel.gain"
+                [attr.aria-label]="i18n.t('mixer.gain', { name: channel.name })"
+                [attr.aria-valuetext]="formatGain(channel.gain)"
+                (change)="setGain(channel, $event)"
+              />
+            </div>
+          </div>
+        }
+      }
+    } @else {
+      <p class="stats-waiting">{{ i18n.t('mixer.notRunning') }}</p>
+    }
+  } @else {
+    <p class="stats-waiting">{{ i18n.t('mixer.waiting') }}</p>
+  }
+</div>

@@ -25,4 +25,8 @@ public sealed record RemoteActionRequest
     public int? Volume { get; init; }
 
     public int? Minutes { get; init; }
+
+    public string? Parameter { get; init; }
+
+    public double? Value { get; init; }
 }

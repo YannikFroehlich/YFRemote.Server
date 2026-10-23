@@ -18,6 +18,8 @@ export const MAX_LABEL_LENGTH = 14;
 export const MAX_MACRO_STEPS = 10;
 export const MAX_MACRO_DELAY_MS = 5000;
 export const MAX_MACRO_TEXT_LENGTH = 500;
+/** Voicemeeter-Schalter, die ein eigener Button setzen darf (wie die Pruefung im Server, ohne Gain). */
+export const VOICEMEETER_SWITCH_PATTERN = /^(Strip\[[0-7]\]\.(Mute|A[1-5]|B[1-3])|Bus\[[0-7]\]\.Mute)$/;
 
 export interface ButtonPlacement {
   readonly id: string;
@@ -274,6 +276,17 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
     case 'mouseClick': {
       const button = (candidate as { readonly button?: unknown }).button;
       return button === 'left' || button === 'right' ? { type: 'mouseClick', button } : null;
+    }
+
+    case 'voicemeeterParameter': {
+      const { parameter, value } = candidate as { readonly parameter?: unknown; readonly value?: unknown };
+      if (typeof parameter !== 'string' || !VOICEMEETER_SWITCH_PATTERN.test(parameter)) {
+        return null;
+      }
+      if (value === undefined) {
+        return { type: 'voicemeeterParameter', parameter };
+      }
+      return value === 0 || value === 1 ? { type: 'voicemeeterParameter', parameter, value } : null;
     }
 
     default:

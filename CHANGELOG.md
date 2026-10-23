@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Neuer Tab "Mixer" für Windows-PCs mit Voicemeeter: Er zeigt alle Eingänge und Ausgänge (Busse) von Voicemeeter mit ihren Namen. Jeder hat einen Stumm-Schalter und einen Fader von -60 bis +12 dB. Der Tab erscheint nur, wenn Voicemeeter am PC installiert ist. Läuft es nicht, sagt der Tab das.
+- Eigene Buttons können jetzt Voicemeeter-Schritte enthalten: Einen Eingang oder Bus stumm schalten oder einen Eingang auf A1 bis A5 bzw. B1 bis B3 schalten, jeweils umschalten, ein oder aus. Die Schritte lassen sich mit Tasten und Text in einem Makro kombinieren.
+- Welchen Voicemeeter-Kanal Stumm-Button, Lauter/Leiser und Lautstärke-Regler steuern, lässt sich festlegen: in `%LOCALAPPDATA%\YFRemote\settings.json` z. B. `{ "Voicemeeter": { "Target": "Bus[0]" } }` eintragen und YFRemote neu starten. Ohne Eintrag gilt der Voicemeeter-Eingang hinter dem Windows-Standardgerät.
+
+### Fixed
+
+- Windows mit Voicemeeter: Stumm, Lauter, Leiser und der Lautstärke-Regler wirken jetzt. Ist ein Voicemeeter-Gerät ("Voicemeeter Input", "Voicemeeter AUX Input" oder "Voicemeeter VAIO3 Input") das Standard-Wiedergabegerät, steuert YFRemote den passenden Eingang in Voicemeeter. Bisher änderte es nur die Windows-Lautstärke, die Voicemeeter ignoriert. Die Medienleiste zeigt Lautstärke und "Ton aus" dieses Eingangs. Läuft Voicemeeter nicht, bleibt alles wie bisher.
+
 ## [2.36.2] - 2026-10-23
 
 ### Changed

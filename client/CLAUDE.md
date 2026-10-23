@@ -94,6 +94,14 @@ new component the same, unless everything its template reads is a signal or an i
      `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
      measures only while a device watches, so never subscribe to it in the background.
+   - `voicemeeter` pushes work the same way via `watchVoicemeeter`, sent only where `/health`
+     reports `voicemeeter: true` (`voicemeeterAvailable`). `VoicemeeterComponent`
+     (`voicemeeter.component.ts`, the "Mixer" tab) and the button editor (for channel names) watch
+     while they are open; both are never open at once. `setVoicemeeterParameter` sends a
+     `voicemeeterParameter` action and patches the signal right away, because the confirming push
+     comes up to a second later. Custom buttons can carry Voicemeeter switch steps (toggle/on/off of
+     `Mute`/`A1`...`B3`, never `Gain`); `VOICEMEETER_SWITCH_PATTERN` in `button-layout.ts` mirrors
+     the server's allowlist.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

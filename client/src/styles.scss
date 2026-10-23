@@ -923,6 +923,54 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+.mixer__heading {
+  margin: 6px 2px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mixer-channel {
+  padding: 10px 14px;
+}
+
+.mixer-channel__gain {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mixer-channel__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mixer-channel__controls .media-strip__slider {
+  flex: 1;
+}
+
+// Doppelte Klasse: .secondary-button steht weiter unten und saetzte sonst Hoehe und Innenabstand.
+.secondary-button.mixer-channel__mute {
+  display: grid;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+}
+
+.mixer-channel__mute svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.mixer-channel--muted .media-strip__slider {
+  accent-color: var(--muted);
+}
+
 .media-strip__volume--muted {
   color: var(--muted);
 }
@@ -2008,7 +2056,8 @@ select:focus-visible {
 
 .step-type-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: 4px;
   padding: 4px;
   border: var(--border-width) solid var(--line);

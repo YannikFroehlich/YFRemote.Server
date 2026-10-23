@@ -512,6 +512,57 @@ describe('RemoteService', () => {
     expect(remote.systemStats()).toBeNull();
   });
 
+  it('watches Voicemeeter only where /health reports it and shows set values at once', async () => {
+    const { remote, sockets } = setupRemoteService({
+      health: { platform: 'windows', voicemeeter: true },
+    });
+    const state = {
+      type: 'voicemeeter',
+      channels: [
+        { id: 'Strip[3]', name: 'Voicemeeter VAIO', muted: false, gain: -6 },
+        { id: 'Bus[0]', name: 'A1', muted: false, gain: 0 },
+      ],
+      routes: ['A1', 'B1'],
+    };
+
+    remote.watchVoicemeeter(true);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.voicemeeterAvailable()).toBe(true));
+    expect(sockets[0].sentMessages).toEqual(['{"type":"voicemeeter","enabled":true}']);
+
+    sockets[0].receive(JSON.stringify(state));
+    expect(remote.voicemeeter()).toEqual(state);
+
+    remote.setVoicemeeterParameter('Strip[3].Mute');
+    remote.setVoicemeeterParameter('Bus[0].Gain', -12.5);
+    expect(sockets[0].sentMessages.slice(-2)).toEqual([
+      '{"type":"voicemeeterParameter","parameter":"Strip[3].Mute"}',
+      '{"type":"voicemeeterParameter","parameter":"Bus[0].Gain","value":-12.5}',
+    ]);
+    expect(remote.voicemeeter()?.channels).toEqual([
+      { id: 'Strip[3]', name: 'Voicemeeter VAIO', muted: true, gain: -6 },
+      { id: 'Bus[0]', name: 'A1', muted: false, gain: -12.5 },
+    ]);
+
+    remote.watchVoicemeeter(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"voicemeeter","enabled":false}');
+    sockets[0].receive(JSON.stringify(state));
+    expect(remote.voicemeeter()).toBeNull();
+  });
+
+  it('does not watch Voicemeeter on a PC without it', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
+
+    remote.watchVoicemeeter(true);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+
+    expect(remote.voicemeeterAvailable()).toBe(false);
+    expect(sockets[0].sentMessages).toEqual([]);
+  });
+
   it('reconnects with increasing capped delays', () => {
     const { remote, sockets } = setupRemoteService();
 

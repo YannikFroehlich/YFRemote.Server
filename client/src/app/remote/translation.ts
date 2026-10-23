@@ -378,6 +378,7 @@ export const TRANSLATIONS = {
   'mixer.outputs': { de: 'Ausgänge', en: 'Outputs' },
   'mixer.mute': { de: '{{name}} stumm schalten', en: 'Mute {{name}}' },
   'mixer.gain': { de: 'Lautstärke {{name}}', en: '{{name}} volume' },
+  'mixer.reset': { de: '{{name}} auf 0 dB zurücksetzen', en: 'Reset {{name}} to 0 dB' },
   'mixer.waiting': { de: 'Warte auf Voicemeeter …', en: 'Waiting for Voicemeeter …' },
   'mixer.notRunning': {
     de: 'Voicemeeter läuft nicht. Starte es am PC, dann erscheinen hier seine Eingänge und Ausgänge.',

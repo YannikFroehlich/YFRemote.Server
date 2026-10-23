@@ -96,7 +96,8 @@ new component the same, unless everything its template reads is a signal or an i
      measures only while a device watches, so never subscribe to it in the background.
    - `voicemeeter` pushes work the same way via `watchVoicemeeter`, sent only where `/health`
      reports `voicemeeter: true` (`voicemeeterAvailable`). `VoicemeeterComponent`
-     (`voicemeeter.component.ts`, the "Mixer" tab) and the button editor (for channel names) watch
+     (`voicemeeter.component.ts`, the "Mixer" tab: inputs/outputs switch, mute, fader with a 0 dB
+     tick, "0 dB" reset) and the button editor (for channel names) watch
      while they are open; both are never open at once. `setVoicemeeterParameter` sends a
      `voicemeeterParameter` action and patches the signal right away, because the confirming push
      comes up to a second later. Custom buttons can carry Voicemeeter switch steps (toggle/on/off of

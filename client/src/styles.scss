@@ -923,52 +923,123 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-.mixer__heading {
-  margin: 6px 2px 0;
+.mixer {
+  display: grid;
+  gap: 8px;
+}
+
+.mixer__count {
+  margin-left: 4px;
   color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 750;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
 }
 
 .mixer-channel {
-  padding: 10px 14px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(14px * var(--radius-scale));
+  background: var(--surface-soft);
+}
+
+.mixer-channel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mixer-channel__name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mixer-channel__gain {
-  color: var(--text);
-  font-size: 0.9rem;
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .mixer-channel__controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.mixer-channel__controls .media-strip__slider {
-  flex: 1;
-}
-
-// Doppelte Klasse: .secondary-button steht weiter unten und saetzte sonst Hoehe und Innenabstand.
-.secondary-button.mixer-channel__mute {
+.mixer-channel__button {
   display: grid;
   min-width: 44px;
-  min-height: 40px;
-  padding: 0;
+  height: 40px;
+  padding: 0 8px;
   place-items: center;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(12px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  touch-action: manipulation;
 }
 
-.mixer-channel__mute svg {
+.mixer-channel__button svg {
   width: 20px;
   height: 20px;
   fill: currentColor;
 }
 
-.mixer-channel--muted .media-strip__slider {
+.mixer-channel__button:disabled {
+  opacity: 0.4;
+}
+
+// Rot wie der Mute-Knopf in Voicemeeter.
+.mixer-channel__mute[aria-pressed='true'] {
+  border-color: rgba(var(--danger-rgb), 0.4);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.mixer-channel--muted .mixer-channel__name,
+.mixer-channel--muted .mixer-channel__gain {
+  color: var(--muted);
+}
+
+.mixer-fader {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.mixer-fader input {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.mixer-channel--muted .mixer-fader input {
   accent-color: var(--muted);
+}
+
+// Skalenstrich bei 0 dB (60 von 72 dB Bereich). Der Daumen (~16 px) erreicht die Raender nur mit
+// seiner Mitte, deshalb 8 px Versatz.
+.mixer-fader::after {
+  position: absolute;
+  top: calc(50% + 9px);
+  left: calc(8px + (100% - 16px) * 60 / 72);
+  width: 2px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  content: '';
+  pointer-events: none;
 }
 
 .media-strip__volume--muted {

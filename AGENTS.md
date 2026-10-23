@@ -426,7 +426,7 @@ and re-run it instead of editing the images. The Android notification icon
 ## Updates and installation
 
 - Velopack package ID: `YFRemote`
-- Velopack version used by the project: `1.2.0`
+- Velopack version used by the project: `1.2.161`
 - Main executable: `YFRemote.Server.exe`
 - Update source: public GitHub Releases in
   `https://github.com/YannikFroehlich/YFRemote.Server`
@@ -447,9 +447,13 @@ The real current executable is normally:
 %LOCALAPPDATA%\YFRemote\current\YFRemote.Server.exe
 ```
 
-Velopack also creates a stable execution stub in the YFRemote root. The `current`
-directory is replaced during updates. Never store persistent settings or user data
-inside it. Startup failures are logged to
+Velopack also creates a stable execution stub in the YFRemote root, `YFRemote.exe`
+(named after `--packTitle`), which `WindowsStartupService` writes into the autostart
+entry. Packages built with Velopack before 1.2.158 named the stub that Setup.exe
+installs and every update re-extracts after `--mainExe` instead (`YFRemote.Server.exe`),
+so only MSI installs had `YFRemote.exe`; such a leftover `YFRemote.Server.exe` in the
+root is harmless. The `current` directory is replaced during updates. Never store
+persistent settings or user data inside it. Startup failures are logged to
 `%LOCALAPPDATA%\YFRemote\Logs\startup-error.log`.
 
 Releases also include a Windows Installer (`.msi`) built with

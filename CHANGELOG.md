@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Abhängigkeiten ohne Major-Sprung aktualisiert: Client `@angular/build`/`@angular/cli` 22.2.4, Server `Velopack` 1.2.161 und passend dazu das Paketierwerkzeug `vpk` 1.2.161 im Release-Workflow. Mit der neuen Velopack-Version heißt der Starter im Installationsordner bei Setup.exe- und MSI-Installationen gleich (`YFRemote.exe`), statt nach einem Update einen zweiten Starter `YFRemote.Server.exe` daneben abzulegen.
+
 ## [2.36.1] - 2026-10-21
 
 ### Fixed

@@ -1057,7 +1057,7 @@ h2 {
 
 // Skalenstrich bei 0 dB (60 von 72 dB Bereich). Der Daumen (~16 px) erreicht die Raender nur mit
 // seiner Mitte, deshalb 8 px Versatz.
-.mixer-fader::after {
+.mixer-fader--db::after {
   position: absolute;
   top: calc(50% + 9px);
   left: calc(8px + (100% - 16px) * 60 / 72);

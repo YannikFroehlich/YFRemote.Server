@@ -97,10 +97,14 @@ new component the same, unless everything its template reads is a signal or an i
      `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
      measures only while a device watches, so never subscribe to it in the background.
-   - `voicemeeter` pushes work the same way via `watchVoicemeeter`, sent only where `/health`
-     reports `voicemeeter: true` (`voicemeeterAvailable`). `VoicemeeterComponent`
-     (`voicemeeter.component.ts`, the "Mixer" tab: inputs/outputs switch, mute, fader with a 0 dB
-     tick, "0 dB" reset) and the button editor (for channel names) watch
+   - `apps` pushes (volume per app) work the same way via `watchApps` on every PC server;
+     `setApp(id, {volume?, muted?})` sends `appVolume` and patches the signal right away.
+     `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
+     reports `voicemeeter: true` (`voicemeeterAvailable`). `MixerComponent`
+     (`mixer.component.ts`, the "Mixer" tab, shown where `systemStatsSupported()`: an
+     Apps/Inputs/Outputs switch, the Voicemeeter groups only with Voicemeeter installed; one row
+     shape for both, apps in %, Voicemeeter in dB with a 0 dB tick and "0 dB" reset) and the
+     button editor (for channel names) watch
      while they are open; both are never open at once. `setVoicemeeterParameter` sends a
      `voicemeeterParameter` action and patches the signal right away, because the confirming push
      comes up to a second later. Custom buttons can carry Voicemeeter switch steps (toggle/on/off of

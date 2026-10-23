@@ -14,7 +14,7 @@ namespace YFRemote.Server.Services;
 // subscribe erst, wenn das auf schwacher Hardware messbar stoert.
 // ponytail: kein Albumcover unter Linux - MPRIS liefert nur eine URL (oft https), die der Server
 // erst laden muesste.
-public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaControl
+public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaControl, IAppVolumeService
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(2);
 
@@ -31,6 +31,68 @@ public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaContr
             "--format",
             "{{status}}\t{{position}}\t{{mpris:length}}\t{{title}}\t{{artist}}"));
         return nowPlaying with { Volume = volume, Muted = muted };
+    }
+
+    public async Task<AppVolumesMessage> ReadAppsAsync() =>
+        new(ParseSinkInputs(await RunAsync("pactl", "list", "sink-inputs")));
+
+    // Die Id ist die Nummer des Sink-Inputs. ponytail: ein Eintrag je Stream statt je App - spielt
+    // ein Browser zwei Tabs ab, stehen dort zwei Regler.
+    public void SetApp(string id, int? volume, bool? muted)
+    {
+        if (!id.All(char.IsAsciiDigit)
+            || (volume is { } level
+                && RunAsync("pactl", "set-sink-input-volume", id, $"{level}%").GetAwaiter().GetResult() is null)
+            || (muted is { } mute
+                && RunAsync("pactl", "set-sink-input-mute", id, mute ? "1" : "0").GetAwaiter().GetResult() is null))
+        {
+            throw new NotSupportedException("This app no longer plays sound.");
+        }
+    }
+
+    // "Sink Input #42" leitet einen Eintrag ein, darunter "Mute:", "Volume:" und unter Properties
+    // application.name; die Namen kommen dank LANGUAGE=en auf Englisch.
+    internal static IReadOnlyList<AppVolume> ParseSinkInputs(string? output)
+    {
+        const string header = "Sink Input #";
+        const string nameProperty = "application.name = ";
+        var apps = new List<AppVolume>();
+        string? id = null;
+        string? name = null;
+        var volume = 0;
+        var muted = false;
+
+        foreach (var line in (output ?? "").Split('\n').Select(line => line.Trim()))
+        {
+            if (line.StartsWith(header, StringComparison.Ordinal))
+            {
+                AddCurrent();
+                (id, name, volume, muted) = (line[header.Length..], null, 0, false);
+            }
+            else if (line.StartsWith("Mute:", StringComparison.Ordinal))
+            {
+                muted = ParseMuted(line);
+            }
+            else if (line.StartsWith("Volume:", StringComparison.Ordinal))
+            {
+                volume = ParseVolume(line) ?? 0;
+            }
+            else if (line.StartsWith(nameProperty, StringComparison.Ordinal))
+            {
+                name = line[nameProperty.Length..].Trim('"');
+            }
+        }
+
+        AddCurrent();
+        return [.. apps.OrderBy(app => app.Name, StringComparer.CurrentCultureIgnoreCase)];
+
+        void AddCurrent()
+        {
+            if (id is not null)
+            {
+                apps.Add(new AppVolume(id, name ?? $"Stream {id}", volume, muted));
+            }
+        }
     }
 
     public void Seek(double seconds)

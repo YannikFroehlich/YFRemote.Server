@@ -589,6 +589,35 @@ describe('RemoteService', () => {
     expect(remote.voicemeeter()).toBeNull();
   });
 
+  it('watches the app volumes on a PC and shows changes at once', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
+    const state = {
+      type: 'apps',
+      apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }],
+    };
+
+    remote.watchApps(true);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() =>
+      expect(sockets[0].sentMessages).toEqual(['{"type":"apps","enabled":true}']),
+    );
+
+    sockets[0].receive(JSON.stringify(state));
+    remote.setApp('4711', { volume: 35 });
+    remote.setApp('4711', { muted: true });
+
+    expect(sockets[0].sentMessages.slice(-2)).toEqual([
+      '{"type":"appVolume","id":"4711","volume":35}',
+      '{"type":"appVolume","id":"4711","muted":true}',
+    ]);
+    expect(remote.apps()?.apps).toEqual([{ id: '4711', name: 'Spotify', volume: 35, muted: true }]);
+
+    remote.watchApps(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"apps","enabled":false}');
+    expect(remote.apps()).toBeNull();
+  });
+
   it('does not watch Voicemeeter on a PC without it', async () => {
     const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
 

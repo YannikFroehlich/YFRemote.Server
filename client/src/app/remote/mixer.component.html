@@ -1,0 +1,96 @@
+<div class="mixer">
+  @if (groups().length > 1) {
+    <div class="step-type-tabs" role="tablist" [attr.aria-label]="i18n.t('shell.tabMixer')">
+      @for (item of groups(); track item.kind) {
+        <button
+          type="button"
+          class="view-tab"
+          role="tab"
+          [class.view-tab--active]="group() === item.kind"
+          [attr.aria-selected]="group() === item.kind"
+          (click)="selectGroup(item.kind)"
+        >
+          {{ i18n.t(item.title) }}
+          <span class="mixer__count">{{ item.count }}</span>
+        </button>
+      }
+    </div>
+  }
+
+  @switch (view().state) {
+    @case ('waiting') {
+      <p class="stats-waiting">{{ i18n.t('mixer.waiting') }}</p>
+    }
+    @case ('notRunning') {
+      <p class="stats-waiting">{{ i18n.t('mixer.notRunning') }}</p>
+    }
+    @case ('noApps') {
+      <p class="stats-waiting">{{ i18n.t('mixer.noApps') }}</p>
+    }
+  }
+
+  @if (view(); as current) {
+    @if (current.state === 'rows') {
+      @for (row of current.rows; track row.id) {
+        <div class="mixer-channel" [class.mixer-channel--muted]="row.muted">
+          <div class="mixer-channel__head">
+            <span class="mixer-channel__name">{{ row.name }}</span>
+            <span class="mixer-channel__gain">
+              {{ row.muted ? i18n.t('media.muted') : formatValue(row) }}
+            </span>
+          </div>
+          <div class="mixer-channel__controls">
+            <button
+              class="mixer-channel__button mixer-channel__mute"
+              type="button"
+              [attr.aria-pressed]="row.muted"
+              [attr.aria-label]="i18n.t('mixer.mute', { name: row.name })"
+              (click)="toggleMute(row)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths[row.muted ? 'volume-mute' : 'volume-plus']"></path>
+              </svg>
+            </button>
+            @if (isApp()) {
+              <span class="mixer-fader">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  [value]="row.value"
+                  [attr.aria-label]="i18n.t('mixer.gain', { name: row.name })"
+                  [attr.aria-valuetext]="formatValue(row)"
+                  (change)="setValue(row, $event)"
+                />
+              </span>
+            } @else {
+              <!-- Der Strich unter dem Fader markiert 0 dB, wie die Skala in Voicemeeter. -->
+              <span class="mixer-fader mixer-fader--db">
+                <input
+                  type="range"
+                  min="-60"
+                  max="12"
+                  step="0.5"
+                  [value]="row.value"
+                  [attr.aria-label]="i18n.t('mixer.gain', { name: row.name })"
+                  [attr.aria-valuetext]="formatValue(row)"
+                  (change)="setValue(row, $event)"
+                />
+              </span>
+              <button
+                class="mixer-channel__button mixer-channel__reset"
+                type="button"
+                [disabled]="row.value === 0"
+                [attr.aria-label]="i18n.t('mixer.reset', { name: row.name })"
+                (click)="resetGain(row)"
+              >
+                0 dB
+              </button>
+            }
+          </div>
+        </div>
+      }
+    }
+  }
+</div>

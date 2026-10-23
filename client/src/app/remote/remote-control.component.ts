@@ -20,7 +20,7 @@ import { SettingsDialogComponent } from './settings-dialog.component';
 import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
-import { VoicemeeterComponent } from './voicemeeter.component';
+import { MixerComponent } from './mixer.component';
 
 type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system' | 'mixer';
 
@@ -37,7 +37,7 @@ const SEEK_SETTLE_MS = 1500;
     KeyboardPadComponent,
     GamepadComponent,
     SystemStatsComponent,
-    VoicemeeterComponent,
+    MixerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './remote-control.component.html',
@@ -92,17 +92,13 @@ export class RemoteControlComponent {
   // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
-  protected readonly voicemeeterAvailable = this.remote.voicemeeterAvailable;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');
-  // Faellt die Systemanzeige oder Voicemeeter weg (Android-Server, /health fehlgeschlagen),
-  // verschwindet ihr Tab - ohne Wechsel bliebe die Ansicht leer und kein Tab ausgewaehlt.
+  // Systemanzeige und Mixer gibt es nur auf PC-Servern. Fallen sie weg (Android-Server,
+  // /health fehlgeschlagen), verschwinden ihre Tabs - ohne Wechsel bliebe die Ansicht leer.
   private readonly systemViewEffect = effect(() => {
-    if (
-      (!this.systemStatsSupported() && this.activeView() === 'system') ||
-      (!this.voicemeeterAvailable() && this.activeView() === 'mixer')
-    ) {
+    if (!this.systemStatsSupported() && (this.activeView() === 'system' || this.activeView() === 'mixer')) {
       this.activeView.set('remote');
     }
   });

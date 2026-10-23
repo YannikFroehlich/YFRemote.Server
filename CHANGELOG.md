@@ -23,6 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Lautstärke pro App: Der Tab "Mixer" gibt es jetzt auf jedem PC, nicht nur mit Voicemeeter. Seine Gruppe "Apps" listet jede App, die am PC Ton ausgibt (Spotify, Discord, ein Spiel, die Systemklänge), mit eigenem Regler und Stumm-Knopf - wie der Lautstärkemixer von Windows. Mit Voicemeeter stehen Eingänge und Ausgänge daneben. Unter Linux regelt die Gruppe die einzelnen Audio-Streams über `pactl`.
 - Medienleiste: Das Albumcover des laufenden Titels steht jetzt vor dem Titel. Darunter zeigt eine Zeitleiste die Stelle im Titel und die Gesamtlänge, und wer den Regler zieht, spult in der Medien-App an diese Stelle. Lässt eine App kein Spulen zu, ist der Regler gesperrt; ohne Längenangabe (Livestream) fehlt die Zeitleiste. Unter Linux gibt es Zeitleiste und Spulen über `playerctl`, aber noch kein Cover.
 
 ## [2.38.0] - 2026-10-23

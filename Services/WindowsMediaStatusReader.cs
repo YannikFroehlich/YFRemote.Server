@@ -10,7 +10,7 @@ namespace YFRemote.Server.Services;
 // Browser-Tabs, Filme & TV, ...). Beides wird bei jeder Abfrage neu geholt, weil sich das
 // Standardgeraet und die aktive Medien-App jederzeit aendern koennen. Bei einem Voicemeeter-Geraet
 // gelten Lautstaerke und Stummschaltung dem Voicemeeter-Kanal dahinter (WindowsVoicemeeter).
-public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : IVolumeService, IMediaControl
+public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : IVolumeService, IMediaControl
 {
     // Spotify & Co. liefern Cover um 300x300 Pixel (einige 10 KB); groessere schickt YFRemote nicht.
     private const int MaxCoverBytes = 2 * 1024 * 1024;
@@ -20,7 +20,6 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
     private const int StgmRead = 0;
     private const ushort VtLpwstr = 31;
 
-    private static readonly Guid AudioEndpointVolumeId = typeof(IAudioEndpointVolume).GUID;
 
     // PKEY_DeviceInterface_FriendlyName: der Adaptername ("VB-Audio Voicemeeter VAIO"), den
     // Nutzer anders als den Geraetenamen nicht umbenennen koennen.
@@ -144,9 +143,14 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
             return ((int)Math.Round(level * 100), muted);
         });
 
-    // Liefert default, wenn es kein Wiedergabegeraet gibt (z.B. Kopfhoerer abgezogen, keins mehr
-    // uebrig) - das ist kein Fehler.
-    private static T? WithEndpointVolume<T>(Func<IAudioEndpointVolume, string?, T> use)
+    private static T? WithEndpointVolume<T>(Func<IAudioEndpointVolume, string?, T> use) =>
+        WithDefaultDevice(use);
+
+    // Aktiviert TService (IAudioEndpointVolume, IAudioSessionManager2) am Standard-Wiedergabegeraet.
+    // Liefert default, wenn es keins gibt (z.B. Kopfhoerer abgezogen, keins mehr uebrig) - das ist
+    // kein Fehler.
+    private static T? WithDefaultDevice<TService, T>(Func<TService, string?, T> use)
+        where TService : class
     {
         var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
         IMMDevice? device = null;
@@ -159,9 +163,9 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
                 return default;
             }
 
-            var iid = AudioEndpointVolumeId;
+            var iid = typeof(TService).GUID;
             Marshal.ThrowExceptionForHR(device.Activate(ref iid, ClsCtxAll, IntPtr.Zero, out endpoint));
-            return use((IAudioEndpointVolume)endpoint, ReadInterfaceName(device));
+            return use((TService)endpoint, ReadInterfaceName(device));
         }
         finally
         {

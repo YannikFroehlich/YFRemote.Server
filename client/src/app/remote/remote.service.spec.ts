@@ -127,6 +127,8 @@ interface RemoteServiceSetup {
   readonly serverUrl?: string;
   /** Antwort von `GET /health`; ohne bleibt die Plattform unbekannt. */
   readonly health?: object;
+  /** Ersetzt PAIRING_FETCH ganz, z. B. fuer `GET /media/cover`. */
+  readonly fetch?: typeof fetch;
 }
 
 /** `RemoteService`-Tests testen kein Pairing-HTTP-Verhalten; falls ein gespeichertes
@@ -512,6 +514,42 @@ describe('RemoteService', () => {
     expect(remote.systemStats()).toBeNull();
   });
 
+  it('loads the album cover once per coverId with the pairing token', async () => {
+    const coverRequests: (RequestInit | undefined)[] = [];
+    const { remote, sockets } = setupRemoteService({
+      storedPairingToken: 'tok',
+      fetch: async (input, init) => {
+        if (!String(input).endsWith('/media/cover')) {
+          return new Response('{}');
+        }
+        coverRequests.push(init);
+        return new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'image/jpeg' } });
+      },
+    });
+    const media = {
+      type: 'media',
+      muted: false,
+      playing: true,
+      position: 10,
+      duration: 200,
+      canSeek: true,
+      coverId: 'abc',
+    };
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive(JSON.stringify(media));
+    sockets[0].receive(JSON.stringify({ ...media, position: 11 }));
+
+    await vi.waitFor(() => expect(remote.mediaCover()).toBe('data:image/jpeg;base64,AQID'));
+    expect(coverRequests).toHaveLength(1);
+    expect(coverRequests[0]?.headers).toEqual({ Authorization: 'Bearer tok' });
+    expect(remote.mediaStatus()?.position).toBe(11);
+
+    sockets[0].receive(JSON.stringify({ ...media, coverId: undefined }));
+    expect(remote.mediaCover()).toBeNull();
+  });
+
   it('watches Voicemeeter only where /health reports it and shows set values at once', async () => {
     const { remote, sockets } = setupRemoteService({
       health: { platform: 'windows', voicemeeter: true },
@@ -781,9 +819,10 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
       {
         provide: PAIRING_FETCH,
         useValue:
-          options.health === undefined
+          options.fetch ??
+          (options.health === undefined
             ? unusedPairingFetch
-            : async () => new Response(JSON.stringify(options.health)),
+            : async () => new Response(JSON.stringify(options.health))),
       },
       { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
     ],

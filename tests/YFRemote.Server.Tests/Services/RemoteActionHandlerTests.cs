@@ -223,6 +223,37 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow(0d)]
+    [DataRow(83.5d)]
+    [DataRow(86400d)]
+    public void Handle_MediaSeek_ForwardsPosition(double position)
+    {
+        var media = new RecordingMediaControl();
+        var handler = CreateHandler(mediaControl: media);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mediaSeek", Position = position });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(position, media.LastSeek);
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow(-1d)]
+    [DataRow(86401d)]
+    [DataRow(double.NaN)]
+    public void Handle_MediaSeek_OutOfRange_Fails(double? position)
+    {
+        var media = new RecordingMediaControl();
+        var handler = CreateHandler(mediaControl: media);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "mediaSeek", Position = position });
+
+        Assert.IsFalse(response.Success);
+        Assert.IsNull(media.LastSeek);
+    }
+
+    [TestMethod]
     public void Handle_OtherKey_DoesNotAskMixer()
     {
         var volumeService = new RecordingVolumeService(handlesMute: true);
@@ -406,13 +437,26 @@ public sealed class RemoteActionHandlerTests
         }
     }
 
+    private sealed class RecordingMediaControl : IMediaControl
+    {
+        public double? LastSeek { get; private set; }
+
+        public MediaCover? Cover => null;
+
+        public void Seek(double seconds)
+        {
+            LastSeek = seconds;
+        }
+    }
+
     private static RemoteActionHandler CreateHandler(
         IInputService? inputService = null,
         RecordingMouseService? mouseService = null,
         IPowerService? powerService = null,
         IVolumeService? volumeService = null,
         ShutdownTimer? shutdownTimer = null,
-        IVoicemeeterService? voicemeeter = null)
+        IVoicemeeterService? voicemeeter = null,
+        IMediaControl? mediaControl = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -421,7 +465,8 @@ public sealed class RemoteActionHandlerTests
             NullLogger<RemoteActionHandler>.Instance,
             volumeService: volumeService,
             shutdownTimer: shutdownTimer,
-            voicemeeter: voicemeeter);
+            voicemeeter: voicemeeter,
+            mediaControl: mediaControl);
     }
 
     private sealed class RecordingPowerService : IPowerService

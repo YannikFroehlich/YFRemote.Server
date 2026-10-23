@@ -24,6 +24,9 @@ import { VoicemeeterComponent } from './voicemeeter.component';
 
 type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system' | 'mixer';
 
+// Etwas laenger als der Sekundentakt der Medienmeldung, damit die neue Position schon da ist.
+const SEEK_SETTLE_MS = 1500;
+
 @Component({
   selector: 'app-remote-control',
   imports: [
@@ -56,6 +59,13 @@ export class RemoteControlComponent {
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
   protected readonly mediaStatus = this.remote.mediaStatus;
+  protected readonly mediaCover = this.remote.mediaCover;
+  protected readonly formatTime = formatCountdown;
+  // Waehrend des Ziehens und kurz danach zeigt die Zeitleiste die Zielstelle: die sekuendliche
+  // Meldung setzte den Regler sonst mitten im Ziehen zurueck, und die neue Position kommt erst mit
+  // der naechsten Meldung.
+  protected readonly seekPreview = signal<number | null>(null);
+  private seekSettleTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now = signal(Date.now());
   // Tickt nur, solange am PC ein Herunterfahren geplant ist.
   private readonly shutdownTickEffect = effect((onCleanup) => {
@@ -127,6 +137,18 @@ export class RemoteControlComponent {
   protected setVolume(event: Event): void {
     const volume = (event.target as HTMLInputElement).valueAsNumber;
     this.remote.sendAction({ type: 'volume', volume });
+  }
+
+  protected previewSeek(event: Event): void {
+    clearTimeout(this.seekSettleTimer);
+    this.seekPreview.set((event.target as HTMLInputElement).valueAsNumber);
+  }
+
+  protected seek(event: Event): void {
+    const position = (event.target as HTMLInputElement).valueAsNumber;
+    this.remote.sendAction({ type: 'mediaSeek', position });
+    clearTimeout(this.seekSettleTimer);
+    this.seekSettleTimer = setTimeout(() => this.seekPreview.set(null), SEEK_SETTLE_MS);
   }
 
   protected openSettings(): void {

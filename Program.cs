@@ -379,6 +379,8 @@ internal static class Program
         builder.Services.AddSingleton<WindowsMediaStatusReader>();
         builder.Services.AddSingleton<IVolumeService>(services =>
             services.GetRequiredService<WindowsMediaStatusReader>());
+        builder.Services.AddSingleton<IMediaControl>(services =>
+            services.GetRequiredService<WindowsMediaStatusReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
             services.GetRequiredService<WindowsMediaStatusReader>().ReadAsync,
             BroadcastPollInterval,
@@ -399,6 +401,8 @@ internal static class Program
         builder.Services.AddSingleton<IGamepadService, LinuxGamepadService>();
         builder.Services.AddSingleton<LinuxMediaStatusReader>();
         builder.Services.AddSingleton<IVolumeService>(services =>
+            services.GetRequiredService<LinuxMediaStatusReader>());
+        builder.Services.AddSingleton<IMediaControl>(services =>
             services.GetRequiredService<LinuxMediaStatusReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<MediaStatusMessage>(
             services.GetRequiredService<LinuxMediaStatusReader>().ReadAsync,
@@ -476,6 +480,7 @@ internal static class Program
         app.MapPairingEndpoints();
         app.MapFileEndpoints();
         app.MapClipboardEndpoints();
+        app.MapMediaEndpoints();
 
         var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
         if (File.Exists(indexPath))

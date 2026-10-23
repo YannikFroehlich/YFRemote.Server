@@ -367,6 +367,8 @@ export const TRANSLATIONS = {
   'media.muted': { de: 'Ton aus', en: 'Muted' },
   'media.volume': { de: 'Lautstärke {{volume}} %', en: 'Volume {{volume}}%' },
   'media.setVolume': { de: 'PC-Lautstärke', en: 'PC volume' },
+  'media.seek': { de: 'Stelle im Titel', en: 'Position in track' },
+  'media.position': { de: '{{position}} von {{duration}}', en: '{{position}} of {{duration}}' },
   'shutdownTimer.remaining': {
     de: 'Herunterfahren in {{time}}',
     en: 'Shutting down in {{time}}',

@@ -162,6 +162,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   it only when `GET /clipboard/text` found no text, and never on the Android server, which has no
   such endpoint. `WindowsClipboardService` converts the bitmap to PNG; Linux asks
   `wl-paste`/`xclip` for `image/png`.
+- `GET /media/cover` (`MediaEndpoints`) → the album cover of the playing media app from
+  `IMediaControl.Cover`, same `Bearer`/optional-`Origin` gate and `no-store`, `204` without one.
+  The `media` push carries only its `coverId`, so the image is fetched once per track, not every
+  second. Windows only (GSMTC thumbnail, read on a track change, capped at 2 MB).
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over
@@ -173,7 +177,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `shutdown`, `restart`,
-`sleep`, `lock`, `displayOff`, `volume`, `shutdownTimer`, `voicemeeterParameter`, ...) into `IInputService` /
+`sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, ...) into `IInputService` /
 `IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
 it also unmutes, like the Windows volume slider), validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
@@ -184,6 +188,15 @@ multiple clients can connect concurrently. Each connection also carries its own 
 rate limit (120 messages/second; a `Fail` response beyond that, connection stays open) as a
 backstop against a flooding bug or a misbehaving already-paired device — legitimate mouse
 move/scroll traffic tops out around one message per animation frame.
+
+**Media timeline.** `position`/`duration` in the `media` push are whole seconds; without a track
+length (livestream) both are missing. GSMTC reports the position as of `LastUpdatedTime`, and many
+apps update it only on pause or seek, so `WindowsMediaStatusReader.Timeline` adds the time since then
+while playing. That makes the push change every second during playback, which is intended.
+`mediaSeek` (`position` 0-86400 s) goes to `IMediaControl.Seek`: GSMTC
+`TryChangePlaybackPositionAsync` (some apps advertise seeking and still refuse) or
+`playerctl position`; a refusal is a `Fail` response. `canSeek` is GSMTC's
+`IsPlaybackPositionEnabled`; on Linux it is assumed whenever there is a length.
 
 **Shutdown timer.** `shutdownTimer` with `minutes` 1-1440 schedules a shutdown in the singleton
 `ShutdownTimer`, `minutes: 0` cancels it. It deliberately runs its own in-process timer instead of
@@ -198,7 +211,8 @@ because the device clock may differ from the PC's. The Client shows a countdown 
 above the Remote buttons.
 
 **Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
-`{"type":"media","volume","muted","title","artist","playing"}` (`WindowsMediaStatusReader` reads
+`{"type":"media","volume","muted","title","artist","playing","position","duration","canSeek","coverId"}`
+(`WindowsMediaStatusReader` reads
 Core Audio over COM and the WinRT media session manager; for a Voicemeeter device see below;
 `LinuxMediaStatusReader` shells out to
 `pactl` and `playerctl`, leaving a part empty when its tool is missing) and

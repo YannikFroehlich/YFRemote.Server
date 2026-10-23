@@ -15,9 +15,11 @@ public sealed partial class RemoteActionHandler(
     ShutdownTimer? shutdownTimer = null,
     PollingBroadcaster<SystemStatsMessage>? systemStats = null,
     IVoicemeeterService? voicemeeter = null,
-    PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null)
+    PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null,
+    IMediaControl? mediaControl = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
+    private const double MaxSeekSeconds = 24 * 60 * 60;
     private const int MinMouseMoveDelta = -5000;
     private const int MaxMouseMoveDelta = 5000;
     private const int MinMouseScrollDelta = -1200;
@@ -54,6 +56,7 @@ public sealed partial class RemoteActionHandler(
                 "displayoff" => HandlePower(powerService.TurnOffDisplay, "displayOff"),
                 "shutdowntimer" => HandleShutdownTimer(request, session),
                 "volume" => HandleVolume(request),
+                "mediaseek" => HandleMediaSeek(request),
                 "gamepad" => HandleGamepad(request, session),
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 "clipboardsync" => HandleClipboardSync(request, session),
@@ -326,6 +329,24 @@ public sealed partial class RemoteActionHandler(
 
         logger.LogDebug("Setting volume to {Volume}.", volume);
         volumeService.SetVolume(volume);
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleMediaSeek(RemoteActionRequest request)
+    {
+        if (mediaControl is null)
+        {
+            return Fail("Seeking is not supported.");
+        }
+
+        if (request.Position is not { } position || position is not (>= 0 and <= MaxSeekSeconds))
+        {
+            return Fail($"Action 'mediaSeek' requires position between 0 and {MaxSeekSeconds} seconds.");
+        }
+
+        logger.LogDebug("Seeking media to {Position} s.", position);
+        mediaControl.Seek(position);
 
         return RemoteActionResponse.Ok();
     }

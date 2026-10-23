@@ -144,6 +144,8 @@ export class RemoteService implements OnDestroy {
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
+  private readonly mediaCoverSignal = signal<string | null>(null);
+  private mediaCoverId: string | null = null;
   private readonly shutdownDeadlineSignal = signal<number | null>(null);
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
@@ -183,6 +185,8 @@ export class RemoteService implements OnDestroy {
   readonly fileOffer = this.fileOfferSignal.asReadonly();
   /** Lautstaerke und laufendes Medium am PC; `null`, solange die Gegenstelle keine meldet. */
   readonly mediaStatus = this.mediaStatusSignal.asReadonly();
+  /** Albumcover des laufenden Mediums als Data-URL; `null` ohne Cover oder solange es laedt. */
+  readonly mediaCover = this.mediaCoverSignal.asReadonly();
   /** Zeitpunkt (`Date.now()`-Basis), zu dem der PC herunterfaehrt; `null` ohne geplanten Termin.
    *  Aus der gemeldeten Restzeit berechnet, weil die Uhr des Geraets von der des PCs abweichen kann. */
   readonly shutdownDeadline = this.shutdownDeadlineSignal.asReadonly();
@@ -518,6 +522,7 @@ export class RemoteService implements OnDestroy {
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
       this.mediaStatusSignal.set(null);
+      this.clearMediaCover();
       this.shutdownDeadlineSignal.set(null);
       this.systemStatsSignal.set(null);
       this.voicemeeterSignal.set(null);
@@ -550,6 +555,7 @@ export class RemoteService implements OnDestroy {
 
     if (isMediaStatusMessage(message)) {
       this.mediaStatusSignal.set(message);
+      void this.loadMediaCover(message.coverId ?? null);
       return;
     }
 
@@ -685,6 +691,40 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  // Das Bild kommt nicht mit der sekuendlichen Meldung, sondern nur bei neuer CoverId per HTTP - mit
+  // Token im Header, deshalb fetch statt <img src>. Eine Antwort zu einem inzwischen anderen Cover
+  // wird verworfen.
+  private async loadMediaCover(coverId: string | null): Promise<void> {
+    if (coverId === this.mediaCoverId) {
+      return;
+    }
+
+    this.mediaCoverId = coverId;
+    this.mediaCoverSignal.set(null);
+    const token = this.pairing.token();
+    if (coverId === null || token === null) {
+      return;
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/media/cover`,
+        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
+      );
+      const cover = response.status === 200 ? await toDataUrl(response) : null;
+      if (this.mediaCoverId === coverId) {
+        this.mediaCoverSignal.set(cover);
+      }
+    } catch {
+      // Ohne Cover bleibt das Symbol stehen.
+    }
+  }
+
+  private clearMediaCover(): void {
+    this.mediaCoverId = null;
+    this.mediaCoverSignal.set(null);
+  }
+
   private sendVoicemeeterWatch(): void {
     if (this.voicemeeterAvailableSignal() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'voicemeeter', enabled: this.voicemeeterWatched });
@@ -716,6 +756,7 @@ export class RemoteService implements OnDestroy {
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
     this.fileOfferSignal.set(null);
     this.mediaStatusSignal.set(null);
+    this.clearMediaCover();
     // Ein noch geplanter Termin kommt beim naechsten Verbinden wieder.
     this.shutdownDeadlineSignal.set(null);
     this.systemStatsSignal.set(null);
@@ -852,14 +893,30 @@ function isRumbleMessage(value: unknown): value is GamepadRumbleMessage {
 
 function isMediaStatusMessage(value: unknown): value is MediaStatusMessage {
   const message = value as Partial<MediaStatusMessage> | null;
+  const optional = (field: unknown, type: string) => field === undefined || typeof field === type;
   return (
     message?.type === 'media' &&
-    (message.volume === undefined || typeof message.volume === 'number') &&
+    optional(message.volume, 'number') &&
     typeof message.muted === 'boolean' &&
-    (message.title === undefined || typeof message.title === 'string') &&
-    (message.artist === undefined || typeof message.artist === 'string') &&
-    typeof message.playing === 'boolean'
+    optional(message.title, 'string') &&
+    optional(message.artist, 'string') &&
+    typeof message.playing === 'boolean' &&
+    optional(message.position, 'number') &&
+    optional(message.duration, 'number') &&
+    optional(message.canSeek, 'boolean') &&
+    optional(message.coverId, 'string')
   );
+}
+
+// Data-URL statt Blob-URL: nichts freizugeben, wenn das Cover wechselt. In Stuecken, weil
+// String.fromCharCode nur begrenzt viele Argumente nimmt.
+async function toDataUrl(response: Response): Promise<string> {
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:${response.headers.get('Content-Type') ?? 'image/png'};base64,${btoa(binary)}`;
 }
 
 function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {

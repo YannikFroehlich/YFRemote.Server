@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using YFRemote.Server.Models;
@@ -11,18 +12,33 @@ namespace YFRemote.Server.Services;
 // Windows ohne Wiedergabegeraet oder Medien-App.
 // ponytail: bis zu drei Prozessstarts pro Sekunde, solange ein Geraet verbunden ist; D-Bus/pactl
 // subscribe erst, wenn das auf schwacher Hardware messbar stoert.
-public sealed partial class LinuxMediaStatusReader : IVolumeService
+// ponytail: kein Albumcover unter Linux - MPRIS liefert nur eine URL (oft https), die der Server
+// erst laden muesste.
+public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaControl
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(2);
+
+    public MediaCover? Cover => null;
 
     public async Task<MediaStatusMessage> ReadAsync()
     {
         var volume = ParseVolume(await RunAsync("pactl", "get-sink-volume", "@DEFAULT_SINK@"));
         var muted = volume is not null
             && ParseMuted(await RunAsync("pactl", "get-sink-mute", "@DEFAULT_SINK@"));
-        var (title, artist, playing) = ParseNowPlaying(
-            await RunAsync("playerctl", "metadata", "--format", "{{status}}\t{{title}}\t{{artist}}"));
-        return new MediaStatusMessage(volume, muted, title, artist, playing);
+        var nowPlaying = ParseNowPlaying(await RunAsync(
+            "playerctl",
+            "metadata",
+            "--format",
+            "{{status}}\t{{position}}\t{{mpris:length}}\t{{title}}\t{{artist}}"));
+        return nowPlaying with { Volume = volume, Muted = muted };
+    }
+
+    public void Seek(double seconds)
+    {
+        if (RunAsync("playerctl", "position", seconds.ToString(CultureInfo.InvariantCulture)).GetAwaiter().GetResult() is null)
+        {
+            throw new NotSupportedException("playerctl failed or no player is running.");
+        }
     }
 
     // Wie unter Windows: wer die Lautstaerke zieht, will auch etwas hoeren. Der Aufrufer ist
@@ -46,16 +62,34 @@ public sealed partial class LinuxMediaStatusReader : IVolumeService
     internal static bool ParseMuted(string? output) =>
         output?.Trim().Equals("Mute: yes", StringComparison.OrdinalIgnoreCase) == true;
 
-    internal static (string? Title, string? Artist, bool Playing) ParseNowPlaying(string? output)
+    // "Playing\t<Position in us>\t<Laenge in us>\tTitel\tInterpret"; die Laenge fehlt bei Livestreams.
+    // Ob ein Player spulen kann, verraet playerctl nicht - mit Laenge wird es versucht.
+    internal static MediaStatusMessage ParseNowPlaying(string? output)
     {
-        var parts = output?.TrimEnd('\n').Split('\t', 3);
-        if (parts is not { Length: 3 })
+        var parts = output?.TrimEnd('\n').Split('\t', 5);
+        if (parts is not { Length: 5 })
         {
-            return (null, null, false);
+            return new MediaStatusMessage(null, false, null, null, false);
         }
 
-        return (NullIfEmpty(parts[1]), NullIfEmpty(parts[2]), parts[0] == "Playing");
+        var length = Seconds(parts[2]);
+        int? duration = length > 0 ? length : null;
+        int? position = duration is null ? null : Math.Min(Seconds(parts[1]) ?? 0, duration.Value);
+        return new MediaStatusMessage(
+            null,
+            false,
+            NullIfEmpty(parts[3]),
+            NullIfEmpty(parts[4]),
+            parts[0] == "Playing",
+            position,
+            duration,
+            duration is not null);
     }
+
+    private static int? Seconds(string microseconds) =>
+        long.TryParse(microseconds, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            ? (int)(value / 1_000_000)
+            : null;
 
     private static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
 

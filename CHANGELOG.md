@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.37.0] - 2026-10-23
+
 ### Added
 
 - Neuer Tab "Mixer" für Windows-PCs mit Voicemeeter: Er zeigt alle Eingänge und Ausgänge (Busse) von Voicemeeter mit ihren Namen. Jeder hat einen Stumm-Schalter und einen Fader von -60 bis +12 dB. Der Tab erscheint nur, wenn Voicemeeter am PC installiert ist. Läuft es nicht, sagt der Tab das.

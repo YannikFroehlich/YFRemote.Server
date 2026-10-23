@@ -134,7 +134,7 @@ jobs:
 
       - name: Velopack installieren
         shell: pwsh
-        run: dotnet tool install --global vpk --version 1.2.0
+        run: dotnet tool install --global vpk --version 1.2.161
 
       - name: Vorherigen Release fuer Delta-Update laden
         continue-on-error: true
@@ -311,7 +311,7 @@ jobs:
           -p:Version=${{ needs.release.outputs.version }}
 
       - name: Velopack installieren
-        run: dotnet tool install --global vpk --version 1.2.0
+        run: dotnet tool install --global vpk --version 1.2.161
 
       - name: Vorherigen Release fuer Delta-Update laden
         continue-on-error: true

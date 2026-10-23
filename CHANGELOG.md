@@ -23,6 +23,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Tab "Mixer": Jeder Eingang und jeder Bus hat jetzt einen Knopf "0 dB", der den Fader zurück auf 0 dB stellt. Ein Strich unter dem Fader zeigt, wo 0 dB liegt.
+
+### Changed
+
+- Tab "Mixer" übersichtlicher: Eingänge und Ausgänge stehen nicht mehr untereinander, sondern lassen sich oben umschalten. So passt eine Gruppe meist ohne Scrollen aufs Handy. Die Kanäle sind kompakter. Ein stummer Kanal hat einen roten Stumm-Knopf und zeigt "Ton aus" statt des dB-Werts.
+
+## [2.37.0] - 2026-10-23
+
+### Added
+
 - Neuer Tab "Mixer" für Windows-PCs mit Voicemeeter: Er zeigt alle Eingänge und Ausgänge (Busse) von Voicemeeter mit ihren Namen. Jeder hat einen Stumm-Schalter und einen Fader von -60 bis +12 dB. Der Tab erscheint nur, wenn Voicemeeter am PC installiert ist. Läuft es nicht, sagt der Tab das.
 - Eigene Buttons können jetzt Voicemeeter-Schritte enthalten: Einen Eingang oder Bus stumm schalten oder einen Eingang auf A1 bis A5 bzw. B1 bis B3 schalten, jeweils umschalten, ein oder aus. Die Schritte lassen sich mit Tasten und Text in einem Makro kombinieren.
 - Welchen Voicemeeter-Kanal Stumm-Button, Lauter/Leiser und Lautstärke-Regler steuern, lässt sich festlegen: in `%LOCALAPPDATA%\YFRemote\settings.json` z. B. `{ "Voicemeeter": { "Target": "Bus[0]" } }` eintragen und YFRemote neu starten. Ohne Eintrag gilt der Voicemeeter-Eingang hinter dem Windows-Standardgerät.

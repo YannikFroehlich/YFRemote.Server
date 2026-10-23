@@ -246,7 +246,8 @@ channel's `Gain`/`Mute`; percent maps linearly to -60...0 dB like Voicemeeter's 
 `{"type":"voicemeeter","channels":[{id,name,muted,gain}],"routes"}` (no `channels` = not running).
 `voicemeeterParameter` sets only `Strip[n].Mute|Gain|A1-A5|B1-B3` and `Bus[n].Mute|Gain`
 (regex in `RemoteActionHandler`, no free Voicemeeter script that could load files or quit it);
-without `value` a switch toggles. Not verified against a real Voicemeeter yet.
+without `value` a switch toggles. The owner confirmed it works on their PC with a real Voicemeeter
+on 2026-10-23 (v2.37.0).
 
 **Controller mode.** A `gamepad` action carries the full controller state
 (`GamepadState`: XInput button bitmask, stick axes, triggers) instead of single button events, so a

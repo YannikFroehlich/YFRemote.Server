@@ -1,11 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { VoicemeeterChannel } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
-// Der Tab "Mixer": Eingaenge und Busse von Voicemeeter mit Stumm-Schalter und Fader. Wie die
-// Systemanzeige liest der PC Voicemeeter nur, solange diese Ansicht offen ist.
+type ChannelKind = 'Strip' | 'Bus';
+
+// Der Tab "Mixer": Eingaenge und Busse von Voicemeeter mit Stumm-Schalter, Fader und Ruecksprung
+// auf 0 dB. Wie die Systemanzeige liest der PC Voicemeeter nur, solange diese Ansicht offen ist.
 @Component({
   selector: 'app-voicemeeter',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -17,10 +19,17 @@ export class VoicemeeterComponent implements OnDestroy {
   protected readonly iconPaths = REMOTE_ICON_PATHS;
 
   protected readonly state = this.remote.voicemeeter;
-  protected readonly groups = computed(() => [
-    { title: 'mixer.inputs', channels: this.channels('Strip') },
-    { title: 'mixer.outputs', channels: this.channels('Bus') },
-  ]);
+  // Eingaenge und Ausgaenge getrennt umschaltbar statt untereinander: so passt eine Gruppe meist
+  // ohne Scrollen auf ein Telefon.
+  protected readonly kind = signal<ChannelKind>('Strip');
+  protected readonly groups = computed(() =>
+    (['Strip', 'Bus'] as const).map((kind) => ({
+      kind,
+      title: kind === 'Strip' ? 'mixer.inputs' : 'mixer.outputs',
+      count: this.channels(kind).length,
+    })),
+  );
+  protected readonly visibleChannels = computed(() => this.channels(this.kind()));
 
   constructor() {
     this.remote.watchVoicemeeter(true);
@@ -43,11 +52,15 @@ export class VoicemeeterComponent implements OnDestroy {
     );
   }
 
+  protected resetGain(channel: VoicemeeterChannel): void {
+    this.remote.setVoicemeeterParameter(`${channel.id}.Gain`, 0);
+  }
+
   protected formatGain(gain: number): string {
     return `${gain > 0 ? '+' : ''}${gain.toFixed(1)} dB`;
   }
 
-  private channels(kind: 'Strip' | 'Bus'): readonly VoicemeeterChannel[] {
+  private channels(kind: ChannelKind): readonly VoicemeeterChannel[] {
     return this.state()?.channels?.filter((channel) => channel.id.startsWith(`${kind}[`)) ?? [];
   }
 }

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.38.0] - 2026-10-23
+
 ### Added
 
 - Tab "Mixer": Jeder Eingang und jeder Bus hat jetzt einen Knopf "0 dB", der den Fader zurück auf 0 dB stellt. Ein Strich unter dem Fader zeigt, wo 0 dB liegt.

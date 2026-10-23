@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Tab "Mixer": Jeder Eingang und jeder Bus hat jetzt einen Knopf "0 dB", der den Fader zurück auf 0 dB stellt. Ein Strich unter dem Fader zeigt, wo 0 dB liegt.
+
+### Changed
+
+- Tab "Mixer" übersichtlicher: Eingänge und Ausgänge stehen nicht mehr untereinander, sondern lassen sich oben umschalten. So passt eine Gruppe meist ohne Scrollen aufs Handy. Die Kanäle sind kompakter. Ein stummer Kanal hat einen roten Stumm-Knopf und zeigt "Ton aus" statt des dB-Werts.
+
 ## [2.37.0] - 2026-10-23
 
 ### Added

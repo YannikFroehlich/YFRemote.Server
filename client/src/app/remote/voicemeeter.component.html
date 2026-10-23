@@ -1,29 +1,45 @@
-<div class="system-stats">
+<div class="mixer">
   @if (state(); as state) {
     @if (state.channels) {
-      @for (group of groups(); track group.title) {
-        <p class="mixer__heading">{{ i18n.t(group.title) }}</p>
-        @for (channel of group.channels; track channel.id) {
-          <div class="stats-tile mixer-channel" [class.mixer-channel--muted]="channel.muted">
-            <div class="stats-tile__head">
-              <span>{{ channel.name }}</span>
-              <span class="mixer-channel__gain">{{ formatGain(channel.gain) }}</span>
-            </div>
-            <div class="mixer-channel__controls">
-              <button
-                class="secondary-button mixer-channel__mute"
-                type="button"
-                [class.key-chip--active]="channel.muted"
-                [attr.aria-pressed]="channel.muted"
-                [attr.aria-label]="i18n.t('mixer.mute', { name: channel.name })"
-                (click)="toggleMute(channel)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path [attr.d]="iconPaths[channel.muted ? 'volume-mute' : 'volume-plus']"></path>
-                </svg>
-              </button>
+      <div class="step-type-tabs" role="tablist" [attr.aria-label]="i18n.t('shell.tabMixer')">
+        @for (group of groups(); track group.kind) {
+          <button
+            type="button"
+            class="view-tab"
+            role="tab"
+            [class.view-tab--active]="kind() === group.kind"
+            [attr.aria-selected]="kind() === group.kind"
+            (click)="kind.set(group.kind)"
+          >
+            {{ i18n.t(group.title) }}
+            <span class="mixer__count">{{ group.count }}</span>
+          </button>
+        }
+      </div>
+
+      @for (channel of visibleChannels(); track channel.id) {
+        <div class="mixer-channel" [class.mixer-channel--muted]="channel.muted">
+          <div class="mixer-channel__head">
+            <span class="mixer-channel__name">{{ channel.name }}</span>
+            <span class="mixer-channel__gain">
+              {{ channel.muted ? i18n.t('media.muted') : formatGain(channel.gain) }}
+            </span>
+          </div>
+          <div class="mixer-channel__controls">
+            <button
+              class="mixer-channel__button mixer-channel__mute"
+              type="button"
+              [attr.aria-pressed]="channel.muted"
+              [attr.aria-label]="i18n.t('mixer.mute', { name: channel.name })"
+              (click)="toggleMute(channel)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths[channel.muted ? 'volume-mute' : 'volume-plus']"></path>
+              </svg>
+            </button>
+            <!-- Der Strich unter dem Fader markiert 0 dB, wie die Skala in Voicemeeter. -->
+            <span class="mixer-fader">
               <input
-                class="media-strip__slider"
                 type="range"
                 min="-60"
                 max="12"
@@ -33,9 +49,18 @@
                 [attr.aria-valuetext]="formatGain(channel.gain)"
                 (change)="setGain(channel, $event)"
               />
-            </div>
+            </span>
+            <button
+              class="mixer-channel__button mixer-channel__reset"
+              type="button"
+              [disabled]="channel.gain === 0"
+              [attr.aria-label]="i18n.t('mixer.reset', { name: channel.name })"
+              (click)="resetGain(channel)"
+            >
+              0 dB
+            </button>
           </div>
-        }
+        </div>
       }
     } @else {
       <p class="stats-waiting">{{ i18n.t('mixer.notRunning') }}</p>

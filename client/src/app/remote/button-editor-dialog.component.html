@@ -180,6 +180,18 @@
                 >
                   {{ i18n.t('buttonEditor.tab.click') }}
                 </button>
+                @if (voicemeeterAvailable()) {
+                  <button
+                    type="button"
+                    class="view-tab"
+                    role="tab"
+                    [class.view-tab--active]="stepType() === 'voicemeeter'"
+                    [attr.aria-selected]="stepType() === 'voicemeeter'"
+                    (click)="setStepType('voicemeeter')"
+                  >
+                    Voicemeeter
+                  </button>
+                }
               </div>
 
               @if (stepType() === 'keys') {
@@ -213,6 +225,48 @@
                   [placeholder]="i18n.t('touchpad.placeholder.default')"
                   autocomplete="off"
                 />
+              } @else if (stepType() === 'voicemeeter') {
+                @if (voicemeeterChannels().length > 0) {
+                  <label class="field">
+                    <span>{{ i18n.t('buttonEditor.voicemeeter.channel') }}</span>
+                    <select (change)="onVoicemeeterChannelChange($event)">
+                      <option value="" [selected]="pendingVoicemeeterChannel() === ''">–</option>
+                      @for (channel of voicemeeterChannels(); track channel.id) {
+                        <option [value]="channel.id" [selected]="channel.id === pendingVoicemeeterChannel()">
+                          {{ channel.name }}
+                        </option>
+                      }
+                    </select>
+                  </label>
+                  <div class="key-group__keys">
+                    @for (name of voicemeeterSwitches(); track name) {
+                      <button
+                        class="key-chip"
+                        type="button"
+                        [class.key-chip--active]="pendingVoicemeeterSwitch() === name"
+                        [attr.aria-pressed]="pendingVoicemeeterSwitch() === name"
+                        (click)="pendingVoicemeeterSwitch.set(name)"
+                      >
+                        {{ voicemeeterSwitchLabel(name) }}
+                      </button>
+                    }
+                  </div>
+                  <div class="mouse-click-picker">
+                    @for (mode of voicemeeterModes; track mode) {
+                      <button
+                        type="button"
+                        class="secondary-button"
+                        [class.key-chip--active]="pendingVoicemeeterMode() === mode"
+                        [attr.aria-pressed]="pendingVoicemeeterMode() === mode"
+                        (click)="pendingVoicemeeterMode.set(mode)"
+                      >
+                        {{ i18n.t('buttonEditor.voicemeeter.' + mode) }}
+                      </button>
+                    }
+                  </div>
+                } @else {
+                  <p class="macro-steps__empty">{{ i18n.t('buttonEditor.voicemeeter.notRunning') }}</p>
+                }
               } @else {
                 <div class="mouse-click-picker">
                   <button

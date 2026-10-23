@@ -20,8 +20,9 @@ import { SettingsDialogComponent } from './settings-dialog.component';
 import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
+import { VoicemeeterComponent } from './voicemeeter.component';
 
-type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system';
+type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system' | 'mixer';
 
 @Component({
   selector: 'app-remote-control',
@@ -33,6 +34,7 @@ type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system';
     KeyboardPadComponent,
     GamepadComponent,
     SystemStatsComponent,
+    VoicemeeterComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './remote-control.component.html',
@@ -80,13 +82,17 @@ export class RemoteControlComponent {
   // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
+  protected readonly voicemeeterAvailable = this.remote.voicemeeterAvailable;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');
-  // Faellt die Systemanzeige weg (Android-Server, /health fehlgeschlagen), verschwindet ihr Tab -
-  // ohne Wechsel bliebe die Ansicht leer und kein Tab ausgewaehlt.
+  // Faellt die Systemanzeige oder Voicemeeter weg (Android-Server, /health fehlgeschlagen),
+  // verschwindet ihr Tab - ohne Wechsel bliebe die Ansicht leer und kein Tab ausgewaehlt.
   private readonly systemViewEffect = effect(() => {
-    if (!this.systemStatsSupported() && this.activeView() === 'system') {
+    if (
+      (!this.systemStatsSupported() && this.activeView() === 'system') ||
+      (!this.voicemeeterAvailable() && this.activeView() === 'mixer')
+    ) {
       this.activeView.set('remote');
     }
   });

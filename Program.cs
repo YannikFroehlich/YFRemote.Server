@@ -320,6 +320,11 @@ internal static class Program
             .Get<SystemStatsOptions>() ?? new SystemStatsOptions();
         systemStatsOptions.Validate();
 
+        var voicemeeterOptions = builder.Configuration
+            .GetSection(VoicemeeterOptions.SectionName)
+            .Get<VoicemeeterOptions>() ?? new VoicemeeterOptions();
+        voicemeeterOptions.Validate();
+
         if (httpsOptions.Enabled)
         {
             if (!IPAddress.TryParse(serverOptions.Host, out var bindAddress))
@@ -362,6 +367,15 @@ internal static class Program
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
         builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
+        builder.Services.AddSingleton(voicemeeterOptions);
+        builder.Services.AddSingleton<WindowsVoicemeeter>();
+        builder.Services.AddSingleton<IVoicemeeterService>(services =>
+            services.GetRequiredService<WindowsVoicemeeter>());
+        builder.Services.AddSingleton(services => new PollingBroadcaster<VoicemeeterMessage>(
+            services.GetRequiredService<WindowsVoicemeeter>().ReadAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<VoicemeeterMessage>>>()));
         builder.Services.AddSingleton<WindowsMediaStatusReader>();
         builder.Services.AddSingleton<IVolumeService>(services =>
             services.GetRequiredService<WindowsMediaStatusReader>());
@@ -433,6 +447,7 @@ internal static class Program
         });
 
         var gamepadService = app.Services.GetService<IGamepadService>();
+        var voicemeeterService = app.Services.GetService<IVoicemeeterService>();
         app.MapGet("/health", () =>
         {
             var adapter = NetworkAddressService.GetDeviceAdapter();
@@ -442,7 +457,8 @@ internal static class Program
                 OperatingSystem.IsWindows() ? "windows" : "linux",
                 gamepadService?.IsAvailable ?? false,
                 adapter.MacAddress,
-                adapter.Wireless);
+                adapter.Wireless,
+                voicemeeterService?.IsInstalled ?? false);
         });
 
         if (httpsOptions.Enabled)

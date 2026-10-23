@@ -116,6 +116,37 @@ export interface SystemStatsMessage {
   readonly memoryTotalMb: number;
 }
 
+/** Schaltet fuer diese Verbindung den Voicemeeter-Mixer ein oder aus; wie die Systemanzeige liest
+ *  der PC Voicemeeter nur, solange ein Geraet zusieht. */
+export interface VoicemeeterWatchAction {
+  readonly type: 'voicemeeter';
+  readonly enabled: boolean;
+}
+
+/** Setzt einen Voicemeeter-Wert: `parameter` wie "Strip[3].Mute", "Strip[0].A1" oder "Bus[0].Gain".
+ *  Schalter nehmen 0/1 oder ohne `value` ein Umschalten, Gain -60 bis 12 dB. */
+export interface VoicemeeterParameterAction {
+  readonly type: 'voicemeeterParameter';
+  readonly parameter: string;
+  readonly value?: number;
+}
+
+/** Ein Voicemeeter-Eingang ("Strip[n]") oder -Bus ("Bus[n]"); `gain` in dB. */
+export interface VoicemeeterChannel {
+  readonly id: string;
+  readonly name: string;
+  readonly muted: boolean;
+  readonly gain: number;
+}
+
+/** Alle Kanaele, solange der Mixer offen ist; ohne `channels` laeuft Voicemeeter nicht.
+ *  `routes` sind die Busse, auf die ein Eingang schalten kann ("A1" ... "B3"). */
+export interface VoicemeeterMessage {
+  readonly type: 'voicemeeter';
+  readonly channels?: readonly VoicemeeterChannel[];
+  readonly routes?: readonly string[];
+}
+
 /** Lautstaerke und laufendes Medium am PC; kommt ungefragt beim Verbinden und bei jeder Aenderung.
  *  `volume` fehlt ohne Wiedergabegeraet, `title` wenn keine App Medien meldet. */
 export interface MediaStatusMessage {
@@ -146,7 +177,9 @@ export type RemoteAction =
   | GamepadAction
   | GamepadDisconnectAction
   | ClipboardSyncAction
-  | SystemStatsAction;
+  | SystemStatsAction
+  | VoicemeeterWatchAction
+  | VoicemeeterParameterAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

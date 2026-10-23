@@ -1,8 +1,9 @@
+using System.Text.RegularExpressions;
 using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Services;
 
-public sealed class RemoteActionHandler(
+public sealed partial class RemoteActionHandler(
     IInputService inputService,
     IMouseService mouseService,
     IPowerService powerService,
@@ -12,7 +13,9 @@ public sealed class RemoteActionHandler(
     ClipboardReadNotifier? clipboardReadNotifier = null,
     IVolumeService? volumeService = null,
     ShutdownTimer? shutdownTimer = null,
-    PollingBroadcaster<SystemStatsMessage>? systemStats = null)
+    PollingBroadcaster<SystemStatsMessage>? systemStats = null,
+    IVoicemeeterService? voicemeeter = null,
+    PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const int MinMouseMoveDelta = -5000;
@@ -55,6 +58,8 @@ public sealed class RemoteActionHandler(
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 "clipboardsync" => HandleClipboardSync(request, session),
                 "systemstats" => HandleSystemStats(request, session),
+                "voicemeeter" => HandleVoicemeeterWatch(request, session),
+                "voicemeeterparameter" => HandleVoicemeeterParameter(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -92,6 +97,13 @@ public sealed class RemoteActionHandler(
         }
 
         logger.LogDebug("Executing key action: {Key}", keys[0]);
+        if (keys[0] is "VOLUME_MUTE" or "VOLUME_UP" or "VOLUME_DOWN"
+            && volumeService?.TryHandleVolumeKey(keys[0]) == true)
+        {
+            logger.LogDebug("Volume key handled by the audio mixer instead of the OS.");
+            return RemoteActionResponse.Ok();
+        }
+
         inputService.PressKey(keys[0]);
         logger.LogDebug("Key action succeeded: {Key}", keys[0]);
 
@@ -405,6 +417,64 @@ public sealed class RemoteActionHandler(
 
         return RemoteActionResponse.Ok();
     }
+
+    // Wie die Systemanzeige: Voicemeeter wird nur gelesen, solange ein Geraet den Mixer offen hat.
+    private RemoteActionResponse HandleVoicemeeterWatch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (voicemeeterStatus is null || session is null)
+        {
+            return Fail("Voicemeeter is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'voicemeeter' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.VoicemeeterSubscription?.Dispose();
+            session.VoicemeeterSubscription = null;
+        }
+        else
+        {
+            session.VoicemeeterSubscription ??= voicemeeterStatus.Subscribe(session.PushVoicemeeter);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Nur Stummschaltung, Lautstaerke und Routing - kein freies Voicemeeter-Skript, das z.B.
+    // Konfigurationsdateien laden oder Voicemeeter beenden koennte. Ohne value wird umgeschaltet.
+    private RemoteActionResponse HandleVoicemeeterParameter(RemoteActionRequest request)
+    {
+        if (voicemeeter is null)
+        {
+            return Fail("Voicemeeter is not supported.");
+        }
+
+        var parameter = request.Parameter?.Trim();
+        if (parameter is null || !VoicemeeterParameterPattern().IsMatch(parameter))
+        {
+            return Fail($"Unsupported Voicemeeter parameter: {request.Parameter}");
+        }
+
+        var valid = parameter.EndsWith(".Gain", StringComparison.Ordinal)
+            ? request.Value is >= IVoicemeeterService.MinGain and <= IVoicemeeterService.MaxGain
+            : request.Value is null or 0 or 1;
+        if (!valid)
+        {
+            return Fail("Voicemeeter gain takes -60 to 12 dB, switches take 0, 1 or no value to toggle.");
+        }
+
+        logger.LogDebug("Setting Voicemeeter {Parameter} to {Value}.", parameter, request.Value?.ToString() ?? "toggle");
+        voicemeeter.SetParameter(parameter, (float?)request.Value);
+
+        return RemoteActionResponse.Ok();
+    }
+
+    [GeneratedRegex(@"^(Strip\[[0-7]\]\.(Mute|Gain|A[1-5]|B[1-3])|Bus\[[0-7]\]\.(Mute|Gain))$")]
+    private static partial Regex VoicemeeterParameterPattern();
 
     private RemoteActionResponse Fail(string error)
     {

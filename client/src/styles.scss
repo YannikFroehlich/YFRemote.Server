@@ -950,6 +950,60 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+.window-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.window-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.window-list__head .secondary-button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.window-list__item {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(12px * var(--radius-scale));
+  background: var(--surface-soft);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.window-list__item:active {
+  background: var(--accent-soft);
+}
+
+.window-list__title,
+.window-list__app {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-list__title {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.window-list__app {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .mixer {
   display: grid;
   gap: 8px;

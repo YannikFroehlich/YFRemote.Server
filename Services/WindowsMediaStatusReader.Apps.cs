@@ -219,8 +219,8 @@ public sealed partial class WindowsMediaStatusReader : IAppVolumeService
     }
 
     // Bei Prozessen mit hoeheren Rechten verweigert Windows die Dateibeschreibung, der Prozessname
-    // geht immer.
-    private static string ProcessName(int processId)
+    // geht immer. Auch fuer die Fensterliste (WindowsWindowService).
+    internal static string ProcessName(int processId)
     {
         try
         {

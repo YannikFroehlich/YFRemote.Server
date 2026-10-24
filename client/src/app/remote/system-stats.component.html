@@ -18,3 +18,26 @@
     <p class="stats-waiting">{{ i18n.t('stats.waiting') }}</p>
   }
 </div>
+
+@if (windowsSupported()) {
+  <section class="window-list" [attr.aria-label]="i18n.t('stats.windows')">
+    <div class="window-list__head">
+      <span>{{ i18n.t('stats.windows') }}</span>
+      <button type="button" class="secondary-button" (click)="refreshWindows()">
+        {{ i18n.t('stats.windows.refresh') }}
+      </button>
+    </div>
+    @if (windows(); as windows) {
+      @for (window of windows; track window.id) {
+        <button type="button" class="window-list__item" (click)="focusWindow(window)">
+          <span class="window-list__title">{{ window.title }}</span>
+          <span class="window-list__app">{{ window.app }}</span>
+        </button>
+      } @empty {
+        <p class="stats-waiting">{{ i18n.t('stats.windows.empty') }}</p>
+      }
+    } @else if (windows() === null) {
+      <p class="stats-waiting">{{ i18n.t('stats.windows.unavailable') }}</p>
+    }
+  </section>
+}

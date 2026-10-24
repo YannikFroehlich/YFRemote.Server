@@ -96,7 +96,10 @@ new component the same, unless everything its template reads is a signal or an i
      `watchSystemStats(true)` is in effect: `SystemStatsComponent` (the "PC" tab, shown where
      `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
-     measures only while a device watches, so never subscribe to it in the background.
+     measures only while a device watches, so never subscribe to it in the background. On a
+     Windows server the tab also shows the window switcher: `RemoteService.readWindows`
+     (`GET /windows`) on creation and on "Aktualisieren", a tap sends `focusWindow` and moves that
+     window to the top locally.
    - `apps` pushes (volume per app) work the same way via `watchApps` on every PC server;
      `setApp(id, {volume?, muted?})` sends `appVolume` and patches the signal right away;
      `setAudioOutput(id)` does the same with `audioOutput` for the push's `outputs` (the Mixer's

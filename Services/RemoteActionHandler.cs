@@ -19,7 +19,8 @@ public sealed partial class RemoteActionHandler(
     IMediaControl? mediaControl = null,
     IAppVolumeService? appVolumes = null,
     PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null,
-    IAppLauncher? appLauncher = null)
+    IAppLauncher? appLauncher = null,
+    IWindowService? windows = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -72,6 +73,7 @@ public sealed partial class RemoteActionHandler(
                 "appvolume" => HandleAppVolume(request),
                 "audiooutput" => HandleAudioOutput(request),
                 "launch" => HandleLaunch(request),
+                "focuswindow" => HandleFocusWindow(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -655,6 +657,31 @@ public sealed partial class RemoteActionHandler(
         logger.LogInformation("Launched app {Name}.", name);
         return RemoteActionResponse.Ok();
     }
+
+    // Nur ein Fenster aus der aktuellen Liste, wie beim Ausgabegeraet.
+    private RemoteActionResponse HandleFocusWindow(RemoteActionRequest request)
+    {
+        if (windows is null)
+        {
+            return Fail("Switching windows is not supported.");
+        }
+
+        if (request.Id is not { } id || !WindowIdPattern().IsMatch(id))
+        {
+            return Fail("Action 'focusWindow' requires id.");
+        }
+
+        if (!windows.TryFocus(id))
+        {
+            return Fail("This window is no longer open.");
+        }
+
+        logger.LogDebug("Brought window {Id} to the front.", id);
+        return RemoteActionResponse.Ok();
+    }
+
+    [GeneratedRegex(@"^\d{1,20}$")]
+    private static partial Regex WindowIdPattern();
 
     // Prozessnummer bzw. Sink-Input-Nummer oder die Systemklaenge - nichts, was pactl als Option
     // lesen koennte.

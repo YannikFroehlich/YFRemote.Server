@@ -159,7 +159,7 @@ public sealed class LinuxClipboardService : IClipboardService
         }
     }
 
-    private static async Task<ClipboardBackend> GetBackendAsync()
+    internal static async Task<ClipboardBackend> GetBackendAsync()
     {
         if (SelectBackend(Environment.GetEnvironmentVariable) is { } backend)
         {
@@ -177,7 +177,7 @@ public sealed class LinuxClipboardService : IClipboardService
                 "No graphical session found (neither WAYLAND_DISPLAY nor DISPLAY is set, not even in the systemd user environment).");
     }
 
-    private static ProcessStartInfo CreateStartInfo(ClipboardBackend backend, string fileName, params string[] arguments)
+    internal static ProcessStartInfo CreateStartInfo(ClipboardBackend backend, string fileName, params string[] arguments)
     {
         var startInfo = new ProcessStartInfo(fileName, arguments)
         {

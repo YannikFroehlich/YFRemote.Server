@@ -203,6 +203,16 @@
                   >
                     App
                   </button>
+                  <button
+                    type="button"
+                    class="view-tab"
+                    role="tab"
+                    [class.view-tab--active]="stepType() === 'launch'"
+                    [attr.aria-selected]="stepType() === 'launch'"
+                    (click)="setStepType('launch')"
+                  >
+                    {{ i18n.t('buttonEditor.tab.launch') }}
+                  </button>
                 }
               </div>
 
@@ -327,6 +337,52 @@
                   </label>
                 } @else {
                   <ng-container *ngTemplateOutlet="switchModePicker" />
+                }
+              } @else if (stepType() === 'launch') {
+                <div class="key-group__keys">
+                  @for (kind of ['app', 'url']; track kind) {
+                    <button
+                      class="key-chip"
+                      type="button"
+                      [class.key-chip--active]="pendingLaunchKind() === kind"
+                      [attr.aria-pressed]="pendingLaunchKind() === kind"
+                      (click)="pendingLaunchKind.set(kind === 'url' ? 'url' : 'app')"
+                    >
+                      {{ i18n.t('buttonEditor.launch.' + kind) }}
+                    </button>
+                  }
+                </div>
+                @if (pendingLaunchKind() === 'app') {
+                  <label class="field">
+                    <span>{{ i18n.t('buttonEditor.launch.name') }}</span>
+                    <input
+                      type="text"
+                      list="button-editor-launch-apps"
+                      [attr.maxlength]="maxAppNameLength"
+                      [value]="pendingLaunchName()"
+                      [placeholder]="i18n.t('buttonEditor.app.placeholder')"
+                      (input)="onLaunchNameInput($event)"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <datalist id="button-editor-launch-apps">
+                      @for (name of launchApps(); track name) {
+                        <option [value]="name"></option>
+                      }
+                    </datalist>
+                  </label>
+                } @else {
+                  <label class="field">
+                    <span>{{ i18n.t('buttonEditor.launch.urlField') }}</span>
+                    <input
+                      type="url"
+                      [value]="pendingLaunchUrl()"
+                      placeholder="https://www.youtube.com"
+                      (input)="onLaunchUrlInput($event)"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                  </label>
                 }
               } @else {
                 <div class="mouse-click-picker">

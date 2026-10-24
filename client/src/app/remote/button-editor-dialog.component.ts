@@ -17,6 +17,7 @@ import {
   MAX_LABEL_LENGTH,
   MAX_MACRO_DELAY_MS,
   MAX_MACRO_STEPS,
+  normalizeLaunchUrl,
   resolveButtonSteps,
   VOICEMEETER_MAX_GAIN,
   VOICEMEETER_MIN_GAIN,
@@ -31,7 +32,7 @@ import { TranslationService } from './translation.service';
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
 const DEFAULT_CUSTOM_COLOR = '#38bdf8';
 
-type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter' | 'app';
+type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter' | 'app' | 'launch';
 type SwitchMode = 'toggle' | 'on' | 'off';
 
 @Component({
@@ -99,6 +100,12 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   protected readonly pendingAppVolume = signal(50);
   private watchingApps = false;
 
+  // Starten: eine App aus der Liste des PCs (Startmenue bzw. .desktop-Dateien) oder eine Webseite.
+  protected readonly launchApps = signal<readonly string[]>([]);
+  protected readonly pendingLaunchKind = signal<'app' | 'url'>('app');
+  protected readonly pendingLaunchName = signal('');
+  protected readonly pendingLaunchUrl = signal('');
+
   // Stumm-Schalter von Voicemeeter und Apps teilen sich die Auswahl.
   protected readonly pendingSwitchMode = signal<SwitchMode>('toggle');
   protected readonly switchModes: readonly SwitchMode[] = ['toggle', 'on', 'off'];
@@ -122,6 +129,7 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     if (this.appStepsSupported()) {
       this.watchingApps = true;
       this.remote.watchApps(true);
+      void this.remote.readLaunchApps().then((apps) => this.launchApps.set(apps));
     }
 
     const id = this.targetId();
@@ -186,6 +194,14 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
 
   protected onAppNameInput(event: Event): void {
     this.pendingAppName.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onLaunchNameInput(event: Event): void {
+    this.pendingLaunchName.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onLaunchUrlInput(event: Event): void {
+    this.pendingLaunchUrl.set((event.target as HTMLInputElement).value);
   }
 
   protected onAppVolumeInput(event: Event): void {
@@ -278,6 +294,15 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
           ? { type: 'appVolume', name }
           : { type: 'appVolume', name, muted: mode === 'on' };
       }
+
+      case 'launch': {
+        if (this.pendingLaunchKind() === 'url') {
+          const url = normalizeLaunchUrl(this.pendingLaunchUrl());
+          return url === null ? null : { type: 'launch', url };
+        }
+        const name = this.pendingLaunchName().trim();
+        return name === '' || name.length > this.maxAppNameLength ? null : { type: 'launch', name };
+      }
     }
   }
 
@@ -355,6 +380,11 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
             action.volume !== undefined
               ? `${action.volume} %`
               : `${this.i18n.t('buttonEditor.voicemeeter.mute')} ${this.switchModeLabel(action.muted)}`,
+        });
+
+      case 'launch':
+        return this.i18n.t('buttonEditor.describeStep.launch', {
+          target: action.name ?? action.url ?? '',
         });
 
       default:

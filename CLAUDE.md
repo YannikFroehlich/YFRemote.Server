@@ -166,6 +166,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `IMediaControl.Cover`, same `Bearer`/optional-`Origin` gate and `no-store`, `204` without one.
   The `media` push carries only its `coverId`, so the image is fetched once per track, not every
   second. Windows only (GSMTC thumbnail, read on a track change, capped at 2 MB).
+- `GET /launch/apps` (`LaunchEndpoints`) → `{ apps: [name] }`, the apps a `launch` action may
+  start (`IAppLauncher.ListApps`), for the button editor's suggestions; same gate and `no-store`.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over
@@ -177,7 +179,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `shutdown`, `restart`,
-`sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, ...) into `IInputService` /
+`sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, `launch`, ...) into `IInputService` /
 `IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
 it also unmutes, like the Windows volume slider), validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
@@ -212,6 +214,17 @@ would call `SetEndpointVisibility` and hide the device. Linux uses `pactl list s
 `get-default-sink` and `set-default-sink`. Reading the list and re-setting the current default
 was verified on Windows on 2026-10-24 (the test PC has only one device, so an actual switch is
 not).
+
+**Launching apps and websites.** `launch` (custom-button step "Öffnen") takes either `url`
+(only absolute `http`/`https`, ≤ 2000 chars, opened in the default browser) or `name`, which must
+match an entry of `IAppLauncher.ListApps` case-insensitively — never a free path or command line
+with arguments. `WindowsAppLauncher` lists the `.lnk`/`.url` files of the user's and the common
+Start menu (`.url` because Steam puts its games there; Store apps without a shortcut are missing)
+and starts them via `UseShellExecute`, like a double click. `LinuxAppLauncher` reads the visible
+`Type=Application` `.desktop` files from the XDG data dirs plus the Flatpak/Snap export folders
+and starts them with `gio launch` (URLs with `xdg-open`), using the graphical session that
+`LinuxClipboardService.GetBackendAsync` finds. Windows listing was checked against the real Start
+menu on 2026-10-24; actually launching, and all of Linux beyond the parser tests, is unverified.
 
 **Media timeline.** `position`/`duration` in the `media` push are whole seconds; without a track
 length (livestream) both are missing. GSMTC reports the position as of `LastUpdatedTime`, and many

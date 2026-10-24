@@ -11,9 +11,9 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Integration;
 
-// Deckt GET /media/cover (Endpoints/MediaEndpoints.cs) ab. IMediaControl wird wie in
-// ClipboardEndpointTests ueber den configureServices-Hook ersetzt, damit kein Test von der
-// Medien-App der Maschine abhaengt.
+// Deckt GET /media/cover (Endpoints/MediaEndpoints.cs) und GET /launch/apps ab. IMediaControl und
+// IAppLauncher werden wie in ClipboardEndpointTests ueber den configureServices-Hook ersetzt, damit
+// kein Test von der Medien-App oder dem Startmenue der Maschine abhaengt.
 [TestClass]
 public sealed class MediaEndpointTests
 {
@@ -44,7 +44,9 @@ public sealed class MediaEndpointTests
                 $"Server:Port={port}",
                 $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}"
             ],
-            services => services.AddSingleton<IMediaControl>(media));
+            services => services
+                .AddSingleton<IMediaControl>(media)
+                .AddSingleton<IAppLauncher>(new FakeAppLauncher()));
         await app.StartAsync();
 
         httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
@@ -92,6 +94,21 @@ public sealed class MediaEndpointTests
         Assert.IsTrue(response.Headers.CacheControl!.NoStore);
     }
 
+    [TestMethod]
+    public async Task LaunchApps_ListsAppsForPairedDeviceOnly()
+    {
+        using var unauthorized = await httpClient.GetAsync("/launch/apps");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/launch/apps");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await PairAndGetTokenAsync());
+
+        var response = await httpClient.SendAsync(request);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("""["Discord","Spotify"]""", body.GetProperty("apps").GetRawText());
+    }
+
     private async Task<HttpResponseMessage> GetCoverAsync(string? token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/media/cover");
@@ -118,6 +135,17 @@ public sealed class MediaEndpointTests
         var response = await httpClient.SendAsync(request);
         var body = await response.Content.ReadFromJsonAsync<PairResponse>(JsonOptions);
         return body!.Token!;
+    }
+
+    private sealed class FakeAppLauncher : IAppLauncher
+    {
+        public IReadOnlyList<string> ListApps() => ["Discord", "Spotify"];
+
+        public bool TryLaunchApp(string name) => false;
+
+        public void OpenUrl(Uri url)
+        {
+        }
     }
 
     private sealed class FakeMediaControl : IMediaControl

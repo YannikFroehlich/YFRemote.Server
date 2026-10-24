@@ -30,6 +30,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Tab "Mixer": Über den Apps steht eine Auswahl "Ausgabegerät", die das Standard-Wiedergabegerät des PCs wechselt, z. B. von Lautsprechern auf Kopfhörer. Sie erscheint, sobald der PC mehr als ein Gerät hat. Unter Windows bleibt das Kommunikationsgerät für Discord oder Teams dabei, wie es ist. Unter Linux geht das über `pactl`.
 - Eigene Buttons können jetzt die Lautstärke einer Voicemeeter-Spur oder eines Busses auf einen festen dB-Wert setzen, z. B. "Discord auf 0 dB".
 - Eigene Buttons können jetzt Apps steuern: Stumm umschalten, ein oder aus oder eine feste Lautstärke in Prozent. Die App wird über ihren Namen wie im Mixer gefunden, also auch nach einem Neustart. Laufen mehrere Fenster oder Streams einer App, trifft der Schritt alle.
+- Eigene Buttons können jetzt Apps und Webseiten am PC öffnen (Schritt "Öffnen"), z. B. "Spotify starten" oder "YouTube öffnen". Zur Auswahl stehen die Apps aus dem Startmenü des PCs, darunter auch Steam-Spiele mit Startmenü-Eintrag; Webseiten öffnen sich im Standardbrowser. Aus Sicherheitsgründen gehen nur Einträge aus dieser Liste und `http`/`https`-Adressen, keine freien Befehle. Store-Apps ohne Startmenü-Verknüpfung fehlen noch. Unter Linux kommen die Apps aus den `.desktop`-Dateien (auch Flatpak und Snap) und starten über `gio`, Webseiten über `xdg-open`. Unter Linux noch nicht auf einem echten System getestet.
 
 ### Fixed
 

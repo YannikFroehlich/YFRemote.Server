@@ -402,6 +402,30 @@ describe('button-layout', () => {
     });
   });
 
+  describe('normalizeMacroStep (launch)', () => {
+    it('keeps app names and http(s) addresses', () => {
+      for (const action of [
+        { type: 'launch', name: 'Spotify' },
+        { type: 'launch', url: 'https://www.youtube.com/watch?v=1' },
+        { type: 'launch', url: 'http://192.168.1.10:8080' },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toEqual({ action, delayMs: 0 });
+      }
+    });
+
+    it('drops other schemes, plain words and empty names', () => {
+      for (const action of [
+        { type: 'launch', url: 'file:///C:/Windows/System32/calc.exe' },
+        { type: 'launch', url: 'javascript:alert(1)' },
+        { type: 'launch', url: 'youtube.com' },
+        { type: 'launch', name: '  ' },
+        { type: 'launch' },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toBeNull();
+      }
+    });
+  });
+
   describe('resolveButtonLayout', () => {
     it('is idempotent: resolving an already-resolved layout changes nothing', () => {
       const once = resolveButtonLayout(DEFAULT_BUTTON_LAYOUT);

@@ -114,7 +114,9 @@ new component the same, unless everything its template reads is a signal or an i
      `button-layout.ts` mirrors the server's allowlist. They can also carry app steps
      (`appVolume` by `name`, never `id`, since the process id changes with every start; without
      `volume`/`muted` the server toggles mute). The editor watches `apps` too, for the name
-     suggestions in a `<datalist>`.
+     suggestions in a `<datalist>`. "Öffnen" steps are `launch` with an app `name` (suggestions
+     from `RemoteService.readLaunchApps`, i.e. `GET /launch/apps`) or an http(s) `url`
+     (`normalizeLaunchUrl`, mirroring the server's check).
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

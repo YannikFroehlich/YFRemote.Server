@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.40.0] - 2026-10-24
+
 ### Added
 
 - Eigene Buttons können jetzt Apps und Webseiten am PC öffnen (Schritt "Öffnen"), z. B. "Spotify starten" oder "YouTube öffnen". Zur Auswahl stehen die Apps aus dem Startmenü des PCs, darunter auch Steam-Spiele mit Startmenü-Eintrag; Webseiten öffnen sich im Standardbrowser. Aus Sicherheitsgründen gehen nur Einträge aus dieser Liste und `http`/`https`-Adressen, keine freien Befehle. Store-Apps ohne Startmenü-Verknüpfung fehlen noch. Unter Linux kommen die Apps aus den `.desktop`-Dateien (auch Flatpak und Snap) und starten über `gio`, Webseiten über `xdg-open`. Unter Linux noch nicht auf einem echten System getestet.

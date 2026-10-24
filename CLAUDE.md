@@ -168,6 +168,15 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   second. Windows only (GSMTC thumbnail, read on a track change, capped at 2 MB).
 - `GET /launch/apps` (`LaunchEndpoints`) → `{ apps: [name] }`, the apps a `launch` action may
   start (`IAppLauncher.ListApps`), for the button editor's suggestions; same gate and `no-store`.
+- `GET /windows` (`WindowEndpoints`) → `{ windows: [{id,title,app}] }` for the "PC" tab's window
+  switcher, same gate and `no-store`; `501` without an `IWindowService` (Linux). `focusWindow`
+  (`id`, digits only, must be in the current list) brings one to the front.
+  `WindowsWindowService` follows the Alt+Tab rules (visible, unowned, not cloaked, no
+  `WS_EX_TOOLWINDOW`, `WS_EX_NOACTIVATE` only with `WS_EX_APPWINDOW`, own process excluded), front
+  window first. `SetForegroundWindow` only works for the process that sent the last input, so it
+  first sends a 0-pixel mouse move through `WindowsInputSender` (the PowerToys trick); minimized
+  windows are restored. Listing and switching back and forth were checked on the dev PC on
+  2026-10-24.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over

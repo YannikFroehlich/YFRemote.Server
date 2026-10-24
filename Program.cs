@@ -366,6 +366,7 @@ internal static class Program
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IAppLauncher, WindowsAppLauncher>();
+        builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
         builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
         builder.Services.AddSingleton(voicemeeterOptions);
@@ -493,6 +494,7 @@ internal static class Program
         app.MapClipboardEndpoints();
         app.MapMediaEndpoints();
         app.MapLaunchEndpoints();
+        app.MapWindowEndpoints();
 
         var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
         if (File.Exists(indexPath))

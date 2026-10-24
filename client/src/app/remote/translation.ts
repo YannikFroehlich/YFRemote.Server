@@ -376,6 +376,13 @@ export const TRANSLATIONS = {
   'shutdownTimer.cancel': { de: 'Abbrechen', en: 'Cancel' },
   'stats.waiting': { de: 'Warte auf Messwerte vom PC …', en: 'Waiting for readings from the PC …' },
   'stats.memory': { de: 'Arbeitsspeicher', en: 'Memory' },
+  'stats.windows': { de: 'Fenster', en: 'Windows' },
+  'stats.windows.refresh': { de: 'Aktualisieren', en: 'Refresh' },
+  'stats.windows.empty': { de: 'Keine offenen Fenster', en: 'No open windows' },
+  'stats.windows.unavailable': {
+    de: 'Fensterliste nicht verfügbar',
+    en: 'Window list not available',
+  },
   'mixer.apps': { de: 'Apps', en: 'Apps' },
   'mixer.systemSounds': { de: 'Systemklänge', en: 'System sounds' },
   'mixer.noApps': {

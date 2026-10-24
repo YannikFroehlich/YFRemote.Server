@@ -163,6 +163,27 @@ export interface AppVolumeAction {
   readonly muted?: boolean;
 }
 
+/** Startet eine App aus `GET /launch/apps` per `name` oder oeffnet eine http(s)-`url` im
+ *  Standardbrowser des PCs. */
+export interface LaunchAction {
+  readonly type: 'launch';
+  readonly name?: string;
+  readonly url?: string;
+}
+
+/** Ein Fenster aus `GET /windows` (wie Alt+Tab, das vorderste zuerst); `id` ist das Fensterhandle. */
+export interface OpenWindow {
+  readonly id: string;
+  readonly title: string;
+  readonly app: string;
+}
+
+/** Holt ein Fenster aus `GET /windows` in den Vordergrund. */
+export interface FocusWindowAction {
+  readonly type: 'focusWindow';
+  readonly id: string;
+}
+
 /** Macht ein Geraet aus `AppVolumesMessage.outputs` zum Standard-Wiedergabegeraet. */
 export interface AudioOutputAction {
   readonly type: 'audioOutput';
@@ -238,7 +259,9 @@ export type RemoteAction =
   | VoicemeeterParameterAction
   | AppsWatchAction
   | AppVolumeAction
-  | AudioOutputAction;
+  | AudioOutputAction
+  | LaunchAction
+  | FocusWindowAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

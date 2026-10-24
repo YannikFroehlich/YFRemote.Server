@@ -335,6 +335,57 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow(" spotify ", true)]
+    [DataRow("Notepad", false)]
+    [DataRow("", false)]
+    [DataRow(null, false)]
+    public void Handle_LaunchApp_OnlyStartsListedApp(string? name, bool accepted)
+    {
+        var launcher = new RecordingAppLauncher("Spotify");
+        var handler = CreateHandler(appLauncher: launcher);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "launch", Name = name });
+
+        Assert.AreEqual(accepted, response.Success);
+        Assert.AreEqual(accepted ? "Spotify" : null, launcher.Launched);
+    }
+
+    [TestMethod]
+    [DataRow("131072", true)]
+    [DataRow("4711", false)]
+    [DataRow("-1", false)]
+    [DataRow("0x20000", false)]
+    [DataRow(null, false)]
+    public void Handle_FocusWindow_OnlyFocusesListedWindow(string? id, bool accepted)
+    {
+        var windows = new RecordingWindowService();
+        var handler = CreateHandler(windows: windows);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "focusWindow", Id = id });
+
+        Assert.AreEqual(accepted, response.Success);
+        Assert.AreEqual(accepted ? id : null, windows.Focused);
+    }
+
+    [TestMethod]
+    [DataRow("https://www.youtube.com/watch?v=1", true)]
+    [DataRow("HTTP://example.org", true)]
+    [DataRow("file:///C:/Windows/System32/calc.exe", false)]
+    [DataRow("javascript:alert(1)", false)]
+    [DataRow("ms-settings:", false)]
+    [DataRow("example.org", false)]
+    public void Handle_LaunchUrl_OnlyOpensHttpAddresses(string url, bool accepted)
+    {
+        var launcher = new RecordingAppLauncher();
+        var handler = CreateHandler(appLauncher: launcher);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "launch", Url = url });
+
+        Assert.AreEqual(accepted, response.Success);
+        Assert.AreEqual(accepted, launcher.OpenedUrl is not null);
+    }
+
+    [TestMethod]
     public void Handle_OtherKey_DoesNotAskMixer()
     {
         var volumeService = new RecordingVolumeService(handlesMute: true);
@@ -552,6 +603,39 @@ public sealed class RemoteActionHandlerTests
         }
     }
 
+    private sealed class RecordingWindowService : IWindowService
+    {
+        public string? Focused { get; private set; }
+
+        public IReadOnlyList<OpenWindow> ListWindows() => [new OpenWindow("131072", "Editor", "Notepad")];
+
+        public bool TryFocus(string id)
+        {
+            Focused = ListWindows().Any(window => window.Id == id) ? id : null;
+            return Focused is not null;
+        }
+    }
+
+    private sealed class RecordingAppLauncher(params string[] apps) : IAppLauncher
+    {
+        public string? Launched { get; private set; }
+
+        public Uri? OpenedUrl { get; private set; }
+
+        public IReadOnlyList<string> ListApps() => apps;
+
+        public bool TryLaunchApp(string name)
+        {
+            Launched = apps.FirstOrDefault(app => string.Equals(app, name, StringComparison.OrdinalIgnoreCase));
+            return Launched is not null;
+        }
+
+        public void OpenUrl(Uri url)
+        {
+            OpenedUrl = url;
+        }
+    }
+
     private static RemoteActionHandler CreateHandler(
         IInputService? inputService = null,
         RecordingMouseService? mouseService = null,
@@ -560,7 +644,9 @@ public sealed class RemoteActionHandlerTests
         ShutdownTimer? shutdownTimer = null,
         IVoicemeeterService? voicemeeter = null,
         IMediaControl? mediaControl = null,
-        IAppVolumeService? appVolumes = null)
+        IAppVolumeService? appVolumes = null,
+        IAppLauncher? appLauncher = null,
+        IWindowService? windows = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -571,7 +657,9 @@ public sealed class RemoteActionHandlerTests
             shutdownTimer: shutdownTimer,
             voicemeeter: voicemeeter,
             mediaControl: mediaControl,
-            appVolumes: appVolumes);
+            appVolumes: appVolumes,
+            appLauncher: appLauncher,
+            windows: windows);
     }
 
     private sealed class RecordingPowerService : IPowerService

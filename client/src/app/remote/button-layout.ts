@@ -24,6 +24,21 @@ export const VOICEMEETER_PARAMETER_PATTERN =
 export const VOICEMEETER_MIN_GAIN = -60;
 export const VOICEMEETER_MAX_GAIN = 12;
 export const MAX_APP_NAME_LENGTH = 100;
+export const MAX_LAUNCH_URL_LENGTH = 2000;
+
+/** Wie die Pruefung im Server: nur http- und https-Adressen, keine anderen Schemata. */
+export function normalizeLaunchUrl(candidate: string): string | null {
+  const trimmed = candidate.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_LAUNCH_URL_LENGTH) {
+    return null;
+  }
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface ButtonPlacement {
   readonly id: string;
@@ -320,6 +335,18 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
         return { type: 'appVolume', name: trimmed };
       }
       return typeof muted === 'boolean' ? { type: 'appVolume', name: trimmed, muted } : null;
+    }
+
+    case 'launch': {
+      const { name, url } = candidate as { readonly name?: unknown; readonly url?: unknown };
+      if (typeof url === 'string') {
+        const normalized = normalizeLaunchUrl(url);
+        return normalized === null ? null : { type: 'launch', url: normalized };
+      }
+      const trimmed = typeof name === 'string' ? name.trim() : '';
+      return trimmed.length > 0 && trimmed.length <= MAX_APP_NAME_LENGTH
+        ? { type: 'launch', name: trimmed }
+        : null;
     }
 
     default:

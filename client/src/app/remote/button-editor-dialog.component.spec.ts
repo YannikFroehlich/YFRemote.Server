@@ -46,6 +46,7 @@ function pcWithAudio(): object {
     apps: signal({ type: 'apps', apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }] }),
     watchVoicemeeter: () => undefined,
     watchApps: () => undefined,
+    readLaunchApps: () => Promise.resolve(['Steam']),
   };
 }
 
@@ -275,6 +276,33 @@ describe('ButtonEditorDialogComponent', () => {
       'App: Spotify · Stumm umschalten',
       'App: Spotify · 30 %',
     ]);
+  });
+
+  it('adds launch steps for an app of the PC and an http(s) address only', async () => {
+    const { root, fixture } = await setupDialog(null, pcWithAudio());
+    await fixture.whenStable();
+
+    queryButtonByText(root, 'Öffnen').click();
+    fixture.detectChanges();
+    expect(root.querySelector('#button-editor-launch-apps option')?.getAttribute('value')).toBe(
+      'Steam',
+    );
+    setField(root, 'App wie im Startmenü des PCs', 'Steam');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    keyChip(root, 'Webseite').click();
+    fixture.detectChanges();
+    setField(root, 'Adresse (http/https)', 'file:///C:/Windows');
+    fixture.detectChanges();
+    expect(queryButtonByText(root, 'Schritt hinzufügen').disabled).toBe(true);
+    setField(root, 'Adresse (http/https)', 'https://www.youtube.com');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    expect(stepSummaries(root)).toEqual(['Öffnen: Steam', 'Öffnen: https://www.youtube.com']);
   });
 
   it('removes a step', async () => {

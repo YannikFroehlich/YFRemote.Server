@@ -23,6 +23,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Eigene Buttons können jetzt Apps und Webseiten am PC öffnen (Schritt "Öffnen"), z. B. "Spotify starten" oder "YouTube öffnen". Zur Auswahl stehen die Apps aus dem Startmenü des PCs, darunter auch Steam-Spiele mit Startmenü-Eintrag; Webseiten öffnen sich im Standardbrowser. Aus Sicherheitsgründen gehen nur Einträge aus dieser Liste und `http`/`https`-Adressen, keine freien Befehle. Store-Apps ohne Startmenü-Verknüpfung fehlen noch. Unter Linux kommen die Apps aus den `.desktop`-Dateien (auch Flatpak und Snap) und starten über `gio`, Webseiten über `xdg-open`. Unter Linux noch nicht auf einem echten System getestet.
+- Fensterwechsel: Der Tab "PC" listet unter den Messwerten die offenen Fenster des PCs, wie Alt+Tab mit dem vordersten zuerst. Ein Tipp holt das Fenster in den Vordergrund, auch wenn es minimiert war; "Aktualisieren" liest die Liste neu. Nur für Windows-PCs, unter Linux gibt es dafür keinen Weg, der mit jeder Desktopumgebung funktioniert.
+- Medienleiste unter Linux: Das Albumcover des laufenden Titels erscheint jetzt auch bei einem Linux-PC. YFRemote holt es über `playerctl`, als Datei von Browsern und VLC oder als Download etwa von Spotify (PNG oder JPEG, bis 2 MB). Noch nicht auf einem echten Linux-System getestet.
+
+## [2.39.0] - 2026-10-24
+
+### Added
+
 - Lautstärke pro App: Der Tab "Mixer" gibt es jetzt auf jedem PC, nicht nur mit Voicemeeter. Seine Gruppe "Apps" listet jede App, die am PC Ton ausgibt (Spotify, Discord, ein Spiel, die Systemklänge), mit eigenem Regler und Stumm-Knopf - wie der Lautstärkemixer von Windows. Mit Voicemeeter stehen Eingänge und Ausgänge daneben. Unter Linux regelt die Gruppe die einzelnen Audio-Streams über `pactl`.
 - Medienleiste: Das Albumcover des laufenden Titels steht jetzt vor dem Titel. Darunter zeigt eine Zeitleiste die Stelle im Titel und die Gesamtlänge, und wer den Regler zieht, spult in der Medien-App an diese Stelle. Lässt eine App kein Spulen zu, ist der Regler gesperrt; ohne Längenangabe (Livestream) fehlt die Zeitleiste. Unter Linux gibt es Zeitleiste und Spulen über `playerctl`, aber noch kein Cover.
 - Tab "Mixer": Über den Apps steht eine Auswahl "Ausgabegerät", die das Standard-Wiedergabegerät des PCs wechselt, z. B. von Lautsprechern auf Kopfhörer. Sie erscheint, sobald der PC mehr als ein Gerät hat. Unter Windows bleibt das Kommunikationsgerät für Discord oder Teams dabei, wie es ist. Unter Linux geht das über `pactl`.

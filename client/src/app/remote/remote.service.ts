@@ -6,6 +6,7 @@ import {
   GamepadRumbleMessage,
   MacroStep,
   MediaStatusMessage,
+  OpenWindow,
   RemoteAction,
   RemoteResponse,
   ServerConfig,
@@ -410,6 +411,42 @@ export class RemoteService implements OnDestroy {
       ...state,
       outputs: state.outputs.map((output) => ({ ...output, default: output.id === id })),
     });
+  }
+
+  /** Die Apps, die ein eigener Button am PC starten darf; leer, wenn der PC nicht antwortet. */
+  async readLaunchApps(): Promise<readonly string[]> {
+    const apps = (await this.readJson('/launch/apps'))?.['apps'];
+    return Array.isArray(apps) ? apps.filter((name): name is string => typeof name === 'string') : [];
+  }
+
+  /** Die offenen Fenster am PC (nur Windows); null, wenn der PC nicht antwortet. */
+  async readWindows(): Promise<readonly OpenWindow[] | null> {
+    const windows = (await this.readJson('/windows'))?.['windows'];
+    return Array.isArray(windows)
+      ? windows.filter(
+          (window): window is OpenWindow =>
+            typeof window?.id === 'string' &&
+            typeof window.title === 'string' &&
+            typeof window.app === 'string',
+        )
+      : null;
+  }
+
+  private async readJson(path: string): Promise<Record<string, unknown> | null> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return null;
+    }
+
+    try {
+      const response = await this.fetchFn(`${getServerHttpBaseUrl(this.serverLocation)}${path}`, {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.ok ? ((await response.json()) as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
   }
 
   dismissFileOffer(): void {

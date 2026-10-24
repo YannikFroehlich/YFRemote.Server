@@ -1,4 +1,12 @@
-import { Component, computed, inject, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  OnDestroy,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
+import { OpenWindow } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -40,8 +48,30 @@ export class SystemStatsComponent implements OnDestroy {
     ];
   });
 
+  // Fensterwechsel gibt es nur unter Windows; Wayland hat keinen desktopuebergreifenden Weg.
+  protected readonly windowsSupported = computed(() => this.remote.serverPlatform() === 'windows');
+  /** undefined = laedt noch, null = der PC hat nicht geantwortet. */
+  protected readonly windows = signal<readonly OpenWindow[] | null | undefined>(undefined);
+
   constructor() {
     this.remote.watchSystemStats(true);
+    if (this.windowsSupported()) {
+      void this.refreshWindows();
+    }
+  }
+
+  protected async refreshWindows(): Promise<void> {
+    this.windows.set(await this.remote.readWindows());
+  }
+
+  // Das gewaehlte Fenster rueckt sofort nach oben, wie es Alt+Tab danach auch zeigt.
+  protected focusWindow(window: OpenWindow): void {
+    if (!this.remote.sendAction({ type: 'focusWindow', id: window.id })) {
+      return;
+    }
+    this.windows.update((current) =>
+      current ? [window, ...current.filter((other) => other.id !== window.id)] : current,
+    );
   }
 
   ngOnDestroy(): void {

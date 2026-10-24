@@ -96,7 +96,10 @@ new component the same, unless everything its template reads is a signal or an i
      `watchSystemStats(true)` is in effect: `SystemStatsComponent` (the "PC" tab, shown where
      `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
-     measures only while a device watches, so never subscribe to it in the background.
+     measures only while a device watches, so never subscribe to it in the background. On a
+     Windows server the tab also shows the window switcher: `RemoteService.readWindows`
+     (`GET /windows`) on creation and on "Aktualisieren", a tap sends `focusWindow` and moves that
+     window to the top locally.
    - `apps` pushes (volume per app) work the same way via `watchApps` on every PC server;
      `setApp(id, {volume?, muted?})` sends `appVolume` and patches the signal right away;
      `setAudioOutput(id)` does the same with `audioOutput` for the push's `outputs` (the Mixer's
@@ -114,7 +117,9 @@ new component the same, unless everything its template reads is a signal or an i
      `button-layout.ts` mirrors the server's allowlist. They can also carry app steps
      (`appVolume` by `name`, never `id`, since the process id changes with every start; without
      `volume`/`muted` the server toggles mute). The editor watches `apps` too, for the name
-     suggestions in a `<datalist>`.
+     suggestions in a `<datalist>`. "Öffnen" steps are `launch` with an app `name` (suggestions
+     from `RemoteService.readLaunchApps`, i.e. `GET /launch/apps`) or an http(s) `url`
+     (`normalizeLaunchUrl`, mirroring the server's check).
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

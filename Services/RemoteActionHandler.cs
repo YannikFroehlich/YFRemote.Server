@@ -15,14 +15,19 @@ public sealed partial class RemoteActionHandler(
     ShutdownTimer? shutdownTimer = null,
     PollingBroadcaster<SystemStatsMessage>? systemStats = null,
     IVoicemeeterService? voicemeeter = null,
-    PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null)
+    PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null,
+    IMediaControl? mediaControl = null,
+    IAppVolumeService? appVolumes = null,
+    PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
+    private const double MaxSeekSeconds = 24 * 60 * 60;
     private const int MinMouseMoveDelta = -5000;
     private const int MaxMouseMoveDelta = 5000;
     private const int MinMouseScrollDelta = -1200;
     private const int MaxMouseScrollDelta = 1200;
     private const int MaxTextLength = 500;
+    private const int MaxAppNameLength = 100;
 
     public RemoteActionResponse Handle(RemoteActionRequest? request, RemoteActionSession? session = null)
     {
@@ -54,12 +59,16 @@ public sealed partial class RemoteActionHandler(
                 "displayoff" => HandlePower(powerService.TurnOffDisplay, "displayOff"),
                 "shutdowntimer" => HandleShutdownTimer(request, session),
                 "volume" => HandleVolume(request),
+                "mediaseek" => HandleMediaSeek(request),
                 "gamepad" => HandleGamepad(request, session),
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 "clipboardsync" => HandleClipboardSync(request, session),
                 "systemstats" => HandleSystemStats(request, session),
                 "voicemeeter" => HandleVoicemeeterWatch(request, session),
                 "voicemeeterparameter" => HandleVoicemeeterParameter(request),
+                "apps" => HandleAppsWatch(request, session),
+                "appvolume" => HandleAppVolume(request),
+                "audiooutput" => HandleAudioOutput(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -330,6 +339,24 @@ public sealed partial class RemoteActionHandler(
         return RemoteActionResponse.Ok();
     }
 
+    private RemoteActionResponse HandleMediaSeek(RemoteActionRequest request)
+    {
+        if (mediaControl is null)
+        {
+            return Fail("Seeking is not supported.");
+        }
+
+        if (request.Position is not { } position || position is not (>= 0 and <= MaxSeekSeconds))
+        {
+            return Fail($"Action 'mediaSeek' requires position between 0 and {MaxSeekSeconds} seconds.");
+        }
+
+        logger.LogDebug("Seeking media to {Position} s.", position);
+        mediaControl.Seek(position);
+
+        return RemoteActionResponse.Ok();
+    }
+
     private RemoteActionResponse HandleGamepad(RemoteActionRequest request, RemoteActionSession? session)
     {
         if (gamepadService is null || session is null)
@@ -475,6 +502,122 @@ public sealed partial class RemoteActionHandler(
 
     [GeneratedRegex(@"^(Strip\[[0-7]\]\.(Mute|Gain|A[1-5]|B[1-3])|Bus\[[0-7]\]\.(Mute|Gain))$")]
     private static partial Regex VoicemeeterParameterPattern();
+
+    // Wie Systemanzeige und Mixer: die Audio-Sitzungen werden nur gelesen, solange ein Geraet zusieht.
+    private RemoteActionResponse HandleAppsWatch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (appVolumeStatus is null || session is null)
+        {
+            return Fail("App volume is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'apps' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.AppsSubscription?.Dispose();
+            session.AppsSubscription = null;
+        }
+        else
+        {
+            session.AppsSubscription ??= appVolumeStatus.Subscribe(session.PushApps);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleAppVolume(RemoteActionRequest request)
+    {
+        if (appVolumes is null)
+        {
+            return Fail("App volume is not supported.");
+        }
+
+        if (request.Volume is { } volume && !IsInRange(volume, 0, 100))
+        {
+            return Fail("Action 'appVolume' requires volume between 0 and 100.");
+        }
+
+        if (request.Name is { } name)
+        {
+            return HandleAppVolumeByName(appVolumes, name.Trim(), request.Volume, request.Muted);
+        }
+
+        if (request.Id is not { } id || !AppIdPattern().IsMatch(id))
+        {
+            return Fail("Action 'appVolume' requires id or name.");
+        }
+
+        if (request.Volume is null && request.Muted is null)
+        {
+            return Fail("Action 'appVolume' requires volume or muted.");
+        }
+
+        logger.LogDebug("Setting app {Id}: volume {Volume}, muted {Muted}.", id, request.Volume, request.Muted);
+        appVolumes.SetApp(id, request.Volume, request.Muted);
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Fuer eigene Buttons: die Prozessnummer wechselt mit jedem Start, der Name nicht. Trifft alle
+    // Eintraege dieses Namens (unter Linux einer je Stream). Ohne volume und muted wird umgeschaltet.
+    private RemoteActionResponse HandleAppVolumeByName(IAppVolumeService service, string name, int? volume, bool? muted)
+    {
+        if (name.Length is 0 or > MaxAppNameLength)
+        {
+            return Fail($"Action 'appVolume' requires a name of 1 to {MaxAppNameLength} characters.");
+        }
+
+        var apps = service.ReadAppsAsync().GetAwaiter().GetResult().Apps
+            .Where(app => string.Equals(app.Name, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (apps.Count == 0)
+        {
+            return Fail("This app is not playing sound.");
+        }
+
+        // Sind alle stumm, wieder an, sonst alle stumm.
+        if (volume is null && muted is null)
+        {
+            muted = !apps.All(app => app.Muted);
+        }
+
+        logger.LogDebug("Setting {Count} app(s) by name: volume {Volume}, muted {Muted}.", apps.Count, volume, muted);
+        foreach (var app in apps)
+        {
+            service.SetApp(app.Id, volume, muted);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Nur ein Geraet aus der eigenen Liste - so erreicht nichts Fremdes pactl oder IPolicyConfig.
+    private RemoteActionResponse HandleAudioOutput(RemoteActionRequest request)
+    {
+        if (appVolumes is null)
+        {
+            return Fail("Switching the audio output is not supported.");
+        }
+
+        var outputs = appVolumes.ReadAppsAsync().GetAwaiter().GetResult().Outputs ?? [];
+        if (request.Id is not { } id || !outputs.Any(output => output.Id == id))
+        {
+            return Fail("Unknown audio output.");
+        }
+
+        logger.LogInformation("Switching the audio output to {Id}.", id);
+        appVolumes.SetOutput(id);
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Prozessnummer bzw. Sink-Input-Nummer oder die Systemklaenge - nichts, was pactl als Option
+    // lesen koennte.
+    [GeneratedRegex(@"^(system|\d{1,10})$")]
+    private static partial Regex AppIdPattern();
 
     private RemoteActionResponse Fail(string error)
     {

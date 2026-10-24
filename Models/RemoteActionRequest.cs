@@ -29,4 +29,12 @@ public sealed record RemoteActionRequest
     public string? Parameter { get; init; }
 
     public double? Value { get; init; }
+
+    public double? Position { get; init; }
+
+    public string? Id { get; init; }
+
+    public string? Name { get; init; }
+
+    public bool? Muted { get; init; }
 }

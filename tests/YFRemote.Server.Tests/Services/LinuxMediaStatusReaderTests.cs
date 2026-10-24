@@ -1,3 +1,4 @@
+using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Services;
@@ -25,17 +26,80 @@ public sealed class LinuxMediaStatusReaderTests
     }
 
     [TestMethod]
-    public void ParseNowPlaying_SplitsStatusTitleAndArtist()
+    public void ParseSinkInputs_ReadsIdNameVolumeAndMute()
+    {
+        const string output = """
+            Sink Input #42
+            	Driver: protocol-native.c
+            	Mute: no
+            	Volume: front-left: 45875 /  70% / -9.29 dB,   front-right: 45875 /  70% / -9.29 dB
+            	        balance 0.00
+            	Properties:
+            		media.name = "Playback"
+            		application.name = "Spotify"
+            Sink Input #57
+            	Mute: yes
+            	Volume: mono: 98304 / 150% / 10.57 dB
+            	Properties:
+            		media.name = "AudioStream"
+            Sink Input #12
+            	Mute: no
+            	Volume: front-left: 65536 / 100% / 0.00 dB
+            	Properties:
+            		application.name = "Firefox"
+            """;
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new AppVolume("12", "Firefox", 100, false),
+                new AppVolume("42", "Spotify", 70, false),
+                new AppVolume("57", "Stream 57", 100, true)
+            },
+            LinuxMediaStatusReader.ParseSinkInputs(output).ToArray());
+        Assert.AreEqual(0, LinuxMediaStatusReader.ParseSinkInputs(null).Count);
+    }
+
+    [TestMethod]
+    public void ParseSinks_ReadsNameDescriptionAndDefault()
+    {
+        const string output = """
+            Sink #47
+            	State: RUNNING
+            	Name: alsa_output.usb-Headset-00.analog-stereo
+            	Description: USB Headset Analog Stereo
+            	Driver: PipeWire
+            	Properties:
+            		node.name = "alsa_output.usb-Headset-00.analog-stereo"
+            Sink #52
+            	State: SUSPENDED
+            	Name: alsa_output.pci-0000_00_1f.3.analog-stereo
+            	Description: Built-in Audio Analog Stereo
+            """;
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new AudioOutput("alsa_output.pci-0000_00_1f.3.analog-stereo", "Built-in Audio Analog Stereo", false),
+                new AudioOutput("alsa_output.usb-Headset-00.analog-stereo", "USB Headset Analog Stereo", true)
+            },
+            LinuxMediaStatusReader.ParseSinks(output, "alsa_output.usb-Headset-00.analog-stereo").ToArray());
+        Assert.AreEqual(0, LinuxMediaStatusReader.ParseSinks(null, null).Count);
+    }
+
+    [TestMethod]
+    public void ParseNowPlaying_SplitsStatusTimelineTitleAndArtist()
     {
         Assert.AreEqual(
-            ("Song", "Band", true),
-            LinuxMediaStatusReader.ParseNowPlaying("Playing\tSong\tBand\n"));
+            new MediaStatusMessage(null, false, "Song", "Band", true, 83, 215, CanSeek: true),
+            LinuxMediaStatusReader.ParseNowPlaying("Playing\t83500000\t215000000\tSong\tBand\n"));
+        // Livestream: keine Laenge, also auch keine Zeitleiste
         Assert.AreEqual(
-            ("Video", (string?)null, false),
-            LinuxMediaStatusReader.ParseNowPlaying("Paused\tVideo\t\n"));
+            new MediaStatusMessage(null, false, "Video", null, false),
+            LinuxMediaStatusReader.ParseNowPlaying("Paused\t12000000\t\tVideo\t\n"));
         // playerctl ohne laufenden Player
         Assert.AreEqual(
-            ((string?)null, (string?)null, false),
+            new MediaStatusMessage(null, false, null, null, false),
             LinuxMediaStatusReader.ParseNowPlaying(null));
     }
 }

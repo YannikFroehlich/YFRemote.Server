@@ -23,6 +23,20 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Lautstärke pro App: Der Tab "Mixer" gibt es jetzt auf jedem PC, nicht nur mit Voicemeeter. Seine Gruppe "Apps" listet jede App, die am PC Ton ausgibt (Spotify, Discord, ein Spiel, die Systemklänge), mit eigenem Regler und Stumm-Knopf - wie der Lautstärkemixer von Windows. Mit Voicemeeter stehen Eingänge und Ausgänge daneben. Unter Linux regelt die Gruppe die einzelnen Audio-Streams über `pactl`.
+- Medienleiste: Das Albumcover des laufenden Titels steht jetzt vor dem Titel. Darunter zeigt eine Zeitleiste die Stelle im Titel und die Gesamtlänge, und wer den Regler zieht, spult in der Medien-App an diese Stelle. Lässt eine App kein Spulen zu, ist der Regler gesperrt; ohne Längenangabe (Livestream) fehlt die Zeitleiste. Unter Linux gibt es Zeitleiste und Spulen über `playerctl`, aber noch kein Cover.
+- Tab "Mixer": Über den Apps steht eine Auswahl "Ausgabegerät", die das Standard-Wiedergabegerät des PCs wechselt, z. B. von Lautsprechern auf Kopfhörer. Sie erscheint, sobald der PC mehr als ein Gerät hat. Unter Windows bleibt das Kommunikationsgerät für Discord oder Teams dabei, wie es ist. Unter Linux geht das über `pactl`.
+- Eigene Buttons können jetzt die Lautstärke einer Voicemeeter-Spur oder eines Busses auf einen festen dB-Wert setzen, z. B. "Discord auf 0 dB".
+- Eigene Buttons können jetzt Apps steuern: Stumm umschalten, ein oder aus oder eine feste Lautstärke in Prozent. Die App wird über ihren Namen wie im Mixer gefunden, also auch nach einem Neustart. Laufen mehrere Fenster oder Streams einer App, trifft der Schritt alle.
+
+### Fixed
+
+- Button-Editor auf dem Handy: Lange Schritte machten den Dialog breiter als den Bildschirm, sodass man seitlich scrollen musste. Lange Schritte werden jetzt mit "…" gekürzt. Die Reiter der Schritt-Arten passen nebeneinander.
+
+## [2.38.0] - 2026-10-23
+
+### Added
+
 - Tab "Mixer": Jeder Eingang und jeder Bus hat jetzt einen Knopf "0 dB", der den Fader zurück auf 0 dB stellt. Ein Strich unter dem Fader zeigt, wo 0 dB liegt.
 
 ### Changed

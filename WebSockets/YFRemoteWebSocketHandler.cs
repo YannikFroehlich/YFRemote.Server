@@ -47,7 +47,8 @@ public sealed class YFRemoteWebSocketHandler(
             rumble => _ = SendPushAsync(socket, sendLock, rumble, client, cancellationToken),
             clipboard => _ = SendPushAsync(socket, sendLock, clipboard, client, cancellationToken),
             stats => _ = SendPushAsync(socket, sendLock, stats, client, cancellationToken),
-            voicemeeter => _ = SendPushAsync(socket, sendLock, voicemeeter, client, cancellationToken))
+            voicemeeter => _ = SendPushAsync(socket, sendLock, voicemeeter, client, cancellationToken),
+            apps => _ = SendPushAsync(socket, sendLock, apps, client, cancellationToken))
         {
             DeviceName = deviceName ?? client
         };

@@ -127,6 +127,8 @@ interface RemoteServiceSetup {
   readonly serverUrl?: string;
   /** Antwort von `GET /health`; ohne bleibt die Plattform unbekannt. */
   readonly health?: object;
+  /** Ersetzt PAIRING_FETCH ganz, z. B. fuer `GET /media/cover`. */
+  readonly fetch?: typeof fetch;
 }
 
 /** `RemoteService`-Tests testen kein Pairing-HTTP-Verhalten; falls ein gespeichertes
@@ -512,6 +514,42 @@ describe('RemoteService', () => {
     expect(remote.systemStats()).toBeNull();
   });
 
+  it('loads the album cover once per coverId with the pairing token', async () => {
+    const coverRequests: (RequestInit | undefined)[] = [];
+    const { remote, sockets } = setupRemoteService({
+      storedPairingToken: 'tok',
+      fetch: async (input, init) => {
+        if (!String(input).endsWith('/media/cover')) {
+          return new Response('{}');
+        }
+        coverRequests.push(init);
+        return new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'image/jpeg' } });
+      },
+    });
+    const media = {
+      type: 'media',
+      muted: false,
+      playing: true,
+      position: 10,
+      duration: 200,
+      canSeek: true,
+      coverId: 'abc',
+    };
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive(JSON.stringify(media));
+    sockets[0].receive(JSON.stringify({ ...media, position: 11 }));
+
+    await vi.waitFor(() => expect(remote.mediaCover()).toBe('data:image/jpeg;base64,AQID'));
+    expect(coverRequests).toHaveLength(1);
+    expect(coverRequests[0]?.headers).toEqual({ Authorization: 'Bearer tok' });
+    expect(remote.mediaStatus()?.position).toBe(11);
+
+    sockets[0].receive(JSON.stringify({ ...media, coverId: undefined }));
+    expect(remote.mediaCover()).toBeNull();
+  });
+
   it('watches Voicemeeter only where /health reports it and shows set values at once', async () => {
     const { remote, sockets } = setupRemoteService({
       health: { platform: 'windows', voicemeeter: true },
@@ -549,6 +587,42 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"voicemeeter","enabled":false}');
     sockets[0].receive(JSON.stringify(state));
     expect(remote.voicemeeter()).toBeNull();
+  });
+
+  it('watches the app volumes on a PC and shows changes at once', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
+    const state = {
+      type: 'apps',
+      apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }],
+      outputs: [
+        { id: 'speakers', name: 'Lautsprecher', default: true },
+        { id: 'headset', name: 'Headset', default: false },
+      ],
+    };
+
+    remote.watchApps(true);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() =>
+      expect(sockets[0].sentMessages).toEqual(['{"type":"apps","enabled":true}']),
+    );
+
+    sockets[0].receive(JSON.stringify(state));
+    remote.setApp('4711', { volume: 35 });
+    remote.setApp('4711', { muted: true });
+    remote.setAudioOutput('headset');
+
+    expect(sockets[0].sentMessages.slice(-3)).toEqual([
+      '{"type":"appVolume","id":"4711","volume":35}',
+      '{"type":"appVolume","id":"4711","muted":true}',
+      '{"type":"audioOutput","id":"headset"}',
+    ]);
+    expect(remote.apps()?.apps).toEqual([{ id: '4711', name: 'Spotify', volume: 35, muted: true }]);
+    expect(remote.apps()?.outputs?.map((output) => output.default)).toEqual([false, true]);
+
+    remote.watchApps(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"apps","enabled":false}');
+    expect(remote.apps()).toBeNull();
   });
 
   it('does not watch Voicemeeter on a PC without it', async () => {
@@ -781,9 +855,10 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
       {
         provide: PAIRING_FETCH,
         useValue:
-          options.health === undefined
+          options.fetch ??
+          (options.health === undefined
             ? unusedPairingFetch
-            : async () => new Response(JSON.stringify(options.health)),
+            : async () => new Response(JSON.stringify(options.health))),
       },
       { provide: REMOTE_VIBRATE, useValue: (durationMs: number) => vibrations.push(durationMs) },
     ],

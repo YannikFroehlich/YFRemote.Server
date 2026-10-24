@@ -9,13 +9,17 @@ import {
   signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   isCustomButtonId,
+  MAX_APP_NAME_LENGTH,
   MAX_LABEL_LENGTH,
   MAX_MACRO_DELAY_MS,
   MAX_MACRO_STEPS,
   resolveButtonSteps,
+  VOICEMEETER_MAX_GAIN,
+  VOICEMEETER_MIN_GAIN,
 } from './button-layout';
 import { ButtonLayoutService } from './button-layout.service';
 import { KEY_GROUPS, keyLabel, keysToAction, MAX_HOTKEY_KEYS } from './keyboard-keys';
@@ -27,12 +31,12 @@ import { TranslationService } from './translation.service';
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
 const DEFAULT_CUSTOM_COLOR = '#38bdf8';
 
-type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter';
-type VoicemeeterMode = 'toggle' | 'on' | 'off';
+type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter' | 'app';
+type SwitchMode = 'toggle' | 'on' | 'off';
 
 @Component({
   selector: 'app-button-editor-dialog',
-  imports: [ReactiveFormsModule],
+  imports: [NgTemplateOutlet, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './button-editor-dialog.component.html',
 })
@@ -52,6 +56,9 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   protected readonly maxSteps = MAX_MACRO_STEPS;
   protected readonly maxDelayMs = MAX_MACRO_DELAY_MS;
   protected readonly maxLabelLength = MAX_LABEL_LENGTH;
+  protected readonly maxAppNameLength = MAX_APP_NAME_LENGTH;
+  protected readonly minGain = VOICEMEETER_MIN_GAIN;
+  protected readonly maxGain = VOICEMEETER_MAX_GAIN;
 
   protected readonly isEditing = signal(false);
   /** true, wenn ein eingebauter Button nur betrachtet wird: Icon/Ablauf sind fest im Code
@@ -71,14 +78,30 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   protected readonly voicemeeterChannels = computed(() => this.remote.voicemeeter()?.channels ?? []);
   protected readonly pendingVoicemeeterChannel = signal('');
   protected readonly pendingVoicemeeterSwitch = signal('Mute');
-  protected readonly pendingVoicemeeterMode = signal<VoicemeeterMode>('toggle');
-  protected readonly voicemeeterModes: readonly VoicemeeterMode[] = ['toggle', 'on', 'off'];
+  protected readonly pendingVoicemeeterGain = signal(0);
   protected readonly voicemeeterSwitches = computed(() =>
     this.pendingVoicemeeterChannel().startsWith('Strip[')
-      ? ['Mute', ...(this.remote.voicemeeter()?.routes ?? [])]
-      : ['Mute'],
+      ? ['Mute', 'Gain', ...(this.remote.voicemeeter()?.routes ?? [])]
+      : ['Mute', 'Gain'],
   );
   private watchingVoicemeeter = false;
+
+  // App-Schritte treffen die App per Name; die Vorschlaege sind die Apps, die gerade Ton ausgeben.
+  protected readonly appStepsSupported = this.remote.systemStatsSupported;
+  protected readonly appNames = computed(() => [
+    ...new Set(
+      (this.remote.apps()?.apps ?? []).filter((app) => app.id !== 'system').map((app) => app.name),
+    ),
+  ]);
+  protected readonly pendingAppName = signal('');
+  protected readonly appSettings = ['Mute', 'Volume'] as const;
+  protected readonly pendingAppSetting = signal<'Mute' | 'Volume'>('Mute');
+  protected readonly pendingAppVolume = signal(50);
+  private watchingApps = false;
+
+  // Stumm-Schalter von Voicemeeter und Apps teilen sich die Auswahl.
+  protected readonly pendingSwitchMode = signal<SwitchMode>('toggle');
+  protected readonly switchModes: readonly SwitchMode[] = ['toggle', 'on', 'off'];
 
   protected readonly form = new FormGroup({
     label: new FormControl('', {
@@ -95,6 +118,10 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     if (this.voicemeeterAvailable()) {
       this.watchingVoicemeeter = true;
       this.remote.watchVoicemeeter(true);
+    }
+    if (this.appStepsSupported()) {
+      this.watchingApps = true;
+      this.remote.watchApps(true);
     }
 
     const id = this.targetId();
@@ -130,6 +157,9 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     if (this.watchingVoicemeeter) {
       this.remote.watchVoicemeeter(false);
     }
+    if (this.watchingApps) {
+      this.remote.watchApps(false);
+    }
   }
 
   protected setStepType(type: StepType): void {
@@ -142,7 +172,25 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   }
 
   protected voicemeeterSwitchLabel(name: string): string {
-    return name === 'Mute' ? this.i18n.t('buttonEditor.voicemeeter.mute') : name;
+    return name === 'Mute' || name === 'Gain'
+      ? this.i18n.t(`buttonEditor.voicemeeter.${name.toLowerCase()}`)
+      : name;
+  }
+
+  protected onVoicemeeterGainInput(event: Event): void {
+    const raw = (event.target as HTMLInputElement).valueAsNumber;
+    this.pendingVoicemeeterGain.set(
+      Number.isFinite(raw) ? clamp(Math.round(raw * 2) / 2, this.minGain, this.maxGain) : 0,
+    );
+  }
+
+  protected onAppNameInput(event: Event): void {
+    this.pendingAppName.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onAppVolumeInput(event: Event): void {
+    const raw = (event.target as HTMLInputElement).valueAsNumber;
+    this.pendingAppVolume.set(Number.isFinite(raw) ? clamp(Math.round(raw), 0, 100) : 0);
   }
 
   protected togglePendingKey(key: string): void {
@@ -203,14 +251,32 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
 
       case 'voicemeeter': {
         const channel = this.pendingVoicemeeterChannel();
-        const parameter = `${channel}.${this.pendingVoicemeeterSwitch()}`;
-        const mode = this.pendingVoicemeeterMode();
-        if (channel === '' || !this.voicemeeterSwitches().includes(this.pendingVoicemeeterSwitch())) {
+        const name = this.pendingVoicemeeterSwitch();
+        const parameter = `${channel}.${name}`;
+        const mode = this.pendingSwitchMode();
+        if (channel === '' || !this.voicemeeterSwitches().includes(name)) {
           return null;
+        }
+        if (name === 'Gain') {
+          return { type: 'voicemeeterParameter', parameter, value: this.pendingVoicemeeterGain() };
         }
         return mode === 'toggle'
           ? { type: 'voicemeeterParameter', parameter }
           : { type: 'voicemeeterParameter', parameter, value: mode === 'on' ? 1 : 0 };
+      }
+
+      case 'app': {
+        const name = this.pendingAppName().trim();
+        const mode = this.pendingSwitchMode();
+        if (name === '' || name.length > this.maxAppNameLength) {
+          return null;
+        }
+        if (this.pendingAppSetting() === 'Volume') {
+          return { type: 'appVolume', name, volume: this.pendingAppVolume() };
+        }
+        return mode === 'toggle'
+          ? { type: 'appVolume', name }
+          : { type: 'appVolume', name, muted: mode === 'on' };
       }
     }
   }
@@ -271,18 +337,34 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
 
       case 'voicemeeterParameter': {
         const [id, name] = action.parameter.split('.');
-        const mode: VoicemeeterMode =
-          action.value === undefined ? 'toggle' : action.value === 1 ? 'on' : 'off';
+        const value = action.value ?? 0;
         return this.i18n.t('buttonEditor.describeStep.voicemeeter', {
           channel: this.voicemeeterChannels().find((channel) => channel.id === id)?.name ?? id,
           switch: this.voicemeeterSwitchLabel(name),
-          mode: this.i18n.t(`buttonEditor.voicemeeter.${mode}`),
+          mode:
+            name === 'Gain'
+              ? `${value > 0 ? '+' : ''}${value} dB`
+              : this.switchModeLabel(action.value === undefined ? undefined : action.value === 1),
         });
       }
+
+      case 'appVolume':
+        return this.i18n.t('buttonEditor.describeStep.app', {
+          name: action.name ?? action.id ?? '',
+          change:
+            action.volume !== undefined
+              ? `${action.volume} %`
+              : `${this.i18n.t('buttonEditor.voicemeeter.mute')} ${this.switchModeLabel(action.muted)}`,
+        });
 
       default:
         return '';
     }
+  }
+
+  private switchModeLabel(on: boolean | undefined): string {
+    const mode: SwitchMode = on === undefined ? 'toggle' : on ? 'on' : 'off';
+    return this.i18n.t(`buttonEditor.voicemeeter.${mode}`);
   }
 
   protected canSave(): boolean {
@@ -350,6 +432,10 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     const control = this.form.controls.label;
     return control.invalid && (control.dirty || control.touched);
   }
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function truncate(text: string, maxLength: number): string {

@@ -20,9 +20,12 @@ import { SettingsDialogComponent } from './settings-dialog.component';
 import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
-import { VoicemeeterComponent } from './voicemeeter.component';
+import { MixerComponent } from './mixer.component';
 
 type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system' | 'mixer';
+
+// Etwas laenger als der Sekundentakt der Medienmeldung, damit die neue Position schon da ist.
+const SEEK_SETTLE_MS = 1500;
 
 @Component({
   selector: 'app-remote-control',
@@ -34,7 +37,7 @@ type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system' | 'm
     KeyboardPadComponent,
     GamepadComponent,
     SystemStatsComponent,
-    VoicemeeterComponent,
+    MixerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './remote-control.component.html',
@@ -56,6 +59,13 @@ export class RemoteControlComponent {
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
   protected readonly mediaStatus = this.remote.mediaStatus;
+  protected readonly mediaCover = this.remote.mediaCover;
+  protected readonly formatTime = formatCountdown;
+  // Waehrend des Ziehens und kurz danach zeigt die Zeitleiste die Zielstelle: die sekuendliche
+  // Meldung setzte den Regler sonst mitten im Ziehen zurueck, und die neue Position kommt erst mit
+  // der naechsten Meldung.
+  protected readonly seekPreview = signal<number | null>(null);
+  private seekSettleTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly now = signal(Date.now());
   // Tickt nur, solange am PC ein Herunterfahren geplant ist.
   private readonly shutdownTickEffect = effect((onCleanup) => {
@@ -82,17 +92,13 @@ export class RemoteControlComponent {
   // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
-  protected readonly voicemeeterAvailable = this.remote.voicemeeterAvailable;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');
-  // Faellt die Systemanzeige oder Voicemeeter weg (Android-Server, /health fehlgeschlagen),
-  // verschwindet ihr Tab - ohne Wechsel bliebe die Ansicht leer und kein Tab ausgewaehlt.
+  // Systemanzeige und Mixer gibt es nur auf PC-Servern. Fallen sie weg (Android-Server,
+  // /health fehlgeschlagen), verschwinden ihre Tabs - ohne Wechsel bliebe die Ansicht leer.
   private readonly systemViewEffect = effect(() => {
-    if (
-      (!this.systemStatsSupported() && this.activeView() === 'system') ||
-      (!this.voicemeeterAvailable() && this.activeView() === 'mixer')
-    ) {
+    if (!this.systemStatsSupported() && (this.activeView() === 'system' || this.activeView() === 'mixer')) {
       this.activeView.set('remote');
     }
   });
@@ -127,6 +133,18 @@ export class RemoteControlComponent {
   protected setVolume(event: Event): void {
     const volume = (event.target as HTMLInputElement).valueAsNumber;
     this.remote.sendAction({ type: 'volume', volume });
+  }
+
+  protected previewSeek(event: Event): void {
+    clearTimeout(this.seekSettleTimer);
+    this.seekPreview.set((event.target as HTMLInputElement).valueAsNumber);
+  }
+
+  protected seek(event: Event): void {
+    const position = (event.target as HTMLInputElement).valueAsNumber;
+    this.remote.sendAction({ type: 'mediaSeek', position });
+    clearTimeout(this.seekSettleTimer);
+    this.seekSettleTimer = setTimeout(() => this.seekPreview.set(null), SEEK_SETTLE_MS);
   }
 
   protected openSettings(): void {

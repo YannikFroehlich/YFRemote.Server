@@ -13,6 +13,7 @@ import {
   ShutdownTimerMessage,
   SystemStatsMessage,
   VoicemeeterMessage,
+  AppVolumesMessage,
 } from './remote.models';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
@@ -144,6 +145,8 @@ export class RemoteService implements OnDestroy {
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
+  private readonly mediaCoverSignal = signal<string | null>(null);
+  private mediaCoverId: string | null = null;
   private readonly shutdownDeadlineSignal = signal<number | null>(null);
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
@@ -151,6 +154,8 @@ export class RemoteService implements OnDestroy {
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private voicemeeterWatched = false;
+  private readonly appsSignal = signal<AppVolumesMessage | null>(null);
+  private appsWatched = false;
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
   // wieder auftauchen.
   private dismissedFileOfferId: string | null = null;
@@ -183,6 +188,8 @@ export class RemoteService implements OnDestroy {
   readonly fileOffer = this.fileOfferSignal.asReadonly();
   /** Lautstaerke und laufendes Medium am PC; `null`, solange die Gegenstelle keine meldet. */
   readonly mediaStatus = this.mediaStatusSignal.asReadonly();
+  /** Albumcover des laufenden Mediums als Data-URL; `null` ohne Cover oder solange es laedt. */
+  readonly mediaCover = this.mediaCoverSignal.asReadonly();
   /** Zeitpunkt (`Date.now()`-Basis), zu dem der PC herunterfaehrt; `null` ohne geplanten Termin.
    *  Aus der gemeldeten Restzeit berechnet, weil die Uhr des Geraets von der des PCs abweichen kann. */
   readonly shutdownDeadline = this.shutdownDeadlineSignal.asReadonly();
@@ -201,6 +208,8 @@ export class RemoteService implements OnDestroy {
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
+  /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
+  readonly apps = this.appsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -368,6 +377,41 @@ export class RemoteService implements OnDestroy {
     });
   }
 
+  /** Wie `watchSystemStats`: der PC liest die Audio-Sitzungen nur, solange der Mixer offen ist. */
+  watchApps(enabled: boolean): void {
+    this.appsWatched = enabled;
+    if (!enabled) {
+      this.appsSignal.set(null);
+    }
+    this.sendAppsWatch();
+  }
+
+  /** Wie `setVoicemeeterParameter`: sofort anzeigen, die Bestaetigung kommt mit der naechsten Meldung. */
+  setApp(id: string, change: { readonly volume?: number; readonly muted?: boolean }): void {
+    const state = this.appsSignal();
+    if (!this.sendAction({ type: 'appVolume', id, ...change }) || state === null) {
+      return;
+    }
+
+    this.appsSignal.set({
+      ...state,
+      apps: state.apps.map((app) => (app.id === id ? { ...app, ...change } : app)),
+    });
+  }
+
+  /** Wechselt das Standard-Wiedergabegeraet des PCs, ebenfalls sofort angezeigt. */
+  setAudioOutput(id: string): void {
+    const state = this.appsSignal();
+    if (!this.sendAction({ type: 'audioOutput', id }) || state?.outputs === undefined) {
+      return;
+    }
+
+    this.appsSignal.set({
+      ...state,
+      outputs: state.outputs.map((output) => ({ ...output, default: output.id === id })),
+    });
+  }
+
   dismissFileOffer(): void {
     this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
     this.fileOfferSignal.set(null);
@@ -518,9 +562,11 @@ export class RemoteService implements OnDestroy {
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
       this.mediaStatusSignal.set(null);
+      this.clearMediaCover();
       this.shutdownDeadlineSignal.set(null);
       this.systemStatsSignal.set(null);
       this.voicemeeterSignal.set(null);
+      this.appsSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -550,6 +596,7 @@ export class RemoteService implements OnDestroy {
 
     if (isMediaStatusMessage(message)) {
       this.mediaStatusSignal.set(message);
+      void this.loadMediaCover(message.coverId ?? null);
       return;
     }
 
@@ -575,6 +622,13 @@ export class RemoteService implements OnDestroy {
     if (isVoicemeeterMessage(message)) {
       if (this.voicemeeterWatched) {
         this.voicemeeterSignal.set(message);
+      }
+      return;
+    }
+
+    if (isAppVolumesMessage(message)) {
+      if (this.appsWatched) {
+        this.appsSignal.set(message);
       }
       return;
     }
@@ -671,6 +725,9 @@ export class RemoteService implements OnDestroy {
     if (this.voicemeeterWatched) {
       this.sendVoicemeeterWatch();
     }
+    if (this.appsWatched) {
+      this.sendAppsWatch();
+    }
   }
 
   private sendClipboardSync(): void {
@@ -682,6 +739,46 @@ export class RemoteService implements OnDestroy {
   private sendSystemStats(): void {
     if (this.systemStatsSupported() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'systemStats', enabled: this.systemStatsWatched });
+    }
+  }
+
+  // Das Bild kommt nicht mit der sekuendlichen Meldung, sondern nur bei neuer CoverId per HTTP - mit
+  // Token im Header, deshalb fetch statt <img src>. Eine Antwort zu einem inzwischen anderen Cover
+  // wird verworfen.
+  private async loadMediaCover(coverId: string | null): Promise<void> {
+    if (coverId === this.mediaCoverId) {
+      return;
+    }
+
+    this.mediaCoverId = coverId;
+    this.mediaCoverSignal.set(null);
+    const token = this.pairing.token();
+    if (coverId === null || token === null) {
+      return;
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/media/cover`,
+        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
+      );
+      const cover = response.status === 200 ? await toDataUrl(response) : null;
+      if (this.mediaCoverId === coverId) {
+        this.mediaCoverSignal.set(cover);
+      }
+    } catch {
+      // Ohne Cover bleibt das Symbol stehen.
+    }
+  }
+
+  private clearMediaCover(): void {
+    this.mediaCoverId = null;
+    this.mediaCoverSignal.set(null);
+  }
+
+  private sendAppsWatch(): void {
+    if (this.systemStatsSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'apps', enabled: this.appsWatched });
     }
   }
 
@@ -716,10 +813,12 @@ export class RemoteService implements OnDestroy {
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
     this.fileOfferSignal.set(null);
     this.mediaStatusSignal.set(null);
+    this.clearMediaCover();
     // Ein noch geplanter Termin kommt beim naechsten Verbinden wieder.
     this.shutdownDeadlineSignal.set(null);
     this.systemStatsSignal.set(null);
     this.voicemeeterSignal.set(null);
+    this.appsSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -852,14 +951,30 @@ function isRumbleMessage(value: unknown): value is GamepadRumbleMessage {
 
 function isMediaStatusMessage(value: unknown): value is MediaStatusMessage {
   const message = value as Partial<MediaStatusMessage> | null;
+  const optional = (field: unknown, type: string) => field === undefined || typeof field === type;
   return (
     message?.type === 'media' &&
-    (message.volume === undefined || typeof message.volume === 'number') &&
+    optional(message.volume, 'number') &&
     typeof message.muted === 'boolean' &&
-    (message.title === undefined || typeof message.title === 'string') &&
-    (message.artist === undefined || typeof message.artist === 'string') &&
-    typeof message.playing === 'boolean'
+    optional(message.title, 'string') &&
+    optional(message.artist, 'string') &&
+    typeof message.playing === 'boolean' &&
+    optional(message.position, 'number') &&
+    optional(message.duration, 'number') &&
+    optional(message.canSeek, 'boolean') &&
+    optional(message.coverId, 'string')
   );
+}
+
+// Data-URL statt Blob-URL: nichts freizugeben, wenn das Cover wechselt. In Stuecken, weil
+// String.fromCharCode nur begrenzt viele Argumente nimmt.
+async function toDataUrl(response: Response): Promise<string> {
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:${response.headers.get('Content-Type') ?? 'image/png'};base64,${btoa(binary)}`;
 }
 
 function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
@@ -909,6 +1024,31 @@ function isVoicemeeterMessage(value: unknown): value is VoicemeeterMessage {
         ))) &&
     (routes === undefined ||
       (Array.isArray(routes) && routes.every((route) => typeof route === 'string')))
+  );
+}
+
+function isAppVolumesMessage(value: unknown): value is AppVolumesMessage {
+  const message = value as Partial<AppVolumesMessage> | null;
+  const apps = message?.apps as unknown;
+  const outputs = message?.outputs as unknown;
+  return (
+    message?.type === 'apps' &&
+    Array.isArray(apps) &&
+    apps.every(
+      (app) =>
+        typeof app?.id === 'string' &&
+        typeof app.name === 'string' &&
+        typeof app.volume === 'number' &&
+        typeof app.muted === 'boolean',
+    ) &&
+    (outputs === undefined ||
+      (Array.isArray(outputs) &&
+        outputs.every(
+          (output) =>
+            typeof output?.id === 'string' &&
+            typeof output.name === 'string' &&
+            typeof output.default === 'boolean',
+        )))
   );
 }
 

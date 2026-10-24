@@ -77,7 +77,10 @@ new component the same, unless everything its template reads is a signal or an i
      `PairingService`, never the other way around (see below), so there is no DI cycle.
    - Besides `rumble` and `fileOffer`, `handleResponse` takes three more server pushes out of the
      response path: `media` (`mediaStatus` signal, the strip above the Remote buttons, reset on
-     disconnect), `shutdownTimer` (`shutdownDeadline` signal, a local `Date.now()` deadline
+     disconnect; a new `coverId` makes the service fetch `GET /media/cover` with the `Bearer`
+     token into the `mediaCover` data-URL signal, and an answer for an outdated id is dropped; the
+     strip's second row is the timeline, whose `seekPreview` holds the dragged position until
+     shortly after the `mediaSeek` action, since the per-second push would reset it), `shutdownTimer` (`shutdownDeadline` signal, a local `Date.now()` deadline
      computed from `remainingSeconds`, reset on disconnect; `RemoteControlComponent` ticks a
      countdown strip with "Abbrechen" from it only while it is set) and `clipboard`
      (`pcClipboard` signal). `clipboardSync` is a persisted preference
@@ -94,15 +97,24 @@ new component the same, unless everything its template reads is a signal or an i
      `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
      measures only while a device watches, so never subscribe to it in the background.
-   - `voicemeeter` pushes work the same way via `watchVoicemeeter`, sent only where `/health`
-     reports `voicemeeter: true` (`voicemeeterAvailable`). `VoicemeeterComponent`
-     (`voicemeeter.component.ts`, the "Mixer" tab: inputs/outputs switch, mute, fader with a 0 dB
-     tick, "0 dB" reset) and the button editor (for channel names) watch
+   - `apps` pushes (volume per app) work the same way via `watchApps` on every PC server;
+     `setApp(id, {volume?, muted?})` sends `appVolume` and patches the signal right away;
+     `setAudioOutput(id)` does the same with `audioOutput` for the push's `outputs` (the Mixer's
+     "Ausgabegerät" select, shown with more than one device).
+     `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
+     reports `voicemeeter: true` (`voicemeeterAvailable`). `MixerComponent`
+     (`mixer.component.ts`, the "Mixer" tab, shown where `systemStatsSupported()`: an
+     Apps/Inputs/Outputs switch, the Voicemeeter groups only with Voicemeeter installed; one row
+     shape for both, apps in %, Voicemeeter in dB with a 0 dB tick and "0 dB" reset) and the
+     button editor (for channel names) watch
      while they are open; both are never open at once. `setVoicemeeterParameter` sends a
      `voicemeeterParameter` action and patches the signal right away, because the confirming push
-     comes up to a second later. Custom buttons can carry Voicemeeter switch steps (toggle/on/off of
-     `Mute`/`A1`...`B3`, never `Gain`); `VOICEMEETER_SWITCH_PATTERN` in `button-layout.ts` mirrors
-     the server's allowlist.
+     comes up to a second later. Custom buttons can carry Voicemeeter steps (toggle/on/off of
+     `Mute`/`A1`...`B3`, or `Gain` with a fixed dB value); `VOICEMEETER_PARAMETER_PATTERN` in
+     `button-layout.ts` mirrors the server's allowlist. They can also carry app steps
+     (`appVolume` by `name`, never `id`, since the process id changes with every start; without
+     `volume`/`muted` the server toggles mute). The editor watches `apps` too, for the name
+     suggestions in a `<datalist>`.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using Windows.Media.Control;
 using YFRemote.Server.Models;
 
@@ -9,15 +10,16 @@ namespace YFRemote.Server.Services;
 // Browser-Tabs, Filme & TV, ...). Beides wird bei jeder Abfrage neu geholt, weil sich das
 // Standardgeraet und die aktive Medien-App jederzeit aendern koennen. Bei einem Voicemeeter-Geraet
 // gelten Lautstaerke und Stummschaltung dem Voicemeeter-Kanal dahinter (WindowsVoicemeeter).
-public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : IVolumeService
+public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : IVolumeService, IMediaControl
 {
+    // Spotify & Co. liefern Cover um 300x300 Pixel (einige 10 KB); groessere schickt YFRemote nicht.
+    private const int MaxCoverBytes = 2 * 1024 * 1024;
     private const int ERender = 0;
     private const int EConsole = 0;
     private const int ClsCtxAll = 0x17;
     private const int StgmRead = 0;
     private const ushort VtLpwstr = 31;
 
-    private static readonly Guid AudioEndpointVolumeId = typeof(IAudioEndpointVolume).GUID;
 
     // PKEY_DeviceInterface_FriendlyName: der Adaptername ("VB-Audio Voicemeeter VAIO"), den
     // Nutzer anders als den Geraetenamen nicht umbenennen koennen.
@@ -25,12 +27,53 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
         new(new Guid("026E516E-B814-414B-83CD-856D6FEF4822"), 2);
 
     private GlobalSystemMediaTransportControlsSessionManager? sessionManager;
+    private MediaCover? cover;
+    private string? coverKey;
+
+    public MediaCover? Cover => Volatile.Read(ref cover);
 
     public async Task<MediaStatusMessage> ReadAsync()
     {
         var (volume, muted) = ReadVolume();
-        var (title, artist, playing) = await ReadNowPlayingAsync();
-        return new MediaStatusMessage(volume, muted, title, artist, playing);
+        var nowPlaying = await ReadNowPlayingAsync();
+        return nowPlaying with { Volume = volume, Muted = muted };
+    }
+
+    // GSMTC rechnet in Ticks ab StartTime; manche Apps melden Spulen und lehnen es dann trotzdem ab.
+    public void Seek(double seconds)
+    {
+        sessionManager ??= GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask().GetAwaiter().GetResult();
+        var session = sessionManager.GetCurrentSession() ?? throw new NotSupportedException("No media app is playing.");
+        var target = session.GetTimelineProperties().StartTime + TimeSpan.FromSeconds(seconds);
+        if (!session.TryChangePlaybackPositionAsync(target.Ticks).AsTask().GetAwaiter().GetResult())
+        {
+            throw new NotSupportedException("The media app does not allow seeking.");
+        }
+    }
+
+    // GSMTC meldet die Position zum Zeitpunkt LastUpdatedTime, viele Apps aktualisieren sie nur bei
+    // Pause oder Sprung. Laeuft die Wiedergabe, rechnet der Server deshalb bis jetzt weiter.
+    internal static (int? Position, int? Duration) Timeline(
+        TimeSpan start,
+        TimeSpan end,
+        TimeSpan position,
+        DateTimeOffset lastUpdated,
+        bool playing,
+        DateTimeOffset now)
+    {
+        var duration = end - start;
+        if (duration <= TimeSpan.Zero)
+        {
+            return (null, null);
+        }
+
+        var current = position - start;
+        if (playing && lastUpdated > DateTimeOffset.MinValue && now > lastUpdated)
+        {
+            current += now - lastUpdated;
+        }
+
+        return ((int)Math.Clamp(current.TotalSeconds, 0, duration.TotalSeconds), (int)duration.TotalSeconds);
     }
 
     // Wie der Lautstaerkeregler von Windows: wer die Lautstaerke zieht, will auch etwas hoeren.
@@ -100,9 +143,14 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
             return ((int)Math.Round(level * 100), muted);
         });
 
-    // Liefert default, wenn es kein Wiedergabegeraet gibt (z.B. Kopfhoerer abgezogen, keins mehr
-    // uebrig) - das ist kein Fehler.
-    private static T? WithEndpointVolume<T>(Func<IAudioEndpointVolume, string?, T> use)
+    private static T? WithEndpointVolume<T>(Func<IAudioEndpointVolume, string?, T> use) =>
+        WithDefaultDevice(use);
+
+    // Aktiviert TService (IAudioEndpointVolume, IAudioSessionManager2) am Standard-Wiedergabegeraet.
+    // Liefert default, wenn es keins gibt (z.B. Kopfhoerer abgezogen, keins mehr uebrig) - das ist
+    // kein Fehler.
+    private static T? WithDefaultDevice<TService, T>(Func<TService, string?, T> use)
+        where TService : class
     {
         var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
         IMMDevice? device = null;
@@ -115,9 +163,9 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
                 return default;
             }
 
-            var iid = AudioEndpointVolumeId;
+            var iid = typeof(TService).GUID;
             Marshal.ThrowExceptionForHR(device.Activate(ref iid, ClsCtxAll, IntPtr.Zero, out endpoint));
-            return use((IAudioEndpointVolume)endpoint, ReadInterfaceName(device));
+            return use((TService)endpoint, ReadString(device, DeviceInterfaceFriendlyName));
         }
         finally
         {
@@ -127,7 +175,7 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
         }
     }
 
-    private static string? ReadInterfaceName(IMMDevice device)
+    private static string? ReadString(IMMDevice device, PropertyKey key)
     {
         if (device.OpenPropertyStore(StgmRead, out var properties) != 0)
         {
@@ -136,7 +184,6 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
 
         try
         {
-            var key = DeviceInterfaceFriendlyName;
             if (properties.GetValue(ref key, out var value) != 0)
             {
                 return null;
@@ -157,19 +204,83 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
         }
     }
 
-    private async Task<(string? Title, string? Artist, bool Playing)> ReadNowPlayingAsync()
+    private async Task<MediaStatusMessage> ReadNowPlayingAsync()
     {
         sessionManager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
         var session = sessionManager.GetCurrentSession();
         if (session is null)
         {
-            return (null, null, false);
+            Volatile.Write(ref cover, null);
+            coverKey = null;
+            return new MediaStatusMessage(null, false, null, null, false);
         }
 
         var properties = await session.TryGetMediaPropertiesAsync();
-        var playing = session.GetPlaybackInfo()?.PlaybackStatus
-            == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
-        return (NullIfEmpty(properties?.Title), NullIfEmpty(properties?.Artist), playing);
+        var playback = session.GetPlaybackInfo();
+        var playing = playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+        var timeline = session.GetTimelineProperties();
+        var (position, duration) = Timeline(
+            timeline.StartTime,
+            timeline.EndTime,
+            timeline.Position,
+            timeline.LastUpdatedTime,
+            playing,
+            DateTimeOffset.Now);
+        await UpdateCoverAsync(properties);
+
+        return new MediaStatusMessage(
+            null,
+            false,
+            NullIfEmpty(properties?.Title),
+            NullIfEmpty(properties?.Artist),
+            playing,
+            position,
+            duration,
+            duration is not null && playback?.Controls?.IsPlaybackPositionEnabled == true,
+            Cover?.Id);
+    }
+
+    // Nur bei einem neuen Titel lesen, nicht jede Sekunde. Manche Apps liefern das Cover erst kurz
+    // nach dem Titel - ohne gelesenes Cover versucht es der naechste Abruf deshalb noch einmal. Ein
+    // Fehler kostet nur das Cover, nie die ganze Medienleiste.
+    private async Task UpdateCoverAsync(GlobalSystemMediaTransportControlsSessionMediaProperties? properties)
+    {
+        var key = properties is null ? null : $"{properties.Title}\n{properties.Artist}\n{properties.AlbumTitle}";
+        if (key is not null && key == coverKey)
+        {
+            return;
+        }
+
+        Volatile.Write(ref cover, null);
+        coverKey = null;
+        if (properties?.Thumbnail is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var stream = await properties.Thumbnail.OpenReadAsync();
+            if (stream.Size is 0 or > MaxCoverBytes)
+            {
+                coverKey = key;
+                return;
+            }
+
+            var data = new byte[stream.Size];
+            using (var input = stream.AsStreamForRead())
+            {
+                await input.ReadExactlyAsync(data);
+            }
+
+            var contentType = string.IsNullOrEmpty(stream.ContentType) ? "image/png" : stream.ContentType;
+            Volatile.Write(ref cover, new MediaCover(data, contentType, Convert.ToHexStringLower(SHA256.HashData(data))[..16]));
+            coverKey = key;
+        }
+        catch (Exception)
+        {
+            // Naechster Abruf versucht es erneut.
+        }
     }
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
@@ -192,7 +303,7 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
     private interface IMMDeviceEnumerator
     {
         [PreserveSig]
-        int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
+        int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
 
         [PreserveSig]
         int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice device);
@@ -212,6 +323,9 @@ public sealed class WindowsMediaStatusReader(WindowsVoicemeeter voicemeeter) : I
 
         [PreserveSig]
         int OpenPropertyStore(int stgmAccess, out IPropertyStore properties);
+
+        [PreserveSig]
+        int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
     }
 
     [ComImport]

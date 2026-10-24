@@ -11,9 +11,9 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Integration;
 
-// Deckt GET /media/cover (Endpoints/MediaEndpoints.cs) und GET /launch/apps ab. IMediaControl und
-// IAppLauncher werden wie in ClipboardEndpointTests ueber den configureServices-Hook ersetzt, damit
-// kein Test von der Medien-App oder dem Startmenue der Maschine abhaengt.
+// Deckt GET /media/cover (Endpoints/MediaEndpoints.cs), GET /launch/apps und GET /windows ab. Die
+// Dienste dahinter werden wie in ClipboardEndpointTests ueber den configureServices-Hook ersetzt,
+// damit kein Test von Medien-App, Startmenue oder Fenstern der Maschine abhaengt.
 [TestClass]
 public sealed class MediaEndpointTests
 {
@@ -46,7 +46,8 @@ public sealed class MediaEndpointTests
             ],
             services => services
                 .AddSingleton<IMediaControl>(media)
-                .AddSingleton<IAppLauncher>(new FakeAppLauncher()));
+                .AddSingleton<IAppLauncher>(new FakeAppLauncher())
+                .AddSingleton<IWindowService>(new FakeWindowService()));
         await app.StartAsync();
 
         httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
@@ -109,6 +110,23 @@ public sealed class MediaEndpointTests
         Assert.AreEqual("""["Discord","Spotify"]""", body.GetProperty("apps").GetRawText());
     }
 
+    [TestMethod]
+    public async Task Windows_ListsOpenWindowsForPairedDeviceOnly()
+    {
+        using var unauthorized = await httpClient.GetAsync("/windows");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/windows");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await PairAndGetTokenAsync());
+
+        var response = await httpClient.SendAsync(request);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(JsonOptions);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual(
+            """[{"id":"131072","title":"Editor","app":"Notepad"}]""",
+            body.GetProperty("windows").GetRawText());
+    }
+
     private async Task<HttpResponseMessage> GetCoverAsync(string? token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/media/cover");
@@ -135,6 +153,13 @@ public sealed class MediaEndpointTests
         var response = await httpClient.SendAsync(request);
         var body = await response.Content.ReadFromJsonAsync<PairResponse>(JsonOptions);
         return body!.Token!;
+    }
+
+    private sealed class FakeWindowService : IWindowService
+    {
+        public IReadOnlyList<OpenWindow> ListWindows() => [new OpenWindow("131072", "Editor", "Notepad")];
+
+        public bool TryFocus(string id) => false;
     }
 
     private sealed class FakeAppLauncher : IAppLauncher

@@ -171,6 +171,19 @@ export interface LaunchAction {
   readonly url?: string;
 }
 
+/** Ein Fenster aus `GET /windows` (wie Alt+Tab, das vorderste zuerst); `id` ist das Fensterhandle. */
+export interface OpenWindow {
+  readonly id: string;
+  readonly title: string;
+  readonly app: string;
+}
+
+/** Holt ein Fenster aus `GET /windows` in den Vordergrund. */
+export interface FocusWindowAction {
+  readonly type: 'focusWindow';
+  readonly id: string;
+}
+
 /** Macht ein Geraet aus `AppVolumesMessage.outputs` zum Standard-Wiedergabegeraet. */
 export interface AudioOutputAction {
   readonly type: 'audioOutput';
@@ -247,7 +260,8 @@ export type RemoteAction =
   | AppsWatchAction
   | AppVolumeAction
   | AudioOutputAction
-  | LaunchAction;
+  | LaunchAction
+  | FocusWindowAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

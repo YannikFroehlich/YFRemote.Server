@@ -34,7 +34,47 @@ public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaContr
     }
 
     public async Task<AppVolumesMessage> ReadAppsAsync() =>
-        new(ParseSinkInputs(await RunAsync("pactl", "list", "sink-inputs")));
+        new(
+            ParseSinkInputs(await RunAsync("pactl", "list", "sink-inputs")),
+            ParseSinks(await RunAsync("pactl", "list", "sinks"), (await RunAsync("pactl", "get-default-sink"))?.Trim()));
+
+    // PipeWire und neuere PulseAudio-Versionen ziehen laufende Streams mit auf das neue Geraet.
+    public void SetOutput(string id)
+    {
+        if (RunAsync("pactl", "set-default-sink", id).GetAwaiter().GetResult() is null)
+        {
+            throw new NotSupportedException("pactl failed or is not installed.");
+        }
+    }
+
+    // "Sink #0" leitet einen Eintrag ein, darunter "Name:" (die Id fuer set-default-sink) und
+    // "Description:" (der Name wie in den Toneinstellungen).
+    internal static IReadOnlyList<AudioOutput> ParseSinks(string? output, string? defaultSink)
+    {
+        const string namePrefix = "Name: ";
+        const string descriptionPrefix = "Description: ";
+        var outputs = new List<AudioOutput>();
+        string? id = null;
+
+        foreach (var line in (output ?? "").Split('\n').Select(line => line.Trim()))
+        {
+            if (line.StartsWith("Sink #", StringComparison.Ordinal))
+            {
+                id = null;
+            }
+            else if (line.StartsWith(namePrefix, StringComparison.Ordinal))
+            {
+                id = line[namePrefix.Length..];
+            }
+            else if (id is not null && line.StartsWith(descriptionPrefix, StringComparison.Ordinal))
+            {
+                outputs.Add(new AudioOutput(id, line[descriptionPrefix.Length..], id == defaultSink));
+                id = null;
+            }
+        }
+
+        return [.. outputs.OrderBy(output => output.Name, StringComparer.CurrentCultureIgnoreCase)];
+    }
 
     // Die Id ist die Nummer des Sink-Inputs. ponytail: ein Eintrag je Stream statt je App - spielt
     // ein Browser zwei Tabs ab, stehen dort zwei Regler.

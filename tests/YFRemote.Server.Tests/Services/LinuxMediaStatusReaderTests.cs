@@ -61,6 +61,33 @@ public sealed class LinuxMediaStatusReaderTests
     }
 
     [TestMethod]
+    public void ParseSinks_ReadsNameDescriptionAndDefault()
+    {
+        const string output = """
+            Sink #47
+            	State: RUNNING
+            	Name: alsa_output.usb-Headset-00.analog-stereo
+            	Description: USB Headset Analog Stereo
+            	Driver: PipeWire
+            	Properties:
+            		node.name = "alsa_output.usb-Headset-00.analog-stereo"
+            Sink #52
+            	State: SUSPENDED
+            	Name: alsa_output.pci-0000_00_1f.3.analog-stereo
+            	Description: Built-in Audio Analog Stereo
+            """;
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new AudioOutput("alsa_output.pci-0000_00_1f.3.analog-stereo", "Built-in Audio Analog Stereo", false),
+                new AudioOutput("alsa_output.usb-Headset-00.analog-stereo", "USB Headset Analog Stereo", true)
+            },
+            LinuxMediaStatusReader.ParseSinks(output, "alsa_output.usb-Headset-00.analog-stereo").ToArray());
+        Assert.AreEqual(0, LinuxMediaStatusReader.ParseSinks(null, null).Count);
+    }
+
+    [TestMethod]
     public void ParseNowPlaying_SplitsStatusTimelineTitleAndArtist()
     {
         Assert.AreEqual(

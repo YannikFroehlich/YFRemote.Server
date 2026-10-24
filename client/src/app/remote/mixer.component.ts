@@ -46,6 +46,11 @@ export class MixerComponent implements OnDestroy {
     this.groups().some((group) => group.kind === this.selectedGroup()) ? this.selectedGroup() : 'App',
   );
   protected readonly isApp = computed(() => this.group() === 'App');
+  // Mit nur einem Geraet gibt es nichts zu waehlen.
+  protected readonly outputs = computed(() => {
+    const outputs = this.remote.apps()?.outputs ?? [];
+    return outputs.length > 1 ? outputs : [];
+  });
   protected readonly view = computed<MixerView>(() => {
     if (this.isApp()) {
       const apps = this.remote.apps()?.apps;
@@ -95,6 +100,10 @@ export class MixerComponent implements OnDestroy {
 
   protected selectGroup(kind: MixerGroup): void {
     this.selectedGroup.set(kind);
+  }
+
+  protected selectOutput(event: Event): void {
+    this.remote.setAudioOutput((event.target as HTMLSelectElement).value);
   }
 
   protected toggleMute(row: MixerRow): void {

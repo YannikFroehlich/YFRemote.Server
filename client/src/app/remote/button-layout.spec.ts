@@ -348,23 +348,54 @@ describe('button-layout', () => {
   });
 
   describe('normalizeMacroStep (Voicemeeter)', () => {
-    it('keeps Voicemeeter switches with toggle, on or off', () => {
+    it('keeps Voicemeeter switches with toggle, on or off and gain in range', () => {
       for (const action of [
         { type: 'voicemeeterParameter', parameter: 'Strip[3].Mute' },
         { type: 'voicemeeterParameter', parameter: 'Strip[0].A1', value: 1 },
         { type: 'voicemeeterParameter', parameter: 'Bus[0].Mute', value: 0 },
+        { type: 'voicemeeterParameter', parameter: 'Strip[3].Gain', value: -10.5 },
+        { type: 'voicemeeterParameter', parameter: 'Bus[1].Gain', value: 12 },
       ]) {
         expect(normalizeMacroStep({ action, delayMs: 0 })).toEqual({ action, delayMs: 0 });
       }
     });
 
-    it('drops gain, foreign parameters and odd values', () => {
+    it('drops foreign parameters and odd values', () => {
       for (const action of [
-        { type: 'voicemeeterParameter', parameter: 'Strip[3].Gain', value: -10 },
+        { type: 'voicemeeterParameter', parameter: 'Strip[3].Gain' },
+        { type: 'voicemeeterParameter', parameter: 'Strip[3].Gain', value: 13 },
         { type: 'voicemeeterParameter', parameter: 'Command.Shutdown', value: 1 },
         { type: 'voicemeeterParameter', parameter: 'Bus[0].A1' },
         { type: 'voicemeeterParameter', parameter: 'Strip[3].Mute', value: 0.5 },
         { type: 'voicemeeterParameter' },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toBeNull();
+      }
+    });
+  });
+
+  describe('normalizeMacroStep (app volume)', () => {
+    it('keeps app steps by name with toggle, mute or volume', () => {
+      for (const action of [
+        { type: 'appVolume', name: 'Spotify' },
+        { type: 'appVolume', name: 'Discord', muted: true },
+        { type: 'appVolume', name: 'Google Chrome', volume: 30 },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toEqual({ action, delayMs: 0 });
+      }
+      expect(
+        normalizeMacroStep({ action: { type: 'appVolume', name: '  Spotify ' }, delayMs: 0 }),
+      ).toEqual({ action: { type: 'appVolume', name: 'Spotify' }, delayMs: 0 });
+    });
+
+    it('drops app steps by id, without name or with odd values', () => {
+      for (const action of [
+        { type: 'appVolume', id: '4711', muted: true },
+        { type: 'appVolume', name: '   ' },
+        { type: 'appVolume', name: 'x'.repeat(101) },
+        { type: 'appVolume', name: 'Spotify', volume: 101 },
+        { type: 'appVolume', name: 'Spotify', volume: 12.5 },
+        { type: 'appVolume', name: 'Spotify', muted: 'yes' },
       ]) {
         expect(normalizeMacroStep({ action, delayMs: 0 })).toBeNull();
       }

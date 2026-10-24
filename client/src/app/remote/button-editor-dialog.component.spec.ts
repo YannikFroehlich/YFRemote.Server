@@ -1,8 +1,9 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { BUTTON_ID_FACTORY, ButtonLayoutService } from './button-layout.service';
-import { REMOTE_STORAGE } from './remote.service';
+import { REMOTE_STORAGE, RemoteService } from './remote.service';
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>();
@@ -32,7 +33,26 @@ class MemoryStorage implements Storage {
   }
 }
 
-async function setupDialog(targetId: string | null = null): Promise<{
+// Ein PC mit Voicemeeter und einer App mit Ton - nur, was der Editor davon liest.
+function pcWithAudio(): object {
+  return {
+    voicemeeterAvailable: signal(true),
+    voicemeeter: signal({
+      type: 'voicemeeter',
+      channels: [{ id: 'Strip[0]', name: 'Mikrofon', muted: false, gain: 0 }],
+      routes: ['A1'],
+    }),
+    systemStatsSupported: signal(true),
+    apps: signal({ type: 'apps', apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }] }),
+    watchVoicemeeter: () => undefined,
+    watchApps: () => undefined,
+  };
+}
+
+async function setupDialog(
+  targetId: string | null = null,
+  remote?: object,
+): Promise<{
   readonly fixture: ReturnType<typeof TestBed.createComponent<ButtonEditorDialogComponent>>;
   readonly root: HTMLElement;
   readonly layout: ButtonLayoutService;
@@ -42,6 +62,7 @@ async function setupDialog(targetId: string | null = null): Promise<{
     providers: [
       { provide: REMOTE_STORAGE, useValue: new MemoryStorage() },
       { provide: BUTTON_ID_FACTORY, useValue: () => 'custom:test1' },
+      ...(remote === undefined ? [] : [{ provide: RemoteService, useValue: remote }]),
     ],
   }).compileComponents();
 
@@ -92,6 +113,16 @@ function stepSummaries(root: HTMLElement): string[] {
   return Array.from(root.querySelectorAll<HTMLElement>('.macro-step__summary')).map(
     (element) => element.textContent?.trim().replace(/\s+/g, ' ') ?? '',
   );
+}
+
+function setField(root: HTMLElement, label: string, value: string): void {
+  const field = Array.from(root.querySelectorAll<HTMLLabelElement>('label.field')).find(
+    (candidate) => candidate.querySelector('span')?.textContent?.trim() === label,
+  );
+  const control = field?.querySelector<HTMLInputElement | HTMLSelectElement>('input, select');
+  if (control == null) throw new Error(`Field not found: ${label}`);
+  control.value = value;
+  control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? 'change' : 'input'));
 }
 
 function setLabel(root: HTMLElement, label: string): void {
@@ -203,6 +234,47 @@ describe('ButtonEditorDialogComponent', () => {
     fixture.detectChanges();
 
     expect(stepSummaries(root)).toEqual(['+300ms Taste: ENTER']);
+  });
+
+  it('adds a Voicemeeter gain step in dB', async () => {
+    const { root, fixture } = await setupDialog(null, pcWithAudio());
+
+    queryButtonByText(root, 'Voicemeeter').click();
+    fixture.detectChanges();
+    setField(root, 'Kanal', 'Strip[0]');
+    fixture.detectChanges();
+    keyChip(root, 'Lautstärke').click();
+    fixture.detectChanges();
+    setField(root, 'Lautstärke (dB)', '-6.5');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    expect(stepSummaries(root)).toEqual(['Voicemeeter: Mikrofon · Lautstärke -6.5 dB']);
+  });
+
+  it('adds app steps by name: mute toggle and volume', async () => {
+    const { root, fixture } = await setupDialog(null, pcWithAudio());
+
+    queryButtonByText(root, 'App').click();
+    fixture.detectChanges();
+    expect(root.querySelector('datalist option')?.getAttribute('value')).toBe('Spotify');
+    setField(root, 'App-Name wie im Mixer', 'Spotify');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    keyChip(root, 'Lautstärke').click();
+    fixture.detectChanges();
+    setField(root, 'Lautstärke (%)', '30');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    expect(stepSummaries(root)).toEqual([
+      'App: Spotify · Stumm umschalten',
+      'App: Spotify · 30 %',
+    ]);
   });
 
   it('removes a step', async () => {

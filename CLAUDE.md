@@ -165,7 +165,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 - `GET /media/cover` (`MediaEndpoints`) → the album cover of the playing media app from
   `IMediaControl.Cover`, same `Bearer`/optional-`Origin` gate and `no-store`, `204` without one.
   The `media` push carries only its `coverId`, so the image is fetched once per track, not every
-  second. Windows only (GSMTC thumbnail, read on a track change, capped at 2 MB).
+  second. Windows reads the GSMTC thumbnail on a track change; Linux loads playerctl's
+  `mpris:artUrl` (`file://` from browsers/VLC, `https://` from Spotify; PNG/JPEG only) beside the
+  poll when URL or title change, so a slow download never delays the push - the `coverId` follows
+  with the next one. Both cap it at 2 MB. Linux is only covered by tests on local files.
 - `GET /launch/apps` (`LaunchEndpoints`) → `{ apps: [name] }`, the apps a `launch` action may
   start (`IAppLauncher.ListApps`), for the button editor's suggestions; same gate and `no-store`.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.

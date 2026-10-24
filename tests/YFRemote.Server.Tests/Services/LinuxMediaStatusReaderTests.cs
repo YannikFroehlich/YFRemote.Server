@@ -88,18 +88,53 @@ public sealed class LinuxMediaStatusReaderTests
     }
 
     [TestMethod]
-    public void ParseNowPlaying_SplitsStatusTimelineTitleAndArtist()
+    public void ParseNowPlaying_SplitsStatusTimelineCoverTitleAndArtist()
     {
         Assert.AreEqual(
-            new MediaStatusMessage(null, false, "Song", "Band", true, 83, 215, CanSeek: true),
-            LinuxMediaStatusReader.ParseNowPlaying("Playing\t83500000\t215000000\tSong\tBand\n"));
-        // Livestream: keine Laenge, also auch keine Zeitleiste
+            (new MediaStatusMessage(null, false, "Song", "Band", true, 83, 215, CanSeek: true),
+                "https://i.scdn.co/image/ab67616d"),
+            LinuxMediaStatusReader.ParseNowPlaying(
+                "Playing\t83500000\t215000000\thttps://i.scdn.co/image/ab67616d\tSong\tBand\n"));
+        // Livestream ohne Cover: keine Laenge, also auch keine Zeitleiste
         Assert.AreEqual(
-            new MediaStatusMessage(null, false, "Video", null, false),
-            LinuxMediaStatusReader.ParseNowPlaying("Paused\t12000000\t\tVideo\t\n"));
+            (new MediaStatusMessage(null, false, "Video", null, false), (string?)null),
+            LinuxMediaStatusReader.ParseNowPlaying("Paused\t12000000\t\t\tVideo\t\n"));
         // playerctl ohne laufenden Player
         Assert.AreEqual(
-            new MediaStatusMessage(null, false, null, null, false),
+            (new MediaStatusMessage(null, false, null, null, false), (string?)null),
             LinuxMediaStatusReader.ParseNowPlaying(null));
+    }
+
+    [TestMethod]
+    public async Task ReadCoverAsync_ReadsLocalPngAndJpegOnly()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "YFRemote.Server.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var png = Path.Combine(directory, "cover.png");
+            byte[] pngBytes = [0x89, 0x50, 0x4E, 0x47, 1, 2, 3];
+            await File.WriteAllBytesAsync(png, pngBytes);
+            var text = Path.Combine(directory, "cover.txt");
+            await File.WriteAllTextAsync(text, "kein Bild");
+            var tooLarge = Path.Combine(directory, "large.png");
+            await File.WriteAllBytesAsync(tooLarge, [.. pngBytes, .. new byte[2 * 1024 * 1024]]);
+
+            var cover = await LinuxMediaStatusReader.ReadCoverAsync(new Uri(png).AbsoluteUri);
+
+            Assert.IsNotNull(cover);
+            Assert.AreEqual("image/png", cover.ContentType);
+            CollectionAssert.AreEqual(pngBytes, cover.Data);
+            Assert.AreEqual(16, cover.Id.Length);
+            Assert.IsNull(await LinuxMediaStatusReader.ReadCoverAsync(new Uri(text).AbsoluteUri));
+            Assert.IsNull(await LinuxMediaStatusReader.ReadCoverAsync(new Uri(tooLarge).AbsoluteUri));
+            Assert.IsNull(await LinuxMediaStatusReader.ReadCoverAsync(new Uri(Path.Combine(directory, "missing.png")).AbsoluteUri));
+            Assert.IsNull(await LinuxMediaStatusReader.ReadCoverAsync("data:image/png;base64,iVBORw0KGgo="));
+            Assert.IsNull(await LinuxMediaStatusReader.ReadCoverAsync("kein uri"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 }

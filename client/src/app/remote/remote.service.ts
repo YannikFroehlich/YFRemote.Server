@@ -412,6 +412,27 @@ export class RemoteService implements OnDestroy {
     });
   }
 
+  /** Die Apps, die ein eigener Button am PC starten darf; leer, wenn der PC nicht antwortet. */
+  async readLaunchApps(): Promise<readonly string[]> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return [];
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/launch/apps`,
+        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
+      );
+      const body = response.ok ? ((await response.json()) as { apps?: unknown }) : null;
+      return Array.isArray(body?.apps)
+        ? body.apps.filter((name): name is string => typeof name === 'string')
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
   dismissFileOffer(): void {
     this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
     this.fileOfferSignal.set(null);

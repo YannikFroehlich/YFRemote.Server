@@ -163,6 +163,14 @@ export interface AppVolumeAction {
   readonly muted?: boolean;
 }
 
+/** Startet eine App aus `GET /launch/apps` per `name` oder oeffnet eine http(s)-`url` im
+ *  Standardbrowser des PCs. */
+export interface LaunchAction {
+  readonly type: 'launch';
+  readonly name?: string;
+  readonly url?: string;
+}
+
 /** Macht ein Geraet aus `AppVolumesMessage.outputs` zum Standard-Wiedergabegeraet. */
 export interface AudioOutputAction {
   readonly type: 'audioOutput';
@@ -238,7 +246,8 @@ export type RemoteAction =
   | VoicemeeterParameterAction
   | AppsWatchAction
   | AppVolumeAction
-  | AudioOutputAction;
+  | AudioOutputAction
+  | LaunchAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

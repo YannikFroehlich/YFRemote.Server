@@ -37,4 +37,6 @@ public sealed record RemoteActionRequest
     public string? Name { get; init; }
 
     public bool? Muted { get; init; }
+
+    public string? Url { get; init; }
 }

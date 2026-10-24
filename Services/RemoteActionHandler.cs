@@ -18,7 +18,8 @@ public sealed partial class RemoteActionHandler(
     PollingBroadcaster<VoicemeeterMessage>? voicemeeterStatus = null,
     IMediaControl? mediaControl = null,
     IAppVolumeService? appVolumes = null,
-    PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null)
+    PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null,
+    IAppLauncher? appLauncher = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -28,6 +29,7 @@ public sealed partial class RemoteActionHandler(
     private const int MaxMouseScrollDelta = 1200;
     private const int MaxTextLength = 500;
     private const int MaxAppNameLength = 100;
+    private const int MaxUrlLength = 2000;
 
     public RemoteActionResponse Handle(RemoteActionRequest? request, RemoteActionSession? session = null)
     {
@@ -69,6 +71,7 @@ public sealed partial class RemoteActionHandler(
                 "apps" => HandleAppsWatch(request, session),
                 "appvolume" => HandleAppVolume(request),
                 "audiooutput" => HandleAudioOutput(request),
+                "launch" => HandleLaunch(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -611,6 +614,45 @@ public sealed partial class RemoteActionHandler(
         logger.LogInformation("Switching the audio output to {Id}.", id);
         appVolumes.SetOutput(id);
 
+        return RemoteActionResponse.Ok();
+    }
+
+    // Nur Apps aus der eigenen Liste (Startmenue bzw. .desktop-Dateien) und http(s)-Adressen - keine
+    // freie Befehlszeile, die beliebige Programme mit Argumenten starten koennte.
+    private RemoteActionResponse HandleLaunch(RemoteActionRequest request)
+    {
+        if (appLauncher is null)
+        {
+            return Fail("Launching apps is not supported.");
+        }
+
+        if (request.Url is { } url)
+        {
+            if (url.Length > MaxUrlLength
+                || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri)
+                || uri.Scheme is not ("http" or "https"))
+            {
+                return Fail("Action 'launch' requires an http or https url.");
+            }
+
+            // Nur der Host: Pfad und Abfrage koennen Persoenliches enthalten.
+            logger.LogInformation("Opening a URL on {Host}.", uri.Host);
+            appLauncher.OpenUrl(uri);
+            return RemoteActionResponse.Ok();
+        }
+
+        var name = request.Name?.Trim();
+        if (name is null || name.Length is 0 or > MaxAppNameLength)
+        {
+            return Fail("Action 'launch' requires name or url.");
+        }
+
+        if (!appLauncher.TryLaunchApp(name))
+        {
+            return Fail("Unknown app.");
+        }
+
+        logger.LogInformation("Launched app {Name}.", name);
         return RemoteActionResponse.Ok();
     }
 

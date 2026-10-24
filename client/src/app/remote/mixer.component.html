@@ -17,6 +17,17 @@
     </div>
   }
 
+  @if (isApp() && outputs().length > 0) {
+    <label class="field">
+      <span>{{ i18n.t('mixer.output') }}</span>
+      <select (change)="selectOutput($event)">
+        @for (output of outputs(); track output.id) {
+          <option [value]="output.id" [selected]="output.default">{{ output.name }}</option>
+        }
+      </select>
+    </label>
+  }
+
   @switch (view().state) {
     @case ('waiting') {
       <p class="stats-waiting">{{ i18n.t('mixer.waiting') }}</p>

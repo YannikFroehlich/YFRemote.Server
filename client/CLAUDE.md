@@ -98,7 +98,9 @@ new component the same, unless everything its template reads is a signal or an i
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
      measures only while a device watches, so never subscribe to it in the background.
    - `apps` pushes (volume per app) work the same way via `watchApps` on every PC server;
-     `setApp(id, {volume?, muted?})` sends `appVolume` and patches the signal right away.
+     `setApp(id, {volume?, muted?})` sends `appVolume` and patches the signal right away;
+     `setAudioOutput(id)` does the same with `audioOutput` for the push's `outputs` (the Mixer's
+     "Ausgabegerät" select, shown with more than one device).
      `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
      reports `voicemeeter: true` (`voicemeeterAvailable`). `MixerComponent`
      (`mixer.component.ts`, the "Mixer" tab, shown where `systemStatsSupported()`: an
@@ -107,9 +109,12 @@ new component the same, unless everything its template reads is a signal or an i
      button editor (for channel names) watch
      while they are open; both are never open at once. `setVoicemeeterParameter` sends a
      `voicemeeterParameter` action and patches the signal right away, because the confirming push
-     comes up to a second later. Custom buttons can carry Voicemeeter switch steps (toggle/on/off of
-     `Mute`/`A1`...`B3`, never `Gain`); `VOICEMEETER_SWITCH_PATTERN` in `button-layout.ts` mirrors
-     the server's allowlist.
+     comes up to a second later. Custom buttons can carry Voicemeeter steps (toggle/on/off of
+     `Mute`/`A1`...`B3`, or `Gain` with a fixed dB value); `VOICEMEETER_PARAMETER_PATTERN` in
+     `button-layout.ts` mirrors the server's allowlist. They can also carry app steps
+     (`appVolume` by `name`, never `id`, since the process id changes with every start; without
+     `volume`/`muted` the server toggles mute). The editor watches `apps` too, for the name
+     suggestions in a `<datalist>`.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

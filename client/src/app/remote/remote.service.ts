@@ -399,6 +399,19 @@ export class RemoteService implements OnDestroy {
     });
   }
 
+  /** Wechselt das Standard-Wiedergabegeraet des PCs, ebenfalls sofort angezeigt. */
+  setAudioOutput(id: string): void {
+    const state = this.appsSignal();
+    if (!this.sendAction({ type: 'audioOutput', id }) || state?.outputs === undefined) {
+      return;
+    }
+
+    this.appsSignal.set({
+      ...state,
+      outputs: state.outputs.map((output) => ({ ...output, default: output.id === id })),
+    });
+  }
+
   dismissFileOffer(): void {
     this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
     this.fileOfferSignal.set(null);
@@ -1017,6 +1030,7 @@ function isVoicemeeterMessage(value: unknown): value is VoicemeeterMessage {
 function isAppVolumesMessage(value: unknown): value is AppVolumesMessage {
   const message = value as Partial<AppVolumesMessage> | null;
   const apps = message?.apps as unknown;
+  const outputs = message?.outputs as unknown;
   return (
     message?.type === 'apps' &&
     Array.isArray(apps) &&
@@ -1026,7 +1040,15 @@ function isAppVolumesMessage(value: unknown): value is AppVolumesMessage {
         typeof app.name === 'string' &&
         typeof app.volume === 'number' &&
         typeof app.muted === 'boolean',
-    )
+    ) &&
+    (outputs === undefined ||
+      (Array.isArray(outputs) &&
+        outputs.every(
+          (output) =>
+            typeof output?.id === 'string' &&
+            typeof output.name === 'string' &&
+            typeof output.default === 'boolean',
+        )))
   );
 }
 

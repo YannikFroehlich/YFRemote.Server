@@ -192,6 +192,18 @@
                     Voicemeeter
                   </button>
                 }
+                @if (appStepsSupported()) {
+                  <button
+                    type="button"
+                    class="view-tab"
+                    role="tab"
+                    [class.view-tab--active]="stepType() === 'app'"
+                    [attr.aria-selected]="stepType() === 'app'"
+                    (click)="setStepType('app')"
+                  >
+                    App
+                  </button>
+                }
               </div>
 
               @if (stepType() === 'keys') {
@@ -251,21 +263,70 @@
                       </button>
                     }
                   </div>
-                  <div class="mouse-click-picker">
-                    @for (mode of voicemeeterModes; track mode) {
-                      <button
-                        type="button"
-                        class="secondary-button"
-                        [class.key-chip--active]="pendingVoicemeeterMode() === mode"
-                        [attr.aria-pressed]="pendingVoicemeeterMode() === mode"
-                        (click)="pendingVoicemeeterMode.set(mode)"
-                      >
-                        {{ i18n.t('buttonEditor.voicemeeter.' + mode) }}
-                      </button>
-                    }
-                  </div>
+                  @if (pendingVoicemeeterSwitch() === 'Gain') {
+                    <label class="field">
+                      <span>{{ i18n.t('buttonEditor.voicemeeter.gainField') }}</span>
+                      <input
+                        type="number"
+                        [attr.min]="minGain"
+                        [attr.max]="maxGain"
+                        step="0.5"
+                        [value]="pendingVoicemeeterGain()"
+                        (input)="onVoicemeeterGainInput($event)"
+                      />
+                    </label>
+                  } @else {
+                    <ng-container *ngTemplateOutlet="switchModePicker" />
+                  }
                 } @else {
                   <p class="macro-steps__empty">{{ i18n.t('buttonEditor.voicemeeter.notRunning') }}</p>
+                }
+              } @else if (stepType() === 'app') {
+                <label class="field">
+                  <span>{{ i18n.t('buttonEditor.app.name') }}</span>
+                  <input
+                    type="text"
+                    list="button-editor-app-names"
+                    [attr.maxlength]="maxAppNameLength"
+                    [value]="pendingAppName()"
+                    [placeholder]="i18n.t('buttonEditor.app.placeholder')"
+                    (input)="onAppNameInput($event)"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <datalist id="button-editor-app-names">
+                    @for (name of appNames(); track name) {
+                      <option [value]="name"></option>
+                    }
+                  </datalist>
+                </label>
+                <div class="key-group__keys">
+                  @for (setting of appSettings; track setting) {
+                    <button
+                      class="key-chip"
+                      type="button"
+                      [class.key-chip--active]="pendingAppSetting() === setting"
+                      [attr.aria-pressed]="pendingAppSetting() === setting"
+                      (click)="pendingAppSetting.set(setting)"
+                    >
+                      {{ i18n.t(setting === 'Mute' ? 'buttonEditor.voicemeeter.mute' : 'buttonEditor.voicemeeter.gain') }}
+                    </button>
+                  }
+                </div>
+                @if (pendingAppSetting() === 'Volume') {
+                  <label class="field">
+                    <span>{{ i18n.t('buttonEditor.app.volumeField') }}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      [value]="pendingAppVolume()"
+                      (input)="onAppVolumeInput($event)"
+                    />
+                  </label>
+                } @else {
+                  <ng-container *ngTemplateOutlet="switchModePicker" />
                 }
               } @else {
                 <div class="mouse-click-picker">
@@ -344,3 +405,19 @@
     </form>
   </section>
 </div>
+
+<ng-template #switchModePicker>
+  <div class="mouse-click-picker">
+    @for (mode of switchModes; track mode) {
+      <button
+        type="button"
+        class="secondary-button"
+        [class.key-chip--active]="pendingSwitchMode() === mode"
+        [attr.aria-pressed]="pendingSwitchMode() === mode"
+        (click)="pendingSwitchMode.set(mode)"
+      >
+        {{ i18n.t('buttonEditor.voicemeeter.' + mode) }}
+      </button>
+    }
+  </div>
+</ng-template>

@@ -594,6 +594,10 @@ describe('RemoteService', () => {
     const state = {
       type: 'apps',
       apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }],
+      outputs: [
+        { id: 'speakers', name: 'Lautsprecher', default: true },
+        { id: 'headset', name: 'Headset', default: false },
+      ],
     };
 
     remote.watchApps(true);
@@ -606,12 +610,15 @@ describe('RemoteService', () => {
     sockets[0].receive(JSON.stringify(state));
     remote.setApp('4711', { volume: 35 });
     remote.setApp('4711', { muted: true });
+    remote.setAudioOutput('headset');
 
-    expect(sockets[0].sentMessages.slice(-2)).toEqual([
+    expect(sockets[0].sentMessages.slice(-3)).toEqual([
       '{"type":"appVolume","id":"4711","volume":35}',
       '{"type":"appVolume","id":"4711","muted":true}',
+      '{"type":"audioOutput","id":"headset"}',
     ]);
     expect(remote.apps()?.apps).toEqual([{ id: '4711', name: 'Spotify', volume: 35, muted: true }]);
+    expect(remote.apps()?.outputs?.map((output) => output.default)).toEqual([false, true]);
 
     remote.watchApps(false);
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"apps","enabled":false}');

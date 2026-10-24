@@ -14,6 +14,12 @@ public sealed partial class WindowsMediaStatusReader : IAppVolumeService
 {
     private const string SystemSoundsId = "system";
     private const int SessionExpired = 2;
+    private const int DeviceStateActive = 1;
+    private const int EMultimedia = 1;
+
+    // PKEY_Device_FriendlyName: der Name wie in den Soundeinstellungen ("Lautsprecher (Realtek(R) Audio)").
+    private static readonly PropertyKey DeviceFriendlyName =
+        new(new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"), 14);
 
     // Die Dateibeschreibung zu lesen kostet je Prozess einige Millisekunden, abgefragt wird jede
     // Sekunde. ponytail: Schluessel nur die Prozessnummer - nach Wiederverwendung der Nummer
@@ -21,7 +27,69 @@ public sealed partial class WindowsMediaStatusReader : IAppVolumeService
     private readonly Dictionary<uint, string> processNames = [];
 
     public Task<AppVolumesMessage> ReadAppsAsync() =>
-        Task.FromResult(new AppVolumesMessage(WithSessions(ReadApps) ?? []));
+        Task.FromResult(new AppVolumesMessage(WithSessions(ReadApps) ?? [], ReadOutputs()));
+
+    // Wie die Soundeinstellungen: IPolicyConfig ist nicht dokumentiert, aber seit Windows 7
+    // unveraendert und der Weg aller Umschalt-Tools. Nur das Standardgeraet - das
+    // Kommunikationsgeraet (Discord, Teams) bleibt, wie es eingestellt ist.
+    public void SetOutput(string id)
+    {
+        var policy = (IPolicyConfig)new PolicyConfigClient();
+        try
+        {
+            Marshal.ThrowExceptionForHR(policy.SetDefaultEndpoint(id, EConsole));
+            Marshal.ThrowExceptionForHR(policy.SetDefaultEndpoint(id, EMultimedia));
+        }
+        finally
+        {
+            Release(policy);
+        }
+    }
+
+    private static IReadOnlyList<AudioOutput> ReadOutputs()
+    {
+        var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+        IMMDeviceCollection? devices = null;
+        try
+        {
+            string? defaultId = null;
+            if (enumerator.GetDefaultAudioEndpoint(ERender, EConsole, out var defaultDevice) == 0)
+            {
+                defaultId = defaultDevice.GetId(out var id) == 0 ? id : null;
+                Release(defaultDevice);
+            }
+
+            Marshal.ThrowExceptionForHR(enumerator.EnumAudioEndpoints(ERender, DeviceStateActive, out devices));
+            Marshal.ThrowExceptionForHR(devices.GetCount(out var count));
+            var outputs = new List<AudioOutput>();
+            for (uint index = 0; index < count; index++)
+            {
+                if (devices.Item(index, out var device) != 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (device.GetId(out var id) == 0)
+                    {
+                        outputs.Add(new AudioOutput(id, ReadString(device, DeviceFriendlyName) ?? id, id == defaultId));
+                    }
+                }
+                finally
+                {
+                    Release(device);
+                }
+            }
+
+            return [.. outputs.OrderBy(output => output.Name, StringComparer.CurrentCultureIgnoreCase)];
+        }
+        finally
+        {
+            Release(devices);
+            Release(enumerator);
+        }
+    }
 
     public void SetApp(string id, int? volume, bool? muted)
     {
@@ -177,6 +245,66 @@ public sealed partial class WindowsMediaStatusReader : IAppVolumeService
     }
 
     private sealed record AudioSession(IAudioSessionControl2 Control, ISimpleAudioVolume Volume, string Id);
+
+    [ComImport]
+    [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceCollection
+    {
+        [PreserveSig]
+        int GetCount(out uint count);
+
+        [PreserveSig]
+        int Item(uint index, out IMMDevice device);
+    }
+
+    [ComImport]
+    [Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+    private class PolicyConfigClient;
+
+    // Nur SetDefaultEndpoint wird gebraucht; die zehn Methoden davor halten die vtable-Reihenfolge.
+    // Eine fehlende davor riefe stattdessen SetEndpointVisibility auf und versteckte das Geraet.
+    [ComImport]
+    [Guid("F8679F50-850A-41CF-9C72-430F290290C8")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPolicyConfig
+    {
+        [PreserveSig]
+        int GetMixFormat(IntPtr deviceId, IntPtr format);
+
+        [PreserveSig]
+        int GetDeviceFormat(IntPtr deviceId, int useDefault, IntPtr format);
+
+        [PreserveSig]
+        int ResetDeviceFormat(IntPtr deviceId);
+
+        [PreserveSig]
+        int SetDeviceFormat(IntPtr deviceId, IntPtr endpointFormat, IntPtr mixFormat);
+
+        [PreserveSig]
+        int GetProcessingPeriod(IntPtr deviceId, int useDefault, IntPtr defaultPeriod, IntPtr minimumPeriod);
+
+        [PreserveSig]
+        int SetProcessingPeriod(IntPtr deviceId, IntPtr period);
+
+        [PreserveSig]
+        int GetShareMode(IntPtr deviceId, IntPtr mode);
+
+        [PreserveSig]
+        int SetShareMode(IntPtr deviceId, IntPtr mode);
+
+        [PreserveSig]
+        int GetPropertyValue(IntPtr deviceId, int fxStore, IntPtr key, IntPtr value);
+
+        [PreserveSig]
+        int SetPropertyValue(IntPtr deviceId, int fxStore, IntPtr key, IntPtr value);
+
+        [PreserveSig]
+        int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string deviceId, int role);
+
+        [PreserveSig]
+        int SetEndpointVisibility(IntPtr deviceId, int visible);
+    }
 
     [ComImport]
     [Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F")]

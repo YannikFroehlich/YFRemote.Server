@@ -153,12 +153,26 @@ export interface AppsWatchAction {
   readonly enabled: boolean;
 }
 
-/** Setzt Lautstaerke (0-100) und/oder Stummschaltung einer App. */
+/** Setzt Lautstaerke (0-100) und/oder Stummschaltung einer App: per `id` aus dem Mixer oder per
+ *  `name` aus einem eigenen Button (trifft alle Apps des Namens; ohne beides wird umgeschaltet). */
 export interface AppVolumeAction {
   readonly type: 'appVolume';
-  readonly id: string;
+  readonly id?: string;
+  readonly name?: string;
   readonly volume?: number;
   readonly muted?: boolean;
+}
+
+/** Macht ein Geraet aus `AppVolumesMessage.outputs` zum Standard-Wiedergabegeraet. */
+export interface AudioOutputAction {
+  readonly type: 'audioOutput';
+  readonly id: string;
+}
+
+export interface AudioOutput {
+  readonly id: string;
+  readonly name: string;
+  readonly default: boolean;
 }
 
 /** Eine App mit Ton am PC; `id` ist die Prozessnummer, unter Linux die Stream-Nummer, oder
@@ -173,6 +187,7 @@ export interface AppVolume {
 export interface AppVolumesMessage {
   readonly type: 'apps';
   readonly apps: readonly AppVolume[];
+  readonly outputs?: readonly AudioOutput[];
 }
 
 /** Lautstaerke und laufendes Medium am PC; kommt ungefragt beim Verbinden und bei jeder Aenderung.
@@ -222,7 +237,8 @@ export type RemoteAction =
   | VoicemeeterWatchAction
   | VoicemeeterParameterAction
   | AppsWatchAction
-  | AppVolumeAction;
+  | AppVolumeAction
+  | AudioOutputAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

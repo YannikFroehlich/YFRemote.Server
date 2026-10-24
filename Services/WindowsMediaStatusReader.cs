@@ -165,7 +165,7 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
 
             var iid = typeof(TService).GUID;
             Marshal.ThrowExceptionForHR(device.Activate(ref iid, ClsCtxAll, IntPtr.Zero, out endpoint));
-            return use((TService)endpoint, ReadInterfaceName(device));
+            return use((TService)endpoint, ReadString(device, DeviceInterfaceFriendlyName));
         }
         finally
         {
@@ -175,7 +175,7 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
         }
     }
 
-    private static string? ReadInterfaceName(IMMDevice device)
+    private static string? ReadString(IMMDevice device, PropertyKey key)
     {
         if (device.OpenPropertyStore(StgmRead, out var properties) != 0)
         {
@@ -184,7 +184,6 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
 
         try
         {
-            var key = DeviceInterfaceFriendlyName;
             if (properties.GetValue(ref key, out var value) != 0)
             {
                 return null;
@@ -304,7 +303,7 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
     private interface IMMDeviceEnumerator
     {
         [PreserveSig]
-        int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
+        int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
 
         [PreserveSig]
         int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice device);
@@ -324,6 +323,9 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
 
         [PreserveSig]
         int OpenPropertyStore(int stgmAccess, out IPropertyStore properties);
+
+        [PreserveSig]
+        int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
     }
 
     [ComImport]

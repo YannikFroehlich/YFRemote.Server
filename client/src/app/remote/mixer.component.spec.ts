@@ -28,6 +28,7 @@ describe('MixerComponent', () => {
       watchApps: vi.fn(),
       watchVoicemeeter: vi.fn(),
       setApp: vi.fn(),
+      setAudioOutput: vi.fn(),
       setVoicemeeterParameter: vi.fn(),
     };
     TestBed.configureTestingModule({ providers: [{ provide: RemoteService, useValue: remote }] });
@@ -70,6 +71,29 @@ describe('MixerComponent', () => {
     button('Spotify stumm schalten').click();
 
     expect(remote.setApp).toHaveBeenCalledWith('4711', { muted: true });
+  });
+
+  it('switches the output device, but only offers it with more than one', () => {
+    const { remote, fixture } = setup();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('select')).toBeNull();
+
+    remote.apps.set({
+      type: 'apps',
+      apps: [],
+      outputs: [
+        { id: 'speakers', name: 'Lautsprecher', default: true },
+        { id: 'headset', name: 'Headset', default: false },
+      ],
+    });
+    fixture.detectChanges();
+    const select = element.querySelector('select')!;
+    expect(select.value).toBe('speakers');
+
+    select.value = 'headset';
+    select.dispatchEvent(new Event('change'));
+
+    expect(remote.setAudioOutput).toHaveBeenCalledWith('headset');
   });
 
   it('toggles a Voicemeeter channel and resets its fader to 0 dB', () => {

@@ -198,8 +198,20 @@ name or the executable's file description, cached per process id. Session volume
 Voicemeeter, because Windows applies it before the stream reaches the virtual device. On Linux the
 entries are `pactl list sink-inputs`, one per stream (`id` = sink-input number). `appVolume`
 (`id`, `volume` 0-100 and/or `muted`) only accepts `system` or digits as `id`, so nothing can reach
-`pactl` as an option. Verified on Windows on 2026-10-24 by reading and setting a running process's
+`pactl` as an option. Custom buttons send `name` instead of `id` (`HandleAppVolumeByName`): it hits
+every entry of that name, case-insensitive, and without `volume`/`muted` it toggles mute (all muted
+→ unmute, else mute). Verified on Windows on 2026-10-24 by reading and setting a running process's
 session; Linux is only covered by the parser test.
+
+The same push carries `outputs` (`{id,name,default}`), the active playback devices. `audioOutput`
+(`id`) makes one the default, but only an `id` from the current list (`HandleAudioOutput` reads it
+first). Windows sets the console and multimedia roles through the undocumented `IPolicyConfig`
+(`CPolicyConfigClient`, the API every switcher tool uses), and leaves the communications device
+alone; the vtable order of that interface matters, a missing method before `SetDefaultEndpoint`
+would call `SetEndpointVisibility` and hide the device. Linux uses `pactl list sinks`,
+`get-default-sink` and `set-default-sink`. Reading the list and re-setting the current default
+was verified on Windows on 2026-10-24 (the test PC has only one device, so an actual switch is
+not).
 
 **Media timeline.** `position`/`duration` in the `media` push are whole seconds; without a track
 length (livestream) both are missing. GSMTC reports the position as of `LastUpdatedTime`, and many

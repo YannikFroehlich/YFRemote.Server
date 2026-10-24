@@ -287,6 +287,54 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_AppVolumeByName_SetsEveryMatchAndTogglesMute()
+    {
+        var apps = new RecordingAppVolumeService(
+            new AppVolume("10", "Firefox", 100, true),
+            new AppVolume("11", "firefox", 80, false),
+            new AppVolume("12", "Spotify", 50, true));
+        var handler = CreateHandler(appVolumes: apps);
+
+        var toggled = handler.Handle(new RemoteActionRequest { Type = "appVolume", Name = " Firefox " });
+        var volume = handler.Handle(new RemoteActionRequest { Type = "appVolume", Name = "Spotify", Volume = 30 });
+
+        Assert.IsTrue(toggled.Success, toggled.Error);
+        Assert.IsTrue(volume.Success, volume.Error);
+        CollectionAssert.AreEqual(
+            new (string, int?, bool?)[] { ("10", null, true), ("11", null, true), ("12", 30, null) },
+            apps.Changes);
+    }
+
+    [TestMethod]
+    [DataRow("Discord")]
+    [DataRow("")]
+    public void Handle_AppVolumeByName_RejectsUnknownName(string name)
+    {
+        var apps = new RecordingAppVolumeService(new AppVolume("12", "Spotify", 50, false));
+        var handler = CreateHandler(appVolumes: apps);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "appVolume", Name = name, Muted = true });
+
+        Assert.IsFalse(response.Success);
+        Assert.IsNull(apps.LastChange);
+    }
+
+    [TestMethod]
+    [DataRow("{0.0.0.00000000}.{speakers}", true)]
+    [DataRow("{0.0.0.00000000}.{other}", false)]
+    [DataRow(null, false)]
+    public void Handle_AudioOutput_OnlyAcceptsListedDevice(string? id, bool accepted)
+    {
+        var apps = new RecordingAppVolumeService();
+        var handler = CreateHandler(appVolumes: apps);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "audioOutput", Id = id });
+
+        Assert.AreEqual(accepted, response.Success);
+        Assert.AreEqual(accepted ? id : null, apps.Output);
+    }
+
+    [TestMethod]
     public void Handle_OtherKey_DoesNotAskMixer()
     {
         var volumeService = new RecordingVolumeService(handlesMute: true);
@@ -482,15 +530,25 @@ public sealed class RemoteActionHandlerTests
         }
     }
 
-    private sealed class RecordingAppVolumeService : IAppVolumeService
+    private sealed class RecordingAppVolumeService(params AppVolume[] apps) : IAppVolumeService
     {
-        public (string Id, int? Volume, bool? Muted)? LastChange { get; private set; }
+        public List<(string Id, int? Volume, bool? Muted)> Changes { get; } = [];
 
-        public Task<AppVolumesMessage> ReadAppsAsync() => Task.FromResult(new AppVolumesMessage([]));
+        public (string Id, int? Volume, bool? Muted)? LastChange => Changes.Count > 0 ? Changes[^1] : null;
+
+        public string? Output { get; private set; }
+
+        public Task<AppVolumesMessage> ReadAppsAsync() =>
+            Task.FromResult(new AppVolumesMessage(apps, [new AudioOutput("{0.0.0.00000000}.{speakers}", "Lautsprecher", true)]));
 
         public void SetApp(string id, int? volume, bool? muted)
         {
-            LastChange = (id, volume, muted);
+            Changes.Add((id, volume, muted));
+        }
+
+        public void SetOutput(string id)
+        {
+            Output = id;
         }
     }
 

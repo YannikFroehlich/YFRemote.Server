@@ -25,6 +25,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 - Eigene Buttons können jetzt Apps und Webseiten am PC öffnen (Schritt "Öffnen"), z. B. "Spotify starten" oder "YouTube öffnen". Zur Auswahl stehen die Apps aus dem Startmenü des PCs, darunter auch Steam-Spiele mit Startmenü-Eintrag; Webseiten öffnen sich im Standardbrowser. Aus Sicherheitsgründen gehen nur Einträge aus dieser Liste und `http`/`https`-Adressen, keine freien Befehle. Store-Apps ohne Startmenü-Verknüpfung fehlen noch. Unter Linux kommen die Apps aus den `.desktop`-Dateien (auch Flatpak und Snap) und starten über `gio`, Webseiten über `xdg-open`. Unter Linux noch nicht auf einem echten System getestet.
 - Fensterwechsel: Der Tab "PC" listet unter den Messwerten die offenen Fenster des PCs, wie Alt+Tab mit dem vordersten zuerst. Ein Tipp holt das Fenster in den Vordergrund, auch wenn es minimiert war; "Aktualisieren" liest die Liste neu. Nur für Windows-PCs, unter Linux gibt es dafür keinen Weg, der mit jeder Desktopumgebung funktioniert.
+- Medienleiste unter Linux: Das Albumcover des laufenden Titels erscheint jetzt auch bei einem Linux-PC. YFRemote holt es über `playerctl`, als Datei von Browsern und VLC oder als Download etwa von Spotify (PNG oder JPEG, bis 2 MB). Noch nicht auf einem echten Linux-System getestet.
 
 ## [2.39.0] - 2026-10-24
 

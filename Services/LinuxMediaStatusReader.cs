@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using YFRemote.Server.Models;
@@ -12,25 +13,139 @@ namespace YFRemote.Server.Services;
 // Windows ohne Wiedergabegeraet oder Medien-App.
 // ponytail: bis zu drei Prozessstarts pro Sekunde, solange ein Geraet verbunden ist; D-Bus/pactl
 // subscribe erst, wenn das auf schwacher Hardware messbar stoert.
-// ponytail: kein Albumcover unter Linux - MPRIS liefert nur eine URL (oft https), die der Server
-// erst laden muesste.
 public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaControl, IAppVolumeService
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(2);
 
-    public MediaCover? Cover => null;
+    // Wie unter Windows: Cover um 300x300 Pixel haben einige 10 KB, groessere schickt YFRemote nicht.
+    private const int MaxCoverBytes = 2 * 1024 * 1024;
+
+    private static readonly HttpClient CoverClient = new() { Timeout = TimeSpan.FromSeconds(5) };
+
+    private readonly Lock coverLock = new();
+    private MediaCover? cover;
+    private string? coverKey;
+
+    public MediaCover? Cover
+    {
+        get
+        {
+            lock (coverLock)
+            {
+                return cover;
+            }
+        }
+    }
 
     public async Task<MediaStatusMessage> ReadAsync()
     {
         var volume = ParseVolume(await RunAsync("pactl", "get-sink-volume", "@DEFAULT_SINK@"));
         var muted = volume is not null
             && ParseMuted(await RunAsync("pactl", "get-sink-mute", "@DEFAULT_SINK@"));
-        var nowPlaying = ParseNowPlaying(await RunAsync(
+        var (nowPlaying, artUrl) = ParseNowPlaying(await RunAsync(
             "playerctl",
             "metadata",
             "--format",
-            "{{status}}\t{{position}}\t{{mpris:length}}\t{{title}}\t{{artist}}"));
-        return nowPlaying with { Volume = volume, Muted = muted };
+            "{{status}}\t{{position}}\t{{mpris:length}}\t{{mpris:artUrl}}\t{{title}}\t{{artist}}"));
+        UpdateCover(artUrl, nowPlaying.Title);
+        return nowPlaying with { Volume = volume, Muted = muted, CoverId = Cover?.Id };
+    }
+
+    // MPRIS liefert nur eine URL: Browser und VLC eine lokale file://-Datei, Spotify eine https-
+    // Adresse. Geladen wird nur bei neuer URL oder neuem Titel (manche Player schreiben jedes Cover
+    // in dieselbe Datei) und neben dem sekuendlichen Abruf, damit ein langsamer Server die
+    // Medienleiste nicht aufhaelt; das Cover kommt dann mit der naechsten Meldung.
+    // ponytail: ein gescheitertes Laden wird erst beim naechsten Titel wiederholt.
+    private void UpdateCover(string? artUrl, string? title)
+    {
+        var key = artUrl is null ? null : $"{artUrl}\n{title}";
+        lock (coverLock)
+        {
+            if (key == coverKey)
+            {
+                return;
+            }
+
+            coverKey = key;
+            cover = null;
+        }
+
+        if (artUrl is not null)
+        {
+            _ = LoadCoverAsync(artUrl, key);
+        }
+    }
+
+    private async Task LoadCoverAsync(string artUrl, string? key)
+    {
+        var loaded = await ReadCoverAsync(artUrl);
+        lock (coverLock)
+        {
+            // Inzwischen laeuft vielleicht schon der naechste Titel.
+            if (loaded is not null && key == coverKey)
+            {
+                cover = loaded;
+            }
+        }
+    }
+
+    // Nur PNG und JPEG (wie bei der Zwischenablage am Inhalt erkannt), nur file und http(s). Jeder
+    // Fehler kostet nur das Cover.
+    internal static async Task<MediaCover?> ReadCoverAsync(string artUrl)
+    {
+        try
+        {
+            if (!Uri.TryCreate(artUrl, UriKind.Absolute, out var uri))
+            {
+                return null;
+            }
+
+            byte[]? data = null;
+            if (uri.IsFile)
+            {
+                var file = new FileInfo(uri.LocalPath);
+                if (file.Exists && file.Length is > 0 and <= MaxCoverBytes)
+                {
+                    data = await File.ReadAllBytesAsync(file.FullName);
+                }
+            }
+            else if (uri.Scheme is "http" or "https")
+            {
+                using var response = await CoverClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead);
+                if (response.IsSuccessStatusCode && response.Content.Headers.ContentLength is null or <= MaxCoverBytes)
+                {
+                    await using var stream = await response.Content.ReadAsStreamAsync();
+                    data = await ReadAtMostAsync(stream, MaxCoverBytes);
+                }
+            }
+
+            return data is not null && LinuxClipboardService.DetectImageType(data) is { } contentType
+                ? new MediaCover(data, contentType, Convert.ToHexStringLower(SHA256.HashData(data))[..16])
+                : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    // null, wenn mehr als maxBytes kommen - Content-Length kann fehlen oder luegen.
+    private static async Task<byte[]?> ReadAtMostAsync(Stream stream, int maxBytes)
+    {
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await stream.ReadAsync(chunk)) > 0)
+        {
+            if (buffer.Length + read > maxBytes)
+            {
+                return null;
+            }
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.Length == 0 ? null : buffer.ToArray();
     }
 
     public async Task<AppVolumesMessage> ReadAppsAsync() =>
@@ -164,28 +279,30 @@ public sealed partial class LinuxMediaStatusReader : IVolumeService, IMediaContr
     internal static bool ParseMuted(string? output) =>
         output?.Trim().Equals("Mute: yes", StringComparison.OrdinalIgnoreCase) == true;
 
-    // "Playing\t<Position in us>\t<Laenge in us>\tTitel\tInterpret"; die Laenge fehlt bei Livestreams.
-    // Ob ein Player spulen kann, verraet playerctl nicht - mit Laenge wird es versucht.
-    internal static MediaStatusMessage ParseNowPlaying(string? output)
+    // "Playing\t<Position in us>\t<Laenge in us>\t<Cover-URL>\tTitel\tInterpret"; Laenge fehlt bei
+    // Livestreams, die Cover-URL bei Playern ohne Bild. Ob ein Player spulen kann, verraet playerctl
+    // nicht - mit Laenge wird es versucht.
+    internal static (MediaStatusMessage Status, string? ArtUrl) ParseNowPlaying(string? output)
     {
-        var parts = output?.TrimEnd('\n').Split('\t', 5);
-        if (parts is not { Length: 5 })
+        var parts = output?.TrimEnd('\n').Split('\t', 6);
+        if (parts is not { Length: 6 })
         {
-            return new MediaStatusMessage(null, false, null, null, false);
+            return (new MediaStatusMessage(null, false, null, null, false), null);
         }
 
         var length = Seconds(parts[2]);
         int? duration = length > 0 ? length : null;
         int? position = duration is null ? null : Math.Min(Seconds(parts[1]) ?? 0, duration.Value);
-        return new MediaStatusMessage(
+        var status = new MediaStatusMessage(
             null,
             false,
-            NullIfEmpty(parts[3]),
             NullIfEmpty(parts[4]),
+            NullIfEmpty(parts[5]),
             parts[0] == "Playing",
             position,
             duration,
             duration is not null);
+        return (status, NullIfEmpty(parts[3]));
     }
 
     private static int? Seconds(string microseconds) =>

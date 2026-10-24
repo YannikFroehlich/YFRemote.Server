@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.39.0] - 2026-10-24
+
 ### Added
 
 - Lautstärke pro App: Der Tab "Mixer" gibt es jetzt auf jedem PC, nicht nur mit Voicemeeter. Seine Gruppe "Apps" listet jede App, die am PC Ton ausgibt (Spotify, Discord, ein Spiel, die Systemklänge), mit eigenem Regler und Stumm-Knopf - wie der Lautstärkemixer von Windows. Mit Voicemeeter stehen Eingänge und Ausgänge daneben. Unter Linux regelt die Gruppe die einzelnen Audio-Streams über `pactl`.

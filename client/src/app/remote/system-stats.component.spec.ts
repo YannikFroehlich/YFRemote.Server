@@ -6,10 +6,15 @@ import { RemoteService } from './remote.service';
 import { SystemStatsComponent } from './system-stats.component';
 
 describe('SystemStatsComponent', () => {
-  async function setup(platform: ServerPlatform, windows: readonly OpenWindow[] | null) {
+  async function setup(
+    platform: ServerPlatform,
+    windows: readonly OpenWindow[] | null,
+    mediaOnly = false,
+  ) {
     const remote = {
       systemStats: signal(null),
       serverPlatform: signal(platform),
+      mediaOnly: signal(mediaOnly),
       watchSystemStats: vi.fn(),
       readWindows: vi.fn(() => Promise.resolve(windows)),
       sendAction: vi.fn(() => true),
@@ -47,5 +52,10 @@ describe('SystemStatsComponent', () => {
     const linuxPc = await setup('linux', []);
     expect(linuxPc.element.querySelector('.window-list')).toBeNull();
     expect(linuxPc.remote.readWindows).not.toHaveBeenCalled();
+
+    TestBed.resetTestingModule();
+    const mediaOnly = await setup('windows', [], true);
+    expect(mediaOnly.element.querySelector('.window-list')).toBeNull();
+    expect(mediaOnly.remote.readWindows).not.toHaveBeenCalled();
   });
 });

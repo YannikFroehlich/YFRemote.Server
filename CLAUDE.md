@@ -397,7 +397,9 @@ its own. `RemoteActionHandler.IsMediaAction` is the allowlist checked before dis
 `VOLUME_*` single keys, `volume`, `mediaSeek`, `appVolume`, `audioOutput`, the Voicemeeter actions,
 the `apps`/`systemStats` subscriptions, `gamepadDisconnect` and `clipboardSync` with
 `enabled:false`. Everything else answers `Not allowed for this device.`, which the Client shows as a
-translated hint. Such a device also gets no `fileOffer` push.
+translated hint. Such a device also gets no `fileOffer` push. Every connection starts with
+`{"type":"access","mediaOnly"}` (`AccessMessage`), from which the Client hides the Touchpad,
+Keyboard and Controller tabs and the window switcher.
 
 ## Conventions in this codebase
 

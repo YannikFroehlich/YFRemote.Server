@@ -75,6 +75,12 @@ export interface FileOfferMessage {
 }
 
 /** Geplantes Herunterfahren am PC; ohne `remainingSeconds` ist keines geplant. */
+/** Kommt vom PC bei jedem Verbinden zuerst; `mediaOnly` = im Tray auf "Nur Medien" gestellt. */
+export interface AccessMessage {
+  readonly type: 'access';
+  readonly mediaOnly: boolean;
+}
+
 export interface ShutdownTimerMessage {
   readonly type: 'shutdownTimer';
   readonly remainingSeconds?: number;

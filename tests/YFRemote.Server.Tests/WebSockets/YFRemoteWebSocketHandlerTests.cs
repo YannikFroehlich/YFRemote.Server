@@ -49,6 +49,38 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task HandleAsync_AccessIsSentFirst_AndMediaOnlyGetsNoFileOffer(bool mediaOnly)
+    {
+        var offeredFile = Path.GetTempFileName();
+        try
+        {
+            var fileOfferService = new FileOfferService(TimeProvider.System);
+            fileOfferService.Offer(offeredFile);
+
+            await using var pair = await WebSocketPair.CreateAsync();
+            var handleTask = CreateHandler(fileOfferService: fileOfferService)
+                .HandleAsync(pair.Server, "test-client", CancellationToken.None, mediaOnly: mediaOnly);
+
+            var access = await ReceiveAnyJsonAsync(pair.Client);
+            Assert.AreEqual("access", access.GetProperty("type").GetString());
+            Assert.AreEqual(mediaOnly, access.GetProperty("mediaOnly").GetBoolean());
+
+            await SendTextAsync(pair.Client, """{"type":"volume","volume":10,"requestId":"next"}""");
+            var next = await ReceiveJsonAsync(pair.Client);
+            Assert.AreEqual(mediaOnly ? null : "fileOffer", next.TryGetProperty("type", out var type) ? type.GetString() : null);
+
+            await CloseClientAsync(pair.Client);
+            await AwaitHandlerAsync(handleTask);
+        }
+        finally
+        {
+            File.Delete(offeredFile);
+        }
+    }
+
+    [TestMethod]
     public async Task HandleAsync_FileOffer_IsPushedOnConnectAndWhenOffered()
     {
         var offeredFile = Path.GetTempFileName();
@@ -371,11 +403,32 @@ public sealed class YFRemoteWebSocketHandlerTests
     private static Task SendTextAsync(WebSocket socket, string text) =>
         socket.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, endOfMessage: true, CancellationToken.None);
 
+    // Ueberspringt die "access"-Nachricht, die bei jedem Verbinden zuerst kommt.
     private static async Task<JsonElement> ReceiveJsonAsync(WebSocket socket)
     {
+        while (true)
+        {
+            var message = await ReceiveAnyJsonAsync(socket);
+            if (!(message.TryGetProperty("type", out var type) && type.GetString() == "access"))
+            {
+                return message;
+            }
+        }
+    }
+
+    private static async Task<JsonElement> ReceiveAnyJsonAsync(WebSocket socket)
+    {
         var buffer = new byte[8192];
-        var result = await socket.ReceiveAsync(buffer, CancellationToken.None);
-        return JsonDocument.Parse(buffer.AsMemory(0, result.Count)).RootElement.Clone();
+        using var stream = new MemoryStream();
+        while (true)
+        {
+            var result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+            stream.Write(buffer, 0, result.Count);
+            if (result.EndOfMessage)
+            {
+                return JsonDocument.Parse(stream.ToArray()).RootElement.Clone();
+            }
+        }
     }
 
     // Vibriert bei jedem Controller-Zustand, wie ein Spiel, das auf einen Tastendruck reagiert.
@@ -395,24 +448,9 @@ public sealed class YFRemoteWebSocketHandlerTests
         }
     }
 
-    private static async Task<RemoteActionResponse> ReceiveResponseAsync(WebSocket socket)
-    {
-        var buffer = new byte[8192];
-        using var stream = new MemoryStream();
-
-        while (true)
-        {
-            var result = await socket.ReceiveAsync(buffer, CancellationToken.None);
-            stream.Write(buffer, 0, result.Count);
-            if (result.EndOfMessage)
-            {
-                break;
-            }
-        }
-
-        return JsonSerializer.Deserialize<RemoteActionResponse>(stream.ToArray(), new JsonSerializerOptions(JsonSerializerDefaults.Web))
+    private static async Task<RemoteActionResponse> ReceiveResponseAsync(WebSocket socket) =>
+        (await ReceiveJsonAsync(socket)).Deserialize<RemoteActionResponse>(new JsonSerializerOptions(JsonSerializerDefaults.Web))
             ?? throw new InvalidOperationException("No response received.");
-    }
 
     private static async Task CloseClientAsync(WebSocket socket)
     {

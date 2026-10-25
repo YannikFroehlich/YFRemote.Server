@@ -73,6 +73,8 @@ public sealed class YFRemoteWebSocketHandler(
 
         try
         {
+            await SendJsonAsync(socket, sendLock, new AccessMessage(mediaOnly), cancellationToken);
+
             // Ein Geraet, das sich erst nach der Freigabe verbindet, soll die Datei trotzdem sehen.
             if (!mediaOnly && fileOfferService.Current is { } currentOffer)
             {

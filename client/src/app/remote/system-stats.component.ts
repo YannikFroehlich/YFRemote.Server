@@ -49,7 +49,10 @@ export class SystemStatsComponent implements OnDestroy {
   });
 
   // Fensterwechsel gibt es nur unter Windows; Wayland hat keinen desktopuebergreifenden Weg.
-  protected readonly windowsSupported = computed(() => this.remote.serverPlatform() === 'windows');
+  // Bei "Nur Medien" lehnt der PC ihn ab.
+  protected readonly windowsSupported = computed(
+    () => this.remote.serverPlatform() === 'windows' && !this.remote.mediaOnly(),
+  );
   /** undefined = laedt noch, null = der PC hat nicht geantwortet. */
   protected readonly windows = signal<readonly OpenWindow[] | null | undefined>(undefined);
 

@@ -15,6 +15,10 @@ public sealed class PairingStorageOptions
 
     public TimeSpan LastSeenPersistenceInterval { get; init; } = TimeSpan.FromMinutes(5);
 
+    // Ein Geraet, das so lange nicht verbunden war, wird entkoppelt (verlorenes oder verkauftes
+    // Handy). 0 schaltet das ab.
+    public TimeSpan DeviceExpiry { get; init; } = TimeSpan.FromDays(90);
+
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(DevicesFilePath))
@@ -35,6 +39,11 @@ public sealed class PairingStorageOptions
         if (LastSeenPersistenceInterval <= TimeSpan.Zero)
         {
             throw new InvalidOperationException("Last-seen persistence interval must be positive.");
+        }
+
+        if (DeviceExpiry < TimeSpan.Zero)
+        {
+            throw new InvalidOperationException("Device expiry must not be negative.");
         }
     }
 }

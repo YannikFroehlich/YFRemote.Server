@@ -86,6 +86,23 @@ public sealed class PairingServiceTests
     }
 
     [TestMethod]
+    public void Devices_ExpireAfterNinetyDaysWithoutConnection()
+    {
+        var service = CreateService();
+        var stale = Pair(service, service.GetCurrentPin().Pin, "Altes Handy");
+        var active = Pair(service, service.GetCurrentPin().Pin, "Tablet");
+        Assert.IsTrue(stale.Success && active.Success);
+
+        timeProvider.Advance(TimeSpan.FromDays(89));
+        Assert.IsTrue(service.IsValidToken(active.Token));
+        timeProvider.Advance(TimeSpan.FromDays(1));
+
+        Assert.IsFalse(service.IsValidToken(stale.Token));
+        Assert.IsTrue(service.IsValidToken(active.Token));
+        Assert.AreEqual("Tablet", CreateService().GetPairedDevices().Single().Name);
+    }
+
+    [TestMethod]
     public void TryPair_WhenWriteFails_RollsBackDeviceAndKeepsPinUsable()
     {
         var pathBlockingDirectory = Path.Combine(testDirectory, "blocker");

@@ -46,6 +46,7 @@ public sealed class PairingService
         failedAttemptsByIp = LoadFailedAttempts();
 
         var now = UtcNow;
+        RemoveExpiredDevices(now);
         pinState = GenerateNewPin(now);
         nextLastSeenPersistenceUtc = now.Add(options.LastSeenPersistenceInterval);
     }
@@ -148,13 +149,14 @@ public sealed class PairingService
 
         lock (syncRoot)
         {
+            var now = UtcNow;
+            RemoveExpiredDevices(now);
             var index = devices.FindIndex(device => device.TokenHash == tokenHash);
             if (index < 0)
             {
                 return false;
             }
 
-            var now = UtcNow;
             devices[index] = devices[index] with { LastSeenUtc = now };
             deviceId = devices[index].Id;
             mediaOnly = devices[index].MediaOnly;
@@ -173,6 +175,7 @@ public sealed class PairingService
     {
         lock (syncRoot)
         {
+            RemoveExpiredDevices(UtcNow);
             return devices
                 .Select(device => new PairedDeviceInfo(
                     device.Id,
@@ -273,6 +276,36 @@ public sealed class PairingService
         nextLastSeenPersistenceUtc = now.Add(options.LastSeenPersistenceInterval);
         logger.LogInformation("Device unpaired: {DeviceName} ({DeviceId})", removedDevice.Name, removedDevice.Id);
         return PairingRemovalResult.Removed;
+    }
+
+    // Ein abgelaufenes Geraet gilt sofort nicht mehr, auch wenn das Speichern scheitert - die Datei
+    // holt es beim naechsten Schreiben nach, und beim Start wird erneut aussortiert.
+    // ponytail: LastSeen kommt nur vom Verbindungsaufbau; wer ununterbrochen laenger als
+    // DeviceExpiry verbunden bleibt, muss danach neu koppeln. Sonst LastSeen beim Trennen setzen.
+    private void RemoveExpiredDevices(DateTimeOffset now)
+    {
+        if (options.DeviceExpiry == TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var expired = devices.Where(device => now - device.LastSeenUtc >= options.DeviceExpiry).ToList();
+        if (expired.Count == 0)
+        {
+            return;
+        }
+
+        devices.RemoveAll(expired.Contains);
+        foreach (var device in expired)
+        {
+            logger.LogInformation(
+                "Device expired after {Days} days without connection: {DeviceName} ({DeviceId})",
+                (int)options.DeviceExpiry.TotalDays,
+                device.Name,
+                device.Id);
+        }
+
+        TryPersistDevices();
     }
 
     private DateTimeOffset UtcNow => timeProvider.GetUtcNow();

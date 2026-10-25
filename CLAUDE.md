@@ -376,7 +376,11 @@ that gets replaced on update). Persistence uses a flushed temporary file plus at
 the previous valid state remains in `devices.json.bak` and is loaded when the primary file is
 damaged. Pairing only succeeds after that write, then immediately rotates the used PIN. Failed
 pairing and removal writes roll back their in-memory change. `LastSeenUtc` updates immediately in
-memory and is persisted on a five-minute throttle. Failed pairing attempts are rate-limited per
+memory and is persisted on a five-minute throttle. A device whose `LastSeenUtc` is older than
+`PairingStorage:DeviceExpiry` (default 90 days, `0` disables) is dropped at startup, on every token
+check and when the tray lists devices; it stays invalid even if that write fails. `LastSeenUtc`
+only moves on a handshake or HTTP request, so a device connected without a break for longer than
+the expiry has to pair again. Failed pairing attempts are rate-limited per
 client IP
 (5 attempts → 60s lockout), in-memory only. Removing a device — in the tray, or via
 `DELETE /pair` — also force-closes any open `/ws` connection for that device

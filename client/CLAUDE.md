@@ -75,6 +75,11 @@ new component the same, unless everything its template reads is a signal or an i
    - `createSocketUrl` appends `?token=...` from `PairingService.token()` when a pairing token
      exists — the server rejects a `/ws` handshake without one. `RemoteService` injects
      `PairingService`, never the other way around (see below), so there is no DI cycle.
+   - `access` (`{type:'access', mediaOnly}`, first message of every PC connection) sets the
+     `mediaOnly` signal; it is deliberately not reset on disconnect, so hidden tabs don't flash
+     back during a reconnect. While it is `true`, `RemoteControlComponent` hides the Touchpad,
+     Keyboard and Controller tabs (and leaves them if open) and `SystemStatsComponent` hides the
+     window switcher, because the PC rejects those actions for a "Nur Medien" device.
    - Besides `rumble` and `fileOffer`, `handleResponse` takes three more server pushes out of the
      response path: `media` (`mediaStatus` signal, the strip above the Remote buttons, reset on
      disconnect; a new `coverId` makes the service fetch `GET /media/cover` with the `Bearer`

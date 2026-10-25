@@ -92,13 +92,20 @@ export class RemoteControlComponent {
   // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
+  // "Nur Medien": Touchpad, Tastatur und Controller lehnt der PC ohnehin ab.
+  protected readonly mediaOnly = this.remote.mediaOnly;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
   protected readonly activeView = signal<RemoteView>('remote');
   // Systemanzeige und Mixer gibt es nur auf PC-Servern. Fallen sie weg (Android-Server,
-  // /health fehlgeschlagen), verschwinden ihre Tabs - ohne Wechsel bliebe die Ansicht leer.
-  private readonly systemViewEffect = effect(() => {
-    if (!this.systemStatsSupported() && (this.activeView() === 'system' || this.activeView() === 'mixer')) {
+  // /health fehlgeschlagen) oder sperrt der PC Eingaben, verschwinden Tabs - ohne Wechsel bliebe
+  // die Ansicht leer.
+  private readonly hiddenViewEffect = effect(() => {
+    const view = this.activeView();
+    if (
+      (!this.systemStatsSupported() && (view === 'system' || view === 'mixer')) ||
+      (this.mediaOnly() && (view === 'touchpad' || view === 'keyboard' || view === 'gamepad'))
+    ) {
       this.activeView.set('remote');
     }
   });

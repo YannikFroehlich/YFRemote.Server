@@ -23,6 +23,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Mixer: Die Gruppe "Apps" zeigt jetzt auch Apps, die auf einem anderen als dem Standard-Ausgabegerät spielen, z. B. ein Spiel auf den Kopfhörern, während die Lautsprecher Standard sind - wie der Lautstärkemixer von Windows.
+
+- Eigene Buttons mit dem Schritt "Öffnen" können jetzt auch Store-Apps starten, die keine Startmenü-Verknüpfung haben, z. B. Rechner, Paint, Editor, Einstellungen oder die Store-Version von Spotify. Sie stehen in derselben Auswahlliste wie die übrigen Apps.
+- Rechte pro Gerät: Im Tray unter "Gekoppelte Geräte" lässt sich ein Gerät auf "Nur Medien" stellen. Es steuert dann nur noch Wiedergabe, Lautstärke, Spulen und den Mixer und sieht die Systemanzeige, kann aber nicht tippen, die Maus bewegen, den PC ausschalten oder sperren, Apps starten, Fenster wechseln, den Controller nutzen, Dateien austauschen oder die Zwischenablage lesen. Gedacht für Handys, die mehrere Leute benutzen. Die Tabs Touchpad, Tastatur und Controller sowie der Fensterwechsel verschwinden auf so einem Gerät. "Vollzugriff" hebt das wieder auf; die Änderung gilt sofort, das Gerät verbindet sich dafür kurz neu. Neu gekoppelte Geräte haben wie bisher Vollzugriff.
+- Gekoppelte Geräte, die sich 90 Tage nicht verbunden haben, werden automatisch entkoppelt, damit ein verlorenes oder verkauftes Handy nicht dauerhaft Zugriff behält. Sie müssen sich danach mit einer neuen PIN erneut koppeln. Die Frist lässt sich in `%LOCALAPPDATA%\YFRemote\settings.json` über `PairingStorage:DeviceExpiry` ändern (z. B. `"180.00:00:00"`), `"00:00:00"` schaltet das Entkoppeln ab.
+
+## [2.40.0] - 2026-10-24
+
+### Added
+
 - Eigene Buttons können jetzt Apps und Webseiten am PC öffnen (Schritt "Öffnen"), z. B. "Spotify starten" oder "YouTube öffnen". Zur Auswahl stehen die Apps aus dem Startmenü des PCs, darunter auch Steam-Spiele mit Startmenü-Eintrag; Webseiten öffnen sich im Standardbrowser. Aus Sicherheitsgründen gehen nur Einträge aus dieser Liste und `http`/`https`-Adressen, keine freien Befehle. Store-Apps ohne Startmenü-Verknüpfung fehlen noch. Unter Linux kommen die Apps aus den `.desktop`-Dateien (auch Flatpak und Snap) und starten über `gio`, Webseiten über `xdg-open`. Unter Linux noch nicht auf einem echten System getestet.
 - Fensterwechsel: Der Tab "PC" listet unter den Messwerten die offenen Fenster des PCs, wie Alt+Tab mit dem vordersten zuerst. Ein Tipp holt das Fenster in den Vordergrund, auch wenn es minimiert war; "Aktualisieren" liest die Liste neu. Nur für Windows-PCs, unter Linux gibt es dafür keinen Weg, der mit jeder Desktopumgebung funktioniert.
 - Medienleiste unter Linux: Das Albumcover des laufenden Titels erscheint jetzt auch bei einem Linux-PC. YFRemote holt es über `playerctl`, als Datei von Browsern und VLC oder als Download etwa von Spotify (PNG oder JPEG, bis 2 MB). Noch nicht auf einem echten Linux-System getestet.

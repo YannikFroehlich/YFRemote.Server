@@ -11,7 +11,7 @@ internal static class MediaEndpoints
         // pruefen, wenn einer mitkommt; 204 ohne Cover.
         app.MapGet("/media/cover", async context =>
         {
-            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is null)
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true, mediaOnlyAllowed: true) is null)
             {
                 return;
             }

@@ -117,7 +117,8 @@ method on `WebApplication` per area (`WebSocketEndpoint`, `PairingEndpoints`, `F
 `IsAllowedOrigin`, `GetBearerToken`, and `AuthorizePairedDeviceAsync` — the shared gate of the
 `Bearer`-token endpoints (`POST /files`, `/clipboard/*`): 403 unless the `Origin` matches (a
 missing `Origin` is only tolerated with `originOptional: true`, i.e. `GET /clipboard/text`), 401
-without a valid token. A new endpoint of that kind should go through it rather than repeat those
+without a valid token, 403 `Not allowed for this device.` for a "Nur Medien" device unless
+`mediaOnlyAllowed: true` (only `GET /media/cover`). A new endpoint of that kind should go through it rather than repeat those
 checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) and `DELETE /pair`
 (401 from `RemoveDeviceByToken`) deliberately do their own checks.
 - `GET /health` → `HealthResponse`, including the server platform (`windows`/`linux`), from
@@ -206,8 +207,10 @@ move/scroll traffic tops out around one message per animation frame.
 **Volume per app.** The "Mixer" tab subscribes `{"type":"apps","enabled"}` like `systemStats` and
 gets `{"type":"apps","apps":[{id,name,volume,muted}]}` from a `PollingBroadcaster` over
 `IAppVolumeService.ReadAppsAsync`. On Windows (`WindowsMediaStatusReader.Apps.cs`) these are the
-Core Audio sessions of the default playback device, grouped per process (`id` = process id, or
-`system` for the system sounds, which the Client names itself). The name is the session's display
+Core Audio sessions of all active playback devices, grouped per process (`id` = process id, or
+`system` for the system sounds, which the Client names itself); with sessions on several devices
+the list shows the first one and `appVolume` sets all of them. Reading and setting were checked on
+the dev PC on 2026-10-25, which has only one playback device. The name is the session's display
 name or the executable's file description, cached per process id. Session volume also works behind
 Voicemeeter, because Windows applies it before the stream reaches the virtual device. On Linux the
 entries are `pactl list sink-inputs`, one per stream (`id` = sink-input number). `appVolume`
@@ -231,8 +234,10 @@ not).
 (only absolute `http`/`https`, ≤ 2000 chars, opened in the default browser) or `name`, which must
 match an entry of `IAppLauncher.ListApps` case-insensitively — never a free path or command line
 with arguments. `WindowsAppLauncher` lists the `.lnk`/`.url` files of the user's and the common
-Start menu (`.url` because Steam puts its games there; Store apps without a shortcut are missing)
-and starts them via `UseShellExecute`, like a double click. `LinuxAppLauncher` reads the visible
+Start menu (`.url` because Steam puts its games there), plus the packaged (Store) apps of
+`shell:AppsFolder` (via `Shell.Application`, recognized by the `!` in their AUMID; started as
+`shell:AppsFolder\<AUMID>`), and starts them via `UseShellExecute`, like a double click. Listing
+and starting a Store app (Rechner) were checked on the dev PC on 2026-10-25. `LinuxAppLauncher` reads the visible
 `Type=Application` `.desktop` files from the XDG data dirs plus the Flatpak/Snap export folders
 and starts them with `gio launch` (URLs with `xdg-open`), using the graphical session that
 `LinuxClipboardService.GetBackendAsync` finds. Windows listing was checked against the real Start
@@ -373,13 +378,30 @@ that gets replaced on update). Persistence uses a flushed temporary file plus at
 the previous valid state remains in `devices.json.bak` and is loaded when the primary file is
 damaged. Pairing only succeeds after that write, then immediately rotates the used PIN. Failed
 pairing and removal writes roll back their in-memory change. `LastSeenUtc` updates immediately in
-memory and is persisted on a five-minute throttle. Failed pairing attempts are rate-limited per
+memory and is persisted on a five-minute throttle. A device whose `LastSeenUtc` is older than
+`PairingStorage:DeviceExpiry` (default 90 days, `0` disables) is dropped at startup, on every token
+check and when the tray lists devices; it stays invalid even if that write fails. `LastSeenUtc`
+only moves on a handshake or HTTP request, so a device connected without a break for longer than
+the expiry has to pair again. Failed pairing attempts are rate-limited per
 client IP
 (5 attempts → 60s lockout), in-memory only. Removing a device — in the tray, or via
 `DELETE /pair` — also force-closes any open `/ws` connection for that device
 (`WebSocketConnectionRegistry.CloseConnections`), not just future connections. This closes the
 previous "no auth" gap (see README "Sicherheit" section): reaching the bound port is no longer
 enough to send input, a device must first be paired.
+
+**Media-only devices.** Each device record carries `MediaOnly` (default `false`, so older
+`devices.json` files load as full access). The tray's "Gekoppelte Geräte" dialog sets it with
+"Nur Medien"/"Vollzugriff" (`PairingService.SetMediaOnly`, rolled back on a failed write) and then
+closes the device's open `/ws` connections, because the flag is read once per connection
+(`TryValidateToken(..., out mediaOnly)` → `RemoteActionSession.MediaOnly`); the Client reconnects on
+its own. `RemoteActionHandler.IsMediaAction` is the allowlist checked before dispatch: `MEDIA_*`/
+`VOLUME_*` single keys, `volume`, `mediaSeek`, `appVolume`, `audioOutput`, the Voicemeeter actions,
+the `apps`/`systemStats` subscriptions, `gamepadDisconnect` and `clipboardSync` with
+`enabled:false`. Everything else answers `Not allowed for this device.`, which the Client shows as a
+translated hint. Such a device also gets no `fileOffer` push. Every connection starts with
+`{"type":"access","mediaOnly"}` (`AccessMessage`), from which the Client hides the Touchpad,
+Keyboard and Controller tabs and the window switcher.
 
 ## Conventions in this codebase
 

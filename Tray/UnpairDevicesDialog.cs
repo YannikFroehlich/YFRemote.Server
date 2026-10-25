@@ -46,8 +46,9 @@ internal sealed class UnpairDevicesDialog : Form
             AutoSize = true,
             MaximumSize = new Size(382, 0),
             ForeColor = Color.FromArgb(167, 181, 187),
-            Text = "Geräte zum Entkoppeln anhaken. Sie können sich danach nur mit einer neuen "
-                + "PIN erneut verbinden.",
+            Text = "Geräte anhaken. Entkoppelte Geräte können sich nur mit einer neuen PIN erneut "
+                + "verbinden. \"Nur Medien\" erlaubt nur Wiedergabe, Lautstärke und Mixer - kein "
+                + "Tippen, keine Maus, kein Ausschalten, keine Dateien und keine Zwischenablage.",
             Margin = new Padding(0, 0, 0, 12)
         };
 
@@ -92,12 +93,38 @@ internal sealed class UnpairDevicesDialog : Form
             Enabled = false,
             Margin = new Padding(0)
         };
+        // Yes/No statt eigener Ergebniswerte: Yes = nur Medien, No = Vollzugriff.
+        var mediaOnlyButton = new Button
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Text = "Nur Medien",
+            DialogResult = DialogResult.Yes,
+            Enabled = false,
+            Margin = new Padding(0, 0, 8, 0)
+        };
+
+        var fullAccessButton = new Button
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Text = "Vollzugriff",
+            DialogResult = DialogResult.No,
+            Enabled = false,
+            Margin = new Padding(0, 0, 8, 0)
+        };
+
         // ItemCheck kommt vor der Änderung, CheckedIndices zählt also noch den alten Zustand.
-        deviceList.ItemCheck += (_, e) => unpairButton.Enabled =
-            deviceList.CheckedIndices.Count + (e.NewValue == CheckState.Checked ? 1 : -1) > 0;
+        deviceList.ItemCheck += (_, e) =>
+        {
+            var anyChecked = deviceList.CheckedIndices.Count + (e.NewValue == CheckState.Checked ? 1 : -1) > 0;
+            unpairButton.Enabled = mediaOnlyButton.Enabled = fullAccessButton.Enabled = anyChecked;
+        };
 
         buttonPanel.Controls.Add(cancelButton);
         buttonPanel.Controls.Add(unpairButton);
+        buttonPanel.Controls.Add(mediaOnlyButton);
+        buttonPanel.Controls.Add(fullAccessButton);
 
         layout.Controls.Add(descriptionLabel, 0, 0);
         layout.Controls.Add(deviceList, 0, 1);

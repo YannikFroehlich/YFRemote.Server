@@ -28,7 +28,7 @@ internal static class WebSocketEndpoint
 
             var pairingService = context.RequestServices.GetRequiredService<PairingService>();
             var token = context.Request.Query["token"].ToString();
-            if (!pairingService.TryValidateToken(token, out var deviceId))
+            if (!pairingService.TryValidateToken(token, out var deviceId, out var mediaOnly))
             {
                 app.Logger.LogWarning(
                     "Rejected WebSocket handshake with invalid pairing token from {RemoteAddress}.",
@@ -59,7 +59,7 @@ internal static class WebSocketEndpoint
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
             var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var deviceName = pairingService.GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name;
-            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName);
+            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly);
         });
     }
 }

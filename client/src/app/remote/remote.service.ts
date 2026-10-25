@@ -1,5 +1,6 @@
 import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
+  AccessMessage,
   ClipboardPushMessage,
   ConnectionStatus,
   FileOfferMessage,
@@ -88,6 +89,8 @@ const HAPTIC_PULSE_MS = 10;
 /** Wortgleich mit InputBlockedException des Servers: Windows weist waehrend der
  *  Benutzerkontensteuerung und des Sperrbildschirms jede Eingabe ab. */
 const INPUT_BLOCKED_ERROR = 'Input is blocked by a secure desktop (UAC prompt or lock screen).';
+/** Wortgleich mit RemoteActionHandler.MediaOnlyError: das Geraet steht im Tray auf "Nur Medien". */
+const MEDIA_ONLY_ERROR = 'Not allowed for this device.';
 // Nur für einzelne Tipp-Aktionen vibrieren, nicht für den Strom aus Bewegungen, Scrollen und
 // Text (die Handy-Tastatur gibt beim Tippen schon selbst Rückmeldung).
 const HAPTIC_ACTION_TYPES: ReadonlySet<RemoteAction['type']> = new Set([
@@ -143,6 +146,7 @@ export class RemoteService implements OnDestroy {
   private readonly manualDisconnectSignal = signal(false);
   private readonly serverPlatformSignal = signal<ServerPlatform | null>(null);
   private readonly gamepadAvailableSignal = signal(false);
+  private readonly mediaOnlySignal = signal(false);
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
@@ -183,6 +187,9 @@ export class RemoteService implements OnDestroy {
   readonly serverPlatform = this.serverPlatformSignal.asReadonly();
   /** Ob die Gegenstelle virtuelle Xbox-Controller anlegen kann (Windows mit ViGEmBus-Treiber). */
   readonly gamepadAvailable = this.gamepadAvailableSignal.asReadonly();
+  /** Ob der PC dieses Geraet auf "Nur Medien" gestellt hat. Bleibt ueber Verbindungsabbrueche
+   *  stehen, damit die Tabs beim Neuverbinden nicht kurz aufblitzen; jedes Verbinden meldet es neu. */
+  readonly mediaOnly = this.mediaOnlySignal.asReadonly();
   /** Staerkerer der beiden Vibrationsmotoren (0-255), wie ihn das Spiel zuletzt gesetzt hat. */
   readonly gamepadRumble = this.gamepadRumbleSignal.asReadonly();
   /** Datei, die der PC gerade anbietet; `null`, solange keine angeboten ist. */
@@ -626,6 +633,11 @@ export class RemoteService implements OnDestroy {
   private handleResponse(rawMessage: string): void {
     const message = parseJson(rawMessage);
 
+    if (isAccessMessage(message)) {
+      this.mediaOnlySignal.set(message.mediaOnly);
+      return;
+    }
+
     if (isRumbleMessage(message)) {
       this.gamepadRumbleSignal.set(Math.max(message.largeMotor, message.smallMotor));
       return;
@@ -698,7 +710,9 @@ export class RemoteService implements OnDestroy {
     this.showError(
       error === INPUT_BLOCKED_ERROR
         ? this.i18n.t('remoteService.error.inputBlocked')
-        : error || this.i18n.t('remoteService.error.actionRejected'),
+        : error === MEDIA_ONLY_ERROR
+          ? this.i18n.t('remoteService.error.mediaOnly')
+          : error || this.i18n.t('remoteService.error.actionRejected'),
     );
   }
 
@@ -1012,6 +1026,11 @@ async function toDataUrl(response: Response): Promise<string> {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
   }
   return `data:${response.headers.get('Content-Type') ?? 'image/png'};base64,${btoa(binary)}`;
+}
+
+function isAccessMessage(value: unknown): value is AccessMessage {
+  const message = value as Partial<AccessMessage> | null;
+  return message?.type === 'access' && typeof message.mediaOnly === 'boolean';
 }
 
 function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {

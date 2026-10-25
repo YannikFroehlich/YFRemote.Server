@@ -338,6 +338,29 @@ describe('RemoteService', () => {
     expect(remote.status()).toBe('connected');
   });
 
+  it('takes the access push out of the response path and keeps it across reconnects', () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    sockets[0].receive(JSON.stringify({ type: 'access', mediaOnly: true }));
+    expect(remote.mediaOnly()).toBe(true);
+    expect(remote.lastError()).toBeNull();
+
+    sockets[0].close();
+    expect(remote.mediaOnly()).toBe(true);
+  });
+
+  it('explains a media-only device instead of showing the raw server error', () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    sockets[0].receive(JSON.stringify({ success: false, error: 'Not allowed for this device.' }));
+
+    expect(remote.lastError()).toContain('nur Medien und Lautstärke');
+  });
+
   it('stops a macro when the server confirmation times out', async () => {
     const { remote, sockets } = setupRemoteService();
     remote.connect();

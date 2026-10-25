@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.41.0] - 2026-10-25
+
 ### Added
 
 - Mixer: Die Gruppe "Apps" zeigt jetzt auch Apps, die auf einem anderen als dem Standard-Ausgabegerät spielen, z. B. ein Spiel auf den Kopfhörern, während die Lautsprecher Standard sind - wie der Lautstärkemixer von Windows.

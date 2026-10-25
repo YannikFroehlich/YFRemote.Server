@@ -96,6 +96,24 @@ public sealed class MediaEndpointTests
     }
 
     [TestMethod]
+    public async Task MediaOnlyDevice_GetsCoverButNotLaunchApps()
+    {
+        var token = await PairAndGetTokenAsync();
+        var pairing = app.Services.GetRequiredService<PairingService>();
+        Assert.IsTrue(pairing.SetMediaOnly(pairing.GetPairedDevices()[0].Id, mediaOnly: true));
+        media.Cover = new MediaCover([0xFF, 0xD8, 0xFF], "image/jpeg", "abc");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/launch/apps");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var cover = await GetCoverAsync(token);
+        var apps = await httpClient.SendAsync(request);
+
+        Assert.AreEqual(HttpStatusCode.OK, cover.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Forbidden, apps.StatusCode);
+        Assert.AreEqual("Not allowed for this device.", await apps.Content.ReadAsStringAsync());
+    }
+
+    [TestMethod]
     public async Task LaunchApps_ListsAppsForPairedDeviceOnly()
     {
         using var unauthorized = await httpClient.GetAsync("/launch/apps");

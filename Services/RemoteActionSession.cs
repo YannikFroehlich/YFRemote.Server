@@ -14,6 +14,9 @@ public sealed class RemoteActionSession(
 {
     public string DeviceName { get; init; } = "Unbekanntes Gerät";
 
+    // Im Tray auf "Nur Medien" gestellt; gilt fuer die ganze Verbindung, das Umstellen trennt sie.
+    public bool MediaOnly { get; init; }
+
     internal IVirtualGamepad? Gamepad { get; set; }
 
     internal IDisposable? ClipboardSubscription { get; set; }

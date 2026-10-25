@@ -35,7 +35,8 @@ public sealed class YFRemoteWebSocketHandler(
         WebSocket socket,
         string client,
         CancellationToken cancellationToken,
-        string? deviceName = null)
+        string? deviceName = null,
+        bool mediaOnly = false)
     {
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
@@ -50,11 +51,16 @@ public sealed class YFRemoteWebSocketHandler(
             voicemeeter => _ = SendPushAsync(socket, sendLock, voicemeeter, client, cancellationToken),
             apps => _ = SendPushAsync(socket, sendLock, apps, client, cancellationToken))
         {
-            DeviceName = deviceName ?? client
+            DeviceName = deviceName ?? client,
+            MediaOnly = mediaOnly
         };
+        // Ein Geraet mit "Nur Medien" darf die Datei ohnehin nicht laden.
         void OnFileOffered(FileOfferMessage offer) =>
             _ = SendPushAsync(socket, sendLock, offer, client, cancellationToken);
-        fileOfferService.Offered += OnFileOffered;
+        if (!mediaOnly)
+        {
+            fileOfferService.Offered += OnFileOffered;
+        }
         // Jedes Geraet soll den Termin sehen und abbrechen koennen, nicht nur das, das ihn gesetzt hat.
         void OnShutdownTimerChanged(string? changedBy) =>
             _ = SendPushAsync(socket, sendLock, shutdownTimer!.Status, client, cancellationToken);
@@ -68,7 +74,7 @@ public sealed class YFRemoteWebSocketHandler(
         try
         {
             // Ein Geraet, das sich erst nach der Freigabe verbindet, soll die Datei trotzdem sehen.
-            if (fileOfferService.Current is { } currentOffer)
+            if (!mediaOnly && fileOfferService.Current is { } currentOffer)
             {
                 await SendJsonAsync(socket, sendLock, currentOffer, cancellationToken);
             }

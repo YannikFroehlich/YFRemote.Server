@@ -117,7 +117,8 @@ method on `WebApplication` per area (`WebSocketEndpoint`, `PairingEndpoints`, `F
 `IsAllowedOrigin`, `GetBearerToken`, and `AuthorizePairedDeviceAsync` — the shared gate of the
 `Bearer`-token endpoints (`POST /files`, `/clipboard/*`): 403 unless the `Origin` matches (a
 missing `Origin` is only tolerated with `originOptional: true`, i.e. `GET /clipboard/text`), 401
-without a valid token. A new endpoint of that kind should go through it rather than repeat those
+without a valid token, 403 `Not allowed for this device.` for a "Nur Medien" device unless
+`mediaOnlyAllowed: true` (only `GET /media/cover`). A new endpoint of that kind should go through it rather than repeat those
 checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) and `DELETE /pair`
 (401 from `RemoveDeviceByToken`) deliberately do their own checks.
 - `GET /health` → `HealthResponse`, including the server platform (`windows`/`linux`), from
@@ -382,6 +383,17 @@ client IP
 (`WebSocketConnectionRegistry.CloseConnections`), not just future connections. This closes the
 previous "no auth" gap (see README "Sicherheit" section): reaching the bound port is no longer
 enough to send input, a device must first be paired.
+
+**Media-only devices.** Each device record carries `MediaOnly` (default `false`, so older
+`devices.json` files load as full access). The tray's "Gekoppelte Geräte" dialog sets it with
+"Nur Medien"/"Vollzugriff" (`PairingService.SetMediaOnly`, rolled back on a failed write) and then
+closes the device's open `/ws` connections, because the flag is read once per connection
+(`TryValidateToken(..., out mediaOnly)` → `RemoteActionSession.MediaOnly`); the Client reconnects on
+its own. `RemoteActionHandler.IsMediaAction` is the allowlist checked before dispatch: `MEDIA_*`/
+`VOLUME_*` single keys, `volume`, `mediaSeek`, `appVolume`, `audioOutput`, the Voicemeeter actions,
+the `apps`/`systemStats` subscriptions, `gamepadDisconnect` and `clipboardSync` with
+`enabled:false`. Everything else answers `Not allowed for this device.`, which the Client shows as a
+translated hint. Such a device also gets no `fileOffer` push.
 
 ## Conventions in this codebase
 

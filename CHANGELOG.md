@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Eigene Buttons mit dem Schritt "Öffnen" können jetzt auch Store-Apps starten, die keine Startmenü-Verknüpfung haben, z. B. Rechner, Paint, Editor, Einstellungen oder die Store-Version von Spotify. Sie stehen in derselben Auswahlliste wie die übrigen Apps.
+
 ## [2.40.0] - 2026-10-24
 
 ### Added

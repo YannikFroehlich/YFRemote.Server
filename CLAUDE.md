@@ -231,8 +231,10 @@ not).
 (only absolute `http`/`https`, ≤ 2000 chars, opened in the default browser) or `name`, which must
 match an entry of `IAppLauncher.ListApps` case-insensitively — never a free path or command line
 with arguments. `WindowsAppLauncher` lists the `.lnk`/`.url` files of the user's and the common
-Start menu (`.url` because Steam puts its games there; Store apps without a shortcut are missing)
-and starts them via `UseShellExecute`, like a double click. `LinuxAppLauncher` reads the visible
+Start menu (`.url` because Steam puts its games there), plus the packaged (Store) apps of
+`shell:AppsFolder` (via `Shell.Application`, recognized by the `!` in their AUMID; started as
+`shell:AppsFolder\<AUMID>`), and starts them via `UseShellExecute`, like a double click. Listing
+and starting a Store app (Rechner) were checked on the dev PC on 2026-10-25. `LinuxAppLauncher` reads the visible
 `Type=Application` `.desktop` files from the XDG data dirs plus the Flatpak/Snap export folders
 and starts them with `gio launch` (URLs with `xdg-open`), using the graphical session that
 `LinuxClipboardService.GetBackendAsync` finds. Windows listing was checked against the real Start

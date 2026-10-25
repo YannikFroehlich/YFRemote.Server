@@ -778,6 +778,10 @@ export const TRANSLATIONS = {
     de: 'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bitte am PC bestätigen, danach geht die Steuerung wieder.',
     en: 'The PC is showing a UAC prompt or the lock screen. Confirm it at the PC, then remote control works again.',
   },
+  'remoteService.error.mediaOnly': {
+    de: 'Dieses Gerät darf am PC nur Medien und Lautstärke steuern. Freigeben lässt es sich im Tray-Menü unter „Gekoppelte Geräte“.',
+    en: 'This device may only control media and volume on the PC. It can be given full access in the tray menu under "Gekoppelte Geräte".',
+  },
 
   'pairingService.error.connectFailed': {
     de: 'Verbindung zum Server fehlgeschlagen: {{message}}',

@@ -41,10 +41,12 @@ internal static class RequestGuards
     // Gemeinsamer Einlass der Bearer-Token-Endpunkte (/files, /clipboard/*): 403 ohne passenden
     // Origin, 401 ohne gueltiges Token. Liefert die Geraete-ID, oder null, wenn die Ablehnung schon
     // geschrieben ist. originOptional erlaubt einen fehlenden Origin (Same-Origin-GET), nie einen
-    // fremden. /ws und DELETE /pair pruefen bewusst selbst (Token-Quelle, Logs, Antworttexte).
+    // fremden. Ein Geraet mit "Nur Medien" bekommt 403, ausser bei mediaOnlyAllowed.
+    // /ws und DELETE /pair pruefen bewusst selbst (Token-Quelle, Logs, Antworttexte).
     internal static async Task<Guid?> AuthorizePairedDeviceAsync(
         HttpContext context,
-        bool originOptional = false)
+        bool originOptional = false,
+        bool mediaOnlyAllowed = false)
     {
         var originPresent = context.Request.Headers.Origin.Count > 0;
         if ((originPresent || !originOptional) && !IsAllowedOrigin(context.Request))
@@ -54,9 +56,16 @@ internal static class RequestGuards
         }
 
         var pairingService = context.RequestServices.GetRequiredService<PairingService>();
-        if (!pairingService.TryValidateToken(GetBearerToken(context.Request), out var deviceId))
+        if (!pairingService.TryValidateToken(GetBearerToken(context.Request), out var deviceId, out var mediaOnly))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return null;
+        }
+
+        if (mediaOnly && !mediaOnlyAllowed)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync(RemoteActionHandler.MediaOnlyError);
             return null;
         }
 

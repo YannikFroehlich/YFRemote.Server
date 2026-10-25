@@ -88,6 +88,8 @@ const HAPTIC_PULSE_MS = 10;
 /** Wortgleich mit InputBlockedException des Servers: Windows weist waehrend der
  *  Benutzerkontensteuerung und des Sperrbildschirms jede Eingabe ab. */
 const INPUT_BLOCKED_ERROR = 'Input is blocked by a secure desktop (UAC prompt or lock screen).';
+/** Wortgleich mit RemoteActionHandler.MediaOnlyError: das Geraet steht im Tray auf "Nur Medien". */
+const MEDIA_ONLY_ERROR = 'Not allowed for this device.';
 // Nur für einzelne Tipp-Aktionen vibrieren, nicht für den Strom aus Bewegungen, Scrollen und
 // Text (die Handy-Tastatur gibt beim Tippen schon selbst Rückmeldung).
 const HAPTIC_ACTION_TYPES: ReadonlySet<RemoteAction['type']> = new Set([
@@ -698,7 +700,9 @@ export class RemoteService implements OnDestroy {
     this.showError(
       error === INPUT_BLOCKED_ERROR
         ? this.i18n.t('remoteService.error.inputBlocked')
-        : error || this.i18n.t('remoteService.error.actionRejected'),
+        : error === MEDIA_ONLY_ERROR
+          ? this.i18n.t('remoteService.error.mediaOnly')
+          : error || this.i18n.t('remoteService.error.actionRejected'),
     );
   }
 

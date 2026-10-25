@@ -24,6 +24,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Eigene Buttons mit dem Schritt "Öffnen" können jetzt auch Store-Apps starten, die keine Startmenü-Verknüpfung haben, z. B. Rechner, Paint, Editor, Einstellungen oder die Store-Version von Spotify. Sie stehen in derselben Auswahlliste wie die übrigen Apps.
+- Rechte pro Gerät: Im Tray unter "Gekoppelte Geräte" lässt sich ein Gerät auf "Nur Medien" stellen. Es steuert dann nur noch Wiedergabe, Lautstärke, Spulen und den Mixer und sieht die Systemanzeige, kann aber nicht tippen, die Maus bewegen, den PC ausschalten oder sperren, Apps starten, Fenster wechseln, den Controller nutzen, Dateien austauschen oder die Zwischenablage lesen. Gedacht für Handys, die mehrere Leute benutzen. "Vollzugriff" hebt das wieder auf; die Änderung gilt sofort, das Gerät verbindet sich dafür kurz neu. Neu gekoppelte Geräte haben wie bisher Vollzugriff.
 
 ## [2.40.0] - 2026-10-24
 

@@ -68,6 +68,24 @@ public sealed class PairingServiceTests
     }
 
     [TestMethod]
+    public void SetMediaOnly_IsPersistedAndReportedWithTheToken()
+    {
+        var service = CreateService();
+        var response = Pair(service, service.GetCurrentPin().Pin, "Telefon");
+        Assert.IsTrue(response.Success, response.Error);
+        var deviceId = service.GetPairedDevices()[0].Id;
+        Assert.IsFalse(service.GetPairedDevices()[0].MediaOnly);
+
+        Assert.IsTrue(service.SetMediaOnly(deviceId, mediaOnly: true));
+        Assert.IsFalse(service.SetMediaOnly(Guid.NewGuid(), mediaOnly: true));
+
+        var reloadedService = CreateService();
+        Assert.IsTrue(reloadedService.GetPairedDevices()[0].MediaOnly);
+        Assert.IsTrue(reloadedService.TryValidateToken(response.Token, out _, out var mediaOnly));
+        Assert.IsTrue(mediaOnly);
+    }
+
+    [TestMethod]
     public void TryPair_WhenWriteFails_RollsBackDeviceAndKeepsPinUsable()
     {
         var pathBlockingDirectory = Path.Combine(testDirectory, "blocker");

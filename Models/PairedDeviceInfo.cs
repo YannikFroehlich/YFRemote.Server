@@ -4,4 +4,5 @@ public sealed record PairedDeviceInfo(
     Guid Id,
     string Name,
     DateTimeOffset PairedAtUtc,
-    DateTimeOffset LastSeenUtc);
+    DateTimeOffset LastSeenUtc,
+    bool MediaOnly = false);

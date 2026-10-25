@@ -32,6 +32,9 @@ public sealed partial class RemoteActionHandler(
     private const int MaxAppNameLength = 100;
     private const int MaxUrlLength = 2000;
 
+    // Wortgleich im Client, der dafuer einen uebersetzten Hinweis zeigt.
+    internal const string MediaOnlyError = "Not allowed for this device.";
+
     public RemoteActionResponse Handle(RemoteActionRequest? request, RemoteActionSession? session = null)
     {
         if (request is null)
@@ -42,6 +45,11 @@ public sealed partial class RemoteActionHandler(
         var type = request.Type?.Trim().ToLowerInvariant();
         var keys = NormalizeKeys(request.Keys);
         RemoteActionResponse response;
+
+        if (session?.MediaOnly == true && !IsMediaAction(type, keys, request))
+        {
+            return Fail(MediaOnlyError) with { RequestId = request.RequestId };
+        }
 
         try
         {
@@ -102,6 +110,18 @@ public sealed partial class RemoteActionHandler(
 
         return response with { RequestId = request.RequestId };
     }
+
+    // Ein Geraet mit "Nur Medien" steuert Wiedergabe und Lautstaerke und darf Anzeigen abonnieren,
+    // aber nichts tippen, klicken, starten, ausschalten oder aus der Zwischenablage lesen.
+    private static bool IsMediaAction(string? type, IReadOnlyList<string> keys, RemoteActionRequest request) =>
+        type switch
+        {
+            "key" => keys.Count == 1 && (keys[0].StartsWith("MEDIA_") || keys[0].StartsWith("VOLUME_")),
+            "volume" or "mediaseek" or "appvolume" or "audiooutput" or "voicemeeter" or "voicemeeterparameter"
+                or "apps" or "systemstats" or "gamepaddisconnect" => true,
+            "clipboardsync" => request.Enabled == false,
+            _ => false
+        };
 
     private RemoteActionResponse HandleKey(IReadOnlyList<string> keys)
     {

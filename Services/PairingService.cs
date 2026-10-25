@@ -131,9 +131,13 @@ public sealed class PairingService
         return TryValidateToken(token, out _);
     }
 
-    public bool TryValidateToken(string? token, out Guid deviceId)
+    public bool TryValidateToken(string? token, out Guid deviceId) =>
+        TryValidateToken(token, out deviceId, out _);
+
+    public bool TryValidateToken(string? token, out Guid deviceId, out bool mediaOnly)
     {
         deviceId = default;
+        mediaOnly = false;
 
         if (string.IsNullOrEmpty(token))
         {
@@ -153,6 +157,7 @@ public sealed class PairingService
             var now = UtcNow;
             devices[index] = devices[index] with { LastSeenUtc = now };
             deviceId = devices[index].Id;
+            mediaOnly = devices[index].MediaOnly;
 
             if (now >= nextLastSeenPersistenceUtc)
             {
@@ -169,8 +174,41 @@ public sealed class PairingService
         lock (syncRoot)
         {
             return devices
-                .Select(device => new PairedDeviceInfo(device.Id, device.Name, device.PairedAtUtc, device.LastSeenUtc))
+                .Select(device => new PairedDeviceInfo(
+                    device.Id,
+                    device.Name,
+                    device.PairedAtUtc,
+                    device.LastSeenUtc,
+                    device.MediaOnly))
                 .ToList();
+        }
+    }
+
+    // false, wenn das Geraet fehlt oder nicht gespeichert werden konnte (dann bleibt das alte Recht).
+    public bool SetMediaOnly(Guid deviceId, bool mediaOnly)
+    {
+        lock (syncRoot)
+        {
+            var index = devices.FindIndex(device => device.Id == deviceId);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            var previous = devices[index];
+            devices[index] = previous with { MediaOnly = mediaOnly };
+            if (!TryPersistDevices())
+            {
+                devices[index] = previous;
+                return false;
+            }
+
+            logger.LogInformation(
+                "Device {DeviceName} ({DeviceId}) set to {Access}.",
+                previous.Name,
+                previous.Id,
+                mediaOnly ? "media only" : "full access");
+            return true;
         }
     }
 
@@ -528,7 +566,8 @@ public sealed class PairingService
         string Name,
         string TokenHash,
         DateTimeOffset PairedAtUtc,
-        DateTimeOffset LastSeenUtc);
+        DateTimeOffset LastSeenUtc,
+        bool MediaOnly = false);
 
     private sealed record FailedAttemptState(int Count, DateTimeOffset LockedUntilUtc);
 

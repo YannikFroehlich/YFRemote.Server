@@ -647,20 +647,69 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var entries = pairingService.GetPairedDevices()
             .OrderByDescending(device => connectionRegistry.IsConnected(device.Id))
             .ThenByDescending(device => device.LastSeenUtc)
-            .Select(device => (device, connectionRegistry.IsConnected(device.Id)
-                ? $"{device.Name} (verbunden)"
-                : $"{device.Name} (zuletzt: {FormatLastSeen(device.LastSeenUtc)})"))
+            .Select(device => (device, (device.MediaOnly ? $"{device.Name} - nur Medien" : device.Name)
+                + (connectionRegistry.IsConnected(device.Id)
+                    ? " (verbunden)"
+                    : $" (zuletzt: {FormatLastSeen(device.LastSeenUtc)})")))
             .ToList();
 
         using var dialog = new UnpairDevicesDialog(entries);
-        if (dialog.ShowDialog() != DialogResult.OK)
+        switch (dialog.ShowDialog())
         {
+            case DialogResult.OK:
+                UnpairDevices(dialog.SelectedDevices);
+                break;
+            case DialogResult.Yes:
+                SetMediaOnly(dialog.SelectedDevices, mediaOnly: true);
+                break;
+            case DialogResult.No:
+                SetMediaOnly(dialog.SelectedDevices, mediaOnly: false);
+                break;
+        }
+    }
+
+    private void SetMediaOnly(IReadOnlyList<PairedDeviceInfo> devices, bool mediaOnly)
+    {
+        var failed = new List<string>();
+        foreach (var device in devices)
+        {
+            if (device.MediaOnly == mediaOnly)
+            {
+                continue;
+            }
+
+            if (!pairingService.SetMediaOnly(device.Id, mediaOnly))
+            {
+                failed.Add(device.Name);
+                continue;
+            }
+
+            // Die offene Verbindung hat das alte Recht; der Client verbindet sich gleich neu.
+            connectionRegistry.CloseConnections(device.Id);
+        }
+
+        if (failed.Count > 0)
+        {
+            MessageBox.Show(
+                $"Nicht dauerhaft gespeichert: {string.Join(", ", failed)}\n\nBitte erneut versuchen.",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
             return;
         }
 
+        notifyIcon.ShowBalloonTip(
+            3000,
+            mediaOnly ? "Nur Medien" : "Vollzugriff",
+            string.Join(", ", devices.Select(device => device.Name)),
+            ToolTipIcon.Info);
+    }
+
+    private void UnpairDevices(IReadOnlyList<PairedDeviceInfo> devices)
+    {
         var removed = new List<string>();
         var failed = new List<string>();
-        foreach (var selected in dialog.SelectedDevices)
+        foreach (var selected in devices)
         {
             if (pairingService.RemoveDevice(selected.Id))
             {

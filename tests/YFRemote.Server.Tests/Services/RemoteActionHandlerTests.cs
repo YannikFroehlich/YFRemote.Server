@@ -351,6 +351,49 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow("key", "MEDIA_PLAY_PAUSE", true)]
+    [DataRow("key", "VOLUME_UP", true)]
+    [DataRow("key", "ENTER", false)]
+    [DataRow("hotkey", "CTRL", false)]
+    [DataRow("mouseMove", null, false)]
+    [DataRow("text", null, false)]
+    [DataRow("shutdown", null, false)]
+    [DataRow("launch", null, false)]
+    [DataRow("clipboardSync", null, false)]
+    public void Handle_MediaOnlySession_AllowsOnlyMediaActions(string type, string? key, bool allowed)
+    {
+        var powerService = new RecordingPowerService();
+        var launcher = new RecordingAppLauncher("Spotify");
+        var handler = CreateHandler(powerService: powerService, appLauncher: launcher);
+        using var session = new RemoteActionSession { MediaOnly = true };
+
+        var response = handler.Handle(
+            new RemoteActionRequest
+            {
+                Type = type,
+                Keys = key is null ? null : [key],
+                Text = "x",
+                DeltaX = 1,
+                DeltaY = 1,
+                Name = "Spotify",
+                Enabled = true,
+                RequestId = "r1"
+            },
+            session);
+
+        if (allowed)
+        {
+            Assert.IsTrue(response.Success, response.Error);
+            return;
+        }
+
+        Assert.AreEqual("Not allowed for this device.", response.Error);
+        Assert.AreEqual("r1", response.RequestId);
+        Assert.IsNull(launcher.Launched);
+        Assert.IsNull(powerService.LastAction);
+    }
+
+    [TestMethod]
     [DataRow("131072", true)]
     [DataRow("4711", false)]
     [DataRow("-1", false)]

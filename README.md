@@ -88,7 +88,9 @@ mobile device and can optionally pre-fill the PIN in the URL fragment, without
 transmitting it to the HTTP server. A new PIN is generated automatically after a
 successful pairing. A device only receives a permanent token once its pairing
 has been safely persisted; paired devices can be viewed and individually removed
-from the tray menu. In the client, the current device can also revoke its own
+from the tray menu, or limited to "Nur Medien" (media only: playback, volume,
+and mixer, but no typing, mouse, power actions, app launching, files, or
+clipboard). In the client, the current device can also revoke its own
 token server-side via "Unpair this device" in settings.
 
 HTTPS is optional (port 5443) and switched on with "Use HTTPS" in the tray

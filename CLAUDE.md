@@ -207,8 +207,10 @@ move/scroll traffic tops out around one message per animation frame.
 **Volume per app.** The "Mixer" tab subscribes `{"type":"apps","enabled"}` like `systemStats` and
 gets `{"type":"apps","apps":[{id,name,volume,muted}]}` from a `PollingBroadcaster` over
 `IAppVolumeService.ReadAppsAsync`. On Windows (`WindowsMediaStatusReader.Apps.cs`) these are the
-Core Audio sessions of the default playback device, grouped per process (`id` = process id, or
-`system` for the system sounds, which the Client names itself). The name is the session's display
+Core Audio sessions of all active playback devices, grouped per process (`id` = process id, or
+`system` for the system sounds, which the Client names itself); with sessions on several devices
+the list shows the first one and `appVolume` sets all of them. Reading and setting were checked on
+the dev PC on 2026-10-25, which has only one playback device. The name is the session's display
 name or the executable's file description, cached per process id. Session volume also works behind
 Voicemeeter, because Windows applies it before the stream reaches the virtual device. On Linux the
 entries are `pactl list sink-inputs`, one per stream (`id` = sink-input number). `appVolume`

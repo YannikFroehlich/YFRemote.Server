@@ -6,10 +6,9 @@ using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Services;
 
-// Lautstaerke pro App wie im Lautstaerkemixer von Windows: die Audio-Sitzungen des
-// Standard-Wiedergabegeraets, zusammengefasst je Prozess. Wirkt auch hinter Voicemeeter, weil
-// Windows die Sitzungslautstaerke einrechnet, bevor der Ton das (virtuelle) Geraet erreicht.
-// ponytail: nur das Standardgeraet; Apps auf einem anderen Ausgabegeraet fehlen, bis jemand sie braucht.
+// Lautstaerke pro App wie im Lautstaerkemixer von Windows: die Audio-Sitzungen aller aktiven
+// Wiedergabegeraete, zusammengefasst je Prozess. Wirkt auch hinter Voicemeeter, weil Windows die
+// Sitzungslautstaerke einrechnet, bevor der Ton das (virtuelle) Geraet erreicht.
 public sealed partial class WindowsMediaStatusReader : IAppVolumeService
 {
     private const string SystemSoundsId = "system";
@@ -27,7 +26,7 @@ public sealed partial class WindowsMediaStatusReader : IAppVolumeService
     private readonly Dictionary<uint, string> processNames = [];
 
     public Task<AppVolumesMessage> ReadAppsAsync() =>
-        Task.FromResult(new AppVolumesMessage(WithSessions(ReadApps) ?? [], ReadOutputs()));
+        Task.FromResult(new AppVolumesMessage(WithSessions(ReadApps), ReadOutputs()));
 
     // Wie die Soundeinstellungen: IPolicyConfig ist nicht dokumentiert, aber seit Windows 7
     // unveraendert und der Weg aller Umschalt-Tools. Nur das Standardgeraet - das
@@ -145,45 +144,87 @@ public sealed partial class WindowsMediaStatusReader : IAppVolumeService
         ];
     }
 
-    private T? WithSessions<T>(Func<IReadOnlyList<AudioSession>, T> use) =>
-        WithDefaultDevice<IAudioSessionManager2, T>((manager, _) =>
+    // Spielt eine App auf zwei Geraeten, ist sie ein Eintrag: ReadApps zeigt die erste Sitzung,
+    // SetApp stellt alle.
+    private static T WithSessions<T>(Func<IReadOnlyList<AudioSession>, T> use)
+    {
+        var deviceEnumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+        IMMDeviceCollection? devices = null;
+        var comObjects = new List<object>();
+        var sessions = new List<AudioSession>();
+        try
         {
-            Marshal.ThrowExceptionForHR(manager.GetSessionEnumerator(out var enumerator));
-            var sessions = new List<AudioSession>();
-            try
+            Marshal.ThrowExceptionForHR(deviceEnumerator.EnumAudioEndpoints(ERender, DeviceStateActive, out devices));
+            Marshal.ThrowExceptionForHR(devices.GetCount(out var deviceCount));
+            var iid = typeof(IAudioSessionManager2).GUID;
+            for (uint deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++)
             {
-                Marshal.ThrowExceptionForHR(enumerator.GetCount(out var count));
-                for (var index = 0; index < count; index++)
+                if (devices.Item(deviceIndex, out var device) != 0)
                 {
-                    if (enumerator.GetSession(index, out var control) != 0)
-                    {
-                        continue;
-                    }
-
-                    var id = control.IsSystemSoundsSession() == 0
-                        ? SystemSoundsId
-                        : control.GetProcessId(out var processId) >= 0 ? processId.ToString(CultureInfo.InvariantCulture) : null;
-                    if (id is null)
-                    {
-                        Release(control);
-                        continue;
-                    }
-
-                    sessions.Add(new AudioSession(control, (ISimpleAudioVolume)control, id));
+                    continue;
                 }
 
-                return use(sessions);
-            }
-            finally
-            {
-                foreach (var session in sessions)
+                comObjects.Add(device);
+                if (device.Activate(ref iid, ClsCtxAll, IntPtr.Zero, out var manager) != 0)
                 {
-                    Release(session.Control);
+                    continue;
                 }
 
-                Release(enumerator);
+                comObjects.Add(manager);
+                if (((IAudioSessionManager2)manager).GetSessionEnumerator(out var enumerator) != 0)
+                {
+                    continue;
+                }
+
+                comObjects.Add(enumerator);
+                AddSessions(enumerator, sessions);
             }
-        });
+
+            return use(sessions);
+        }
+        finally
+        {
+            foreach (var session in sessions)
+            {
+                Release(session.Control);
+            }
+
+            foreach (var comObject in comObjects)
+            {
+                Release(comObject);
+            }
+
+            Release(devices);
+            Release(deviceEnumerator);
+        }
+    }
+
+    private static void AddSessions(IAudioSessionEnumerator enumerator, List<AudioSession> sessions)
+    {
+        if (enumerator.GetCount(out var count) != 0)
+        {
+            return;
+        }
+
+        for (var index = 0; index < count; index++)
+        {
+            if (enumerator.GetSession(index, out var control) != 0)
+            {
+                continue;
+            }
+
+            var id = control.IsSystemSoundsSession() == 0
+                ? SystemSoundsId
+                : control.GetProcessId(out var processId) >= 0 ? processId.ToString(CultureInfo.InvariantCulture) : null;
+            if (id is null)
+            {
+                Release(control);
+                continue;
+            }
+
+            sessions.Add(new AudioSession(control, (ISimpleAudioVolume)control, id));
+        }
+    }
 
     // Den Namen setzen nur wenige Apps selbst; sonst wie im Windows-Mixer die Dateibeschreibung
     // ("Spotify", "Discord"). Der Client uebersetzt die Systemklaenge selbst.

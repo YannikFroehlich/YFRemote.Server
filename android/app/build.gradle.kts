@@ -21,23 +21,24 @@ android {
         versionName = appVersionName
     }
 
-    signingConfigs {
-        // Ohne YFREMOTE_KEYSTORE_PATH (lokaler Dev-Build) bleibt storeFile null - Gradle
-        // signiert dann automatisch mit dem eingebauten Debug-Keystore.
-        create("release") {
-            val storeFilePath = System.getenv("YFREMOTE_KEYSTORE_PATH")
-            if (!storeFilePath.isNullOrBlank()) {
-                storeFile = file(storeFilePath)
+    // Ohne YFREMOTE_KEYSTORE_PATH (lokaler Dev-Build, CodeQL) bleibt der Release-Build
+    // unsigniert. Eine Signing-Config ohne storeFile laesst packageRelease scheitern, statt auf
+    // den Debug-Keystore auszuweichen.
+    val releaseKeystorePath = System.getenv("YFREMOTE_KEYSTORE_PATH")
+    if (!releaseKeystorePath.isNullOrBlank()) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystorePath)
                 storePassword = System.getenv("YFREMOTE_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("YFREMOTE_KEY_ALIAS")
                 keyPassword = System.getenv("YFREMOTE_KEY_PASSWORD")
             }
         }
-    }
 
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("release")
+        buildTypes {
+            release {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

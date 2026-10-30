@@ -368,8 +368,11 @@ Galaxy S25 (Android 16).
    - The release-signing keystore lives base64-encoded in the `ANDROID_KEYSTORE_*` repository
      secrets. A release-signed APK cannot replace a debug-signed one on a device without
      uninstalling first.
-   - `ci.yml`'s `android` job builds `assembleDebug` and runs the unit tests on every PR;
-     `assembleRelease` (signed) only runs in `release-android`. Neither may be named
+   - `ci.yml`'s `android` job runs `assemble` (debug plus an unsigned release build) and the
+     unit tests on every PR; the signed `assembleRelease` only runs in `release-android`. Without
+     `YFREMOTE_KEYSTORE_PATH` the release build type has no signing config at all - an empty one
+     makes `packageRelease` fail, which also broke CodeQL's Kotlin autobuild (`./gradlew
+     assemble`). Neither may be named
      `build-and-test` — that name is the required status check on `main` (see "Release
      automation" below) and must stay pointed at the Windows server job.
    - There is no separate Android version or trigger: every push to `main` releases Windows,
@@ -496,7 +499,7 @@ covers Client-only changes too, because the Client lives in this repository.
 `.github/workflows/ci.yml` runs on every pull request with four jobs: `build-and-test`
 (restores, builds, and tests the Server on `windows-latest`), `client` (`npm ci`, Client
 tests, and the Client production build on `ubuntu-latest`), `linux` (the `net10.0` Server build
-and tests), and `android` (`gradle -p android assembleDebug testDebugUnitTest`, no signing
+and tests), and `android` (`gradle -p android assemble testDebugUnitTest`, no signing
 secrets needed). None has a `paths` filter, so all run for every change. The Android SDK setup is
 shared with `release-android` via the composite action `.github/actions/setup-android`, so a fix
 to it (retries, license handling) applies to both.

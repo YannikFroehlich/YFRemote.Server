@@ -103,8 +103,9 @@ jobs:
 
   # Baut die Android-App und fuehrt ihre Unit-Tests aus. Vorher kompilierte erst release-android
   # den Kotlin-Code - ein Fehler fiel dort auf, nachdem Windows/Linux schon veroeffentlicht waren.
-  # Debug-Build, damit keine Signing-Secrets noetig sind; assets/www (der Client) bleibt leer,
-  # zum Kompilieren und Testen wird er nicht gebraucht.
+  # Ohne Signing-Secrets: der Release-Build bleibt dann unsigniert. "assemble" baut Debug und
+  # Release wie CodeQLs Autobuild fuer Kotlin, damit ein Release-only-Fehler hier auffaellt.
+  # assets/www (der Client) bleibt leer, zum Kompilieren und Testen wird er nicht gebraucht.
   android:
     runs-on: ubuntu-latest
 
@@ -128,4 +129,4 @@ jobs:
           gradle-version: "8.7"
 
       - name: App bauen und testen
-        run: gradle -p android assembleDebug testDebugUnitTest
+        run: gradle -p android assemble testDebugUnitTest

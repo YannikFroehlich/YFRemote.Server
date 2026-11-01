@@ -270,8 +270,12 @@ is assumed to sit somewhere visible (a TV box, a mounted tablet) and is controll
 Windows/Linux server is — no `MediaProjection`/video-encoding screen capture into the browser.
 
 **The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
-this phone controls (`remote/RemoteDevices`, addresses only, in `SharedPreferences`) with an
-online dot from polling their unauthenticated `GET /health`. The `macAddress` from that response
+this phone controls (`remote/RemoteDevices`, in `SharedPreferences`) with an online dot from
+polling their unauthenticated `GET /health`. Each entry shows its name, with address and
+"verschlüsselt" (HTTPS) as secondary text; the name is the `name` from `/health`
+(`Environment.MachineName` on the PC, `Settings.Global.DEVICE_NAME` on Android) unless the user set
+one under "Bearbeiten" (`RemoteDevice.named`; older entries count as named when their name differs
+from the address). The `macAddress` from that response
 is stored with the device; while it is offline, "Aufwecken" sends a Wake-on-LAN magic packet
 (`remote/WakeOnLan`, UDP port 9 to `255.255.255.255` and every interface's broadcast address) —
 native, because the browser Client cannot send UDP. If `/health` reported `macAddressWireless`, the

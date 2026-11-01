@@ -34,9 +34,15 @@ export class SystemStatsComponent implements OnDestroy {
     }
 
     const gb = (mb: number) => (mb / 1024).toFixed(1);
+    // Die Android-App darf CPU und GPU nicht messen - die Zeilen blieben immer leer.
+    const android = this.remote.serverPlatform() === 'android';
     return [
-      { label: 'CPU', load: stats.cpuLoad, detail: this.temperature(stats.cpuTemperature) },
-      { label: 'GPU', load: stats.gpuLoad, detail: this.temperature(stats.gpuTemperature) },
+      ...(android
+        ? []
+        : [
+            { label: 'CPU', load: stats.cpuLoad, detail: this.temperature(stats.cpuTemperature) },
+            { label: 'GPU', load: stats.gpuLoad, detail: this.temperature(stats.gpuTemperature) },
+          ]),
       {
         label: this.i18n.t('stats.memory'),
         load:
@@ -45,8 +51,27 @@ export class SystemStatsComponent implements OnDestroy {
             : undefined,
         detail: `${gb(stats.memoryUsedMb)} / ${gb(stats.memoryTotalMb)} GB`,
       },
+      ...(stats.batteryLevel === undefined
+        ? []
+        : [
+            {
+              label: this.i18n.t('stats.battery'),
+              load: stats.batteryLevel,
+              detail: [
+                this.i18n.t(
+                  stats.batteryCharging ? 'stats.battery.charging' : 'stats.battery.discharging',
+                ),
+                ...(stats.batteryTemperature === undefined
+                  ? []
+                  : [`${stats.batteryTemperature} °C`]),
+              ].join(' · '),
+            },
+          ]),
     ];
   });
+  protected readonly waitingKey = computed(() =>
+    this.remote.serverPlatform() === 'android' ? 'stats.waiting.android' : 'stats.waiting',
+  );
 
   // Fensterwechsel gibt es nur unter Windows; Wayland hat keinen desktopuebergreifenden Weg.
   // Bei "Nur Medien" lehnt der PC ihn ab.

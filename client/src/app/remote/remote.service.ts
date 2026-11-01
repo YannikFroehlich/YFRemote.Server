@@ -210,8 +210,10 @@ export class RemoteService implements OnDestroy {
   );
   /** Zuletzt gemeldete Auslastung des PCs; `null`, solange niemand zusieht oder nichts kam. */
   readonly systemStats = this.systemStatsSignal.asReadonly();
-  /** Auch die Systemanzeige koennen nur die PC-Server. */
-  readonly systemStatsSupported = this.clipboardSyncSupported;
+  /** Die Systemanzeige kann jeder Server; die Android-App meldet Speicher und Akku statt CPU/GPU. */
+  readonly systemStatsSupported = computed(() => this.serverPlatformSignal() !== null);
+  /** Lautstaerke pro App (Mixer, App-Schritte) koennen nur die PC-Server. */
+  readonly mixerSupported = this.clipboardSyncSupported;
   /** Ob am PC Voicemeeter installiert ist (`GET /health`); dann gibt es den Tab "Mixer". */
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
@@ -828,7 +830,7 @@ export class RemoteService implements OnDestroy {
   }
 
   private sendAppsWatch(): void {
-    if (this.systemStatsSupported() && this.socket?.readyState === SOCKET_OPEN) {
+    if (this.mixerSupported() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'apps', enabled: this.appsWatched });
     }
   }
@@ -1056,7 +1058,10 @@ function isSystemStatsMessage(value: unknown): value is SystemStatsMessage {
     optionalNumber(message.gpuLoad) &&
     optionalNumber(message.gpuTemperature) &&
     typeof message.memoryUsedMb === 'number' &&
-    typeof message.memoryTotalMb === 'number'
+    typeof message.memoryTotalMb === 'number' &&
+    optionalNumber(message.batteryLevel) &&
+    (message.batteryCharging === undefined || typeof message.batteryCharging === 'boolean') &&
+    optionalNumber(message.batteryTemperature)
   );
 }
 

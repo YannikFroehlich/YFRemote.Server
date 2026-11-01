@@ -354,6 +354,15 @@ action fails while it is off. The Client shows the "Öffnen" step for every know
 (`launchSupported`), the "App" volume step still only for PCs. Unit tests only, **not yet checked
 on a device**.
 
+**System stats.** `{"type":"systemStats","enabled"}` sets `RemoteActionSession.systemStats`, and a
+per-connection loop in `Routes.kt` then pushes `SystemStatsReader` once per second on change:
+`memoryUsedMb`/`memoryTotalMb` from `ActivityManager.MemoryInfo` plus Android-only
+`batteryLevel`/`batteryCharging`/`batteryTemperature` from the sticky `ACTION_BATTERY_CHANGED`
+intent (omitted without a battery). CPU load (`/proc/stat` since Android 8) and CPU/GPU temperatures
+are closed to normal apps and never sent. The Client shows that tab as "Gerät" without the CPU/GPU
+rows; `systemStatsSupported` now means any known platform, `mixerSupported` keeps Mixer and app
+steps PC-only. Unit tests only, **not yet checked on a device**.
+
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
 way to widen it later without asking for root or an ADB-based tool like Shizuku:

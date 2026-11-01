@@ -120,6 +120,10 @@ export interface SystemStatsMessage {
   readonly gpuTemperature?: number;
   readonly memoryUsedMb: number;
   readonly memoryTotalMb: number;
+  /** Nur von der Android-App: Akkustand in Prozent, am Strom, Akkutemperatur in Grad Celsius. */
+  readonly batteryLevel?: number;
+  readonly batteryCharging?: boolean;
+  readonly batteryTemperature?: number;
 }
 
 /** Schaltet fuer diese Verbindung den Voicemeeter-Mixer ein oder aus; wie die Systemanzeige liest

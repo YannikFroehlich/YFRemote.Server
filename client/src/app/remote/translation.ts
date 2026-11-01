@@ -362,11 +362,14 @@ export const TRANSLATIONS = {
     en: 'This server cannot sync the clipboard.',
   },
   'media.nothing': { de: 'Am PC läuft nichts', en: 'Nothing playing on the PC' },
+  // Der Android-Server meldet bisher nur die Lautstaerke, keinen Titel - "laeuft nichts" waere falsch.
+  'media.nothing.android': { de: 'Lautstärke am Gerät', en: 'Device volume' },
   'media.playing': { de: 'läuft', en: 'playing' },
   'media.paused': { de: 'pausiert', en: 'paused' },
   'media.muted': { de: 'Ton aus', en: 'Muted' },
   'media.volume': { de: 'Lautstärke {{volume}} %', en: 'Volume {{volume}}%' },
   'media.setVolume': { de: 'PC-Lautstärke', en: 'PC volume' },
+  'media.setVolume.android': { de: 'Gerätelautstärke', en: 'Device volume' },
   'media.seek': { de: 'Stelle im Titel', en: 'Position in track' },
   'media.position': { de: '{{position}} von {{duration}}', en: '{{position}} of {{duration}}' },
   'shutdownTimer.remaining': {

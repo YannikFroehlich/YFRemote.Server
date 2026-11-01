@@ -87,6 +87,9 @@ export class RemoteControlComponent {
   protected readonly fileOfferTitleKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'fileOffer.title.android' : 'fileOffer.title',
   );
+  protected readonly mediaKeySuffix = computed(() =>
+    this.remote.serverPlatform() === 'android' ? '.android' : '',
+  );
   protected readonly fileDownloading = this.fileTransfer.downloading;
   protected readonly fileOfferError = signal(false);
   // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.

@@ -1,6 +1,7 @@
 package com.yfremote.android.server
 
 import android.content.Context
+import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
@@ -9,6 +10,7 @@ import com.yfremote.android.server.models.ClipboardResponse
 import com.yfremote.android.server.models.ClipboardTextRequest
 import com.yfremote.android.server.models.FileOfferMessage
 import com.yfremote.android.server.models.FileUploadResponse
+import com.yfremote.android.server.models.MediaStatusMessage
 import com.yfremote.android.server.models.HealthResponse
 import com.yfremote.android.server.models.PairRequest
 import com.yfremote.android.server.models.PairResponse
@@ -44,6 +46,9 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import java.io.IOException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
@@ -61,6 +66,7 @@ fun Route.installRoutes(
     fileOffers: FileOfferRepository,
     json: Json,
 ) {
+    val audioManager = context.getSystemService(AudioManager::class.java)
     fileOffers.onOffered = { offer ->
         connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer), includeMediaOnly = false)
     }
@@ -92,6 +98,20 @@ fun Route.installRoutes(
             if (!device.mediaOnly) {
                 fileOffers.currentOffer?.let {
                     send(Frame.Text(json.encodeToString(FileOfferMessage.serializer(), it)))
+                }
+            }
+
+            // Wie der media-Push von PollingBroadcaster<T>: sekuendlich lesen, nur Aenderungen senden.
+            // Laeuft im Scope der Verbindung und endet mit ihr.
+            launch {
+                var last: MediaStatusMessage? = null
+                while (isActive) {
+                    val status = DeviceVolume.read(audioManager)
+                    if (status != last) {
+                        send(Frame.Text(json.encodeToString(MediaStatusMessage.serializer(), status)))
+                        last = status
+                    }
+                    delay(1000)
                 }
             }
 

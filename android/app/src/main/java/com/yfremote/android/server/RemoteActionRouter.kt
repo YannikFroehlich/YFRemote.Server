@@ -23,9 +23,10 @@ const val MEDIA_ONLY_ERROR = "Not allowed for this device."
 
 // Wie IsMediaAction in RemoteActionHandler.cs, beschraenkt auf die Aktionen, die Android kennt:
 // ein Geraet mit "Nur Medien" darf nur Medien- und Lautstaerketasten senden. Neue Medienaktionen
-// (z.B. volume) muessen hier ausdruecklich dazu.
+// muessen hier ausdruecklich dazu.
 internal fun isMediaAction(type: String?, keys: List<String>): Boolean =
-    type == "key" && keys.size == 1 && (keys[0].startsWith("MEDIA_") || keys[0].startsWith("VOLUME_"))
+    type == "volume" ||
+        type == "key" && keys.size == 1 && (keys[0].startsWith("MEDIA_") || keys[0].startsWith("VOLUME_"))
 
 class RemoteActionRouter(
     private val audioManager: AudioManager,
@@ -65,6 +66,7 @@ class RemoteActionRouter(
                     "mouseup" -> handleMouseButton(request, isDown = false)
                     "mousescroll" -> handleMouseScroll(request)
                     "sleep" -> handleSleep()
+                    "volume" -> handleVolume(request)
                     "shutdown", "restart" -> fail("Auf Android ohne Root nicht möglich.")
                     null, "" -> fail("Missing action type.")
                     else -> fail("Unsupported action type: ${request.type}")
@@ -211,6 +213,13 @@ class RemoteActionRouter(
 
     private fun handleSleep(): RemoteActionResponse = withAccessibility { service ->
         if (service.lockScreen()) ok() else fail("Sperren wird auf dieser Android-Version nicht unterstützt (ab API 28).")
+    }
+
+    private fun handleVolume(request: RemoteActionRequest): RemoteActionResponse {
+        val volume = request.volume
+        if (volume == null || !isInRange(volume, 0, 100)) return fail("Action 'volume' requires volume between 0 and 100.")
+        DeviceVolume.set(audioManager, volume)
+        return ok()
     }
 
     private fun pressAudioKey(key: String) {

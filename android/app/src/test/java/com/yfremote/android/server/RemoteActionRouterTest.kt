@@ -1,0 +1,22 @@
+package com.yfremote.android.server
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class RemoteActionRouterTest {
+
+    @Test
+    fun `nur Medien erlaubt nur einzelne Medien- und Lautstaerketasten`() {
+        assertTrue(isMediaAction("key", listOf("MEDIA_PLAY_PAUSE")))
+        assertTrue(isMediaAction("key", listOf("VOLUME_UP")))
+
+        assertFalse(isMediaAction("key", listOf("ENTER")))
+        assertFalse(isMediaAction("key", listOf("MEDIA_NEXT", "VOLUME_UP")))
+        assertFalse(isMediaAction("hotkey", listOf("VOLUME_UP")))
+        assertFalse(isMediaAction("text", emptyList()))
+        assertFalse(isMediaAction("mouseclick", emptyList()))
+        assertFalse(isMediaAction("sleep", emptyList()))
+        assertFalse(isMediaAction(null, emptyList()))
+    }
+}

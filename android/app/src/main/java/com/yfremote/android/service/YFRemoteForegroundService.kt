@@ -126,6 +126,12 @@ class YFRemoteForegroundService : Service() {
         connectionRegistry.closeConnections(deviceId)
     }
 
+    // Das Recht gilt pro Verbindung - schliessen, der Client verbindet sich mit dem neuen Recht neu.
+    fun setMediaOnly(deviceId: String, mediaOnly: Boolean) {
+        if (!pairing.setMediaOnly(deviceId, mediaOnly)) return
+        connectionRegistry.closeConnections(deviceId)
+    }
+
     private fun refreshNotification() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, buildNotification())

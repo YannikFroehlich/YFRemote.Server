@@ -1,6 +1,8 @@
 package com.yfremote.android.server
 
 import java.io.File
+import java.time.Duration
+import java.time.Instant
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -122,6 +124,35 @@ class PairingRepositoryTest {
 
         val reloaded = PairingRepository(tempDir)
         assertTrue(reloaded.isValidToken(token))
+    }
+
+    @Test
+    fun `media only is persisted and reported with the token`() {
+        val token = requireNotNull(repository.tryPair(repository.getCurrentPin().first, "Test-Handy", "127.0.0.1").token)
+        val deviceId = repository.getPairedDevices().single().id
+        assertFalse(repository.validateToken(token)!!.mediaOnly)
+
+        assertTrue(repository.setMediaOnly(deviceId, true))
+        assertFalse(repository.setMediaOnly("unknown", true))
+
+        val reloaded = PairingRepository(tempDir)
+        assertTrue(reloaded.getPairedDevices().single().mediaOnly)
+        assertTrue(reloaded.validateToken(token)!!.mediaOnly)
+    }
+
+    @Test
+    fun `device without connection for the expiry is dropped on load`() {
+        val token = requireNotNull(repository.tryPair(repository.getCurrentPin().first, "Test-Handy", "127.0.0.1").token)
+        val devicesFile = File(tempDir, "devices.json")
+        val old = Instant.now().minus(Duration.ofDays(91)).toString()
+        devicesFile.writeText(devicesFile.readText().replace(Regex("\"lastSeenUtc\":\"[^\"]+\""), "\"lastSeenUtc\":\"$old\""))
+
+        assertTrue(PairingRepository(tempDir, deviceExpiry = Duration.ZERO).isValidToken(token))
+
+        val reloaded = PairingRepository(tempDir)
+        assertFalse(reloaded.isValidToken(token))
+        assertTrue(reloaded.getPairedDevices().isEmpty())
+        assertFalse(devicesFile.readText().contains("Test-Handy"))
     }
 
     @Test

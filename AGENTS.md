@@ -320,6 +320,16 @@ Over Bluetooth that ID comes from the phone's Device ID SDP record, which
 force-feedback descriptor (with its Set Effect/Block Load reports), and XInput games don't see a
 generic HID gamepad at all.
 
+**Pairing parity with the PC server.** `PairingRepository` mirrors `PairingService`'s device
+expiry (90 days without a connection, dropped at startup, on every token check and when the setup
+screen lists devices) and the `mediaOnly` flag, which the "Gekoppelte Geräte" list in
+`SetupActivity` toggles with "Nur Medien"/"Vollzugriff" and which closes the device's open
+connections. `/ws` sends `{"type":"access","mediaOnly"}` first and gives a media-only connection
+no `fileOffer`; `isMediaAction` in `RemoteActionRouter.kt` only lets single `MEDIA_*`/`VOLUME_*`
+keys through, and every `Bearer` endpoint answers 403 `Not allowed for this device.`
+(`authorizeFullAccess` in `Http.kt`), since Android has no media endpoint. Covered by unit tests,
+**not yet checked on a device**.
+
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
 way to widen it later without asking for root or an ADB-based tool like Shizuku:

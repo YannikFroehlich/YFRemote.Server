@@ -655,7 +655,7 @@ class SetupActivity : Activity() {
             val ca = PinnedCa.fetch(qr.url, caSha256)
             runOnUiThread {
                 if (ca == null) {
-                    Toast.makeText(this, "Zertifikat des PCs passt nicht zum QR-Code", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Zertifikat des PCs konnte nicht geprüft werden", Toast.LENGTH_LONG).show()
                 } else {
                     addScannedRemote(qr, Base64.encodeToString(ca.encoded, Base64.NO_WRAP))
                 }

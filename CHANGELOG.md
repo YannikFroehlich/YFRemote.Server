@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.42.0] - 2026-11-01
+
 ### Added
 
 - Android-App: Gekoppelte Geräte lassen sich jetzt auch in der App unter "Gekoppelte Geräte" auf "Nur Medien" stellen, wie im Windows-Tray. So ein Gerät sendet nur noch Medien- und Lautstärketasten; Tippen, Maus, Sperren, Dateien und Zwischenablage sind gesperrt, und Touchpad und Tastatur verschwinden im Client. "Vollzugriff" hebt das wieder auf.

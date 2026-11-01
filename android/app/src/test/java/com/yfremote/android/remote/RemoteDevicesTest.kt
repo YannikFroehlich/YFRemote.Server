@@ -26,11 +26,23 @@ class RemoteDevicesTest {
     @Test
     fun `qr code yields address and pin`() {
         assertEquals(
-            "http://192.168.0.5:5050" to "123456",
+            QrCode("http://192.168.0.5:5050", "123456"),
             RemoteDevices.parseQrCode("http://192.168.0.5:5050/#pin=123456"),
         )
-        assertEquals("http://pc:5060" to null, RemoteDevices.parseQrCode("http://pc:5060/"))
-        assertEquals("http://pc:5050" to "654321", RemoteDevices.parseQrCode("https://pc:5443/#pin=654321"))
+        assertEquals(QrCode("http://pc:5060", null), RemoteDevices.parseQrCode("http://pc:5060/"))
+        assertEquals(QrCode("http://pc:5050", "654321"), RemoteDevices.parseQrCode("https://pc:5443/#pin=654321"))
+    }
+
+    @Test
+    fun `https qr code with ca fingerprint stays on https`() {
+        val fingerprint = "0123456789abcdef".repeat(4)
+        assertEquals(
+            QrCode("https://192.168.0.5:5443", "123456", fingerprint),
+            RemoteDevices.parseQrCode("https://192.168.0.5:5443/#pin=123456&ca=$fingerprint"),
+        )
+        assertEquals(QrCode("https://pc:5443", null, fingerprint), RemoteDevices.parseQrCode("https://pc:5443/#ca=$fingerprint"))
+        // Kein gueltiger Fingerabdruck: wie ein HTTPS-QR ohne, also HTTP.
+        assertEquals(QrCode("http://pc:5050", null), RemoteDevices.parseQrCode("https://pc:5443/#ca=ABC"))
     }
 
     @Test
@@ -38,12 +50,16 @@ class RemoteDevicesTest {
         for (input in listOf("", "hallo", "WIFI:S:netz;;", "mailto:a@b.de", "ftp://pc/")) {
             assertNull(input, RemoteDevices.parseQrCode(input))
         }
-        assertEquals("http://pc:5050" to null, RemoteDevices.parseQrCode("http://pc:5050/#pin=12"))
+        assertEquals(QrCode("http://pc:5050", null), RemoteDevices.parseQrCode("http://pc:5050/#pin=12"))
     }
 
     @Test
     fun `devices survive serialize and parse`() {
-        val devices = listOf(RemoteDevice("http://a:5050", "PC", "00:1A:2B:3C:4D:5E", macWireless = true), RemoteDevice("http://b:5050", "Tablet"))
+        val devices = listOf(
+            RemoteDevice("http://a:5050", "PC", "00:1A:2B:3C:4D:5E", macWireless = true),
+            RemoteDevice("http://b:5050", "Tablet"),
+            RemoteDevice("https://c:5443", "Laptop", ca = "MIIB"),
+        )
         assertEquals(devices, RemoteDevices.parse(RemoteDevices.serialize(devices)))
     }
 

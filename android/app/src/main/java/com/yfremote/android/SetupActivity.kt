@@ -22,6 +22,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.text.InputType
+import android.util.Base64
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -45,6 +46,8 @@ import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.bluetooth.BluetoothGamepad
 import com.yfremote.android.bluetooth.GamepadActivity
 import com.yfremote.android.ime.YFRemoteInputMethodService
+import com.yfremote.android.remote.PinnedCa
+import com.yfremote.android.remote.QrCode
 import com.yfremote.android.remote.RemoteDevice
 import com.yfremote.android.remote.RemoteDevices
 import com.yfremote.android.remote.RemoteWebActivity
@@ -58,6 +61,7 @@ import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 
 // Android-Aequivalent zu TrayApplicationContext (Windows) - PIN-Anzeige, gekoppelte Geraete,
@@ -636,15 +640,36 @@ class SetupActivity : Activity() {
             ?: return super.onActivityResult(requestCode, resultCode, data)
         // contents == null: Scan abgebrochen.
         val contents = result.contents ?: return
-        val (url, pin) = RemoteDevices.parseQrCode(contents) ?: run {
+        val qr = RemoteDevices.parseQrCode(contents) ?: run {
             Toast.makeText(this, "Kein YFRemote-QR-Code", Toast.LENGTH_LONG).show()
             return
         }
+        val caSha256 = qr.caSha256
+        if (caSha256 == null) {
+            addScannedRemote(qr, null)
+            return
+        }
 
-        // Bekanntes Geraet behaelt seinen Namen, nur die PIN kommt neu dazu.
-        val device = remoteDevices.load().firstOrNull { it.url == url }
-            ?: RemoteDevice(url, url.removePrefix("http://")).also { remoteDevices.add(it) }
-        openRemote(device, pin)
+        // HTTPS: erst die CA vom PC laden und gegen den Fingerabdruck pruefen (Netzwerk, nicht auf dem Main-Thread).
+        remoteCheckExecutor.execute {
+            val ca = PinnedCa.fetch(qr.url, caSha256)
+            runOnUiThread {
+                if (ca == null) {
+                    Toast.makeText(this, "Zertifikat des PCs passt nicht zum QR-Code", Toast.LENGTH_LONG).show()
+                } else {
+                    addScannedRemote(qr, Base64.encodeToString(ca.encoded, Base64.NO_WRAP))
+                }
+            }
+        }
+    }
+
+    // Bekanntes Geraet behaelt seinen Namen, nur die PIN (und bei HTTPS die CA) kommt neu dazu.
+    private fun addScannedRemote(qr: QrCode, ca: String?) {
+        val known = remoteDevices.load().firstOrNull { it.url == qr.url }
+        val device = known?.copy(ca = ca ?: known.ca)
+            ?: RemoteDevice(qr.url, qr.url.substringAfter("://"), ca = ca)
+        remoteDevices.add(device)
+        openRemote(device, qr.pin)
     }
 
     // Die PIN im Fragment traegt der Web-Client selbst ins Kopplungsformular ein, wie beim QR-Code
@@ -653,7 +678,8 @@ class SetupActivity : Activity() {
         startActivity(
             Intent(this, RemoteWebActivity::class.java)
                 .putExtra(RemoteWebActivity.EXTRA_URL, if (pin == null) device.url else "${device.url}/#pin=$pin")
-                .putExtra(RemoteWebActivity.EXTRA_NAME, device.name),
+                .putExtra(RemoteWebActivity.EXTRA_NAME, device.name)
+                .putExtra(RemoteWebActivity.EXTRA_CA, device.ca),
         )
     }
 
@@ -672,7 +698,7 @@ class SetupActivity : Activity() {
         remoteCheckExecutor.execute {
             try {
                 for (device in devices) {
-                    val health = fetchHealth(device.url)
+                    val health = fetchHealth(device)
                     remoteStatus[device.url] = health?.optString("platform") ?: OFFLINE
                     val mac = health?.optString("macAddress").orEmpty()
                     val wireless = health?.optBoolean("macAddressWireless") == true
@@ -688,8 +714,12 @@ class SetupActivity : Activity() {
 
     // /health ist ohne Kopplung erreichbar und nennt Plattform und MAC - reicht fuer "online".
     // null heisst offline.
-    private fun fetchHealth(url: String): JSONObject? = try {
-        (URL("$url/health").openConnection() as HttpURLConnection).run {
+    private fun fetchHealth(device: RemoteDevice): JSONObject? = try {
+        (URL("${device.url}/health").openConnection() as HttpURLConnection).run {
+            // HTTPS-Geraet: normale TLS-Pruefung, aber gegen seine gepinnte CA.
+            if (this is HttpsURLConnection && device.ca != null) {
+                sslSocketFactory = PinnedCa.sslContext(PinnedCa.parse(Base64.decode(device.ca, Base64.DEFAULT))).socketFactory
+            }
             connectTimeout = 1500
             readTimeout = 1500
             try {

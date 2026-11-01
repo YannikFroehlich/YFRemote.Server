@@ -3,8 +3,11 @@ namespace YFRemote.Server.Services;
 internal static class PairingQrCodePayload
 {
     private const string PinFragmentParameter = "pin";
+    private const string AuthorityFragmentParameter = "ca";
 
-    public static string Create(string deviceAddress, string? pin = null)
+    // caSha256: Fingerabdruck der lokalen CA bei HTTPS. Die Android-App vertraut dem Server nur, wenn
+    // sein Zertifikat von genau dieser CA stammt - der QR-Code vom PC-Bildschirm ist der sichere Weg.
+    public static string Create(string deviceAddress, string? pin = null, string? caSha256 = null)
     {
         if (!Uri.TryCreate(deviceAddress, UriKind.Absolute, out var address) ||
             (address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps))
@@ -17,11 +20,19 @@ internal static class PairingQrCodePayload
             throw new ArgumentException("Pairing PIN must contain exactly six digits.", nameof(pin));
         }
 
+        if (caSha256 is not null && (caSha256.Length != 64 || !caSha256.All(char.IsAsciiHexDigitLower)))
+        {
+            throw new ArgumentException("CA fingerprint must be 64 lowercase hex digits.", nameof(caSha256));
+        }
+
+        string?[] parameters =
+        [
+            pin is null ? null : $"{PinFragmentParameter}={pin}",
+            caSha256 is null ? null : $"{AuthorityFragmentParameter}={caSha256}",
+        ];
         var payload = new UriBuilder(address)
         {
-            Fragment = pin is null
-                ? string.Empty
-                : $"{PinFragmentParameter}={Uri.EscapeDataString(pin)}"
+            Fragment = string.Join('&', parameters.OfType<string>())
         };
 
         return payload.Uri.AbsoluteUri;

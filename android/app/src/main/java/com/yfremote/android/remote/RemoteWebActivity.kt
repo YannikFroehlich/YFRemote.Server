@@ -13,6 +13,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
+import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -27,6 +28,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.webkit.JavascriptInterface
+import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -35,7 +37,11 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import com.yfremote.android.R
 import com.yfremote.android.server.sanitizeFileName
+import java.io.OutputStream
+import java.net.URL
+import java.security.cert.X509Certificate
 import java.util.Locale
+import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 import kotlin.math.PI
 import kotlin.math.asin
@@ -56,6 +62,9 @@ class RemoteWebActivity : Activity() {
     private var pageOrigin: String? = null
     // Sprache des Diktats, das auf die Mikrofon-Berechtigung wartet.
     private var pendingSpeechLang: String? = null
+    // Gepinnte CA eines HTTPS-PCs, null bei HTTP.
+    @Volatile
+    private var ca: X509Certificate? = null
     private val rotationMatrix = FloatArray(9)
     private val orientationListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -81,6 +90,7 @@ class RemoteWebActivity : Activity() {
         title = intent.getStringExtra(EXTRA_NAME)
         val url = intent.getStringExtra(EXTRA_URL) ?: return finish()
         val origin = originOf(url)
+        ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
 
         webView = WebView(this).apply {
             setBackgroundColor(getColor(R.color.brand_background))
@@ -92,6 +102,20 @@ class RemoteWebActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                     pageOrigin = originOf(url)
+                }
+
+                // Der lokalen CA des PCs vertraut Android nicht. Durchgelassen wird nur das Zielgeraet,
+                // nur mit dem Fehler "unbekannte CA" und nur, wenn sein Zertifikat von der gepinnten CA
+                // stammt; abgelaufen, falscher Host und alles andere bleibt gesperrt.
+                override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                    val pinned = ca
+                    val leaf = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) error.certificate.x509Certificate else null
+                    val onlyUntrusted = error.hasError(SslError.SSL_UNTRUSTED) && OTHER_SSL_ERRORS.none(error::hasError)
+                    if (pinned != null && leaf != null && onlyUntrusted && originOf(error.url) == origin && PinnedCa.issued(leaf, pinned)) {
+                        handler.proceed()
+                    } else {
+                        handler.cancel()
+                    }
                 }
             }
             addJavascriptInterface(DownloadBridge(origin), "YFRemoteDownloads")
@@ -163,6 +187,11 @@ class RemoteWebActivity : Activity() {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
 
             val name = sanitizeFileName(fileName)
+            // Der DownloadManager kennt die gepinnte CA nicht - HTTPS laedt die App selbst.
+            ca?.let { pinned ->
+                Thread { downloadPinned(url, token, name, pinned) }.start()
+                return true
+            }
             return try {
                 getSystemService(DownloadManager::class.java).enqueue(
                     DownloadManager.Request(Uri.parse(url))
@@ -186,23 +215,47 @@ class RemoteWebActivity : Activity() {
             if (pageOrigin != origin) return false
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
 
-            val name = sanitizeFileName(fileName)
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/YFRemote")
+            return saveToDownloads(sanitizeFileName(fileName), mimeType) { it.write(Base64.decode(base64, Base64.DEFAULT)) }
+        }
+    }
+
+    private fun downloadPinned(url: String, token: String, name: String, pinned: X509Certificate) {
+        val saved = try {
+            val connection = URL(url).openConnection() as HttpsURLConnection
+            connection.sslSocketFactory = PinnedCa.sslContext(pinned).socketFactory
+            connection.setRequestProperty("Authorization", "Bearer $token")
+            try {
+                connection.responseCode == 200 &&
+                    saveToDownloads(name, connection.contentType ?: "application/octet-stream") { output ->
+                        connection.inputStream.use { it.copyTo(output) }
+                    }
+            } finally {
+                connection.disconnect()
             }
-            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return false
-            return try {
-                contentResolver.openOutputStream(uri)!!.use { it.write(Base64.decode(base64, Base64.DEFAULT)) }
-                runOnUiThread {
-                    Toast.makeText(this@RemoteWebActivity, "Gespeichert in Download/YFRemote", Toast.LENGTH_SHORT).show()
-                }
-                true
-            } catch (e: Exception) {
-                contentResolver.delete(uri, null, null)
-                false
+        } catch (e: Exception) {
+            false
+        }
+        if (!saved) {
+            runOnUiThread { Toast.makeText(this, "Download fehlgeschlagen", Toast.LENGTH_SHORT).show() }
+        }
+    }
+
+    private fun saveToDownloads(name: String, mimeType: String, write: (OutputStream) -> Unit): Boolean {
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/YFRemote")
+        }
+        val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return false
+        return try {
+            contentResolver.openOutputStream(uri)!!.use(write)
+            runOnUiThread {
+                Toast.makeText(this@RemoteWebActivity, "Gespeichert in Download/YFRemote", Toast.LENGTH_SHORT).show()
             }
+            true
+        } catch (e: Exception) {
+            contentResolver.delete(uri, null, null)
+            false
         }
     }
 
@@ -388,6 +441,14 @@ class RemoteWebActivity : Activity() {
     companion object {
         const val EXTRA_URL = "url"
         const val EXTRA_NAME = "name"
+        const val EXTRA_CA = "ca"
+        private val OTHER_SSL_ERRORS = listOf(
+            SslError.SSL_NOTYETVALID,
+            SslError.SSL_EXPIRED,
+            SslError.SSL_IDMISMATCH,
+            SslError.SSL_DATE_INVALID,
+            SslError.SSL_INVALID,
+        )
         private const val FILE_REQUEST = 1
         private const val AUDIO_REQUEST = 2
     }

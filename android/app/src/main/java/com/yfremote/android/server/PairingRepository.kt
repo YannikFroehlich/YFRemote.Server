@@ -21,7 +21,12 @@ import org.json.JSONObject
 // in-memory (siehe PLAN.md Stufe 1) - kein pairing-lockouts.json wie im .NET-Server.
 // onPinChanged laeuft bei jedem PIN-Wechsel nach init, noch unter dem Lock - also nur kurz
 // weiterreichen (die Benachrichtigung zeigt die PIN, siehe YFRemoteForegroundService).
-class PairingRepository(private val filesDir: File, private val onPinChanged: () -> Unit = {}) {
+// deviceExpiry wie PairingStorage:DeviceExpiry (90 Tage, Duration.ZERO schaltet es ab).
+class PairingRepository(
+    private val filesDir: File,
+    private val deviceExpiry: Duration = Duration.ofDays(90),
+    private val onPinChanged: () -> Unit = {},
+) {
 
     private data class PairedDevice(
         val id: String,
@@ -29,6 +34,7 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
         val tokenHash: String,
         val pairedAtUtc: Instant,
         var lastSeenUtc: Instant,
+        var mediaOnly: Boolean = false,
     )
 
     private data class FailedAttemptState(var count: Int, var lockedUntilUtc: Instant)
@@ -62,6 +68,7 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
     init {
         loadDevices()
         val now = Instant.now()
+        removeExpiredDevices(now)
         val generated = generateNewPin(now)
         pin = generated.first
         pinExpiresAtUtc = generated.second
@@ -136,14 +143,15 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
 
     fun isValidToken(token: String?): Boolean = validateToken(token) != null
 
-    /** Gibt die Device-Id zurueck und aktualisiert lastSeenUtc, oder null bei ungueltigem Token. */
-    fun validateToken(token: String?): String? {
+    /** Gibt das Geraet zurueck und aktualisiert lastSeenUtc, oder null bei ungueltigem Token. */
+    fun validateToken(token: String?): PairedDeviceInfo? {
         if (token.isNullOrEmpty()) return null
         val tokenHash = hashToken(token)
 
         synchronized(lock) {
-            val device = devices.firstOrNull { it.tokenHash == tokenHash } ?: return null
             val now = Instant.now()
+            removeExpiredDevices(now)
+            val device = devices.firstOrNull { it.tokenHash == tokenHash } ?: return null
             device.lastSeenUtc = now
 
             if (!now.isBefore(nextLastSeenPersistenceUtc)) {
@@ -151,12 +159,25 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
                 nextLastSeenPersistenceUtc = now.plus(LAST_SEEN_PERSISTENCE_INTERVAL)
             }
 
-            return device.id
+            return device.toInfo()
         }
     }
 
     fun getPairedDevices(): List<PairedDeviceInfo> = synchronized(lock) {
-        devices.map { PairedDeviceInfo(it.id, it.name, it.pairedAtUtc.toString(), it.lastSeenUtc.toString()) }
+        removeExpiredDevices(Instant.now())
+        devices.map { it.toInfo() }
+    }
+
+    // false, wenn das Geraet fehlt oder nicht gespeichert werden konnte (dann bleibt das alte Recht).
+    fun setMediaOnly(deviceId: String, mediaOnly: Boolean): Boolean = synchronized(lock) {
+        val device = devices.firstOrNull { it.id == deviceId } ?: return false
+        val previous = device.mediaOnly
+        device.mediaOnly = mediaOnly
+        if (!persistDevices()) {
+            device.mediaOnly = previous
+            return false
+        }
+        true
     }
 
     fun removeDevice(deviceId: String): Boolean = synchronized(lock) {
@@ -194,6 +215,20 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
         onPinChanged()
         return RemovalResult.Removed(removed.id)
     }
+
+    // Wie RemoveExpiredDevices in PairingService.cs: ein abgelaufenes Geraet gilt sofort nicht mehr,
+    // auch wenn das Speichern scheitert - beim naechsten Schreiben oder Start wird es nachgeholt.
+    // ponytail: lastSeenUtc kommt nur vom Verbindungsaufbau; wer ununterbrochen laenger als
+    // deviceExpiry verbunden bleibt, muss danach neu koppeln. Sonst lastSeenUtc beim Trennen setzen.
+    private fun removeExpiredDevices(now: Instant) {
+        if (deviceExpiry.isZero) return
+        if (devices.removeAll { !it.lastSeenUtc.plus(deviceExpiry).isAfter(now) }) {
+            persistDevices()
+        }
+    }
+
+    private fun PairedDevice.toInfo() =
+        PairedDeviceInfo(id, name, pairedAtUtc.toString(), lastSeenUtc.toString(), mediaOnly)
 
     private fun ensurePinValid(now: Instant) {
         if (!now.isBefore(pinExpiresAtUtc)) {
@@ -253,6 +288,8 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
                         tokenHash = entry.getString("tokenHash"),
                         pairedAtUtc = Instant.parse(entry.getString("pairedAtUtc")),
                         lastSeenUtc = Instant.parse(entry.getString("lastSeenUtc")),
+                        // Aeltere devices.json ohne das Feld behalten Vollzugriff.
+                        mediaOnly = entry.optBoolean("mediaOnly", false),
                     ),
                 )
             }
@@ -274,7 +311,8 @@ class PairingRepository(private val filesDir: File, private val onPinChanged: ()
                         .put("name", device.name)
                         .put("tokenHash", device.tokenHash)
                         .put("pairedAtUtc", device.pairedAtUtc.toString())
-                        .put("lastSeenUtc", device.lastSeenUtc.toString()),
+                        .put("lastSeenUtc", device.lastSeenUtc.toString())
+                        .put("mediaOnly", device.mediaOnly),
                 )
             }
             val json = JSONObject().put("devices", array)

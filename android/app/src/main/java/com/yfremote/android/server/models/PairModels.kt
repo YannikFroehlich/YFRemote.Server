@@ -33,4 +33,5 @@ data class PairedDeviceInfo(
     val name: String,
     val pairedAtUtc: String,
     val lastSeenUtc: String,
+    val mediaOnly: Boolean = false,
 )

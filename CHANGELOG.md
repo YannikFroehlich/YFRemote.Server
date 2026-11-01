@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Gekoppelte Geräte lassen sich jetzt auch in der App unter "Gekoppelte Geräte" auf "Nur Medien" stellen, wie im Windows-Tray. So ein Gerät sendet nur noch Medien- und Lautstärketasten; Tippen, Maus, Sperren, Dateien und Zwischenablage sind gesperrt, und Touchpad und Tastatur verschwinden im Client. "Vollzugriff" hebt das wieder auf.
+- Android-App: Geräte, die sich 90 Tage nicht verbunden haben, werden wie am PC automatisch entkoppelt und müssen sich mit einer neuen PIN erneut koppeln.
+
 ## [2.41.0] - 2026-10-25
 
 ### Added

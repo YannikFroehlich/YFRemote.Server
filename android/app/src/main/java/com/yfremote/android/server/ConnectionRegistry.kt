@@ -12,15 +12,19 @@ import kotlinx.coroutines.launch
 class ConnectionRegistry(private val onAllClosed: () -> Unit = {}) {
     private val lock = Any()
     private val connectionsByDeviceId = mutableMapOf<String, MutableList<DefaultWebSocketServerSession>>()
+    private val mediaOnlySessions = mutableSetOf<DefaultWebSocketServerSession>()
 
-    fun register(deviceId: String, session: DefaultWebSocketServerSession): AutoCloseable {
+    // mediaOnly gilt fuer die ganze Verbindung - eine Aenderung schliesst sie (siehe setMediaOnly).
+    fun register(deviceId: String, session: DefaultWebSocketServerSession, mediaOnly: Boolean = false): AutoCloseable {
         synchronized(lock) {
             connectionsByDeviceId.getOrPut(deviceId) { mutableListOf() }.add(session)
+            if (mediaOnly) mediaOnlySessions.add(session)
         }
         return AutoCloseable {
             val allClosed = synchronized(lock) {
                 val sessions = connectionsByDeviceId[deviceId] ?: return@synchronized false
                 if (!sessions.remove(session)) return@synchronized false
+                mediaOnlySessions.remove(session)
                 if (sessions.isEmpty()) connectionsByDeviceId.remove(deviceId)
                 connectionsByDeviceId.isEmpty()
             }
@@ -41,8 +45,10 @@ class ConnectionRegistry(private val onAllClosed: () -> Unit = {}) {
 
     // Ungefragte Server-Nachricht (z.B. ein Datei-Angebot) an alle offenen Verbindungen. send()
     // geht in den Ausgangs-Channel der Session und darf deshalb parallel zur Antwortschleife laufen.
-    fun broadcast(text: String) {
-        val sessions = synchronized(lock) { connectionsByDeviceId.values.flatten() }
+    fun broadcast(text: String, includeMediaOnly: Boolean) {
+        val sessions = synchronized(lock) {
+            connectionsByDeviceId.values.flatten().filter { includeMediaOnly || it !in mediaOnlySessions }
+        }
         sessions.forEach { session ->
             session.launch { runCatching { session.send(Frame.Text(text)) } }
         }

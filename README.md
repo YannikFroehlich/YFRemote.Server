@@ -92,7 +92,9 @@ from the tray menu, or limited to "Nur Medien" (media only: playback, volume,
 and mixer, but no typing, mouse, power actions, app launching, files, or
 clipboard). Devices that have not connected for 90 days are unpaired
 automatically (`PairingStorage:DeviceExpiry` in
-`%LOCALAPPDATA%\YFRemote\settings.json`, `00:00:00` turns this off). In the
+`%LOCALAPPDATA%\YFRemote\settings.json`, `00:00:00` turns this off). The
+Android app offers "Nur Medien" in its paired-devices list and expires devices
+after 90 days as well. In the
 client, the current device can also revoke its own
 token server-side via "Unpair this device" in settings.
 

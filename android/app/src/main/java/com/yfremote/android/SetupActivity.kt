@@ -1031,11 +1031,22 @@ class SetupActivity : Activity() {
 
                     addView(
                         TextView(this@SetupActivity).apply {
-                            text = device.name
+                            text = if (device.mediaOnly) "${device.name} - nur Medien" else device.name
                             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                             setTextColor(color(R.color.brand_text))
                             layoutParams =
                                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                        },
+                    )
+                    addView(
+                        secondaryButton(if (device.mediaOnly) "Vollzugriff" else "Nur Medien") {
+                            service?.setMediaOnly(device.id, !device.mediaOnly)
+                            refreshUi()
+                        }.apply {
+                            layoutParams = LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                dp(42),
+                            ).apply { marginEnd = dp(8) }
                         },
                     )
                     addView(

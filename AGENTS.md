@@ -330,6 +330,12 @@ keys through, and every `Bearer` endpoint answers 403 `Not allowed for this devi
 (`authorizeFullAccess` in `Http.kt`), since Android has no media endpoint. Covered by unit tests,
 **not yet checked on a device**.
 
+**Volume.** `/ws` pushes `{"type":"media","volume","muted","playing"}` from `DeviceVolume`
+(`STREAM_MUSIC` in percent, `isMusicActive`), read once per second per connection and sent only on
+change, like `PollingBroadcaster`. The `volume` action sets it and unmutes; Android's 15-25 steps
+make the slider snap. No `title`, so the Client shows "Lautstärke am Gerät" (`media.nothing.android`)
+instead of "Am PC läuft nichts". Unit tests only, **not yet checked on a device**.
+
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
 way to widen it later without asking for root or an ADB-based tool like Shizuku:

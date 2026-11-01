@@ -248,7 +248,7 @@
               </span>
             } @else {
               <span class="media-strip__title media-strip__title--empty">
-                {{ i18n.t('media.nothing') }}
+                {{ i18n.t('media.nothing' + mediaKeySuffix()) }}
               </span>
             }
           </span>
@@ -265,7 +265,7 @@
                 min="0"
                 max="100"
                 [value]="media.volume"
-                [attr.aria-label]="i18n.t('media.setVolume')"
+                [attr.aria-label]="i18n.t('media.setVolume' + mediaKeySuffix())"
                 [attr.aria-valuetext]="
                   media.muted
                     ? i18n.t('media.muted')

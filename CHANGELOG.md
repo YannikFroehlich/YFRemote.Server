@@ -24,6 +24,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Android-App: Gekoppelte Geräte lassen sich jetzt auch in der App unter "Gekoppelte Geräte" auf "Nur Medien" stellen, wie im Windows-Tray. So ein Gerät sendet nur noch Medien- und Lautstärketasten; Tippen, Maus, Sperren, Dateien und Zwischenablage sind gesperrt, und Touchpad und Tastatur verschwinden im Client. "Vollzugriff" hebt das wieder auf.
+- Android-App: Die Medienleiste zeigt jetzt den Lautstärkeregler des Geräts. Er stellt die Medienlautstärke ein und folgt Änderungen am Gerät selbst, wie am PC hebt er eine Stummschaltung auf. Weil Android nur 15 bis 25 Stufen kennt, springt der Wert auf die nächste Stufe. Titel und Interpret fehlen dort noch.
 - Android-App: Geräte, die sich 90 Tage nicht verbunden haben, werden wie am PC automatisch entkoppelt und müssen sich mit einer neuen PIN erneut koppeln.
 
 ## [2.41.0] - 2026-10-25

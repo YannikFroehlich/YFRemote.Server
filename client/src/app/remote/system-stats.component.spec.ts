@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { OpenWindow, ServerPlatform } from './remote.models';
+import { OpenWindow, ServerPlatform, SystemStatsMessage } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SystemStatsComponent } from './system-stats.component';
 
@@ -10,9 +10,10 @@ describe('SystemStatsComponent', () => {
     platform: ServerPlatform,
     windows: readonly OpenWindow[] | null,
     mediaOnly = false,
+    stats: SystemStatsMessage | null = null,
   ) {
     const remote = {
-      systemStats: signal(null),
+      systemStats: signal(stats),
       serverPlatform: signal(platform),
       mediaOnly: signal(mediaOnly),
       watchSystemStats: vi.fn(),
@@ -57,5 +58,27 @@ describe('SystemStatsComponent', () => {
     const mediaOnly = await setup('windows', [], true);
     expect(mediaOnly.element.querySelector('.window-list')).toBeNull();
     expect(mediaOnly.remote.readWindows).not.toHaveBeenCalled();
+  });
+
+  it('shows memory and battery instead of CPU and GPU on the Android server', async () => {
+    const { element } = await setup('android', null, false, {
+      type: 'systemStats',
+      memoryUsedMb: 6144,
+      memoryTotalMb: 12288,
+      batteryLevel: 87,
+      batteryCharging: true,
+      batteryTemperature: 31,
+    });
+
+    const tiles = [...element.querySelectorAll('.stats-tile')].map((tile) =>
+      [...tile.querySelectorAll('.stats-tile__head span, .stats-tile__detail')].map((part) =>
+        part.textContent?.trim(),
+      ),
+    );
+    expect(tiles).toEqual([
+      ['Arbeitsspeicher', '50 %', '6.0 / 12.0 GB'],
+      ['Akku', '87 %', 'lädt · 31 °C'],
+    ]);
+    expect(element.querySelector('.window-list')).toBeNull();
   });
 });

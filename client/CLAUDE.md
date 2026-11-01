@@ -99,7 +99,8 @@ new component the same, unless everything its template reads is a signal or an i
      sent text is skipped.
    - `systemStats` pushes land in the `systemStats` signal, but only while
      `watchSystemStats(true)` is in effect: `SystemStatsComponent` (the "PC" tab, shown where
-     `systemStatsSupported()`, i.e. windows/linux) calls it on creation and with `false` on destroy,
+     `systemStatsSupported()`, i.e. any known platform; on the Android server it is labeled "Gerät" and
+     shows memory and the battery fields instead of CPU/GPU) calls it on creation and with `false` on destroy,
      and the service re-sends it after every connect's `/health`, like `clipboardSync`. The PC
      measures only while a device watches, so never subscribe to it in the background. On a
      Windows server the tab also shows the window switcher: `RemoteService.readWindows`
@@ -111,7 +112,7 @@ new component the same, unless everything its template reads is a signal or an i
      "Ausgabegerät" select, shown with more than one device).
      `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
      reports `voicemeeter: true` (`voicemeeterAvailable`). `MixerComponent`
-     (`mixer.component.ts`, the "Mixer" tab, shown where `systemStatsSupported()`: an
+     (`mixer.component.ts`, the "Mixer" tab, shown where `mixerSupported()`, i.e. windows/linux: an
      Apps/Inputs/Outputs switch, the Voicemeeter groups only with Voicemeeter installed; one row
      shape for both, apps in %, Voicemeeter in dB with a 0 dB tick and "0 dB" reset) and the
      button editor (for channel names) watch
@@ -124,7 +125,9 @@ new component the same, unless everything its template reads is a signal or an i
      `volume`/`muted` the server toggles mute). The editor watches `apps` too, for the name
      suggestions in a `<datalist>`. "Öffnen" steps are `launch` with an app `name` (suggestions
      from `RemoteService.readLaunchApps`, i.e. `GET /launch/apps`) or an http(s) `url`
-     (`normalizeLaunchUrl`, mirroring the server's check).
+     (`normalizeLaunchUrl`, mirroring the server's check). "Öffnen" is offered for every known
+     platform including the Android server (`launchSupported`), the app volume steps only where
+     `mixerSupported()`.
 3. **`server-config.ts`** — pure, side-effect-free validation/parsing/normalization functions for
    host, port, mouse sensitivity, and scroll speed, the injectable page location, same-origin
    HTTP/WebSocket URL builders, the `localStorage` keys of all input preferences

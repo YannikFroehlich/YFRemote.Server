@@ -292,14 +292,24 @@ have no URL for `DownloadManager`, so the Client's `FILE_SAVER` hands them to
 `YFRemoteDownloads.save(fileName, mimeType, base64)`, which writes them through
 `MediaStore.Downloads` into `Downloads/YFRemote` - only while the loaded page is still on the
 target's origin. An older app without `save` makes `FILE_SAVER` report failure instead of
-clicking a dead `blob:` link. Known limit of the WebView: HTTPS targets with the local CA aren't
-trusted.
+clicking a dead `blob:` link.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as
 `PairingQrCodePayload`, and the PIN is handed to the WebView in the URL fragment so the Client
-prefills it. An `https://` code is opened as `http://<host>:5050`, since the WebView doesn't
-trust the local CA. The "Freigeben" section shows the same kind of QR code for this phone, always
+prefills it. With "HTTPS verwenden" the tray's QR code also carries `ca=<sha256>`, the fingerprint
+of the PC's local CA (`PairingQrCodePayload`, lowercase hex over the DER). Such a code stays on
+`https://<host>:<port>`: `PinnedCa.fetch` loads `/ca.crt` over plain HTTP (port 5050, where the PC
+serves it before anything is trusted) and keeps it only if its fingerprint matches, then
+`RemoteDevice.ca` stores it. There is deliberately no accept-all `TrustManager` (CodeQL flags it);
+a changed `Server:Port` makes this step fail. `RemoteWebActivity.onReceivedSslError` proceeds only for that device's origin, only when
+"untrusted" is the sole SSL error and only if `PinnedCa.issued` verifies the leaf against the
+pinned CA (Android 10+, which exposes the leaf; older versions cancel). `/health` and file
+downloads use `HttpsURLConnection` with that CA as the only trust anchor, because
+`DownloadManager` cannot. Typed addresses and HTTPS codes without a fingerprint (older PCs) open
+as `http://<host>:5050`. Switching a device to HTTPS changes its origin, so it pairs again.
+Unit tests only (fixed openssl certificates in `PinnedCaTest`), **not yet checked on a device**.
+The "Freigeben" section shows the same kind of QR code for this phone, always
 with the current PIN (it is displayed right next to it anyway).
 
 **Bluetooth controller.** The "Controller" section registers the phone as a Bluetooth HID gamepad
@@ -319,6 +329,49 @@ Over Bluetooth that ID comes from the phone's Device ID SDP record, which
 (`hid-generic`, no force feedback). Only Windows DirectInput would honor a full HID PID
 force-feedback descriptor (with its Set Effect/Block Load reports), and XInput games don't see a
 generic HID gamepad at all.
+
+**Pairing parity with the PC server.** `PairingRepository` mirrors `PairingService`'s device
+expiry (90 days without a connection, dropped at startup, on every token check and when the setup
+screen lists devices) and the `mediaOnly` flag, which the "Gekoppelte Geräte" list in
+`SetupActivity` toggles with "Nur Medien"/"Vollzugriff" and which closes the device's open
+connections. `/ws` sends `{"type":"access","mediaOnly"}` first and gives a media-only connection
+no `fileOffer`; `isMediaAction` in `RemoteActionRouter.kt` only lets single `MEDIA_*`/`VOLUME_*`
+keys through, and every `Bearer` endpoint answers 403 `Not allowed for this device.`
+(`authorizeFullAccess` in `Http.kt`), since Android has no media endpoint. Covered by unit tests,
+**not yet checked on a device**.
+
+**Media status.** `/ws` pushes the same `media` message as the PC from `media/MediaStatusReader`,
+read once per second per connection and sent only on change, like `PollingBroadcaster`. Volume and
+mute come from `DeviceVolume` (`STREAM_MUSIC` in percent); the `volume` action sets it and unmutes,
+and Android's 15-25 steps make the slider snap. Title, artist, timeline and cover come from the
+playing `MediaSession` (else the first one), which `MediaSessionManager.getActiveSessions` only
+hands to an enabled notification listener: `media/MediaAccessListener` is an empty
+`NotificationListenerService`, a third, optional permission in the setup screen ("Medieninfos").
+Without it the push carries only volume and `isMusicActive`, and the Client shows "Lautstärke am
+Gerät" (`media.nothing.android`) instead of "Am PC läuft nichts". `mediaSeek` uses
+`transportControls.seekTo` when the session offers `ACTION_SEEK_TO`; `GET /media/cover` serves the
+embedded album-art bitmap as JPEG (max 512 px, re-encoded only when title or bitmap size change;
+apps that only set `METADATA_KEY_ALBUM_ART_URI` have no cover). Unit tests only, **not yet checked
+on a device**.
+
+**Launching apps.** `launch` and `GET /launch/apps` mirror `IAppLauncher`: `AppLauncher` lists the
+labels of all `MAIN`/`LAUNCHER` activities (visible on Android 11+ only through the `<queries>`
+entry in the manifest) and starts one only by exact label (case-insensitive), never a free
+component or intent; URLs must pass `parseLaunchUrl` (absolute `http`/`https`, ≤ 2000 chars) and
+open with `ACTION_VIEW`. Both start from the `AccessibilityService` context, because a bound
+accessibility service exempts the app from Android 10+'s background activity start block, so the
+action fails while it is off. The Client shows the "Öffnen" step for every known platform
+(`launchSupported`), the "App" volume step still only for PCs. Unit tests only, **not yet checked
+on a device**.
+
+**System stats.** `{"type":"systemStats","enabled"}` sets `RemoteActionSession.systemStats`, and a
+per-connection loop in `Routes.kt` then pushes `SystemStatsReader` once per second on change:
+`memoryUsedMb`/`memoryTotalMb` from `ActivityManager.MemoryInfo` plus Android-only
+`batteryLevel`/`batteryCharging`/`batteryTemperature` from the sticky `ACTION_BATTERY_CHANGED`
+intent (omitted without a battery). CPU load (`/proc/stat` since Android 8) and CPU/GPU temperatures
+are closed to normal apps and never sent. The Client shows that tab as "Gerät" without the CPU/GPU
+rows; `systemStatsSupported` now means any known platform, `mixerSupported` keeps Mixer and app
+steps PC-only. Unit tests only, **not yet checked on a device**.
 
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no

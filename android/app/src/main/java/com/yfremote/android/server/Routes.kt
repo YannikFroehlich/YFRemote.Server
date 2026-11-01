@@ -4,16 +4,21 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import com.yfremote.android.media.MediaStatusReader
+import com.yfremote.android.server.models.AccessMessage
 import com.yfremote.android.server.models.ClipboardResponse
 import com.yfremote.android.server.models.ClipboardTextRequest
 import com.yfremote.android.server.models.FileOfferMessage
 import com.yfremote.android.server.models.FileUploadResponse
+import com.yfremote.android.server.models.MediaStatusMessage
 import com.yfremote.android.server.models.HealthResponse
+import com.yfremote.android.server.models.LaunchAppsResponse
 import com.yfremote.android.server.models.PairRequest
 import com.yfremote.android.server.models.PairResponse
 import com.yfremote.android.server.models.PairStatusResponse
 import com.yfremote.android.server.models.RemoteActionRequest
 import com.yfremote.android.server.models.RemoteActionResponse
+import com.yfremote.android.server.models.SystemStatsMessage
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -43,6 +48,9 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import java.io.IOException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
@@ -58,10 +66,13 @@ fun Route.installRoutes(
     clipboardOptions: ClipboardOptions,
     fileTransferOptions: FileTransferOptions,
     fileOffers: FileOfferRepository,
+    media: MediaStatusReader,
+    appLauncher: AppLauncher,
     json: Json,
 ) {
+    val systemStats = SystemStatsReader(context)
     fileOffers.onOffered = { offer ->
-        connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer))
+        connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer), includeMediaOnly = false)
     }
 
     get("/health") { call.respond(HealthResponse("ok", "YFRemote.Android", "android")) }
@@ -73,8 +84,8 @@ fun Route.installRoutes(
         }
 
         val token = call.request.queryParameters["token"]
-        val deviceId = pairing.validateToken(token)
-        if (deviceId == null) {
+        val device = pairing.validateToken(token)
+        if (device == null) {
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Pairing required."))
             return@webSocket
         }
@@ -82,13 +93,49 @@ fun Route.installRoutes(
         // Ein gepairtes Geraet gilt bereits als vertrauenswuerdig; das Limit schuetzt nur vor
         // einer durchgehenden Flut (siehe YFRemoteWebSocketHandler.cs).
         val rateLimiter = FixedWindowRateLimiter(limit = 120, windowMillis = 1000)
-        val registration = connectionRegistry.register(deviceId, this)
+        val registration = connectionRegistry.register(device.id, this, device.mediaOnly)
+        val session = RemoteActionSession(device.mediaOnly)
 
         try {
-            // Wie YFRemoteWebSocketHandler.cs: ein Geraet, das sich erst nach dem Teilen verbindet,
-            // bekommt das noch gueltige Angebot beim Verbinden.
-            fileOffers.currentOffer?.let {
-                send(Frame.Text(json.encodeToString(FileOfferMessage.serializer(), it)))
+            // Wie YFRemoteWebSocketHandler.cs: zuerst die Rechte, damit der Client gesperrte Tabs
+            // ausblendet, dann das noch gueltige Datei-Angebot - nicht fuer "Nur Medien".
+            send(Frame.Text(json.encodeToString(AccessMessage.serializer(), AccessMessage("access", device.mediaOnly))))
+            if (!device.mediaOnly) {
+                fileOffers.currentOffer?.let {
+                    send(Frame.Text(json.encodeToString(FileOfferMessage.serializer(), it)))
+                }
+            }
+
+            // Wie der media-Push von PollingBroadcaster<T>: sekuendlich lesen, nur Aenderungen senden.
+            // Laeuft im Scope der Verbindung und endet mit ihr.
+            launch {
+                var last: MediaStatusMessage? = null
+                while (isActive) {
+                    val status = media.read()
+                    if (status != last) {
+                        send(Frame.Text(json.encodeToString(MediaStatusMessage.serializer(), status)))
+                        last = status
+                    }
+                    delay(1000)
+                }
+            }
+
+            // Systemanzeige nur, solange der Client sie eingeschaltet hat; nach dem Einschalten kommt
+            // der erste Wert sofort, danach nur Aenderungen.
+            launch {
+                var last: SystemStatsMessage? = null
+                while (isActive) {
+                    if (session.systemStats) {
+                        val stats = systemStats.read()
+                        if (stats != last) {
+                            send(Frame.Text(json.encodeToString(SystemStatsMessage.serializer(), stats)))
+                            last = stats
+                        }
+                    } else {
+                        last = null
+                    }
+                    delay(1000)
+                }
             }
 
             for (frame in incoming) {
@@ -102,7 +149,13 @@ fun Route.installRoutes(
                     return@webSocket
                 }
 
-                val response = handleActionMessage(frame.readText(), router, json, rateLimited = !rateLimiter.tryAcquire())
+                val response = handleActionMessage(
+                    frame.readText(),
+                    router,
+                    json,
+                    rateLimited = !rateLimiter.tryAcquire(),
+                    session = session,
+                )
 
                 send(Frame.Text(json.encodeToString(RemoteActionResponse.serializer(), response)))
             }
@@ -161,10 +214,7 @@ fun Route.installRoutes(
             call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
             return@post
         }
-        if (pairing.validateToken(call.bearerToken()) == null) {
-            call.respond(HttpStatusCode.Unauthorized)
-            return@post
-        }
+        if (!call.authorizePairedDevice(pairing)) return@post
 
         val contentLength = call.contentLengthOrNull()
         if (contentLength != null && contentLength > fileTransferOptions.maxFileSizeBytes) {
@@ -200,10 +250,7 @@ fun Route.installRoutes(
             call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
             return@get
         }
-        if (pairing.validateToken(call.bearerToken()) == null) {
-            call.respond(HttpStatusCode.Unauthorized)
-            return@get
-        }
+        if (!call.authorizePairedDevice(pairing)) return@get
 
         val file = call.parameters["id"]?.let(fileOffers::fileFor)
         if (file == null || !file.exists()) {
@@ -220,6 +267,31 @@ fun Route.installRoutes(
         showToast(context, "Datei gesendet: ${file.name}")
     }
 
+    // Wie GET /media/cover in MediaEndpoints.cs: auch fuer "Nur Medien", Origin optional, nie cachen.
+    get("/media/cover") {
+        if (!call.isAllowedOrigin(originOptional = true)) {
+            call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
+            return@get
+        }
+        if (!call.authorizePairedDevice(pairing, mediaOnlyAllowed = true)) return@get
+
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        val cover = media.cover
+        if (cover == null) call.respond(HttpStatusCode.NoContent) else call.respondBytes(cover, ContentType.Image.JPEG)
+    }
+
+    // Wie GET /launch/apps in LaunchEndpoints.cs: Vorschlaege fuer den Button-Editor, Origin optional.
+    get("/launch/apps") {
+        if (!call.isAllowedOrigin(originOptional = true)) {
+            call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
+            return@get
+        }
+        if (!call.authorizePairedDevice(pairing)) return@get
+
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        call.respond(LaunchAppsResponse(appLauncher.listApps()))
+    }
+
     route("/clipboard") {
         // Origin nur pruefen, wenn einer mitkommt - siehe GET /clipboard/text in ClipboardEndpoints.cs.
         get("/text") {
@@ -227,10 +299,7 @@ fun Route.installRoutes(
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
                 return@get
             }
-            if (pairing.validateToken(call.bearerToken()) == null) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@get
-            }
+            if (!call.authorizePairedDevice(pairing)) return@get
 
             // Kann Passwoerter enthalten - nie cachen.
             call.response.header(HttpHeaders.CacheControl, "no-store")
@@ -272,10 +341,7 @@ fun Route.installRoutes(
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
                 return@post
             }
-            if (pairing.validateToken(call.bearerToken()) == null) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@post
-            }
+            if (!call.authorizePairedDevice(pairing)) return@post
 
             val request = try {
                 call.receive<ClipboardTextRequest>()
@@ -310,10 +376,7 @@ fun Route.installRoutes(
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
                 return@post
             }
-            if (pairing.validateToken(call.bearerToken()) == null) {
-                call.respond(HttpStatusCode.Unauthorized)
-                return@post
-            }
+            if (!call.authorizePairedDevice(pairing)) return@post
 
             val contentLength = call.contentLengthOrNull()
             if (contentLength != null && contentLength > clipboardOptions.maxImageSizeBytes) {
@@ -364,10 +427,11 @@ private suspend fun handleActionMessage(
     router: RemoteActionRouter,
     json: Json,
     rateLimited: Boolean,
+    session: RemoteActionSession,
 ): RemoteActionResponse {
     return try {
         val request = json.decodeFromString(RemoteActionRequest.serializer(), text)
-        if (rateLimited) RemoteActionResponse.fail(RATE_LIMIT_ERROR).copy(requestId = request.requestId) else router.handle(request)
+        if (rateLimited) RemoteActionResponse.fail(RATE_LIMIT_ERROR).copy(requestId = request.requestId) else router.handle(request, session)
     } catch (e: SerializationException) {
         RemoteActionResponse.fail(if (rateLimited) RATE_LIMIT_ERROR else "Invalid JSON.")
     }

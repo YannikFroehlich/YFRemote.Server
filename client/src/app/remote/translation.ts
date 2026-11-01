@@ -31,6 +31,7 @@ export const TRANSLATIONS = {
   'shell.tabKeyboard': { de: 'Tastatur', en: 'Keyboard' },
   'shell.tabGamepad': { de: 'Controller', en: 'Controller' },
   'shell.tabSystem': { de: 'PC', en: 'PC' },
+  'shell.tabSystem.android': { de: 'Gerät', en: 'Device' },
   'shell.tabMixer': { de: 'Mixer', en: 'Mixer' },
   'shell.done': { de: 'Fertig', en: 'Done' },
   'shell.add': { de: 'Hinzufügen', en: 'Add' },
@@ -362,11 +363,14 @@ export const TRANSLATIONS = {
     en: 'This server cannot sync the clipboard.',
   },
   'media.nothing': { de: 'Am PC läuft nichts', en: 'Nothing playing on the PC' },
+  // Ohne Benachrichtigungszugriff meldet der Android-Server keinen Titel - "laeuft nichts" waere falsch.
+  'media.nothing.android': { de: 'Lautstärke am Gerät', en: 'Device volume' },
   'media.playing': { de: 'läuft', en: 'playing' },
   'media.paused': { de: 'pausiert', en: 'paused' },
   'media.muted': { de: 'Ton aus', en: 'Muted' },
   'media.volume': { de: 'Lautstärke {{volume}} %', en: 'Volume {{volume}}%' },
   'media.setVolume': { de: 'PC-Lautstärke', en: 'PC volume' },
+  'media.setVolume.android': { de: 'Gerätelautstärke', en: 'Device volume' },
   'media.seek': { de: 'Stelle im Titel', en: 'Position in track' },
   'media.position': { de: '{{position}} von {{duration}}', en: '{{position}} of {{duration}}' },
   'shutdownTimer.remaining': {
@@ -375,7 +379,14 @@ export const TRANSLATIONS = {
   },
   'shutdownTimer.cancel': { de: 'Abbrechen', en: 'Cancel' },
   'stats.waiting': { de: 'Warte auf Messwerte vom PC …', en: 'Waiting for readings from the PC …' },
+  'stats.waiting.android': {
+    de: 'Warte auf Messwerte vom Gerät …',
+    en: 'Waiting for readings from the device …',
+  },
   'stats.memory': { de: 'Arbeitsspeicher', en: 'Memory' },
+  'stats.battery': { de: 'Akku', en: 'Battery' },
+  'stats.battery.charging': { de: 'lädt', en: 'charging' },
+  'stats.battery.discharging': { de: 'nicht am Strom', en: 'on battery' },
   'stats.windows': { de: 'Fenster', en: 'Windows' },
   'stats.windows.refresh': { de: 'Aktualisieren', en: 'Refresh' },
   'stats.windows.empty': { de: 'Keine offenen Fenster', en: 'No open windows' },
@@ -667,6 +678,10 @@ export const TRANSLATIONS = {
   'buttonEditor.launch.name': {
     de: 'App wie im Startmenü des PCs',
     en: "App as in the PC's start menu",
+  },
+  'buttonEditor.launch.name.android': {
+    de: 'App wie auf dem Startbildschirm des Geräts',
+    en: "App as on the device's home screen",
   },
   'buttonEditor.launch.urlField': { de: 'Adresse (http/https)', en: 'Address (http/https)' },
   'buttonEditor.voicemeeter.channel': { de: 'Kanal', en: 'Channel' },

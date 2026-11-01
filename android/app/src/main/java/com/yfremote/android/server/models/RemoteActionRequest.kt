@@ -13,4 +13,9 @@ data class RemoteActionRequest(
     val deltaY: Int? = null,
     val button: String? = null,
     val delta: Int? = null,
+    val volume: Int? = null,
+    val position: Int? = null,
+    val url: String? = null,
+    val name: String? = null,
+    val enabled: Boolean? = null,
 )

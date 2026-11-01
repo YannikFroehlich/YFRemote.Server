@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.ime.KeyEventMap
 import com.yfremote.android.ime.YFRemoteInputMethodService
+import com.yfremote.android.media.MediaStatusReader
 import com.yfremote.android.server.models.RemoteActionRequest
 import com.yfremote.android.server.models.RemoteActionResponse
 import kotlinx.coroutines.Dispatchers
@@ -18,10 +19,22 @@ import kotlinx.coroutines.withContext
 //
 // Home/Back/Recents haben keine Windows-Entsprechung im Protokoll: WIN->Home, ESC->Back,
 // TAB+WIN->Recents (siehe PLAN.md, Stufe 4, "Entschieden").
+// Wortgleich mit RemoteActionHandler.MediaOnlyError - der Client zeigt dafuer einen uebersetzten Hinweis.
+const val MEDIA_ONLY_ERROR = "Not allowed for this device."
+
+// Wie IsMediaAction in RemoteActionHandler.cs, beschraenkt auf die Aktionen, die Android kennt:
+// ein Geraet mit "Nur Medien" darf nur Medien- und Lautstaerketasten senden. Neue Medienaktionen
+// muessen hier ausdruecklich dazu.
+internal fun isMediaAction(type: String?, keys: List<String>): Boolean =
+    type == "volume" || type == "mediaseek" || type == "systemstats" ||
+        type == "key" && keys.size == 1 && (keys[0].startsWith("MEDIA_") || keys[0].startsWith("VOLUME_"))
+
 class RemoteActionRouter(
     private val audioManager: AudioManager,
     private val accessibilityService: () -> YFRemoteAccessibilityService?,
     private val imeService: () -> YFRemoteInputMethodService?,
+    private val media: MediaStatusReader,
+    private val appLauncher: AppLauncher,
 ) {
     companion object {
         private const val MIN_MOUSE_MOVE_DELTA = -5000
@@ -29,14 +42,20 @@ class RemoteActionRouter(
         private const val MIN_MOUSE_SCROLL_DELTA = -1200
         private const val MAX_MOUSE_SCROLL_DELTA = 1200
         private const val MAX_TEXT_LENGTH = 500
+        private const val MAX_SEEK_SECONDS = 86400
+        private const val MAX_APP_NAME_LENGTH = 100
         private val VALID_MOUSE_BUTTONS = setOf("left", "right", "middle")
     }
 
-    suspend fun handle(request: RemoteActionRequest?): RemoteActionResponse {
+    suspend fun handle(request: RemoteActionRequest?, session: RemoteActionSession? = null): RemoteActionResponse {
         if (request == null) return fail("Invalid action payload.")
 
         val type = request.type?.trim()?.lowercase()
         val keys = normalizeKeys(request.keys)
+
+        if (session?.mediaOnly == true && !isMediaAction(type, keys)) {
+            return fail(MEDIA_ONLY_ERROR).copy(requestId = request.requestId)
+        }
 
         // AccessibilityService-/IME-Aufrufe muessen auf dem Main-Thread laufen (Android-UI-/
         // Service-APIs sind nicht thread-safe) - Ktor-Routen laufen sonst auf IO-Dispatchern.
@@ -52,6 +71,10 @@ class RemoteActionRouter(
                     "mouseup" -> handleMouseButton(request, isDown = false)
                     "mousescroll" -> handleMouseScroll(request)
                     "sleep" -> handleSleep()
+                    "volume" -> handleVolume(request)
+                    "mediaseek" -> handleMediaSeek(request)
+                    "launch" -> handleLaunch(request)
+                    "systemstats" -> handleSystemStats(request, session)
                     "shutdown", "restart" -> fail("Auf Android ohne Root nicht möglich.")
                     null, "" -> fail("Missing action type.")
                     else -> fail("Unsupported action type: ${request.type}")
@@ -198,6 +221,44 @@ class RemoteActionRouter(
 
     private fun handleSleep(): RemoteActionResponse = withAccessibility { service ->
         if (service.lockScreen()) ok() else fail("Sperren wird auf dieser Android-Version nicht unterstützt (ab API 28).")
+    }
+
+    private fun handleVolume(request: RemoteActionRequest): RemoteActionResponse {
+        val volume = request.volume
+        if (volume == null || !isInRange(volume, 0, 100)) return fail("Action 'volume' requires volume between 0 and 100.")
+        DeviceVolume.set(audioManager, volume)
+        return ok()
+    }
+
+    private fun handleMediaSeek(request: RemoteActionRequest): RemoteActionResponse {
+        val position = request.position
+        if (position == null || !isInRange(position, 0, MAX_SEEK_SECONDS)) {
+            return fail("Action 'mediaSeek' requires position between 0 and $MAX_SEEK_SECONDS seconds.")
+        }
+        return if (media.seek(position)) ok() else fail("Die Medien-App lässt sich nicht spulen.")
+    }
+
+    // Der Push selbst laeuft in Routes.kt, solange die Verbindung ihn eingeschaltet hat.
+    private fun handleSystemStats(request: RemoteActionRequest, session: RemoteActionSession?): RemoteActionResponse {
+        val enabled = request.enabled ?: return fail("Action 'systemStats' requires enabled.")
+        session?.systemStats = enabled
+        return ok()
+    }
+
+    private fun handleLaunch(request: RemoteActionRequest): RemoteActionResponse {
+        request.url?.let { url ->
+            val uri = parseLaunchUrl(url) ?: return fail("Action 'launch' requires an http or https url.")
+            return withAccessibility { service ->
+                appLauncher.openUrl(service, uri)
+                ok()
+            }
+        }
+
+        val name = request.name?.trim()
+        if (name.isNullOrEmpty() || name.length > MAX_APP_NAME_LENGTH) return fail("Action 'launch' requires name or url.")
+        return withAccessibility { service ->
+            if (appLauncher.launchApp(service, name)) ok() else fail("Unknown app.")
+        }
     }
 
     private fun pressAudioKey(key: String) {

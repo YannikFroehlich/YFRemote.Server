@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Gekoppelte Geräte lassen sich jetzt auch in der App unter "Gekoppelte Geräte" auf "Nur Medien" stellen, wie im Windows-Tray. So ein Gerät sendet nur noch Medien- und Lautstärketasten; Tippen, Maus, Sperren, Dateien und Zwischenablage sind gesperrt, und Touchpad und Tastatur verschwinden im Client. "Vollzugriff" hebt das wieder auf.
+- Android-App: Die Medienleiste zeigt jetzt den Lautstärkeregler des Geräts. Er stellt die Medienlautstärke ein und folgt Änderungen am Gerät selbst, wie am PC hebt er eine Stummschaltung auf. Weil Android nur 15 bis 25 Stufen kennt, springt der Wert auf die nächste Stufe.
+- Android-App: Mit dem neuen, optionalen "Benachrichtigungszugriff" (in der App unter "Berechtigungen") zeigt die Medienleiste auch Titel, Interpret, Cover und Zeitleiste der Wiedergabe auf dem Gerät, und man kann spulen, sofern die App das erlaubt - wie am PC. YFRemote liest dafür nur die Medienwiedergabe, keine Benachrichtigungen.
+- Android-App: Eigene Buttons mit dem Schritt "Öffnen" können jetzt auch Apps und Webseiten auf dem Android-Gerät öffnen. Zur Auswahl stehen die Apps vom Startbildschirm des Geräts; Webseiten öffnen sich im Standardbrowser. Wie am PC gehen nur Einträge aus dieser Liste und `http`/`https`-Adressen. Dafür muss die Bedienungshilfe aktiv sein.
+- Android-App: Der Tab "Gerät" zeigt jetzt Arbeitsspeicher und Akku (Ladestand, ob er lädt, Temperatur) des Android-Geräts, wie der Tab "PC" bei einem Computer. CPU- und GPU-Werte fehlen dort, weil Android sie Apps nicht mehr verrät.
+- Android-App: Ein PC mit "HTTPS verwenden" lässt sich jetzt per QR-Code auch in der App über HTTPS steuern, statt wie bisher auf HTTP auszuweichen. Der QR-Code im Tray enthält dafür den Fingerabdruck der lokalen Zertifizierungsstelle des PCs, und die App vertraut nur Zertifikaten genau dieser Stelle. In der App funktionieren damit auch der Zwischenablage-Abgleich und das Kopieren von Bildern. Ein bereits gekoppelter PC muss dafür einmal neu per QR-Code hinzugefügt und gekoppelt werden.
+- Android-App: Geräte, die sich 90 Tage nicht verbunden haben, werden wie am PC automatisch entkoppelt und müssen sich mit einer neuen PIN erneut koppeln.
+
 ## [2.41.0] - 2026-10-25
 
 ### Added

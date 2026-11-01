@@ -163,10 +163,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M4 19h16v2H4v-2Zm1-8h3v6H5v-6Zm5-6h3v12h-3V5Zm5 3h3v9h-3V8Z" />
             </svg>
-            <span>{{ i18n.t('shell.tabSystem') }}</span>
+            <span>{{ i18n.t(systemTabKey()) }}</span>
           </button>
         }
-        @if (systemStatsSupported()) {
+        @if (mixerSupported()) {
           <button
             class="view-tab"
             [class.view-tab--active]="activeView() === 'mixer'"
@@ -248,7 +248,7 @@
               </span>
             } @else {
               <span class="media-strip__title media-strip__title--empty">
-                {{ i18n.t('media.nothing') }}
+                {{ i18n.t('media.nothing' + mediaKeySuffix()) }}
               </span>
             }
           </span>
@@ -265,7 +265,7 @@
                 min="0"
                 max="100"
                 [value]="media.volume"
-                [attr.aria-label]="i18n.t('media.setVolume')"
+                [attr.aria-label]="i18n.t('media.setVolume' + mediaKeySuffix())"
                 [attr.aria-valuetext]="
                   media.muted
                     ? i18n.t('media.muted')
@@ -374,7 +374,7 @@
         <app-keyboard-pad />
       } @else if (activeView() === 'system' && systemStatsSupported()) {
         <app-system-stats />
-      } @else if (activeView() === 'mixer' && systemStatsSupported()) {
+      } @else if (activeView() === 'mixer' && mixerSupported()) {
         <app-mixer />
       }
     </section>

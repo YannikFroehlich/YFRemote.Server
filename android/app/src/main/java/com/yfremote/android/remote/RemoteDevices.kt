@@ -7,13 +7,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Ein Geraet, das dieses Telefon steuert - `url` ist die Basis-URL seines YFRemote-Servers,
- *  `mac` die zuletzt per /health gemeldete MAC fuer Wake-on-LAN, `macWireless` ob sie WLAN ist. */
+ *  `mac` die zuletzt per /health gemeldete MAC fuer Wake-on-LAN, `macWireless` ob sie WLAN ist,
+ *  `ca` bei HTTPS die geprueft geladene lokale CA des PCs (DER, Base64, siehe PinnedCa). */
 data class RemoteDevice(
     val url: String,
     val name: String,
     val mac: String? = null,
     val macWireless: Boolean = false,
+    val ca: String? = null,
 )
+
+/** Inhalt eines YFRemote-QR-Codes; `caSha256` nur bei HTTPS mit Fingerabdruck der CA. */
+data class QrCode(val url: String, val pin: String?, val caSha256: String? = null)
 
 // Nur die Liste der Adressen: das Pairing-Token liegt im localStorage des WebViews, pro Origin,
 // genau wie im Browser - der Web-Client verwaltet es selbst.
@@ -54,25 +59,31 @@ class RemoteDevices(context: Context) {
 
         /**
          * Inhalt eines YFRemote-QR-Codes ("http://192.168.0.5:5050/#pin=123456", vom Tray oder
-         * vom Freigeben-Bereich) -> Adresse und, falls enthalten, PIN. Sonst null.
+         * vom Freigeben-Bereich) -> Adresse, falls enthalten PIN und bei HTTPS der CA-Fingerabdruck.
+         * Sonst null.
          */
-        fun parseQrCode(text: String): Pair<String, String?>? {
+        fun parseQrCode(text: String): QrCode? {
             val uri = try {
                 URI(text.trim())
             } catch (e: URISyntaxException) {
                 return null
             }
             val host = uri.host ?: return null
-            val port = when (uri.scheme?.lowercase()) {
-                "http" -> if (uri.port == -1) 80 else uri.port
-                // ponytail: HTTPS-QR (Tray mit "HTTPS verwenden") -> HTTP auf dem Standardport, weil
-                // das WebView der lokalen CA nicht vertraut; ein geaenderter Server:Port geht hier verloren.
-                "https" -> DEFAULT_PORT
-                else -> return null
+            val fragment = uri.rawFragment.orEmpty()
+            val pin = Regex("(?:^|&)pin=(\\d{6})(?:&|$)").find(fragment)?.groupValues?.get(1)
+            val caSha256 = Regex("(?:^|&)ca=([0-9a-f]{64})(?:&|$)").find(fragment)?.groupValues?.get(1)
+            return when (uri.scheme?.lowercase()) {
+                "http" -> normalizeAddress("$host:${if (uri.port == -1) 80 else uri.port}")?.let { QrCode(it, pin) }
+                // Ohne Fingerabdruck (aelterer PC) kein HTTPS: HTTP auf dem Standardport.
+                // ponytail: ein geaenderter Server:Port geht dabei verloren.
+                "https" -> if (caSha256 == null) {
+                    normalizeAddress("$host:$DEFAULT_PORT")?.let { QrCode(it, pin) }
+                } else {
+                    normalizeAddress("$host:${if (uri.port == -1) 443 else uri.port}")
+                        ?.let { QrCode(it.replaceFirst("http://", "https://"), pin, caSha256) }
+                }
+                else -> null
             }
-            val url = normalizeAddress("$host:$port") ?: return null
-            val pin = Regex("(?:^|&)pin=(\\d{6})(?:&|$)").find(uri.rawFragment.orEmpty())?.groupValues?.get(1)
-            return url to pin
         }
 
         fun parse(json: String?): List<RemoteDevice> = try {
@@ -84,6 +95,7 @@ class RemoteDevices(context: Context) {
                     item.getString("name"),
                     item.optString("mac").ifEmpty { null },
                     item.optBoolean("macWireless"),
+                    item.optString("ca").ifEmpty { null },
                 )
             }
         } catch (e: Exception) {
@@ -93,7 +105,7 @@ class RemoteDevices(context: Context) {
         fun serialize(devices: List<RemoteDevice>): String = JSONArray(
             devices.map {
                 JSONObject().put("url", it.url).put("name", it.name).putOpt("mac", it.mac)
-                    .put("macWireless", it.macWireless)
+                    .put("macWireless", it.macWireless).putOpt("ca", it.ca)
             },
         ).toString()
     }

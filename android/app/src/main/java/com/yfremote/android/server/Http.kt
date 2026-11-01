@@ -1,8 +1,11 @@
 package com.yfremote.android.server
 
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 
 // WebSocket-Handshakes und schreibende HTTP-Endpunkte unterliegen nicht der Same-Origin-Policy
 // des Browsers - der Origin-Header muss deshalb selbst geprueft werden. Direkte Spiegelung von
@@ -29,6 +32,18 @@ fun ApplicationCall.bearerToken(): String? {
 }
 
 fun ApplicationCall.clientIp(): String = request.origin.remoteHost
+
+// Wie RequestGuards.AuthorizePairedDeviceAsync: 401 ohne gueltiges Token, 403 fuer ein Geraet mit
+// "Nur Medien", ausser bei mediaOnlyAllowed (nur GET /media/cover).
+suspend fun ApplicationCall.authorizePairedDevice(pairing: PairingRepository, mediaOnlyAllowed: Boolean = false): Boolean {
+    val device = pairing.validateToken(bearerToken())
+    when {
+        device == null -> respond(HttpStatusCode.Unauthorized)
+        device.mediaOnly && !mediaOnlyAllowed -> respondText(MEDIA_ONLY_ERROR, status = HttpStatusCode.Forbidden)
+        else -> return true
+    }
+    return false
+}
 
 // Ein Zaehler pro Verbindung genuegt (siehe YFRemoteWebSocketHandler.cs): eine WebSocket-
 // Verbindung verarbeitet ihre Nachrichten ohnehin seriell.

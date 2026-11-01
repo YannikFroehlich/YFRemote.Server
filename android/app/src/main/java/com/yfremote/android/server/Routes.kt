@@ -1,8 +1,10 @@
 package com.yfremote.android.server
 
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.widget.Toast
 import com.yfremote.android.media.MediaStatusReader
 import com.yfremote.android.server.models.AccessMessage
@@ -75,7 +77,10 @@ fun Route.installRoutes(
         connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer), includeMediaOnly = false)
     }
 
-    get("/health") { call.respond(HealthResponse("ok", "YFRemote.Android", "android")) }
+    get("/health") {
+        val name = Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
+        call.respond(HealthResponse("ok", "YFRemote.Android", "android", name))
+    }
 
     webSocket("/ws") {
         if (!call.isAllowedOrigin()) {

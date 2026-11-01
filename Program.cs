@@ -474,7 +474,8 @@ internal static class Program
                 gamepadService?.IsAvailable ?? false,
                 adapter.MacAddress,
                 adapter.Wireless,
-                voicemeeterService?.IsInstalled ?? false);
+                voicemeeterService?.IsInstalled ?? false,
+                Environment.MachineName);
         });
 
         if (httpsOptions.Enabled)

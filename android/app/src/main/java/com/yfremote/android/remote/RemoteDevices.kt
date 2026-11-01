@@ -8,14 +8,21 @@ import org.json.JSONObject
 
 /** Ein Geraet, das dieses Telefon steuert - `url` ist die Basis-URL seines YFRemote-Servers,
  *  `mac` die zuletzt per /health gemeldete MAC fuer Wake-on-LAN, `macWireless` ob sie WLAN ist,
- *  `ca` bei HTTPS die geprueft geladene lokale CA des PCs (DER, Base64, siehe PinnedCa). */
+ *  `ca` bei HTTPS die geprueft geladene lokale CA des PCs (DER, Base64, siehe PinnedCa).
+ *  `named`: der Nutzer hat den Namen selbst vergeben; sonst uebernimmt die App den per /health
+ *  gemeldeten Geraetenamen. */
 data class RemoteDevice(
     val url: String,
     val name: String,
     val mac: String? = null,
     val macWireless: Boolean = false,
     val ca: String? = null,
-)
+    val named: Boolean = false,
+) {
+    /** "192.168.0.5:5050" - nur noch Nebeninfo unter dem Namen. */
+    val address: String get() = url.substringAfter("://")
+    val secure: Boolean get() = url.startsWith("https://")
+}
 
 /** Inhalt eines YFRemote-QR-Codes; `caSha256` nur bei HTTPS mit Fingerabdruck der CA. */
 data class QrCode(val url: String, val pin: String?, val caSha256: String? = null)
@@ -34,6 +41,17 @@ class RemoteDevices(context: Context) {
 
     fun setMac(url: String, mac: String, wireless: Boolean) =
         save(load().map { if (it.url == url) it.copy(mac = mac, macWireless = wireless) else it })
+
+    /** Vom Geraet gemeldeter Name - ersetzt nur einen Namen, den der Nutzer nicht selbst vergeben hat. */
+    fun setReportedName(url: String, name: String) =
+        save(load().map { if (it.url == url && !it.named) it.copy(name = name) else it })
+
+    /** Leerer Name: wieder automatisch, bis /health den Geraetenamen liefert gilt die Adresse. */
+    fun rename(url: String, name: String) = save(
+        load().map {
+            if (it.url != url) it else if (name.isBlank()) it.copy(name = it.address, named = false) else it.copy(name = name.trim(), named = true)
+        },
+    )
 
     private fun save(devices: List<RemoteDevice>) {
         prefs.edit().putString(KEY, serialize(devices)).apply()
@@ -96,6 +114,12 @@ class RemoteDevices(context: Context) {
                     item.optString("mac").ifEmpty { null },
                     item.optBoolean("macWireless"),
                     item.optString("ca").ifEmpty { null },
+                    // Aeltere Eintraege ohne das Feld: ein Name ungleich der Adresse war selbst vergeben.
+                    if (item.has("named")) {
+                        item.getBoolean("named")
+                    } else {
+                        item.getString("name") != item.getString("url").substringAfter("://")
+                    },
                 )
             }
         } catch (e: Exception) {
@@ -105,7 +129,7 @@ class RemoteDevices(context: Context) {
         fun serialize(devices: List<RemoteDevice>): String = JSONArray(
             devices.map {
                 JSONObject().put("url", it.url).put("name", it.name).putOpt("mac", it.mac)
-                    .put("macWireless", it.macWireless).putOpt("ca", it.ca)
+                    .put("macWireless", it.macWireless).putOpt("ca", it.ca).put("named", it.named)
             },
         ).toString()
     }

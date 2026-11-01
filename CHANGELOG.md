@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android-App: Die Liste unter "Steuern" zeigt die Geräte jetzt mit ihrem Namen statt mit der IP-Adresse. Der Name kommt automatisch vom Gerät (am PC der Rechnername, bei einem Android-Gerät dessen Gerätename); Adresse und ob die Verbindung verschlüsselt ist, stehen klein darunter. Über "Bearbeiten" lässt sich ein eigener Name vergeben, ein leerer Name nimmt wieder den des Geräts; dort sitzt jetzt auch "Entfernen". Selbst vergebene Namen bleiben erhalten.
+
+## [2.42.0] - 2026-11-01
+
 ### Added
 
 - Android-App: Gekoppelte Geräte lassen sich jetzt auch in der App unter "Gekoppelte Geräte" auf "Nur Medien" stellen, wie im Windows-Tray. So ein Gerät sendet nur noch Medien- und Lautstärketasten; Tippen, Maus, Sperren, Dateien und Zwischenablage sind gesperrt, und Touchpad und Tastatur verschwinden im Client. "Vollzugriff" hebt das wieder auf.

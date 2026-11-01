@@ -64,6 +64,20 @@ class RemoteDevicesTest {
     }
 
     @Test
+    fun `older entries count as named only when the name differs from the address`() {
+        val stored = """[{"url":"http://a:5050","name":"a:5050"},{"url":"http://b:5050","name":"Wohnzimmer"}]"""
+        assertEquals(listOf(false, true), RemoteDevices.parse(stored).map { it.named })
+    }
+
+    @Test
+    fun `address and https are derived from the url`() {
+        val device = RemoteDevice("https://192.168.0.5:5443", "Gaming-PC")
+        assertEquals("192.168.0.5:5443", device.address)
+        assertEquals(true, device.secure)
+        assertEquals(false, RemoteDevice("http://pc:5050", "PC").secure)
+    }
+
+    @Test
     fun `damaged storage yields an empty list`() {
         assertEquals(emptyList<RemoteDevice>(), RemoteDevices.parse("{kaputt"))
     }

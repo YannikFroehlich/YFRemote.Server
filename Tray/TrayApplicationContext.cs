@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Security.Cryptography;
 using Velopack;
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Diagnostics;
@@ -40,6 +41,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly string? certificateUrl;
     private readonly ServerOptions serverOptions;
     private readonly HttpsOptions httpsOptions;
+    private readonly string? authoritySha256;
 
     private UpdateInfo? availableUpdate;
     private bool updateOperationRunning;
@@ -64,6 +66,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         certificateUrl = httpsOptions.Enabled
             ? NetworkAddressService.GetCertificateUrl(serverOptions.Port)
             : null;
+        var authority = httpsOptions.Enabled
+            ? app.Services.GetService<ServerCertificateProvider>()?.ExportAuthorityCertificate()
+            : null;
+        authoritySha256 = authority is null ? null : Convert.ToHexStringLower(SHA256.HashData(authority));
 
         uiDispatcher.CreateControl();
         fileTransferService.FileReceived += OnFileReceived;
@@ -535,7 +541,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         try
         {
-            using var dialog = new PairingQrCodeDialog(deviceAddress, pairingService);
+            using var dialog = new PairingQrCodeDialog(deviceAddress, pairingService, authoritySha256);
             dialog.ShowDialog();
             RefreshPairingMenu();
         }

@@ -292,14 +292,23 @@ have no URL for `DownloadManager`, so the Client's `FILE_SAVER` hands them to
 `YFRemoteDownloads.save(fileName, mimeType, base64)`, which writes them through
 `MediaStore.Downloads` into `Downloads/YFRemote` - only while the loaded page is still on the
 target's origin. An older app without `save` makes `FILE_SAVER` report failure instead of
-clicking a dead `blob:` link. Known limit of the WebView: HTTPS targets with the local CA aren't
-trusted.
+clicking a dead `blob:` link.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as
 `PairingQrCodePayload`, and the PIN is handed to the WebView in the URL fragment so the Client
-prefills it. An `https://` code is opened as `http://<host>:5050`, since the WebView doesn't
-trust the local CA. The "Freigeben" section shows the same kind of QR code for this phone, always
+prefills it. With "HTTPS verwenden" the tray's QR code also carries `ca=<sha256>`, the fingerprint
+of the PC's local CA (`PairingQrCodePayload`, lowercase hex over the DER). Such a code stays on
+`https://<host>:<port>`: `PinnedCa.fetch` loads `/ca.crt` and keeps it only if its fingerprint
+matches and the connection's own server certificate was issued by it, then `RemoteDevice.ca` stores
+it. `RemoteWebActivity.onReceivedSslError` proceeds only for that device's origin, only when
+"untrusted" is the sole SSL error and only if `PinnedCa.issued` verifies the leaf against the
+pinned CA (Android 10+, which exposes the leaf; older versions cancel). `/health` and file
+downloads use `HttpsURLConnection` with that CA as the only trust anchor, because
+`DownloadManager` cannot. Typed addresses and HTTPS codes without a fingerprint (older PCs) open
+as `http://<host>:5050`. Switching a device to HTTPS changes its origin, so it pairs again.
+Unit tests only (fixed openssl certificates in `PinnedCaTest`), **not yet checked on a device**.
+The "Freigeben" section shows the same kind of QR code for this phone, always
 with the current PIN (it is displayed right next to it anyway).
 
 **Bluetooth controller.** The "Controller" section registers the phone as a Bluetooth HID gamepad

@@ -12,6 +12,7 @@ import com.yfremote.android.server.models.FileOfferMessage
 import com.yfremote.android.server.models.FileUploadResponse
 import com.yfremote.android.server.models.MediaStatusMessage
 import com.yfremote.android.server.models.HealthResponse
+import com.yfremote.android.server.models.LaunchAppsResponse
 import com.yfremote.android.server.models.PairRequest
 import com.yfremote.android.server.models.PairResponse
 import com.yfremote.android.server.models.PairStatusResponse
@@ -65,6 +66,7 @@ fun Route.installRoutes(
     fileTransferOptions: FileTransferOptions,
     fileOffers: FileOfferRepository,
     media: MediaStatusReader,
+    appLauncher: AppLauncher,
     json: Json,
 ) {
     fileOffers.onOffered = { offer ->
@@ -255,6 +257,18 @@ fun Route.installRoutes(
         call.response.header(HttpHeaders.CacheControl, "no-store")
         val cover = media.cover
         if (cover == null) call.respond(HttpStatusCode.NoContent) else call.respondBytes(cover, ContentType.Image.JPEG)
+    }
+
+    // Wie GET /launch/apps in LaunchEndpoints.cs: Vorschlaege fuer den Button-Editor, Origin optional.
+    get("/launch/apps") {
+        if (!call.isAllowedOrigin(originOptional = true)) {
+            call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
+            return@get
+        }
+        if (!call.authorizePairedDevice(pairing)) return@get
+
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        call.respond(LaunchAppsResponse(appLauncher.listApps()))
     }
 
     route("/clipboard") {

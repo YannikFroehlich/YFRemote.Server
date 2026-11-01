@@ -12,6 +12,7 @@ class RemoteActionRouterTest {
         assertTrue(isMediaAction("key", listOf("VOLUME_UP")))
         assertTrue(isMediaAction("volume", emptyList()))
         assertTrue(isMediaAction("mediaseek", emptyList()))
+        assertFalse(isMediaAction("launch", emptyList()))
 
         assertFalse(isMediaAction("key", listOf("ENTER")))
         assertFalse(isMediaAction("key", listOf("MEDIA_NEXT", "VOLUME_UP")))

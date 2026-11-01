@@ -26,6 +26,7 @@ class KtorServer(
     private val fileTransferOptions: FileTransferOptions,
     private val fileOffers: FileOfferRepository,
     private val media: MediaStatusReader,
+    private val appLauncher: AppLauncher,
 ) {
     companion object {
         const val DEFAULT_PORT = 5050
@@ -63,6 +64,7 @@ class KtorServer(
                     fileTransferOptions = fileTransferOptions,
                     fileOffers = fileOffers,
                     media = media,
+                    appLauncher = appLauncher,
                     json = json,
                 )
             }

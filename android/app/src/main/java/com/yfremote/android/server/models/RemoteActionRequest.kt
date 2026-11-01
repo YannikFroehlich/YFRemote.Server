@@ -15,4 +15,6 @@ data class RemoteActionRequest(
     val delta: Int? = null,
     val volume: Int? = null,
     val position: Int? = null,
+    val url: String? = null,
+    val name: String? = null,
 )

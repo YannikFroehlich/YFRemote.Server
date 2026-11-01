@@ -43,6 +43,7 @@ function pcWithAudio(): object {
       routes: ['A1'],
     }),
     systemStatsSupported: signal(true),
+    serverPlatform: signal('windows'),
     apps: signal({ type: 'apps', apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }] }),
     watchVoicemeeter: () => undefined,
     watchApps: () => undefined,
@@ -303,6 +304,31 @@ describe('ButtonEditorDialogComponent', () => {
     fixture.detectChanges();
 
     expect(stepSummaries(root)).toEqual(['Öffnen: Steam', 'Öffnen: https://www.youtube.com']);
+  });
+
+  it('offers launch steps but no app volume steps on the Android server', async () => {
+    const { root, fixture } = await setupDialog(null, {
+      ...pcWithAudio(),
+      systemStatsSupported: signal(false),
+      serverPlatform: signal('android'),
+      readLaunchApps: () => Promise.resolve(['Spotify']),
+    });
+    await fixture.whenStable();
+
+    expect(
+      Array.from(root.querySelectorAll('[role="tab"]')).map((tab) => tab.textContent?.trim()),
+    ).not.toContain('App');
+    queryButtonByText(root, 'Öffnen').click();
+    fixture.detectChanges();
+    expect(root.querySelector('#button-editor-launch-apps option')?.getAttribute('value')).toBe(
+      'Spotify',
+    );
+    setField(root, 'App wie auf dem Startbildschirm des Geräts', 'Spotify');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    expect(stepSummaries(root)).toEqual(['Öffnen: Spotify']);
   });
 
   it('removes a step', async () => {

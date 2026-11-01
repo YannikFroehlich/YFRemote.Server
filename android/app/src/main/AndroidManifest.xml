@@ -24,6 +24,11 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- Startbare Apps fuer die Aktion "launch" (AppLauncher). -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <!-- usesCleartextTraffic: gesteuerte Geraete sprechen im LAN nur http://<IP> (HTTPS ist dort

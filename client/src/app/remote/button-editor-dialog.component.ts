@@ -89,6 +89,13 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
 
   // App-Schritte treffen die App per Name; die Vorschlaege sind die Apps, die gerade Ton ausgeben.
   protected readonly appStepsSupported = this.remote.systemStatsSupported;
+  // "Oeffnen" kann auch der Android-Server, nur die Lautstaerke einzelner Apps nicht.
+  protected readonly launchSupported = computed(() => this.remote.serverPlatform() !== null);
+  protected readonly launchNameKey = computed(() =>
+    this.remote.serverPlatform() === 'android'
+      ? 'buttonEditor.launch.name.android'
+      : 'buttonEditor.launch.name',
+  );
   protected readonly appNames = computed(() => [
     ...new Set(
       (this.remote.apps()?.apps ?? []).filter((app) => app.id !== 'system').map((app) => app.name),
@@ -129,6 +136,8 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     if (this.appStepsSupported()) {
       this.watchingApps = true;
       this.remote.watchApps(true);
+    }
+    if (this.launchSupported()) {
       void this.remote.readLaunchApps().then((apps) => this.launchApps.set(apps));
     }
 

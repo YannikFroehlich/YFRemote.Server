@@ -1,10 +1,10 @@
 package com.yfremote.android.server
 
 import android.content.Context
-import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import com.yfremote.android.media.MediaStatusReader
 import com.yfremote.android.server.models.AccessMessage
 import com.yfremote.android.server.models.ClipboardResponse
 import com.yfremote.android.server.models.ClipboardTextRequest
@@ -64,9 +64,9 @@ fun Route.installRoutes(
     clipboardOptions: ClipboardOptions,
     fileTransferOptions: FileTransferOptions,
     fileOffers: FileOfferRepository,
+    media: MediaStatusReader,
     json: Json,
 ) {
-    val audioManager = context.getSystemService(AudioManager::class.java)
     fileOffers.onOffered = { offer ->
         connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer), includeMediaOnly = false)
     }
@@ -106,7 +106,7 @@ fun Route.installRoutes(
             launch {
                 var last: MediaStatusMessage? = null
                 while (isActive) {
-                    val status = DeviceVolume.read(audioManager)
+                    val status = media.read()
                     if (status != last) {
                         send(Frame.Text(json.encodeToString(MediaStatusMessage.serializer(), status)))
                         last = status
@@ -191,7 +191,7 @@ fun Route.installRoutes(
             call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
             return@post
         }
-        if (!call.authorizeFullAccess(pairing)) return@post
+        if (!call.authorizePairedDevice(pairing)) return@post
 
         val contentLength = call.contentLengthOrNull()
         if (contentLength != null && contentLength > fileTransferOptions.maxFileSizeBytes) {
@@ -227,7 +227,7 @@ fun Route.installRoutes(
             call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
             return@get
         }
-        if (!call.authorizeFullAccess(pairing)) return@get
+        if (!call.authorizePairedDevice(pairing)) return@get
 
         val file = call.parameters["id"]?.let(fileOffers::fileFor)
         if (file == null || !file.exists()) {
@@ -244,6 +244,19 @@ fun Route.installRoutes(
         showToast(context, "Datei gesendet: ${file.name}")
     }
 
+    // Wie GET /media/cover in MediaEndpoints.cs: auch fuer "Nur Medien", Origin optional, nie cachen.
+    get("/media/cover") {
+        if (!call.isAllowedOrigin(originOptional = true)) {
+            call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
+            return@get
+        }
+        if (!call.authorizePairedDevice(pairing, mediaOnlyAllowed = true)) return@get
+
+        call.response.header(HttpHeaders.CacheControl, "no-store")
+        val cover = media.cover
+        if (cover == null) call.respond(HttpStatusCode.NoContent) else call.respondBytes(cover, ContentType.Image.JPEG)
+    }
+
     route("/clipboard") {
         // Origin nur pruefen, wenn einer mitkommt - siehe GET /clipboard/text in ClipboardEndpoints.cs.
         get("/text") {
@@ -251,7 +264,7 @@ fun Route.installRoutes(
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
                 return@get
             }
-            if (!call.authorizeFullAccess(pairing)) return@get
+            if (!call.authorizePairedDevice(pairing)) return@get
 
             // Kann Passwoerter enthalten - nie cachen.
             call.response.header(HttpHeaders.CacheControl, "no-store")
@@ -293,7 +306,7 @@ fun Route.installRoutes(
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
                 return@post
             }
-            if (!call.authorizeFullAccess(pairing)) return@post
+            if (!call.authorizePairedDevice(pairing)) return@post
 
             val request = try {
                 call.receive<ClipboardTextRequest>()
@@ -328,7 +341,7 @@ fun Route.installRoutes(
                 call.respondText("Origin not allowed.", status = HttpStatusCode.Forbidden)
                 return@post
             }
-            if (!call.authorizeFullAccess(pairing)) return@post
+            if (!call.authorizePairedDevice(pairing)) return@post
 
             val contentLength = call.contentLengthOrNull()
             if (contentLength != null && contentLength > clipboardOptions.maxImageSizeBytes) {

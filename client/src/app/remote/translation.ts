@@ -362,7 +362,7 @@ export const TRANSLATIONS = {
     en: 'This server cannot sync the clipboard.',
   },
   'media.nothing': { de: 'Am PC läuft nichts', en: 'Nothing playing on the PC' },
-  // Der Android-Server meldet bisher nur die Lautstaerke, keinen Titel - "laeuft nichts" waere falsch.
+  // Ohne Benachrichtigungszugriff meldet der Android-Server keinen Titel - "laeuft nichts" waere falsch.
   'media.nothing.android': { de: 'Lautstärke am Gerät', en: 'Device volume' },
   'media.playing': { de: 'läuft', en: 'playing' },
   'media.paused': { de: 'pausiert', en: 'paused' },

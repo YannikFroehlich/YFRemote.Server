@@ -1,6 +1,7 @@
 package com.yfremote.android.server
 
 import android.content.Context
+import com.yfremote.android.media.MediaStatusReader
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -24,6 +25,7 @@ class KtorServer(
     private val clipboardOptions: ClipboardOptions,
     private val fileTransferOptions: FileTransferOptions,
     private val fileOffers: FileOfferRepository,
+    private val media: MediaStatusReader,
 ) {
     companion object {
         const val DEFAULT_PORT = 5050
@@ -60,6 +62,7 @@ class KtorServer(
                     clipboardOptions = clipboardOptions,
                     fileTransferOptions = fileTransferOptions,
                     fileOffers = fileOffers,
+                    media = media,
                     json = json,
                 )
             }

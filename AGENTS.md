@@ -330,11 +330,19 @@ keys through, and every `Bearer` endpoint answers 403 `Not allowed for this devi
 (`authorizeFullAccess` in `Http.kt`), since Android has no media endpoint. Covered by unit tests,
 **not yet checked on a device**.
 
-**Volume.** `/ws` pushes `{"type":"media","volume","muted","playing"}` from `DeviceVolume`
-(`STREAM_MUSIC` in percent, `isMusicActive`), read once per second per connection and sent only on
-change, like `PollingBroadcaster`. The `volume` action sets it and unmutes; Android's 15-25 steps
-make the slider snap. No `title`, so the Client shows "Lautstärke am Gerät" (`media.nothing.android`)
-instead of "Am PC läuft nichts". Unit tests only, **not yet checked on a device**.
+**Media status.** `/ws` pushes the same `media` message as the PC from `media/MediaStatusReader`,
+read once per second per connection and sent only on change, like `PollingBroadcaster`. Volume and
+mute come from `DeviceVolume` (`STREAM_MUSIC` in percent); the `volume` action sets it and unmutes,
+and Android's 15-25 steps make the slider snap. Title, artist, timeline and cover come from the
+playing `MediaSession` (else the first one), which `MediaSessionManager.getActiveSessions` only
+hands to an enabled notification listener: `media/MediaAccessListener` is an empty
+`NotificationListenerService`, a third, optional permission in the setup screen ("Medieninfos").
+Without it the push carries only volume and `isMusicActive`, and the Client shows "Lautstärke am
+Gerät" (`media.nothing.android`) instead of "Am PC läuft nichts". `mediaSeek` uses
+`transportControls.seekTo` when the session offers `ACTION_SEEK_TO`; `GET /media/cover` serves the
+embedded album-art bitmap as JPEG (max 512 px, re-encoded only when title or bitmap size change;
+apps that only set `METADATA_KEY_ALBUM_ART_URI` have no cover). Unit tests only, **not yet checked
+on a device**.
 
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no

@@ -34,6 +34,7 @@ class RemoteActionRouter(
     private val accessibilityService: () -> YFRemoteAccessibilityService?,
     private val imeService: () -> YFRemoteInputMethodService?,
     private val media: MediaStatusReader,
+    private val appLauncher: AppLauncher,
 ) {
     companion object {
         private const val MIN_MOUSE_MOVE_DELTA = -5000
@@ -42,6 +43,7 @@ class RemoteActionRouter(
         private const val MAX_MOUSE_SCROLL_DELTA = 1200
         private const val MAX_TEXT_LENGTH = 500
         private const val MAX_SEEK_SECONDS = 86400
+        private const val MAX_APP_NAME_LENGTH = 100
         private val VALID_MOUSE_BUTTONS = setOf("left", "right", "middle")
     }
 
@@ -71,6 +73,7 @@ class RemoteActionRouter(
                     "sleep" -> handleSleep()
                     "volume" -> handleVolume(request)
                     "mediaseek" -> handleMediaSeek(request)
+                    "launch" -> handleLaunch(request)
                     "shutdown", "restart" -> fail("Auf Android ohne Root nicht möglich.")
                     null, "" -> fail("Missing action type.")
                     else -> fail("Unsupported action type: ${request.type}")
@@ -232,6 +235,22 @@ class RemoteActionRouter(
             return fail("Action 'mediaSeek' requires position between 0 and $MAX_SEEK_SECONDS seconds.")
         }
         return if (media.seek(position)) ok() else fail("Die Medien-App lässt sich nicht spulen.")
+    }
+
+    private fun handleLaunch(request: RemoteActionRequest): RemoteActionResponse {
+        request.url?.let { url ->
+            val uri = parseLaunchUrl(url) ?: return fail("Action 'launch' requires an http or https url.")
+            return withAccessibility { service ->
+                appLauncher.openUrl(service, uri)
+                ok()
+            }
+        }
+
+        val name = request.name?.trim()
+        if (name.isNullOrEmpty() || name.length > MAX_APP_NAME_LENGTH) return fail("Action 'launch' requires name or url.")
+        return withAccessibility { service ->
+            if (appLauncher.launchApp(service, name)) ok() else fail("Unknown app.")
+        }
     }
 
     private fun pressAudioKey(key: String) {

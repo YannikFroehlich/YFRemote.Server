@@ -16,6 +16,7 @@ import com.yfremote.android.SetupActivity
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.ime.YFRemoteInputMethodService
 import com.yfremote.android.media.MediaStatusReader
+import com.yfremote.android.server.AppLauncher
 import com.yfremote.android.server.ClipboardBridge
 import com.yfremote.android.server.ClipboardOptions
 import com.yfremote.android.server.ConnectionRegistry
@@ -70,11 +71,13 @@ class YFRemoteForegroundService : Service() {
 
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
         val media = MediaStatusReader(applicationContext, audioManager)
+        val appLauncher = AppLauncher(packageManager)
         val router = RemoteActionRouter(
             audioManager = audioManager,
             accessibilityService = { YFRemoteAccessibilityService.instance },
             imeService = { YFRemoteInputMethodService.instance },
             media = media,
+            appLauncher = appLauncher,
         )
 
         server = KtorServer(
@@ -89,6 +92,7 @@ class YFRemoteForegroundService : Service() {
             fileTransferOptions = FileTransferOptions(),
             fileOffers = fileOffers,
             media = media,
+            appLauncher = appLauncher,
         )
     }
 

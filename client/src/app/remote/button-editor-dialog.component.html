@@ -203,6 +203,8 @@
                   >
                     App
                   </button>
+                }
+                @if (launchSupported()) {
                   <button
                     type="button"
                     class="view-tab"
@@ -354,7 +356,7 @@
                 </div>
                 @if (pendingLaunchKind() === 'app') {
                   <label class="field">
-                    <span>{{ i18n.t('buttonEditor.launch.name') }}</span>
+                    <span>{{ i18n.t(launchNameKey()) }}</span>
                     <input
                       type="text"
                       list="button-editor-launch-apps"

@@ -671,6 +671,10 @@ export const TRANSLATIONS = {
     de: 'App wie im Startmenü des PCs',
     en: "App as in the PC's start menu",
   },
+  'buttonEditor.launch.name.android': {
+    de: 'App wie auf dem Startbildschirm des Geräts',
+    en: "App as on the device's home screen",
+  },
   'buttonEditor.launch.urlField': { de: 'Adresse (http/https)', en: 'Address (http/https)' },
   'buttonEditor.voicemeeter.channel': { de: 'Kanal', en: 'Channel' },
   'buttonEditor.voicemeeter.mute': { de: 'Stumm', en: 'Mute' },

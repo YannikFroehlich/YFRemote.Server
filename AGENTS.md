@@ -344,6 +344,16 @@ embedded album-art bitmap as JPEG (max 512 px, re-encoded only when title or bit
 apps that only set `METADATA_KEY_ALBUM_ART_URI` have no cover). Unit tests only, **not yet checked
 on a device**.
 
+**Launching apps.** `launch` and `GET /launch/apps` mirror `IAppLauncher`: `AppLauncher` lists the
+labels of all `MAIN`/`LAUNCHER` activities (visible on Android 11+ only through the `<queries>`
+entry in the manifest) and starts one only by exact label (case-insensitive), never a free
+component or intent; URLs must pass `parseLaunchUrl` (absolute `http`/`https`, ≤ 2000 chars) and
+open with `ACTION_VIEW`. Both start from the `AccessibilityService` context, because a bound
+accessibility service exempts the app from Android 10+'s background activity start block, so the
+action fails while it is off. The Client shows the "Öffnen" step for every known platform
+(`launchSupported`), the "App" volume step still only for PCs. Unit tests only, **not yet checked
+on a device**.
+
 **Rights model: `AccessibilityService` + a custom `InputMethodService`, both user-enabled in
 system settings, no root/Shizuku.** This is what actually bounds the feature set — there is no
 way to widen it later without asking for root or an ADB-based tool like Shizuku:

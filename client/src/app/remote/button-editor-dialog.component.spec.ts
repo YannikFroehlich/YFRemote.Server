@@ -42,7 +42,7 @@ function pcWithAudio(): object {
       channels: [{ id: 'Strip[0]', name: 'Mikrofon', muted: false, gain: 0 }],
       routes: ['A1'],
     }),
-    systemStatsSupported: signal(true),
+    mixerSupported: signal(true),
     serverPlatform: signal('windows'),
     apps: signal({ type: 'apps', apps: [{ id: '4711', name: 'Spotify', volume: 80, muted: false }] }),
     watchVoicemeeter: () => undefined,
@@ -309,7 +309,7 @@ describe('ButtonEditorDialogComponent', () => {
   it('offers launch steps but no app volume steps on the Android server', async () => {
     const { root, fixture } = await setupDialog(null, {
       ...pcWithAudio(),
-      systemStatsSupported: signal(false),
+      mixerSupported: signal(false),
       serverPlatform: signal('android'),
       readLaunchApps: () => Promise.resolve(['Spotify']),
     });

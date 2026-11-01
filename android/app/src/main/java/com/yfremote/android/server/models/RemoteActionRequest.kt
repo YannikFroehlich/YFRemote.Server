@@ -17,4 +17,5 @@ data class RemoteActionRequest(
     val position: Int? = null,
     val url: String? = null,
     val name: String? = null,
+    val enabled: Boolean? = null,
 )

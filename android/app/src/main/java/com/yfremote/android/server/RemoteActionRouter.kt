@@ -26,7 +26,7 @@ const val MEDIA_ONLY_ERROR = "Not allowed for this device."
 // ein Geraet mit "Nur Medien" darf nur Medien- und Lautstaerketasten senden. Neue Medienaktionen
 // muessen hier ausdruecklich dazu.
 internal fun isMediaAction(type: String?, keys: List<String>): Boolean =
-    type == "volume" || type == "mediaseek" ||
+    type == "volume" || type == "mediaseek" || type == "systemstats" ||
         type == "key" && keys.size == 1 && (keys[0].startsWith("MEDIA_") || keys[0].startsWith("VOLUME_"))
 
 class RemoteActionRouter(
@@ -47,13 +47,13 @@ class RemoteActionRouter(
         private val VALID_MOUSE_BUTTONS = setOf("left", "right", "middle")
     }
 
-    suspend fun handle(request: RemoteActionRequest?, mediaOnly: Boolean = false): RemoteActionResponse {
+    suspend fun handle(request: RemoteActionRequest?, session: RemoteActionSession? = null): RemoteActionResponse {
         if (request == null) return fail("Invalid action payload.")
 
         val type = request.type?.trim()?.lowercase()
         val keys = normalizeKeys(request.keys)
 
-        if (mediaOnly && !isMediaAction(type, keys)) {
+        if (session?.mediaOnly == true && !isMediaAction(type, keys)) {
             return fail(MEDIA_ONLY_ERROR).copy(requestId = request.requestId)
         }
 
@@ -74,6 +74,7 @@ class RemoteActionRouter(
                     "volume" -> handleVolume(request)
                     "mediaseek" -> handleMediaSeek(request)
                     "launch" -> handleLaunch(request)
+                    "systemstats" -> handleSystemStats(request, session)
                     "shutdown", "restart" -> fail("Auf Android ohne Root nicht möglich.")
                     null, "" -> fail("Missing action type.")
                     else -> fail("Unsupported action type: ${request.type}")
@@ -235,6 +236,13 @@ class RemoteActionRouter(
             return fail("Action 'mediaSeek' requires position between 0 and $MAX_SEEK_SECONDS seconds.")
         }
         return if (media.seek(position)) ok() else fail("Die Medien-App lässt sich nicht spulen.")
+    }
+
+    // Der Push selbst laeuft in Routes.kt, solange die Verbindung ihn eingeschaltet hat.
+    private fun handleSystemStats(request: RemoteActionRequest, session: RemoteActionSession?): RemoteActionResponse {
+        val enabled = request.enabled ?: return fail("Action 'systemStats' requires enabled.")
+        session?.systemStats = enabled
+        return ok()
     }
 
     private fun handleLaunch(request: RemoteActionRequest): RemoteActionResponse {

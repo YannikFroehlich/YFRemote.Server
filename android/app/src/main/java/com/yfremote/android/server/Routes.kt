@@ -18,6 +18,7 @@ import com.yfremote.android.server.models.PairResponse
 import com.yfremote.android.server.models.PairStatusResponse
 import com.yfremote.android.server.models.RemoteActionRequest
 import com.yfremote.android.server.models.RemoteActionResponse
+import com.yfremote.android.server.models.SystemStatsMessage
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -69,6 +70,7 @@ fun Route.installRoutes(
     appLauncher: AppLauncher,
     json: Json,
 ) {
+    val systemStats = SystemStatsReader(context)
     fileOffers.onOffered = { offer ->
         connectionRegistry.broadcast(json.encodeToString(FileOfferMessage.serializer(), offer), includeMediaOnly = false)
     }
@@ -92,6 +94,7 @@ fun Route.installRoutes(
         // einer durchgehenden Flut (siehe YFRemoteWebSocketHandler.cs).
         val rateLimiter = FixedWindowRateLimiter(limit = 120, windowMillis = 1000)
         val registration = connectionRegistry.register(device.id, this, device.mediaOnly)
+        val session = RemoteActionSession(device.mediaOnly)
 
         try {
             // Wie YFRemoteWebSocketHandler.cs: zuerst die Rechte, damit der Client gesperrte Tabs
@@ -117,6 +120,24 @@ fun Route.installRoutes(
                 }
             }
 
+            // Systemanzeige nur, solange der Client sie eingeschaltet hat; nach dem Einschalten kommt
+            // der erste Wert sofort, danach nur Aenderungen.
+            launch {
+                var last: SystemStatsMessage? = null
+                while (isActive) {
+                    if (session.systemStats) {
+                        val stats = systemStats.read()
+                        if (stats != last) {
+                            send(Frame.Text(json.encodeToString(SystemStatsMessage.serializer(), stats)))
+                            last = stats
+                        }
+                    } else {
+                        last = null
+                    }
+                    delay(1000)
+                }
+            }
+
             for (frame in incoming) {
                 if (frame !is Frame.Text) continue
 
@@ -133,7 +154,7 @@ fun Route.installRoutes(
                     router,
                     json,
                     rateLimited = !rateLimiter.tryAcquire(),
-                    mediaOnly = device.mediaOnly,
+                    session = session,
                 )
 
                 send(Frame.Text(json.encodeToString(RemoteActionResponse.serializer(), response)))
@@ -406,11 +427,11 @@ private suspend fun handleActionMessage(
     router: RemoteActionRouter,
     json: Json,
     rateLimited: Boolean,
-    mediaOnly: Boolean,
+    session: RemoteActionSession,
 ): RemoteActionResponse {
     return try {
         val request = json.decodeFromString(RemoteActionRequest.serializer(), text)
-        if (rateLimited) RemoteActionResponse.fail(RATE_LIMIT_ERROR).copy(requestId = request.requestId) else router.handle(request, mediaOnly)
+        if (rateLimited) RemoteActionResponse.fail(RATE_LIMIT_ERROR).copy(requestId = request.requestId) else router.handle(request, session)
     } catch (e: SerializationException) {
         RemoteActionResponse.fail(if (rateLimited) RATE_LIMIT_ERROR else "Invalid JSON.")
     }

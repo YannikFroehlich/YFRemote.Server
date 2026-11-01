@@ -503,6 +503,20 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages).toEqual([]);
   });
 
+  it('asks the Android server for system stats too, but not for the mixer', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'android' } });
+
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('android'));
+
+    expect(remote.systemStatsSupported()).toBe(true);
+    expect(remote.mixerSupported()).toBe(false);
+    remote.watchSystemStats(true);
+    remote.watchApps(true);
+    expect(sockets[0].sentMessages).toEqual(['{"type":"systemStats","enabled":true}']);
+  });
+
   it('asks the PC for system stats only while they are watched, also after reconnecting', async () => {
     const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
     const stats = {

@@ -88,7 +88,7 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   private watchingVoicemeeter = false;
 
   // App-Schritte treffen die App per Name; die Vorschlaege sind die Apps, die gerade Ton ausgeben.
-  protected readonly appStepsSupported = this.remote.systemStatsSupported;
+  protected readonly appStepsSupported = this.remote.mixerSupported;
   // "Oeffnen" kann auch der Android-Server, nur die Lautstaerke einzelner Apps nicht.
   protected readonly launchSupported = computed(() => this.remote.serverPlatform() !== null);
   protected readonly launchNameKey = computed(() =>

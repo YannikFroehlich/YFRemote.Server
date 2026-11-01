@@ -1,15 +1,15 @@
 package com.yfremote.android.remote
 
 import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
-import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
-import javax.net.ssl.X509TrustManager
 
 // HTTPS zu einem PC mit "HTTPS verwenden": Vertraut wird genau seiner lokalen CA (LocalCertificateAuthority),
 // deren SHA-256-Fingerabdruck der QR-Code vom PC-Bildschirm mitbringt - nie einer beliebigen.
@@ -41,16 +41,16 @@ object PinnedCa {
     }
 
     /**
-     * Holt /ca.crt vom PC. Dem Server vertraut zu dem Zeitpunkt noch nichts, deshalb zaehlt das Ergebnis
-     * nur, wenn die CA den Fingerabdruck aus dem QR-Code hat und das Zertifikat dieser Verbindung von ihr
-     * stammt - ein Angreifer im WLAN kann beides nicht faelschen. null bei jeder Abweichung.
+     * Holt /ca.crt vom PC ueber HTTP - dort liefert der PC sie bewusst aus (Program.cs, GET /ca.crt), damit
+     * man sie vor jedem Vertrauen laden kann. Die Verbindung muss nichts beweisen: angenommen wird die CA
+     * nur mit dem Fingerabdruck aus dem QR-Code, den ein Angreifer im WLAN nicht faelschen kann. Danach
+     * laeuft jede HTTPS-Verbindung mit normaler Pruefung gegen sie (sslContext). null bei jeder Abweichung.
+     * ponytail: HTTP-Port fest 5050 (Server:Port-Standard); ein geaenderter Port scheitert hier, dann
+     * muss der QR-Code den Port mitbringen.
      */
     fun fetch(baseUrl: String, expectedSha256: String): X509Certificate? = try {
-        val capture = LeafCapture()
-        val connection = URL("$baseUrl/ca.crt").openConnection() as HttpsURLConnection
-        connection.sslSocketFactory = SSLContext.getInstance("TLS").apply { init(null, arrayOf(capture), null) }.socketFactory
-        // Der Hostname zaehlt hier nicht: entscheidend ist, dass das Server-Zertifikat von der gepinnten CA stammt.
-        connection.hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
+        val host = URI(baseUrl).host
+        val connection = URL("http://$host:${RemoteDevices.DEFAULT_PORT}/ca.crt").openConnection() as HttpURLConnection
         connection.connectTimeout = 3000
         connection.readTimeout = 3000
         val ca = try {
@@ -58,23 +58,8 @@ object PinnedCa {
         } finally {
             connection.disconnect()
         }
-        val leaf = capture.leaf
-        ca?.takeIf { sha256(it) == expectedSha256 && leaf != null && issued(leaf, it) }
+        ca?.takeIf { sha256(it) == expectedSha256 }
     } catch (e: Exception) {
         null
-    }
-
-    // Nimmt jedes Zertifikat an und merkt sich das des Servers - fetch prueft es danach gegen die CA.
-    private class LeafCapture : X509TrustManager {
-        @Volatile
-        var leaf: X509Certificate? = null
-
-        override fun checkServerTrusted(chain: Array<out X509Certificate>, authType: String) {
-            leaf = chain.firstOrNull()
-        }
-
-        override fun checkClientTrusted(chain: Array<out X509Certificate>, authType: String) = Unit
-
-        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
 }

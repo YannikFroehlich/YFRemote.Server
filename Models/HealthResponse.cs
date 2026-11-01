@@ -6,7 +6,8 @@ namespace YFRemote.Server.Models;
 // MacAddress merkt sich die Android-App, um den PC spaeter per Wake-on-LAN zu wecken - im LAN ist
 // sie ohnehin per ARP sichtbar, deshalb ohne Kopplung. MacAddressWireless: die Karte ist WLAN, dann
 // klappt Wake-on-LAN meist nicht - die App weist darauf hin. Voicemeeter: installiert, der Client
-// zeigt dann den Tab "Mixer".
+// zeigt dann den Tab "Mixer". Name: der Rechnername, den die Android-App in "Steuern" statt der IP
+// zeigt - im LAN ohnehin sichtbar (NetBIOS/mDNS).
 public sealed record HealthResponse(
     string Status,
     string Service,
@@ -14,4 +15,5 @@ public sealed record HealthResponse(
     bool Gamepad = false,
     string? MacAddress = null,
     bool MacAddressWireless = false,
-    bool Voicemeeter = false);
+    bool Voicemeeter = false,
+    string? Name = null);

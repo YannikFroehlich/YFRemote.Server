@@ -126,7 +126,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `macAddress` of the LAN adapter behind the shown device address (`NetworkAddressService`), which
   the Android app stores to wake the PC later via Wake-on-LAN, plus `macAddressWireless` (that
   adapter is Wi-Fi, so waking it will most likely fail; the app warns after sending), and
-  `voicemeeter` (Voicemeeter installed; the Client then adds its inputs and outputs to the "Mixer" tab).
+  `voicemeeter` (Voicemeeter installed; the Client then adds its inputs and outputs to the "Mixer" tab),
+  and `name` (`Environment.MachineName`), which the Android app shows in "Steuern" instead of the IP.
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).

@@ -572,16 +572,14 @@ class SetupActivity : Activity() {
             setPadding(dp(4), dp(6), 0, 0)
             visibility = View.GONE
         }
-        val nameInput = textInput("Name (optional)")
+        val nameInput = textInput("Name (optional, sonst der Gerätename)")
 
         val connect = primaryButton("Verbinden") {
             val url = RemoteDevices.normalizeAddress(addressInput.text.toString())
             addressError.visibility = if (url == null) View.VISIBLE else View.GONE
             if (url == null) return@primaryButton
-            val device = RemoteDevice(
-                url,
-                nameInput.text.toString().trim().ifEmpty { url.removePrefix("http://") },
-            )
+            val name = nameInput.text.toString().trim()
+            val device = RemoteDevice(url, name.ifEmpty { url.substringAfter("://") }, named = name.isNotEmpty())
             remoteDevices.add(device)
             dialog.dismiss()
             openRemote(device)
@@ -700,6 +698,10 @@ class SetupActivity : Activity() {
                 for (device in devices) {
                     val health = fetchHealth(device)
                     remoteStatus[device.url] = health?.optString("platform") ?: OFFLINE
+                    val reportedName = health?.optString("name").orEmpty().trim()
+                    if (reportedName.isNotEmpty() && !device.named && reportedName != device.name) {
+                        remoteDevices.setReportedName(device.url, reportedName)
+                    }
                     val mac = health?.optString("macAddress").orEmpty()
                     val wireless = health?.optBoolean("macAddressWireless") == true
                     if (mac.isNotEmpty() && (mac != device.mac || wireless != device.macWireless)) {
@@ -811,16 +813,21 @@ class SetupActivity : Activity() {
                             addView(
                                 TextView(this@SetupActivity).apply {
                                     text = device.name
-                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                                    setTypeface(typeface, Typeface.BOLD)
                                     setTextColor(color(R.color.brand_text))
                                 },
                             )
                             addView(
                                 mutedText().apply {
-                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                                    val address = device.url.removePrefix("http://")
-                                    text = remoteStatusText(status) +
-                                        if (device.name == address) "" else " · $address"
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                                    // Adresse und HTTPS nur als Nebeninfo; solange kein Name bekannt ist,
+                                    // steht die Adresse schon oben.
+                                    text = listOfNotNull(
+                                        remoteStatusText(status),
+                                        device.address.takeIf { it != device.name },
+                                        "verschlüsselt".takeIf { device.secure },
+                                    ).joinToString(" · ")
                                 },
                             )
                         },
@@ -836,7 +843,7 @@ class SetupActivity : Activity() {
                         )
                     }
                     addView(
-                        secondaryButton("Entfernen") { removeRemote(device) }.apply {
+                        secondaryButton("Bearbeiten") { showEditDeviceDialog(device) }.apply {
                             layoutParams = LinearLayout.LayoutParams(
                                 ViewGroup.LayoutParams.WRAP_CONTENT,
                                 dp(42),
@@ -846,6 +853,54 @@ class SetupActivity : Activity() {
                 },
             )
         }
+    }
+
+    // Umbenennen oder entfernen; ein leerer Name nimmt wieder den Namen, den das Geraet meldet.
+    private fun showEditDeviceDialog(device: RemoteDevice) {
+        val dialog = Dialog(this)
+        val nameInput = textInput("Name (leer = Gerätename)").apply {
+            if (device.named) setText(device.name)
+        }
+        val save = primaryButton("Speichern") {
+            remoteDevices.rename(device.url, nameInput.text.toString())
+            // Ein geleerter Name soll gleich wieder den gemeldeten bekommen.
+            renderedRemoteDevices = null
+            dialog.dismiss()
+            refreshUi()
+        }
+        val remove = secondaryButton("Entfernen") {
+            dialog.dismiss()
+            removeRemote(device)
+        }
+
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(
+            card("Gerät bearbeiten").apply {
+                addView(
+                    mutedText().apply {
+                        text = listOfNotNull(device.address, "verschlüsselt (HTTPS)".takeIf { device.secure })
+                            .joinToString(" · ")
+                        setPadding(0, 0, 0, dp(6))
+                    },
+                )
+                addView(nameInput)
+                addView(
+                    LinearLayout(this@SetupActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, dp(10), 0, 0)
+                        addView(
+                            remove.apply {
+                                layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) }
+                            },
+                        )
+                        addView(save.apply { layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f) })
+                    },
+                )
+            },
+        )
+        dialog.window?.setBackgroundDrawable(InsetDrawable(ColorDrawable(Color.TRANSPARENT), dp(20)))
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun remoteStatusText(status: String?): String = when (status) {

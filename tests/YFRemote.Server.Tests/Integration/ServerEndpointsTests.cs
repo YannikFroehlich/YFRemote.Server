@@ -77,6 +77,7 @@ public sealed class ServerEndpointsTests
 
         Assert.AreEqual("ok", response!.Status);
         Assert.AreEqual("YFRemote.Server", response.Service);
+        Assert.AreEqual(Environment.MachineName, response.Name);
     }
 
     [TestMethod]

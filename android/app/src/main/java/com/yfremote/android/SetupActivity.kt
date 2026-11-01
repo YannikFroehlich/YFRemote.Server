@@ -36,6 +36,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.integration.android.IntentIntegrator
@@ -72,6 +73,7 @@ class SetupActivity : Activity() {
     private lateinit var toggleButton: Button
     private lateinit var serviceStatus: StatusRow
     private lateinit var accessibilityStatus: StatusRow
+    private lateinit var mediaAccessStatus: StatusRow
     private lateinit var keyboardStatus: StatusRow
     private lateinit var devicesContainer: LinearLayout
     private lateinit var remoteContainer: LinearLayout
@@ -338,13 +340,30 @@ class SetupActivity : Activity() {
                     },
                 )
 
+                mediaAccessStatus = statusRow()
+                mediaAccessStatus.row.setPadding(0, dp(14), 0, dp(10))
+                addView(mediaAccessStatus.row)
+                addView(
+                    secondaryButton("Benachrichtigungszugriff erlauben") {
+                        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    },
+                )
+                addView(
+                    mutedText().apply {
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                        text = "Optional: zeigt Titel, Interpret, Cover und Zeitleiste der laufenden " +
+                            "Wiedergabe in der Fernbedienung. Benachrichtigungen liest YFRemote nicht."
+                    },
+                )
+
                 // Haeufigster Grund fuer eine dauerhaft inaktive Bedienungshilfe: die App wurde per
                 // APK installiert, dann sperrt Android 13+ den Schalter als "eingeschraenkte
                 // Einstellung".
                 addView(
                     mutedText().apply {
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                        text = "Bleibt der Schalter in den Bedienungshilfen grau (per APK " +
+                        text = "Bleibt ein Schalter in den Bedienungshilfen oder beim " +
+                            "Benachrichtigungszugriff grau (per APK " +
                             "installiert): Einstellungen > Apps > YFRemote > Menü oben rechts > " +
                             "\"Eingeschränkte Einstellungen zulassen\"."
                         setPadding(0, dp(14), 0, 0)
@@ -993,6 +1012,12 @@ class SetupActivity : Activity() {
         serviceStatus.set(
             if (running) "Dienst läuft" else "Dienst gestoppt",
             if (running) color(R.color.brand_ok) else color(R.color.brand_error),
+        )
+
+        val mediaAccess = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        mediaAccessStatus.set(
+            if (mediaAccess) "Medieninfos aktiv" else "Medieninfos aus",
+            if (mediaAccess) color(R.color.brand_ok) else color(R.color.brand_warn),
         )
 
         val accessibilityActive = YFRemoteAccessibilityService.instance != null

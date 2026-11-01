@@ -34,12 +34,12 @@ fun ApplicationCall.bearerToken(): String? {
 fun ApplicationCall.clientIp(): String = request.origin.remoteHost
 
 // Wie RequestGuards.AuthorizePairedDeviceAsync: 401 ohne gueltiges Token, 403 fuer ein Geraet mit
-// "Nur Medien" - Android hat keinen Bearer-Endpunkt, den es nutzen duerfte.
-suspend fun ApplicationCall.authorizeFullAccess(pairing: PairingRepository): Boolean {
+// "Nur Medien", ausser bei mediaOnlyAllowed (nur GET /media/cover).
+suspend fun ApplicationCall.authorizePairedDevice(pairing: PairingRepository, mediaOnlyAllowed: Boolean = false): Boolean {
     val device = pairing.validateToken(bearerToken())
     when {
         device == null -> respond(HttpStatusCode.Unauthorized)
-        device.mediaOnly -> respondText(MEDIA_ONLY_ERROR, status = HttpStatusCode.Forbidden)
+        device.mediaOnly && !mediaOnlyAllowed -> respondText(MEDIA_ONLY_ERROR, status = HttpStatusCode.Forbidden)
         else -> return true
     }
     return false

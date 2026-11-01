@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.ime.KeyEventMap
 import com.yfremote.android.ime.YFRemoteInputMethodService
+import com.yfremote.android.media.MediaStatusReader
 import com.yfremote.android.server.models.RemoteActionRequest
 import com.yfremote.android.server.models.RemoteActionResponse
 import kotlinx.coroutines.Dispatchers
@@ -25,13 +26,14 @@ const val MEDIA_ONLY_ERROR = "Not allowed for this device."
 // ein Geraet mit "Nur Medien" darf nur Medien- und Lautstaerketasten senden. Neue Medienaktionen
 // muessen hier ausdruecklich dazu.
 internal fun isMediaAction(type: String?, keys: List<String>): Boolean =
-    type == "volume" ||
+    type == "volume" || type == "mediaseek" ||
         type == "key" && keys.size == 1 && (keys[0].startsWith("MEDIA_") || keys[0].startsWith("VOLUME_"))
 
 class RemoteActionRouter(
     private val audioManager: AudioManager,
     private val accessibilityService: () -> YFRemoteAccessibilityService?,
     private val imeService: () -> YFRemoteInputMethodService?,
+    private val media: MediaStatusReader,
 ) {
     companion object {
         private const val MIN_MOUSE_MOVE_DELTA = -5000
@@ -39,6 +41,7 @@ class RemoteActionRouter(
         private const val MIN_MOUSE_SCROLL_DELTA = -1200
         private const val MAX_MOUSE_SCROLL_DELTA = 1200
         private const val MAX_TEXT_LENGTH = 500
+        private const val MAX_SEEK_SECONDS = 86400
         private val VALID_MOUSE_BUTTONS = setOf("left", "right", "middle")
     }
 
@@ -67,6 +70,7 @@ class RemoteActionRouter(
                     "mousescroll" -> handleMouseScroll(request)
                     "sleep" -> handleSleep()
                     "volume" -> handleVolume(request)
+                    "mediaseek" -> handleMediaSeek(request)
                     "shutdown", "restart" -> fail("Auf Android ohne Root nicht möglich.")
                     null, "" -> fail("Missing action type.")
                     else -> fail("Unsupported action type: ${request.type}")
@@ -220,6 +224,14 @@ class RemoteActionRouter(
         if (volume == null || !isInRange(volume, 0, 100)) return fail("Action 'volume' requires volume between 0 and 100.")
         DeviceVolume.set(audioManager, volume)
         return ok()
+    }
+
+    private fun handleMediaSeek(request: RemoteActionRequest): RemoteActionResponse {
+        val position = request.position
+        if (position == null || !isInRange(position, 0, MAX_SEEK_SECONDS)) {
+            return fail("Action 'mediaSeek' requires position between 0 and $MAX_SEEK_SECONDS seconds.")
+        }
+        return if (media.seek(position)) ok() else fail("Die Medien-App lässt sich nicht spulen.")
     }
 
     private fun pressAudioKey(key: String) {

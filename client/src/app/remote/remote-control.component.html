@@ -385,10 +385,14 @@
   }
 
   @if (settingsOpen()) {
-    <app-settings-dialog (closed)="closeSettings()" />
+    <app-settings-dialog animate.leave="dialog-leave" (closed)="closeSettings()" />
   }
 
   @if (editorOpen()) {
-    <app-button-editor-dialog [targetId]="editorTargetId()" (closed)="closeButtonEditor()" />
+    <app-button-editor-dialog
+      animate.leave="dialog-leave"
+      [targetId]="editorTargetId()"
+      (closed)="closeButtonEditor()"
+    />
   }
 </main>

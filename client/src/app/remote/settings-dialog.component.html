@@ -443,6 +443,7 @@
 
   @if (editingThemeId() !== undefined) {
     <app-theme-editor-dialog
+      animate.leave="dialog-leave"
       [themeId]="editingThemeId() ?? null"
       (saved)="onThemeSaved($event)"
       (closed)="onThemeEditorClosed()"

@@ -1,0 +1,115 @@
+<button
+  class="color-swatch"
+  type="button"
+  [style.background]="value()"
+  [attr.aria-label]="label() || i18n.t('colorPicker.title')"
+  [attr.title]="label() || null"
+  (click)="open()"
+></button>
+
+<dialog
+  #dialog
+  class="color-picker"
+  [attr.aria-label]="i18n.t('colorPicker.title')"
+  (cancel)="onCancel($event)"
+  (click)="onDialogClick($event)"
+>
+  @if (draft(); as hsv) {
+    <div class="color-picker__body">
+      <header class="settings-dialog__header">
+        <div>
+          @if (label()) {
+            <p class="eyebrow">{{ label() }}</p>
+          }
+          <h2>{{ i18n.t('colorPicker.title') }}</h2>
+        </div>
+        <button
+          class="round-button round-button--dialog"
+          type="button"
+          [attr.aria-label]="i18n.t('common.close')"
+          (click)="close()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path [attr.d]="iconPaths['close-tab']"></path>
+          </svg>
+        </button>
+      </header>
+
+      <div
+        #area
+        class="color-picker__area"
+        role="slider"
+        tabindex="0"
+        [style.--hue]="hsv.h"
+        [attr.aria-label]="i18n.t('colorPicker.area')"
+        [attr.aria-valuetext]="hex()"
+        (pointerdown)="areaPointerDown($event)"
+        (pointermove)="areaPointerMove($event)"
+        (keydown)="areaKeyDown($event)"
+      >
+        <span
+          class="color-picker__thumb"
+          [style.left.%]="hsv.s * 100"
+          [style.top.%]="(1 - hsv.v) * 100"
+          [style.background]="hex()"
+        ></span>
+      </div>
+
+      <input
+        class="color-picker__hue"
+        type="range"
+        min="0"
+        max="359"
+        [value]="hsv.h"
+        [style.--hue]="hsv.h"
+        [attr.aria-label]="i18n.t('colorPicker.hue')"
+        (input)="setHue($event)"
+      />
+
+      <div class="color-picker__row">
+        <span class="color-picker__compare">
+          <span [style.background]="value()" [attr.title]="i18n.t('colorPicker.previous')"></span>
+          <span [style.background]="hex()" [attr.title]="i18n.t('colorPicker.next')"></span>
+        </span>
+        <input
+          class="color-picker__hex"
+          type="text"
+          maxlength="7"
+          spellcheck="false"
+          autocomplete="off"
+          autocapitalize="off"
+          [value]="hex()"
+          [attr.aria-label]="i18n.t('colorPicker.hex')"
+          (input)="onHexInput($event)"
+          (change)="onHexChange($event)"
+        />
+      </div>
+
+      <div
+        class="color-picker__presets"
+        role="group"
+        [attr.aria-label]="i18n.t('colorPicker.presets')"
+      >
+        @for (preset of presets; track preset) {
+          <button
+            class="color-picker__preset"
+            type="button"
+            [class.color-picker__preset--active]="preset === hex()"
+            [style.background]="preset"
+            [attr.aria-label]="preset"
+            (click)="pick(preset)"
+          ></button>
+        }
+      </div>
+
+      <footer class="settings-actions">
+        <button class="secondary-button" type="button" (click)="close()">
+          {{ i18n.t('common.cancel') }}
+        </button>
+        <button class="primary-button" type="button" (click)="apply()">
+          {{ i18n.t('colorPicker.apply') }}
+        </button>
+      </footer>
+    </div>
+  }
+</dialog>

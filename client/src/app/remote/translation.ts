@@ -14,6 +14,15 @@ export const TRANSLATIONS = {
   'common.reset': { de: 'Zurücksetzen', en: 'Reset' },
   'common.unknownError': { de: 'Unbekannter Fehler', en: 'Unknown error' },
 
+  'colorPicker.title': { de: 'Farbe wählen', en: 'Choose color' },
+  'colorPicker.apply': { de: 'Übernehmen', en: 'Apply' },
+  'colorPicker.area': { de: 'Sättigung und Helligkeit', en: 'Saturation and brightness' },
+  'colorPicker.hue': { de: 'Farbton', en: 'Hue' },
+  'colorPicker.hex': { de: 'Hex-Wert', en: 'Hex value' },
+  'colorPicker.presets': { de: 'Vorgaben', en: 'Presets' },
+  'colorPicker.previous': { de: 'Bisher', en: 'Before' },
+  'colorPicker.next': { de: 'Neu', en: 'New' },
+
   'app.updateReady': { de: 'Neue Version verfügbar', en: 'New version available' },
   'app.reload': { de: 'Neu laden', en: 'Reload' },
 

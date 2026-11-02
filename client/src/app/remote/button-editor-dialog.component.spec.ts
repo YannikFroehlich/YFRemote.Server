@@ -418,10 +418,17 @@ describe('ButtonEditorDialogComponent', () => {
     colorSwitch?.click();
     fixture.detectChanges();
 
-    const colorInput = root.querySelector<HTMLInputElement>('input.color-input');
-    expect(colorInput).not.toBeNull();
-    colorInput!.value = '#123456';
-    colorInput!.dispatchEvent(new Event('input'));
+    // Eigener Farbwaehler: Farbfeld oeffnet ihn, Hex eintippen, "Uebernehmen".
+    root.querySelector<HTMLButtonElement>('.color-swatch')!.click();
+    fixture.detectChanges();
+    const hexInput = root.querySelector<HTMLInputElement>('.color-picker__hex');
+    expect(hexInput).not.toBeNull();
+    hexInput!.value = '#123456';
+    hexInput!.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    Array.from(root.querySelectorAll<HTMLButtonElement>('.color-picker button'))
+      .find((b) => b.textContent?.trim() === 'Übernehmen')!
+      .click();
     fixture.detectChanges();
 
     const saveButton = Array.from(root.querySelectorAll('button')).find(

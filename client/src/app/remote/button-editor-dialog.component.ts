@@ -22,6 +22,7 @@ import {
   VOICEMEETER_MAX_GAIN,
   VOICEMEETER_MIN_GAIN,
 } from './button-layout';
+import { ColorPickerComponent } from './color-picker.component';
 import { ButtonLayoutService } from './button-layout.service';
 import { KEY_GROUPS, keyLabel, keysToAction, MAX_HOTKEY_KEYS } from './keyboard-keys';
 import { REMOTE_ICON_PATHS, REMOTE_ICONS } from './remote-icons';
@@ -37,7 +38,7 @@ type SwitchMode = 'toggle' | 'on' | 'off';
 
 @Component({
   selector: 'app-button-editor-dialog',
-  imports: [NgTemplateOutlet, ReactiveFormsModule],
+  imports: [ColorPickerComponent, NgTemplateOutlet, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './button-editor-dialog.component.html',
 })
@@ -243,10 +244,6 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
 
   protected toggleColorEnabled(): void {
     this.colorEnabled.update((enabled) => !enabled);
-  }
-
-  protected onColorInput(event: Event): void {
-    this.colorValue.set((event.target as HTMLInputElement).value);
   }
 
   protected onPendingTextInput(event: Event): void {

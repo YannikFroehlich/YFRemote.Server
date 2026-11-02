@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android-App: Der Startbildschirm sieht moderner aus und bewegt sich weich. Karten gleiten beim Öffnen und beim Wechsel zwischen "Steuern", "Freigeben" und "Controller" gestaffelt herein, die Leiste unten blendet den aktiven Eintrag animiert um, Buttons sind Pillen mit Farbverlauf, Ripple und leichtem Eindrücken beim Antippen. Status-Punkte, PIN und QR-Code wechseln mit Übergang statt hart, Dialoge wachsen aus der Mitte auf (ab Android 12 mit unscharfem Hintergrund), und die App reicht randlos bis unter die Statusleiste. Die Liste der gekoppelten Geräte wird nur noch bei einer Änderung neu aufgebaut, sodass ein Tipp auf "Nur Medien" oder "Entkoppeln" nicht mehr verloren gehen kann.
+
 ## [2.43.0] - 2026-11-01
 
 ### Changed

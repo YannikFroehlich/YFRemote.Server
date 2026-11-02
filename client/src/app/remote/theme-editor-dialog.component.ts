@@ -9,6 +9,7 @@ import {
   signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
+import { ColorPickerComponent } from './color-picker.component';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import {
   ADVANCED_THEME_TOKENS,
@@ -39,6 +40,7 @@ const SHAPE_CONTROLS: readonly { key: CustomThemeNumberKey; label: string }[] = 
 
 @Component({
   selector: 'app-theme-editor-dialog',
+  imports: [ColorPickerComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './theme-editor-dialog.component.html',
 })
@@ -146,8 +148,7 @@ export class ThemeEditorDialogComponent implements OnInit {
     }
   }
 
-  protected setColor(key: CustomThemeColorKey, event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
+  protected setColor(key: CustomThemeColorKey, value: string): void {
     this.update((draft) => ({ ...draft, values: { ...draft.values, [key]: value } }));
   }
 
@@ -168,8 +169,7 @@ export class ThemeEditorDialogComponent implements OnInit {
     }));
   }
 
-  protected setAdvanced(token: string, event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
+  protected setAdvanced(token: string, value: string): void {
     this.update((draft) => ({ ...draft, advanced: { ...draft.advanced, [token]: value } }));
   }
 

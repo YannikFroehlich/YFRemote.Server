@@ -1,17 +1,23 @@
 package com.yfremote.android
 
 import android.Manifest
+import android.animation.LayoutTransition
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
+import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.net.ConnectivityManager
 import android.net.Network
@@ -25,10 +31,15 @@ import android.text.InputType
 import android.util.Base64
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
+import android.view.WindowManager
+import android.view.animation.OvershootInterpolator
+import android.view.animation.PathInterpolator
 import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
 import android.webkit.WebStorage
 import android.widget.Button
 import android.widget.EditText
@@ -39,6 +50,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.integration.android.IntentIntegrator
 import com.journeyapps.barcodescanner.BarcodeEncoder
@@ -88,6 +102,13 @@ class SetupActivity : Activity() {
     private lateinit var gamepadDevices: LinearLayout
     private lateinit var gamepadPageView: View
     private val gamepadListener = { refreshGamepad() }
+    private var currentSection = -1
+    private var renderedPairedDevices: Any? = null
+    private lateinit var headerView: View
+
+    // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
+    private val emphasized = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
+    private val mediumFont = Typeface.create("sans-serif-medium", Typeface.NORMAL)
 
     private lateinit var remoteDevices: RemoteDevices
     private val remoteStatus = ConcurrentHashMap<String, String>()
@@ -104,14 +125,23 @@ class SetupActivity : Activity() {
     }
 
     /** Punkt plus Text - die Farbe traegt den Zustand, damit er ohne Lesen erkennbar ist. */
-    private class StatusRow(
+    private inner class StatusRow(
         val row: LinearLayout,
         private val dot: View,
         private val label: TextView,
     ) {
+        private var current = color(R.color.brand_text_muted)
+
+        // refreshUi setzt alle 2 s denselben Zustand - animiert wird nur ein Wechsel.
         fun set(text: String, color: Int) {
-            label.text = text
-            (dot.background as GradientDrawable).setColor(color)
+            label.swapText(text)
+            if (color == current) return
+            ValueAnimator.ofArgb(current, color).apply {
+                duration = 400
+                addUpdateListener { (dot.background as GradientDrawable).setColor(it.animatedValue as Int) }
+                start()
+            }
+            current = color
         }
     }
 
@@ -119,6 +149,11 @@ class SetupActivity : Activity() {
         super.onCreate(savedInstanceState)
         remoteDevices = RemoteDevices(this)
         requestNotificationPermissionIfNeeded()
+        // Randlos: der Farbschein oben laeuft unter die Statusleiste, Abstaende kommen aus den Insets.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         setContentView(buildLayout())
     }
 
@@ -150,29 +185,88 @@ class SetupActivity : Activity() {
             Section("Controller", "Handy als Bluetooth-Controller", R.drawable.ic_nav_gamepad, gamepadPage()),
         )
 
-        val root = column().apply { setPadding(dp(20), dp(24), dp(20), dp(32)) }
+        val root = column().apply { setPadding(dp(20), dp(16), dp(20), dp(32)) }
         root.addView(header())
-        sections.forEach { root.addView(it.page) }
+        sections.forEach {
+            root.addView(it.page)
+            (it.page as ViewGroup).layoutTransition = smoothResize()
+        }
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             addView(root)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
         }
+        val navigation = navigationBar()
 
         return column().apply {
-            setBackgroundColor(color(R.color.brand_background))
+            background = backgroundGlow()
             addView(scroll)
-            addView(navigationBar())
+            addView(navigation)
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                // One UI: die Leiste reicht bis unter die Navigationsleiste des Systems.
+                view.setPadding(bars.left, bars.top, bars.right, if (oneUi) 0 else bars.bottom)
+                if (oneUi) navigation.setPadding(0, 0, 0, bars.bottom)
+                insets
+            }
             showSection(prefs().getInt(KEY_SECTION, 0).coerceIn(sections.indices))
         }
     }
 
-    private class NavItem(val view: View, val label: TextView, val icon: ImageView)
+    // Weicher Farbschein oben links (Cyan) und rechts (Blau) gibt der dunklen Flaeche Tiefe.
+    private fun backgroundGlow(): Drawable {
+        fun glow(colorId: Int, centerX: Float) = GradientDrawable().apply {
+            gradientType = GradientDrawable.RADIAL_GRADIENT
+            gradientRadius = dp(360).toFloat()
+            setGradientCenter(centerX, 0f)
+            colors = intArrayOf(withAlpha(color(colorId), 0x2E), Color.TRANSPARENT)
+        }
+        return LayerDrawable(
+            arrayOf(
+                ColorDrawable(color(R.color.brand_background)),
+                glow(R.color.brand_accent, 0.1f),
+                glow(R.color.brand_accent_deep, 0.95f),
+            ),
+        )
+    }
+
+    private inner class NavItem(private val pill: View, private val label: TextView, private val icon: ImageView) {
+        private var tint = color(R.color.brand_text_muted)
+
+        fun select(selected: Boolean) {
+            val target = color(
+                when {
+                    !selected -> R.color.brand_text_muted
+                    oneUi -> R.color.brand_text
+                    else -> R.color.brand_accent
+                },
+            )
+            if (target != tint) {
+                ValueAnimator.ofArgb(tint, target).apply {
+                    duration = 250
+                    addUpdateListener {
+                        label.setTextColor(it.animatedValue as Int)
+                        icon.setColorFilter(it.animatedValue as Int)
+                    }
+                    start()
+                }
+                tint = target
+            }
+            label.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+            // Die Pille waechst wie in Material 3 aus der Mitte auf.
+            pill.animate()
+                .alpha(if (selected) 1f else 0f)
+                .scaleX(if (selected) 1f else 0.5f)
+                .setDuration(if (selected) 400 else 200)
+                .setInterpolator(emphasized)
+                .start()
+        }
+    }
 
     // Die Leiste folgt dem System des Geraets: Samsung-Apps (One UI) haben unten eine Leiste ueber
     // die ganze Breite mit Trennlinie, aktiver Eintrag hell und fett; sonst Material 3 - schwebende
-    // Leiste mit Pille um den aktiven Eintrag.
+    // Leiste mit Pille hinter dem Symbol des aktiven Eintrags.
     private val oneUi = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
 
     private fun navigationBar(): View {
@@ -182,28 +276,47 @@ class SetupActivity : Activity() {
         }
 
         navItems = sections.mapIndexed { index, section ->
+            val pill = View(this).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    // Akzent mit 20 % Deckkraft - wie der "secondary container" in Material 3.
+                    setColor(withAlpha(color(R.color.brand_accent), 0x33))
+                }
+                alpha = 0f
+                scaleX = 0.5f
+                if (oneUi) visibility = View.GONE
+            }
             val icon = ImageView(this).apply {
                 setImageResource(section.icon)
-                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                setColorFilter(color(R.color.brand_text_muted))
+                layoutParams = FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER)
             }
             val label = TextView(this).apply {
                 text = section.label
                 gravity = Gravity.CENTER
+                setTextColor(color(R.color.brand_text_muted))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, if (oneUi) 13f else 12f)
                 setPadding(0, dp(4), 0, 0)
             }
-            val item = column().apply {
-                gravity = Gravity.CENTER
-                addView(icon)
-                addView(label)
-                layoutParams = LinearLayout.LayoutParams(0, dp(64), 1f).apply {
-                    leftMargin = dp(4)
-                    rightMargin = dp(4)
-                }
-                setOnClickListener { showSection(index) }
-            }
-            bar.addView(item)
-            NavItem(item, label, icon)
+            bar.addView(
+                column().apply {
+                    gravity = Gravity.CENTER
+                    addView(
+                        FrameLayout(this@SetupActivity).apply {
+                            addView(pill)
+                            addView(icon)
+                            layoutParams = LinearLayout.LayoutParams(dp(56), dp(32))
+                        },
+                    )
+                    addView(label)
+                    layoutParams = LinearLayout.LayoutParams(0, dp(64), 1f).apply {
+                        leftMargin = dp(4)
+                        rightMargin = dp(4)
+                    }
+                    setOnClickListener { showSection(index) }
+                },
+            )
+            NavItem(pill, label, icon)
         }
 
         return if (oneUi) {
@@ -224,7 +337,9 @@ class SetupActivity : Activity() {
                     setColor(color(R.color.brand_surface))
                     setStroke(dp(1), color(R.color.brand_surface_stroke))
                 }
-                setPadding(dp(8), dp(8), dp(8), dp(8))
+                // Schatten, damit die Leiste ueber dem Inhalt schwebt.
+                elevation = dp(8).toFloat()
+                setPadding(dp(8), dp(4), dp(8), dp(4))
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -234,34 +349,86 @@ class SetupActivity : Activity() {
     }
 
     private fun showSection(index: Int) {
+        val previous = currentSection
+        if (index == previous) return
+        currentSection = index
         sections.forEachIndexed { i, section ->
             section.page.visibility = if (i == index) View.VISIBLE else View.GONE
         }
-        navItems.forEachIndexed { i, item ->
-            val selected = i == index
-            val tint = color(
-                when {
-                    !selected -> R.color.brand_text_muted
-                    oneUi -> R.color.brand_text
-                    else -> R.color.brand_accent
-                },
-            )
-            item.label.setTextColor(tint)
-            item.label.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
-            item.icon.setColorFilter(tint)
-            item.view.background = if (selected && !oneUi) {
-                GradientDrawable().apply {
-                    cornerRadius = dp(24).toFloat()
-                    // Akzent mit 20 % Deckkraft - wie der "secondary container" in Material 3.
-                    setColor((color(R.color.brand_accent) and 0x00FFFFFF) or 0x33000000)
-                }
-            } else {
-                null
-            }
+        // Karten gleiten gestaffelt aus der Richtung des angetippten Eintrags herein, beim Start
+        // zusammen mit dem Kopf von unten.
+        val page = sections[index].page as ViewGroup
+        val cards = (0 until page.childCount).map { page.getChildAt(it) }
+        when {
+            previous < 0 -> animateIn(listOf(headerView) + cards, 0, dp(24))
+            index > previous -> animateIn(cards, dp(48), 0)
+            else -> animateIn(cards, -dp(48), 0)
         }
-        subtitleText.text = sections[index].subtitle
+        navItems.forEachIndexed { i, item -> item.select(i == index) }
+        subtitleText.swapText(sections[index].subtitle)
         if (sections[index].page === gamepadPageView) refreshGamepad()
         prefs().edit().putInt(KEY_SECTION, index).apply()
+    }
+
+    private fun animateIn(views: List<View>, fromX: Int, fromY: Int) {
+        views.forEachIndexed { i, view ->
+            view.alpha = 0f
+            view.translationX = fromX.toFloat()
+            view.translationY = fromY.toFloat()
+            view.animate()
+                .alpha(1f)
+                .translationX(0f)
+                .translationY(0f)
+                .setStartDelay(i * 60L)
+                .setDuration(450)
+                .setInterpolator(emphasized)
+                .start()
+        }
+    }
+
+    // Neuer Text schiebt sich von unten herein, statt hart zu wechseln. Das Ziel steht im Tag,
+    // damit ein Wechsel zurueck mitten in der Animation nicht bei Deckkraft 0 stehen bleibt.
+    private fun TextView.swapText(value: String) {
+        if ((tag ?: text.toString()) == value) return
+        if (text.isEmpty()) {
+            text = value
+            return
+        }
+        tag = value
+        animate().alpha(0f).translationY(-dp(6).toFloat()).setStartDelay(0).setDuration(120)
+            .setInterpolator(emphasized)
+            .withEndAction {
+                text = value
+                tag = null
+                translationY = dp(6).toFloat()
+                animate().alpha(1f).translationY(0f).setDuration(280).setInterpolator(emphasized).start()
+            }
+            .start()
+    }
+
+    // Antippen drueckt die Flaeche leicht ein, Loslassen federt zurueck. false: Klick und Ripple
+    // laufen normal weiter.
+    @SuppressLint("ClickableViewAccessibility")
+    private fun <T : View> T.pressScale(scale: Float = 0.96f): T = apply {
+        setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN ->
+                    view.animate().scaleX(scale).scaleY(scale).setStartDelay(0).setDuration(100)
+                        .setInterpolator(emphasized).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                    view.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(350)
+                        .setInterpolator(OvershootInterpolator(2.5f)).start()
+            }
+            false
+        }
+    }
+
+    // Aendert sich eine Hoehe (Liste waechst, Zeile erscheint), gleiten die Inhalte statt zu
+    // springen. Ein-/Ausblenden selbst bleibt sofort, sonst kaeme es animateIn in die Quere.
+    private fun smoothResize() = LayoutTransition().apply {
+        enableTransitionType(LayoutTransition.CHANGING)
+        disableTransitionType(LayoutTransition.APPEARING)
+        disableTransitionType(LayoutTransition.DISAPPEARING)
     }
 
     private fun prefs() = getSharedPreferences("setup", MODE_PRIVATE)
@@ -285,8 +452,11 @@ class SetupActivity : Activity() {
                 addView(addressText)
 
                 pinText = TextView(this@SetupActivity).apply {
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 40f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 44f)
                     setTextColor(color(R.color.brand_text))
+                    typeface = mediumFont
+                    // Ziffern gleich breit, damit die PIN beim Wechsel nicht hin- und herspringt.
+                    fontFeatureSettings = "tnum"
                     letterSpacing = 0.18f
                     setPadding(0, dp(10), 0, dp(2))
                 }
@@ -302,7 +472,13 @@ class SetupActivity : Activity() {
                 qrImage = ImageView(this@SetupActivity).apply {
                     contentDescription = "QR-Code zum Verbinden"
                     visibility = View.GONE
-                    layoutParams = LinearLayout.LayoutParams(dp(QR_SIZE_DP), dp(QR_SIZE_DP)).apply {
+                    // Weisse, abgerundete Flaeche: der Code braucht zum Scannen ohnehin hellen Grund.
+                    background = GradientDrawable().apply {
+                        cornerRadius = dp(20).toFloat()
+                        setColor(Color.WHITE)
+                    }
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                    layoutParams = LinearLayout.LayoutParams(dp(QR_SIZE_DP + 16), dp(QR_SIZE_DP + 16)).apply {
                         gravity = Gravity.CENTER_HORIZONTAL
                         bottomMargin = dp(14)
                     }
@@ -384,10 +560,10 @@ class SetupActivity : Activity() {
         )
     }
 
-    private fun header(): View = LinearLayout(this).apply {
+    private fun header(): View = LinearLayout(this).also { headerView = it }.apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(4), 0, 0, dp(20))
+        setPadding(dp(4), dp(8), 0, dp(24))
 
         addView(
             ImageView(this@SetupActivity).apply {
@@ -405,7 +581,8 @@ class SetupActivity : Activity() {
                 addView(
                     TextView(this@SetupActivity).apply {
                         text = "YFRemote"
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+                        typeface = mediumFont
                         setTextColor(color(R.color.brand_text))
                     },
                 )
@@ -417,23 +594,24 @@ class SetupActivity : Activity() {
 
     private fun card(title: String): LinearLayout = column().apply {
         background = GradientDrawable().apply {
-            cornerRadius = dp(18).toFloat()
+            cornerRadius = dp(24).toFloat()
             setColor(color(R.color.brand_surface))
             setStroke(dp(1), color(R.color.brand_surface_stroke))
         }
-        setPadding(dp(18), dp(16), dp(18), dp(18))
+        setPadding(dp(20), dp(18), dp(20), dp(20))
         layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { bottomMargin = dp(16) }
+        layoutTransition = smoothResize()
 
         addView(
             TextView(this@SetupActivity).apply {
-                text = title.uppercase()
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                letterSpacing = 0.12f
-                setTextColor(color(R.color.brand_accent))
-                setPadding(0, 0, 0, dp(10))
+                text = title
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                typeface = mediumFont
+                setTextColor(color(R.color.brand_text))
+                setPadding(0, 0, 0, dp(12))
             },
         )
     }
@@ -463,51 +641,47 @@ class SetupActivity : Activity() {
 
     private fun primaryButton(text: String, onClick: () -> Unit): Button = styledButton(
         text,
-        color(R.color.brand_accent),
-        color(R.color.brand_accent_pressed),
-        Color.BLACK,
+        GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(color(R.color.brand_accent), color(R.color.brand_accent_deep)),
+        ),
+        color(R.color.brand_background),
         onClick,
     )
 
     private fun secondaryButton(text: String, onClick: () -> Unit): Button = styledButton(
         text,
-        color(R.color.brand_surface),
-        color(R.color.brand_surface_stroke),
+        GradientDrawable().apply { setColor(color(R.color.brand_surface_high)) },
         color(R.color.brand_text),
         onClick,
     )
 
     private fun styledButton(
         text: String,
-        fill: Int,
-        pressedFill: Int,
+        fill: GradientDrawable,
         textColor: Int,
         onClick: () -> Unit,
-    ): Button {
-        fun pill(fillColor: Int) = GradientDrawable().apply {
-            cornerRadius = dp(12).toFloat()
-            setColor(fillColor)
-            setStroke(dp(1), color(R.color.brand_surface_stroke))
-        }
-
-        return Button(this).apply {
-            this.text = text
-            isAllCaps = false
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-            setTextColor(textColor)
-            background = StateListDrawable().apply {
-                addState(intArrayOf(android.R.attr.state_pressed), pill(pressedFill))
-                addState(intArrayOf(), pill(fill))
-            }
-            // Das Material-Theme hebt Buttons per Elevation-Animation an - zusammen mit einem
-            // eigenen Hintergrund sieht das nach abgeschnittenem Schatten aus.
-            stateListAnimator = null
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(48),
-            ).apply { topMargin = dp(8) }
-            setOnClickListener { onClick() }
-        }
+    ): Button = Button(this).apply {
+        this.text = text
+        isAllCaps = false
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        typeface = mediumFont
+        setTextColor(textColor)
+        // Ripple statt Farbwechsel beim Druecken; die Pillenform des Hintergrunds begrenzt sie.
+        background = RippleDrawable(
+            ColorStateList.valueOf(withAlpha(Color.WHITE, 0x33)),
+            fill.apply { cornerRadius = dp(24).toFloat() },
+            null,
+        )
+        // Das Material-Theme hebt Buttons per Elevation-Animation an - zusammen mit einem
+        // eigenen Hintergrund sieht das nach abgeschnittenem Schatten aus.
+        stateListAnimator = null
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(48),
+        ).apply { topMargin = dp(8) }
+        setOnClickListener { onClick() }
+        pressScale()
     }
 
     private fun mutedText(): TextView = TextView(this).apply {
@@ -517,9 +691,9 @@ class SetupActivity : Activity() {
 
     private fun textInput(hint: String): EditText = EditText(this).apply {
         fun box(stroke: Int) = GradientDrawable().apply {
-            cornerRadius = dp(12).toFloat()
+            cornerRadius = dp(16).toFloat()
             setColor(color(R.color.brand_background))
-            setStroke(dp(1), stroke)
+            setStroke(dp(if (stroke == color(R.color.brand_accent)) 2 else 1), stroke)
         }
 
         this.hint = hint
@@ -530,6 +704,9 @@ class SetupActivity : Activity() {
         background = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), box(color(R.color.brand_accent)))
             addState(intArrayOf(), box(color(R.color.brand_surface_stroke)))
+            // Der Akzentrahmen blendet beim Fokus weich ein.
+            setEnterFadeDuration(200)
+            setExitFadeDuration(200)
         }
         setPadding(dp(14), 0, dp(14), 0)
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
@@ -539,6 +716,25 @@ class SetupActivity : Activity() {
 
     private fun column(): LinearLayout =
         LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+    // Eigener Dialog statt AlertDialog: der kommt im grauen System-Look und passt nicht zu den
+    // Karten und Buttons der App.
+    private fun showDialog(dialog: Dialog, content: View) {
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(content)
+        dialog.window?.apply {
+            // Der Abstand zum Bildschirmrand kommt aus dem Hintergrund, so wie beim System-Dialog.
+            setBackgroundDrawable(InsetDrawable(ColorDrawable(Color.TRANSPARENT), dp(20)))
+            setWindowAnimations(R.style.DialogAnimation)
+            // Ab Android 12 verschwimmt die App dahinter, sofern das Geraet Unschaerfe unterstuetzt.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                attributes = attributes.apply { blurBehindRadius = dp(24) }
+            }
+        }
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
 
     private fun regeneratePin() {
         YFRemoteForegroundService.instance?.pairing?.regeneratePin()
@@ -557,8 +753,6 @@ class SetupActivity : Activity() {
         refreshHandler.postDelayed({ refreshUi() }, 300)
     }
 
-    // Eigener Dialog statt AlertDialog: der kommt im grauen System-Look und passt nicht zu den
-    // Karten und Buttons der App.
     private fun showAddDeviceDialog() {
         val dialog = Dialog(this)
         val addressInput = textInput("IP-Adresse, z. B. 192.168.0.10").apply {
@@ -586,8 +780,8 @@ class SetupActivity : Activity() {
         }
         val cancel = secondaryButton("Abbrechen") { dialog.dismiss() }
 
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(
+        showDialog(
+            dialog,
             card("Gerät hinzufügen").apply {
                 addView(
                     mutedText().apply {
@@ -613,10 +807,6 @@ class SetupActivity : Activity() {
                 )
             },
         )
-        // Der Abstand zum Bildschirmrand kommt aus dem Hintergrund, so wie beim System-Dialog.
-        dialog.window?.setBackgroundDrawable(InsetDrawable(ColorDrawable(Color.TRANSPARENT), dp(20)))
-        dialog.show()
-        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     // IntentIntegrator ist zugunsten von ScanContract (AndroidX Activity Result API) veraltet -
@@ -777,10 +967,6 @@ class SetupActivity : Activity() {
             return
         }
 
-        val clickable = TypedValue().also {
-            theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true)
-        }
-
         for (device in devices) {
             val status = remoteStatus[device.url]
             val dot = View(this).apply {
@@ -801,9 +987,25 @@ class SetupActivity : Activity() {
                 LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, dp(6), 0, dp(6))
-                    setBackgroundResource(clickable.resourceId)
+                    // Ripple reicht etwas ueber den Text hinaus, der Text bleibt buendig mit der Karte.
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply {
+                        leftMargin = -dp(8)
+                        rightMargin = -dp(8)
+                    }
+                    background = RippleDrawable(
+                        ColorStateList.valueOf(withAlpha(Color.WHITE, 0x1F)),
+                        null,
+                        GradientDrawable().apply {
+                            cornerRadius = dp(16).toFloat()
+                            setColor(Color.WHITE)
+                        },
+                    )
                     setOnClickListener { openRemote(device) }
+                    pressScale(0.98f)
 
                     addView(dot)
                     addView(
@@ -873,8 +1075,8 @@ class SetupActivity : Activity() {
             removeRemote(device)
         }
 
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(
+        showDialog(
+            dialog,
             card("Gerät bearbeiten").apply {
                 addView(
                     mutedText().apply {
@@ -898,9 +1100,6 @@ class SetupActivity : Activity() {
                 )
             },
         )
-        dialog.window?.setBackgroundDrawable(InsetDrawable(ColorDrawable(Color.TRANSPARENT), dp(20)))
-        dialog.show()
-        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun remoteStatusText(status: String?): String = when (status) {
@@ -1002,9 +1201,9 @@ class SetupActivity : Activity() {
                         // Gruen hinterlegt wie der Status-Punkt, damit das aktive Zielgeraet auffaellt.
                         val ok = color(R.color.brand_ok)
                         background = GradientDrawable().apply {
-                            cornerRadius = dp(12).toFloat()
-                            setColor((ok and 0x00FFFFFF) or 0x26000000)
-                            setStroke(dp(1), (ok and 0x00FFFFFF) or 0x80000000.toInt())
+                            cornerRadius = dp(16).toFloat()
+                            setColor(withAlpha(ok, 0x26))
+                            setStroke(dp(1), withAlpha(ok, 0x80))
                         }
                         setPadding(dp(12), dp(6), dp(8), dp(6))
                         layoutParams = LinearLayout.LayoutParams(
@@ -1089,7 +1288,7 @@ class SetupActivity : Activity() {
         // der QR-Code bleibt bei der ersten.
         addressText.text = "${address ?: "Adresse unbekannt"}:${KtorServer.DEFAULT_PORT}" +
             addresses.drop(1).joinToString("") { "\nAuch erreichbar: $it:${KtorServer.DEFAULT_PORT}" }
-        pinText.text = pin ?: "------"
+        pinText.swapText(pin ?: "------")
         // Gleicher Aufbau wie PairingQrCodePayload.cs. Die PIN steht ohnehin gross daneben, daher
         // anders als im Tray ohne Schalter immer im Code.
         showQrCode(if (address != null && pin != null) "http://$address:${KtorServer.DEFAULT_PORT}/#pin=$pin" else null)
@@ -1124,8 +1323,13 @@ class SetupActivity : Activity() {
             else -> keyboardStatus.set("Tastatur inaktiv", color(R.color.brand_error))
         }
 
-        devicesContainer.removeAllViews()
         val devices = service?.pairing?.getPairedDevices().orEmpty()
+        // Wie bei refreshRemoteDevices nur bei einer Aenderung neu aufbauen, sonst ginge ein Tipp
+        // waehrend des Neuaufbaus verloren. lastSeenUtc zeigt die Liste nicht, zaehlt also nicht.
+        val rendered = devices.map { Triple(it.id, it.name, it.mediaOnly) }
+        if (rendered == renderedPairedDevices) return
+        renderedPairedDevices = rendered
+        devicesContainer.removeAllViews()
 
         if (devices.isEmpty()) {
             devicesContainer.addView(mutedText().apply { text = "Noch kein Gerät gekoppelt." })
@@ -1184,6 +1388,10 @@ class SetupActivity : Activity() {
             qrImage.setImageBitmap(
                 BarcodeEncoder().encodeBitmap(payload, BarcodeFormat.QR_CODE, dp(QR_SIZE_DP), dp(QR_SIZE_DP)),
             )
+            qrImage.alpha = 0f
+            qrImage.scaleX = 0.9f
+            qrImage.scaleY = 0.9f
+            qrImage.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(450).setInterpolator(emphasized).start()
         }
     }
 
@@ -1211,6 +1419,8 @@ class SetupActivity : Activity() {
     private fun inputMethodManager() = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
 
     private fun color(id: Int): Int = ContextCompat.getColor(this, id)
+
+    private fun withAlpha(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or (alpha shl 24)
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 

@@ -2730,6 +2730,134 @@ select:focus-visible {
   }
 }
 
+// Bewegung: alles reines CSS. Eingangsanimationen laufen, sobald Angular ein Element einfuegt
+// (@if, @for); fuer das Schliessen der Dialoge setzt das Template animate.leave="dialog-leave".
+// Der prefers-reduced-motion-Block unten verkuerzt alles davon auf 0.01ms.
+:root {
+  // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  // Leichtes Ueberschwingen, wie eine Feder.
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+}
+
+@keyframes pop {
+  40% {
+    transform: scale(1.18);
+  }
+}
+
+// Beim Laden und nach dem Koppeln gleitet die ganze Oberflaeche herein.
+.remote-panel {
+  animation: rise-in 520ms var(--ease-emphasized) backwards;
+}
+
+// Neuer Tab: der Inhalt gleitet von unten herein. Die Remote-Buttons kommen einzeln (siehe
+// .layout-slot), deshalb nicht noch einmal die ganze Flaeche.
+.view-content > :not(app-button-canvas),
+.media-strip,
+.toast {
+  animation: rise-in 380ms var(--ease-emphasized) backwards;
+}
+
+// Die Buttons laufen als Welle von oben links nach unten rechts ein, gestaffelt nach Zeile und Spalte.
+.layout-slot {
+  animation: rise-in 460ms var(--ease-emphasized) backwards;
+  animation-delay: calc(var(--row) * 28ms + var(--col) * 10ms);
+}
+
+.update-banner {
+  animation: banner-in 420ms var(--ease-emphasized) backwards;
+}
+
+.view-tab--active svg,
+.status-pill--connected .status-dot {
+  animation: pop 420ms var(--ease-spring);
+}
+
+.settings-scrim {
+  animation: fade-in 240ms ease backwards;
+}
+
+.settings-dialog {
+  animation: dialog-in 420ms var(--ease-emphasized) backwards;
+}
+
+// Angular wartet beim Entfernen nur auf eine Animation am Host-Element selbst, deshalb blendet der
+// Host aus und der Dialog darin schrumpft gleichzeitig.
+.dialog-leave {
+  pointer-events: none;
+  animation: fade-out 200ms ease forwards;
+}
+
+.dialog-leave .settings-dialog {
+  animation: dialog-out 200ms ease forwards;
+}
+
+// Druecken geht schnell, Loslassen federt zurueck.
+.round-button,
+.control-button,
+.primary-button,
+.secondary-button,
+.view-tab,
+.key-chip,
+.layout-chip {
+  transition-property: transform, border-color, background, color, box-shadow;
+  transition-duration: 420ms, 160ms, 160ms, 160ms, 160ms;
+  transition-timing-function: var(--ease-spring), ease, ease, ease, ease;
+}
+
+.round-button:active,
+.control-button:active,
+.primary-button:active,
+.secondary-button:active,
+.view-tab:active,
+.key-chip:active,
+.layout-chip:active {
+  transform: scale(0.95);
+  transition-duration: 90ms, 160ms, 160ms, 160ms, 160ms;
+  transition-timing-function: ease-out, ease, ease, ease, ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

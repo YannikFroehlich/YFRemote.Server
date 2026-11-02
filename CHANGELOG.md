@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Web-Oberfläche: Weiche Animationen. Die Oberfläche gleitet beim Laden und nach dem Koppeln herein, die Remote-Buttons laufen als Welle von oben links ein, und der Inhalt eines Tabs gleitet beim Wechsel von unten herein. Das Symbol des aktiven Tabs und der Status-Punkt beim Verbinden ploppen kurz auf, Buttons federn nach dem Antippen zurück. Dialoge (Einstellungen, Button-Editor, Eigener Stil) wachsen beim Öffnen auf und blenden beim Schließen aus, statt hart zu verschwinden; Medien-Leiste, Fehlermeldungen und Hinweise unten blenden ein. Mit "Animationen reduzieren" im System bleibt alles wie bisher ohne Bewegung.
+
 ## [2.43.0] - 2026-11-01
 
 ### Changed

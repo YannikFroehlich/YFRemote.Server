@@ -89,12 +89,10 @@
             <span>{{ i18n.t('buttonEditor.color.toggle') }}</span>
           </button>
           @if (colorEnabled()) {
-            <input
-              class="color-input"
-              type="color"
-              [attr.aria-label]="i18n.t('buttonEditor.color.field')"
+            <app-color-picker
               [value]="colorValue()"
-              (input)="onColorInput($event)"
+              [label]="i18n.t('buttonEditor.color.field')"
+              (changed)="colorValue.set($event)"
             />
           }
         </div>

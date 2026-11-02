@@ -1405,22 +1405,6 @@ select:focus-visible {
   accent-color: var(--accent);
 }
 
-.field input.color-input {
-  width: 64px;
-  min-height: 44px;
-  padding: 4px;
-  cursor: pointer;
-}
-
-.field input.color-input::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-.field input.color-input::-webkit-color-swatch {
-  border: none;
-  border-radius: calc(9px * var(--radius-scale));
-}
-
 .field small {
   color: var(--danger);
   font-weight: 600;
@@ -1554,35 +1538,6 @@ select:focus-visible {
   color: var(--text-soft);
   font-size: 0.74rem;
   font-weight: 650;
-}
-
-// Rundet per Zuschnitt statt per ::-webkit-color-swatch: auf Android Chrome ist der native
-// Farb-Vorschau-Swatch ein Plattform-Widget, das diese Pseudo-Elemente ignoriert (Desktop-Chrome
-// wuerde sie respektieren, Telefone - der Hauptfall hier - nicht). Der Wrapper schneidet den
-// eckigen Swatch stattdessen einfach ab, unabhaengig davon, wie der Browser ihn zeichnet.
-.theme-color__swatch {
-  display: block;
-  width: 38px;
-  height: 32px;
-  flex: none;
-  overflow: hidden;
-  border: var(--border-width) solid var(--line);
-  border-radius: calc(8px * var(--radius-scale));
-  background: var(--surface-soft);
-  cursor: pointer;
-}
-
-// Der native Swatch selbst bleibt unsichtbar (opacity, nicht visibility - sonst kein Klick mehr
-// moeglich); die sichtbare Farbe kommt stattdessen vom background-Inline-Style des Wrappers oben,
-// der Input dient nur noch als transparente Klickflaeche fuer den OS-Farbwaehler.
-.theme-color__swatch input {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: none;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .theme-color--changed span {
@@ -2728,6 +2683,340 @@ select:focus-visible {
   .remote-panel--app {
     height: auto;
   }
+}
+
+// Bewegung: alles reines CSS. Eingangsanimationen laufen, sobald Angular ein Element einfuegt
+// (@if, @for); fuer das Schliessen der Dialoge setzt das Template animate.leave="dialog-leave".
+// Der prefers-reduced-motion-Block unten verkuerzt alles davon auf 0.01ms.
+:root {
+  // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  // Leichtes Ueberschwingen, wie eine Feder.
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+}
+
+@keyframes pop {
+  40% {
+    transform: scale(1.18);
+  }
+}
+
+// Beim Laden und nach dem Koppeln gleitet die ganze Oberflaeche herein.
+.remote-panel {
+  animation: rise-in 520ms var(--ease-emphasized) backwards;
+}
+
+// Neuer Tab: der Inhalt gleitet von unten herein. Die Remote-Buttons kommen einzeln (siehe
+// .layout-slot), deshalb nicht noch einmal die ganze Flaeche.
+.view-content > :not(app-button-canvas),
+.media-strip,
+.toast {
+  animation: rise-in 380ms var(--ease-emphasized) backwards;
+}
+
+// Die Buttons laufen als Welle von oben links nach unten rechts ein, gestaffelt nach Zeile und Spalte.
+.layout-slot {
+  animation: rise-in 460ms var(--ease-emphasized) backwards;
+  animation-delay: calc(var(--row) * 28ms + var(--col) * 10ms);
+}
+
+.update-banner {
+  animation: banner-in 420ms var(--ease-emphasized) backwards;
+}
+
+.view-tab--active svg,
+.status-pill--connected .status-dot {
+  animation: pop 420ms var(--ease-spring);
+}
+
+.settings-scrim {
+  animation: fade-in 240ms ease backwards;
+}
+
+.settings-dialog {
+  animation: dialog-in 420ms var(--ease-emphasized) backwards;
+}
+
+// Angular wartet beim Entfernen nur auf eine Animation am Host-Element selbst, deshalb blendet der
+// Host aus und der Dialog darin schrumpft gleichzeitig.
+.dialog-leave {
+  pointer-events: none;
+  animation: fade-out 200ms ease forwards;
+}
+
+.dialog-leave .settings-dialog {
+  animation: dialog-out 200ms ease forwards;
+}
+
+// Druecken geht schnell, Loslassen federt zurueck.
+.round-button,
+.control-button,
+.primary-button,
+.secondary-button,
+.view-tab,
+.key-chip,
+.layout-chip {
+  transition-property: transform, border-color, background, color, box-shadow;
+  transition-duration: 420ms, 160ms, 160ms, 160ms, 160ms;
+  transition-timing-function: var(--ease-spring), ease, ease, ease, ease;
+}
+
+.round-button:active,
+.control-button:active,
+.primary-button:active,
+.secondary-button:active,
+.view-tab:active,
+.key-chip:active,
+.layout-chip:active {
+  transform: scale(0.95);
+  transition-duration: 90ms, 160ms, 160ms, 160ms, 160ms;
+  transition-timing-function: ease-out, ease, ease, ease, ease;
+}
+
+// Eigener Farbwaehler (color-picker.component) statt des grauen System-Dialogs von
+// <input type="color">. Schwarz, Weiss und die hsl()-Verlaeufe sind hier keine Theme-Farben, sondern
+// die Achsen des Farbraums - deshalb als Literale und nicht als Tokens.
+.color-swatch {
+  display: block;
+  width: 38px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(8px * var(--radius-scale));
+  transition:
+    transform 420ms var(--ease-spring),
+    border-color 160ms ease;
+}
+
+.color-swatch:active {
+  transform: scale(0.92);
+  transition-duration: 90ms, 160ms;
+}
+
+.color-swatch:focus-visible,
+.color-picker__area:focus-visible,
+.color-picker__preset:focus-visible {
+  outline: 3px solid rgba(var(--accent-rgb), 0.28);
+  outline-offset: 2px;
+}
+
+.field .color-swatch {
+  width: 64px;
+  height: 44px;
+  border-radius: calc(12px * var(--radius-scale));
+}
+
+.color-picker {
+  width: min(calc(100% - 36px), 380px);
+  max-width: none;
+  max-height: calc(100dvh - 36px);
+  padding: 0;
+  overflow: auto;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-dialog);
+  box-shadow:
+    0 30px 100px rgba(var(--shadow-rgb), calc(0.58 * var(--shadow-strength))),
+    0 1px 0 rgba(var(--highlight-rgb), 0.04) inset;
+  color: var(--text);
+}
+
+.color-picker[open] {
+  animation: dialog-in 420ms var(--ease-emphasized) backwards;
+}
+
+.color-picker::backdrop {
+  background: rgba(var(--scrim-rgb), 0.72);
+  backdrop-filter: blur(10px);
+  animation: fade-in 240ms ease backwards;
+}
+
+.color-picker.color-picker--closing {
+  animation: dialog-out 200ms ease forwards;
+}
+
+.color-picker.color-picker--closing::backdrop {
+  animation: fade-out 200ms ease forwards;
+}
+
+.color-picker__body {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.color-picker__area {
+  position: relative;
+  height: 200px;
+  border-radius: calc(14px * var(--radius-scale));
+  background:
+    linear-gradient(to top, black, transparent),
+    linear-gradient(to right, white, hsl(calc(var(--hue) * 1deg) 100% 50%));
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.color-picker__thumb {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(var(--shadow-rgb), 0.35),
+    0 3px 10px rgba(var(--shadow-rgb), 0.45);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.color-picker input.color-picker__hue {
+  width: 100%;
+  height: 24px;
+  min-height: 0;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    to right,
+    hsl(0 100% 50%),
+    hsl(60 100% 50%),
+    hsl(120 100% 50%),
+    hsl(180 100% 50%),
+    hsl(240 100% 50%),
+    hsl(300 100% 50%),
+    hsl(360 100% 50%)
+  );
+  appearance: none;
+}
+
+.color-picker__hue::-webkit-slider-thumb {
+  width: 28px;
+  height: 28px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: hsl(calc(var(--hue) * 1deg) 100% 50%);
+  box-shadow: 0 3px 10px rgba(var(--shadow-rgb), 0.45);
+  appearance: none;
+}
+
+.color-picker__hue::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: hsl(calc(var(--hue) * 1deg) 100% 50%);
+  box-shadow: 0 3px 10px rgba(var(--shadow-rgb), 0.45);
+}
+
+.color-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-picker__compare {
+  display: flex;
+  flex: none;
+  overflow: hidden;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(13px * var(--radius-scale));
+}
+
+.color-picker__compare span {
+  width: 38px;
+  height: 48px;
+}
+
+.color-picker .color-picker__hex {
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+  padding: 0 14px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(13px * var(--radius-scale));
+  background: var(--surface-soft);
+  color: var(--text);
+  caret-color: var(--accent);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.95rem;
+}
+
+.color-picker .color-picker__hex:focus {
+  border-color: var(--line-strong);
+  outline: none;
+  background: var(--surface-focus);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.07);
+}
+
+.color-picker__presets {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.color-picker__preset {
+  aspect-ratio: 1;
+  padding: 0;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-pill);
+  transition:
+    transform 420ms var(--ease-spring),
+    box-shadow 160ms ease;
+}
+
+.color-picker__preset:active {
+  transform: scale(0.88);
+  transition-duration: 90ms, 160ms;
+}
+
+.color-picker__preset--active {
+  box-shadow:
+    0 0 0 3px var(--surface-dialog),
+    0 0 0 5px var(--accent);
+}
+
+.color-picker .settings-actions > button {
+  flex: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

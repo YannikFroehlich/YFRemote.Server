@@ -80,16 +80,14 @@
             <h3 id="theme-colors-title">{{ i18n.t('themeEditor.colors.title') }}</h3>
             <div class="theme-editor__colors">
               @for (color of colors; track color.key) {
-                <label class="theme-color">
-                  <span class="theme-color__swatch" [style.background]="draft.values[color.key]">
-                    <input
-                      type="color"
-                      [value]="draft.values[color.key]"
-                      (input)="setColor(color.key, $event)"
-                    />
-                  </span>
+                <div class="theme-color">
+                  <app-color-picker
+                    [value]="draft.values[color.key]"
+                    [label]="i18n.t(color.label)"
+                    (changed)="setColor(color.key, $event)"
+                  />
                   <span>{{ i18n.t(color.label) }}</span>
-                </label>
+                </div>
               }
             </div>
           </section>
@@ -166,22 +164,17 @@
               <div class="theme-editor__advanced-body__inner">
                 <div class="theme-editor__colors">
                   @for (entry of advancedTokens; track entry.token) {
-                    <label
+                    <div
                       class="theme-color"
                       [class.theme-color--changed]="isAdvancedOverridden(entry.token)"
                     >
-                      <span
-                        class="theme-color__swatch"
-                        [style.background]="advancedColors()[entry.token]"
-                      >
-                        <input
-                          type="color"
-                          [value]="advancedColors()[entry.token]"
-                          (input)="setAdvanced(entry.token, $event)"
-                        />
-                      </span>
+                      <app-color-picker
+                        [value]="advancedColors()[entry.token]"
+                        [label]="i18n.t(entry.label)"
+                        (changed)="setAdvanced(entry.token, $event)"
+                      />
                       <span>{{ i18n.t(entry.label) }}</span>
-                    </label>
+                    </div>
                   }
                 </div>
                 <button

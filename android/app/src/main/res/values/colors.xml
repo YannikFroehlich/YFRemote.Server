@@ -6,7 +6,9 @@
     <color name="brand_surface">#151F31</color>
     <color name="brand_surface_stroke">#23304A</color>
     <color name="brand_accent">#38BDF8</color>
-    <color name="brand_accent_pressed">#0EA5E9</color>
+    <!-- Ende des Verlaufs auf Haupt-Buttons, Cyan nach Blau wie im Logo. -->
+    <color name="brand_accent_deep">#3B82F6</color>
+    <color name="brand_surface_high">#1F2B44</color>
     <color name="brand_text">#E8EEF8</color>
     <color name="brand_text_muted">#9AACC6</color>
     <color name="brand_ok">#4ADE80</color>

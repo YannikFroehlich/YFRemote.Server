@@ -23,6 +23,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Changed
 
+- Android-App: Der Startbildschirm sieht moderner aus und bewegt sich weich. Karten gleiten beim Öffnen und beim Wechsel zwischen "Steuern", "Freigeben" und "Controller" gestaffelt herein, die Leiste unten blendet den aktiven Eintrag animiert um, Buttons sind Pillen mit Farbverlauf, Ripple und leichtem Eindrücken beim Antippen. Status-Punkte, PIN und QR-Code wechseln mit Übergang statt hart, Dialoge wachsen aus der Mitte auf (ab Android 12 mit unscharfem Hintergrund), und die App reicht randlos bis unter die Statusleiste. Die Liste der gekoppelten Geräte wird nur noch bei einer Änderung neu aufgebaut, sodass ein Tipp auf "Nur Medien" oder "Entkoppeln" nicht mehr verloren gehen kann.
+- Web-Oberfläche: Weiche Animationen. Die Oberfläche gleitet beim Laden und nach dem Koppeln herein, die Remote-Buttons laufen als Welle von oben links ein, und der Inhalt eines Tabs gleitet beim Wechsel von unten herein. Das Symbol des aktiven Tabs und der Status-Punkt beim Verbinden ploppen kurz auf, Buttons federn nach dem Antippen zurück. Dialoge (Einstellungen, Button-Editor, Eigener Stil) wachsen beim Öffnen auf und blenden beim Schließen aus, statt hart zu verschwinden; Medien-Leiste, Fehlermeldungen und Hinweise unten blenden ein. Mit "Animationen reduzieren" im System bleibt alles wie bisher ohne Bewegung.
+- Web-Oberfläche: Eigener Farbwähler im Look der App statt des grauen System-Dialogs mit acht festen Farben (auf Android). Farbfeld für Sättigung und Helligkeit, Farbton-Regler, Hex-Eingabe, Vorgaben aus den App-Farben und ein Vorher/Nachher-Vergleich; "Übernehmen" setzt die Farbe, "Abbrechen", Esc oder ein Tipp daneben verwerfen sie. Gilt für "Eigener Stil" (auch "Profi: alle Farben einzeln") und die Button-Farbe im Button-Editor.
+
+## [2.43.0] - 2026-11-01
+
+### Changed
+
 - Android-App: Die Liste unter "Steuern" zeigt die Geräte jetzt mit ihrem Namen statt mit der IP-Adresse. Der Name kommt automatisch vom Gerät (am PC der Rechnername, bei einem Android-Gerät dessen Gerätename); Adresse und ob die Verbindung verschlüsselt ist, stehen klein darunter. Über "Bearbeiten" lässt sich ein eigener Name vergeben, ein leerer Name nimmt wieder den des Geräts; dort sitzt jetzt auch "Entfernen". Selbst vergebene Namen bleiben erhalten.
 
 ## [2.42.0] - 2026-11-01

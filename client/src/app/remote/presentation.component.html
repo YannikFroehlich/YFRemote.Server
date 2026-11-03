@@ -4,9 +4,24 @@
       <p class="eyebrow">{{ i18n.t('presentation.eyebrow') }}</p>
       <h2>{{ i18n.t('presentation.title') }}</h2>
     </div>
-    <span class="keyboard-card__hint">
-      {{ i18n.t(volumeKeysAvailable ? 'presentation.hintVolumeKeys' : 'presentation.hint') }}
-    </span>
+    @if (elapsed(); as time) {
+      <button
+        class="presentation__timer"
+        type="button"
+        [attr.aria-label]="i18n.t('presentation.timerRestart', { time })"
+        [attr.title]="i18n.t('presentation.timerRestart', { time })"
+        (click)="restartTimer()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.timer"></path>
+        </svg>
+        {{ time }}
+      </button>
+    } @else {
+      <span class="keyboard-card__hint">
+        {{ i18n.t(volumeKeysAvailable ? 'presentation.hintVolumeKeys' : 'presentation.hint') }}
+      </span>
+    }
   </header>
 
   <div class="presentation__steps">
@@ -25,16 +40,16 @@
   </div>
 
   <div class="presentation__actions">
-    <button class="secondary-button" type="button" (click)="press('F5')">
+    <button class="secondary-button" type="button" (click)="start('F5')">
       {{ i18n.t('presentation.start') }}
     </button>
-    <button class="secondary-button" type="button" (click)="press('SHIFT', 'F5')">
+    <button class="secondary-button" type="button" (click)="start('SHIFT', 'F5')">
       {{ i18n.t('presentation.startHere') }}
     </button>
     <button class="secondary-button" type="button" (click)="press('B')">
       {{ i18n.t('presentation.black') }}
     </button>
-    <button class="secondary-button" type="button" (click)="press('ESC')">
+    <button class="secondary-button" type="button" (click)="end()">
       {{ i18n.t('presentation.end') }}
     </button>
   </div>

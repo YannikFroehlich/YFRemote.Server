@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MediaBridgeService, VolumeKeyDirection } from './media-bridge.service';
 import { PresentationComponent } from './presentation.component';
 import { RemoteAction } from './remote.models';
@@ -56,6 +56,38 @@ describe('PresentationComponent', () => {
 
     fixture.destroy();
     expect(handler()).toBeNull();
+  });
+
+  it('times the talk from start to end, across tab switches', () => {
+    vi.useFakeTimers();
+    try {
+      const { click, element, fixture } = setup();
+      const timer = () => element.querySelector('.presentation__timer')?.textContent?.trim();
+      expect(timer()).toBeUndefined();
+
+      click('Starten');
+      fixture.detectChanges();
+      vi.advanceTimersByTime(65_000);
+      fixture.detectChanges();
+      expect(timer()).toBe('1:05');
+
+      // Tabwechsel: die Komponente entsteht neu, der Timer laeuft weiter.
+      fixture.destroy();
+      const again = TestBed.createComponent(PresentationComponent);
+      again.detectChanges();
+      const el = again.nativeElement as HTMLElement;
+      expect(el.querySelector('.presentation__timer')?.textContent?.trim()).toBe('1:05');
+
+      el.querySelector<HTMLButtonElement>('.presentation__timer')!.click();
+      again.detectChanges();
+      expect(el.querySelector('.presentation__timer')?.textContent?.trim()).toBe('0:00');
+
+      [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Beenden')!.click();
+      again.detectChanges();
+      expect(el.querySelector('.presentation__timer')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('switches the laser pointer and shows the pad only while it is on', () => {

@@ -16,6 +16,7 @@ import { GamepadComponent } from './gamepad/gamepad.component';
 import { KeyboardPadComponent } from './keyboard-pad.component';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { MAX_MACRO_STEPS } from './button-layout';
+import { formatDuration } from './duration';
 import { ConnectionStatus, FileOfferMessage, MacroStep } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SettingsDialogComponent } from './settings-dialog.component';
@@ -73,7 +74,7 @@ export class RemoteControlComponent {
   protected readonly fileOffer = this.remote.fileOffer;
   protected readonly mediaStatus = this.remote.mediaStatus;
   protected readonly mediaCover = this.remote.mediaCover;
-  protected readonly formatTime = formatCountdown;
+  protected readonly formatTime = formatDuration;
   // Waehrend des Ziehens und kurz danach zeigt die Zeitleiste die Zielstelle: die sekuendliche
   // Meldung setzte den Regler sonst mitten im Ziehen zurueck, und die neue Position kommt erst mit
   // der naechsten Meldung.
@@ -93,7 +94,7 @@ export class RemoteControlComponent {
   protected readonly shutdownCountdown = computed(() => {
     const deadline = this.remote.shutdownDeadline();
     const seconds = deadline === null ? 0 : Math.ceil((deadline - this.now()) / 1000);
-    return seconds > 0 ? formatCountdown(seconds) : null;
+    return seconds > 0 ? formatDuration(seconds) : null;
   });
   // Lebt, solange die Fernbedienung offen ist - sonst haette niemand die Zwischenablage im Blick.
   private readonly clipboardSync = inject(ClipboardSyncService);
@@ -271,11 +272,3 @@ export class RemoteControlComponent {
   }
 }
 
-function formatCountdown(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = String(totalSeconds % 60).padStart(2, '0');
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
-    : `${minutes}:${seconds}`;
-}

@@ -2098,6 +2098,26 @@ select:focus-visible {
   gap: 8px;
 }
 
+.presentation__timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: var(--border-width) solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.presentation__timer svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .presentation__actions .secondary-button {
   padding: 0 6px;
 }

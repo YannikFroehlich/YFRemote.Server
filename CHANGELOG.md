@@ -27,6 +27,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Web-Oberfläche: Neuer Tab "Folien" zum Präsentieren. Große Tasten für Zurück und Weiter, dazu "Starten", "Ab hier", "Schwarz" und "Beenden"; das klappt mit PowerPoint, LibreOffice, Google Slides und PDF-Betrachtern. "Laserpointer" schaltet in PowerPoint den Laserpointer ein und blendet eine Fläche ein, mit der man ihn per Finger bewegt. In der Android-App blättern die Lautstärketasten in diesem Tab (lauter = weiter, leiser = zurück).
 - Web-Oberfläche: Makro-Rekorder für eigene Buttons. Unter "Layout bearbeiten" startet "Aufnehmen" eine Aufnahme; danach bedient man die Fernbedienung ganz normal, und Tasten, Tastenkombinationen, Text und Klicks werden samt den Pausen dazwischen mitgeschrieben (bis zu 10 Schritte, Mausbewegungen und Scrollen nicht). "Fertig" öffnet den Button-Editor mit den aufgenommenen Schritten, "Verwerfen" bricht ab.
 
+- Web-Oberfläche: Der Tab "Folien" misst die Vortragszeit. Der Timer startet mit "Starten" oder "Ab hier", läuft auch beim Wechsel in andere Tabs weiter, springt beim Antippen auf 0:00 und verschwindet mit "Beenden".
+
 ### Changed
 
 - Web-Oberfläche: Controller, "PC", "Mixer" und "Folien" laden erst beim Öffnen nach. Das erste Laden wird dadurch rund 40 kB kleiner.

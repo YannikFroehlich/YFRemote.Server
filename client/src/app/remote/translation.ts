@@ -335,6 +335,10 @@ export const TRANSLATIONS = {
   'presentation.startHere': { de: 'Ab hier', en: 'From here' },
   'presentation.black': { de: 'Schwarz', en: 'Black' },
   'presentation.end': { de: 'Beenden', en: 'End' },
+  'presentation.timerRestart': {
+    de: 'Vortrag läuft seit {{time}} – antippen setzt auf 0',
+    en: 'Talk running for {{time}} – tap to reset',
+  },
   'presentation.laser': { de: 'Laserpointer', en: 'Laser pointer' },
   'presentation.pad': { de: 'Hier ziehen, um zu zeigen', en: 'Drag here to point' },
 

@@ -193,6 +193,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   85 ms on the dev PC on 2026-11-03. The secure desktop makes it throw `Win32Exception` → `503`,
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
+  A tap into the image sends `screenClick` (`x`/`y` 0-1 on the primary screen, `button`
+  `left`/`right`, long press = right): `IMouseService.MoveToPrimaryScreen` sets the pointer in
+  physical pixels like the capture, then the normal click runs. Linux throws
+  `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over

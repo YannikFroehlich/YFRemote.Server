@@ -67,6 +67,34 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_ScreenClick_MovesToPositionThenClicks()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "screenClick", X = 0.25, Y = 1, Button = "right" });
+
+        Assert.IsTrue(response.Success, response.Error);
+        CollectionAssert.AreEqual(new[] { "moveTo 0.25,1", "click right" }, mouseService.Calls);
+    }
+
+    [TestMethod]
+    public void Handle_ScreenClick_OutsideScreenOrMiddleButton_FailsWithoutMoving()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var outside = handler.Handle(new RemoteActionRequest { Type = "screenClick", X = 1.5, Y = 0, Button = "left" });
+        var middle = handler.Handle(new RemoteActionRequest { Type = "screenClick", X = 0, Y = 0, Button = "middle" });
+        var missing = handler.Handle(new RemoteActionRequest { Type = "screenClick", Button = "left" });
+
+        Assert.IsFalse(outside.Success);
+        Assert.IsFalse(middle.Success);
+        Assert.IsFalse(missing.Success);
+        Assert.AreEqual(0, mouseService.Calls.Count);
+    }
+
+    [TestMethod]
     public void Handle_MouseDown_UnsupportedButton_Fails()
     {
         var handler = CreateHandler();
@@ -763,16 +791,25 @@ public sealed class RemoteActionHandlerTests
 
     private sealed class RecordingMouseService : IMouseService
     {
+        public List<string> Calls { get; } = [];
+
         public void MoveRelative(int deltaX, int deltaY)
         {
         }
 
+        public void MoveToPrimaryScreen(double x, double y)
+        {
+            Calls.Add(FormattableString.Invariant($"moveTo {x},{y}"));
+        }
+
         public void ClickLeft()
         {
+            Calls.Add("click left");
         }
 
         public void ClickRight()
         {
+            Calls.Add("click right");
         }
 
         public void ClickMiddle()

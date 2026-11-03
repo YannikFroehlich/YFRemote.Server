@@ -5,6 +5,8 @@ namespace YFRemote.Server.Services;
 
 public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouseService
 {
+    private const int SmCxScreen = 0;
+    private const int SmCyScreen = 1;
     private const int SmXVirtualScreen = 76;
     private const int SmYVirtualScreen = 77;
     private const int SmCxVirtualScreen = 78;
@@ -39,6 +41,37 @@ public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouse
                 inputSender.SendMouseInput(
                     ToAbsoluteCoordinate(x - left, width),
                     ToAbsoluteCoordinate(y - top, height),
+                    mouseData: 0,
+                    WindowsInputFlags.MouseEventMove | WindowsInputFlags.MouseEventAbsolute | WindowsInputFlags.MouseEventVirtualDesk);
+            }
+            finally
+            {
+                SetThreadDpiAwarenessContext(previousDpiContext);
+            }
+        });
+    }
+
+    // Der Hauptbildschirm beginnt immer bei (0, 0); in physischen Pixeln wie WindowsScreenCapture,
+    // damit der Tipp genau dort landet, wo er im Bild war.
+    public void MoveToPrimaryScreen(double x, double y)
+    {
+        inputSender.ExecuteSynchronized(() =>
+        {
+            var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
+            try
+            {
+                var screenWidth = GetSystemMetrics(SmCxScreen);
+                var screenHeight = GetSystemMetrics(SmCyScreen);
+                var left = GetSystemMetrics(SmXVirtualScreen);
+                var top = GetSystemMetrics(SmYVirtualScreen);
+                var width = GetSystemMetrics(SmCxVirtualScreen);
+                var height = GetSystemMetrics(SmCyVirtualScreen);
+                var targetX = Math.Min((int)(x * screenWidth), screenWidth - 1);
+                var targetY = Math.Min((int)(y * screenHeight), screenHeight - 1);
+
+                inputSender.SendMouseInput(
+                    ToAbsoluteCoordinate(targetX - left, width),
+                    ToAbsoluteCoordinate(targetY - top, height),
                     mouseData: 0,
                     WindowsInputFlags.MouseEventMove | WindowsInputFlags.MouseEventAbsolute | WindowsInputFlags.MouseEventVirtualDesk);
             }

@@ -152,8 +152,8 @@ class RemoteWebActivity : Activity() {
                         ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
                     )
                     setSystemBarsHidden(true)
-                    // screen.orientation.lock() kann das WebView nicht; Vollbild verlangt bisher nur
-                    // der Controller, und der gehoert quer.
+                    // screen.orientation.lock() kann das WebView nicht; Vollbild verlangen nur der
+                    // Controller und der Tab "Bildschirm", und beide gehoeren quer.
                     requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 }
 

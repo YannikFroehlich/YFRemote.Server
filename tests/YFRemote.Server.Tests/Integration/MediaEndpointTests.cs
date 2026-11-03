@@ -50,7 +50,8 @@ public sealed class MediaEndpointTests
                 .AddSingleton<IMediaControl>(media)
                 .AddSingleton<IAppLauncher>(new FakeAppLauncher())
                 .AddSingleton<IWindowService>(new FakeWindowService())
-                .AddSingleton<IScreenCapture>(screen));
+                .AddSingleton<IScreenCapture>(screen)
+                .AddSingleton<IAudioCapture>(new FakeAudioCapture()));
         await app.StartAsync();
 
         httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
@@ -170,6 +171,28 @@ public sealed class MediaEndpointTests
         var health = await httpClient.GetFromJsonAsync<HealthResponse>("/health", JsonOptions);
 
         Assert.IsTrue(health!.Screen);
+        Assert.IsTrue(health.Audio);
+    }
+
+    [TestMethod]
+    public async Task ScreenAudio_StreamsPcmWithFormatHeaders()
+    {
+        var token = await PairAndGetTokenAsync();
+        using var unauthorized = await httpClient.GetAsync("/screen/audio");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/screen/audio");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        await using var body = await response.Content.ReadAsStreamAsync();
+        var chunk = new byte[FakeAudioCapture.Chunk.Length];
+        await body.ReadExactlyAsync(chunk);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("48000", response.Headers.GetValues("X-Sample-Rate").Single());
+        Assert.AreEqual("2", response.Headers.GetValues("X-Channels").Single());
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        CollectionAssert.AreEqual(FakeAudioCapture.Chunk, chunk);
     }
 
     [TestMethod]
@@ -234,6 +257,21 @@ public sealed class MediaEndpointTests
         {
             LastMaxWidth = maxWidth;
             return Blocked ? throw new System.ComponentModel.Win32Exception(5) : Jpeg;
+        }
+    }
+
+    private sealed class FakeAudioCapture : IAudioCapture
+    {
+        public static readonly byte[] Chunk = [1, 2, 3, 4];
+
+        public async Task CaptureAsync(
+            Action<int, int> started,
+            Func<ReadOnlyMemory<byte>, Task> write,
+            CancellationToken cancellationToken)
+        {
+            started(48000, 2);
+            await write(Chunk);
+            await Task.Delay(Timeout.Infinite, cancellationToken);
         }
     }
 

@@ -13,6 +13,7 @@ import {
   DEVICE_CLIPBOARD_WRITER,
 } from '../clipboard.service';
 import { DOWNLOAD_BRIDGE, FILE_SAVER, FileTransferService } from '../file-transfer.service';
+import { liveTextActions } from '../keyboard-keys';
 import { RemoteAction } from '../remote.models';
 import { REMOTE_ICON_PATHS } from '../remote-icons';
 import { RemoteService } from '../remote.service';
@@ -673,32 +674,13 @@ export class TouchpadComponent implements OnDestroy {
     }
   }
 
-  /** Live-Eingabe: vergleicht das Feld mit dem zuletzt gesendeten Stand und schickt nur die
-   *  Differenz (Rücktasten + neuer Text). So funktionieren auch Autokorrektur und
-   *  Wortvorschläge der Handy-Tastatur, die ganze Wörter auf einmal ersetzen. */
   protected onTextInput(input: HTMLInputElement): void {
     if (!this.liveTyping()) {
       return;
     }
 
-    // ponytail: eine Rücktaste pro Codepoint. Löscht die PC-Anwendung zusammengesetzte Emoji
-    // am Stück, gehen dabei zu viele Zeichen weg; dann auf Intl.Segmenter (Grapheme) umstellen.
-    const previous = Array.from(this.liveTypedText);
-    const next = Array.from(input.value);
-    let common = 0;
-
-    while (common < previous.length && common < next.length && previous[common] === next[common]) {
-      common++;
-    }
-
-    for (let index = common; index < previous.length; index++) {
-      this.sendAction({ type: 'key', keys: ['BACKSPACE'] });
-    }
-
-    const inserted = next.slice(common).join('');
-
-    if (inserted.length > 0) {
-      this.sendAction({ type: 'text', text: inserted });
+    for (const action of liveTextActions(this.liveTypedText, input.value)) {
+      this.sendAction(action);
     }
 
     this.liveTypedText = input.value;

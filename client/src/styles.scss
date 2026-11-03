@@ -970,6 +970,46 @@ h2 {
   gap: 10px;
 }
 
+.screen-view__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.screen-view__toolbar svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.screen-view__keyboard input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(13px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--text);
+  caret-color: var(--accent);
+}
+
+// Im Vollbild fuellt das Bild den Rest; object-fit haelt das Seitenverhaeltnis, den Klick
+// rechnet die Komponente auf das eigentliche Bild um.
+.screen-view:fullscreen {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: var(--app-bg);
+}
+
+.screen-view:fullscreen .screen-view__image {
+  flex: 1 1 0;
+  min-height: 0;
+  object-fit: contain;
+  border: 0;
+  background: transparent;
+}
+
 .screen-view__image {
   display: block;
   width: 100%;

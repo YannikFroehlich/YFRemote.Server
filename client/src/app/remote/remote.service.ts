@@ -159,6 +159,7 @@ export class RemoteService implements OnDestroy {
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly screenAvailableSignal = signal(false);
+  private readonly audioAvailableSignal = signal(false);
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private readonly recordedStepsSignal = signal<readonly MacroStep[] | null>(null);
   private lastRecordedAt = 0;
@@ -222,6 +223,8 @@ export class RemoteService implements OnDestroy {
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
   /** `GET /screen` gibt es erst ab dem Server, der es in /health meldet. */
   readonly screenAvailable = this.screenAvailableSignal.asReadonly();
+  /** `GET /screen/audio` (PC-Ton im Tab "Bildschirm"), ebenfalls laut /health. */
+  readonly audioAvailable = this.audioAvailableSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
@@ -466,6 +469,29 @@ export class RemoteService implements OnDestroy {
         return 'blocked';
       }
       return response.ok ? await response.blob() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Der PC-Ton als offene Antwort mit rohem PCM; `null`, wenn er nicht geht. Beendet wird er
+   *  ueber `signal`. */
+  async openScreenAudio(signal: AbortSignal): Promise<Response | null> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return null;
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen/audio`,
+        {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
+        },
+      );
+      return response.ok && response.body !== null ? response : null;
     } catch {
       return null;
     }
@@ -816,6 +842,7 @@ export class RemoteService implements OnDestroy {
         readonly gamepad?: unknown;
         readonly voicemeeter?: unknown;
         readonly screen?: unknown;
+        readonly audio?: unknown;
       };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
@@ -825,11 +852,13 @@ export class RemoteService implements OnDestroy {
       this.gamepadAvailableSignal.set(body.gamepad === true);
       this.voicemeeterAvailableSignal.set(body.voicemeeter === true);
       this.screenAvailableSignal.set(body.screen === true);
+      this.audioAvailableSignal.set(body.audio === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
       this.screenAvailableSignal.set(false);
+      this.audioAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,

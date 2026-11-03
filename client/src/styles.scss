@@ -1189,8 +1189,12 @@ h2 {
 
 .view-tabs {
   display: grid;
-  grid-auto-columns: minmax(0, 1fr);
+  // Gleich breit, solange alle passen; sonst laesst sich die Leiste wischen, statt dass sich die
+  // Beschriftungen ueberlappen (acht Tabs auf einem schmalen Telefon).
+  grid-auto-columns: minmax(max-content, 1fr);
   grid-auto-flow: column;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 5px;
   padding: 5px;
   border: var(--border-width) solid var(--line);

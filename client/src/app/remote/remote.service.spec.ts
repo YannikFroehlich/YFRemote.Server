@@ -587,6 +587,15 @@ describe('RemoteService', () => {
     expect(remote.mediaCover()).toBeNull();
   });
 
+  it('offers the screen only where /health reports it', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows', screen: true } });
+
+    remote.connect();
+    sockets[0].open();
+
+    await vi.waitFor(() => expect(remote.screenAvailable()).toBe(true));
+  });
+
   it('watches Voicemeeter only where /health reports it and shows set values at once', async () => {
     const { remote, sockets } = setupRemoteService({
       health: { platform: 'windows', voicemeeter: true },

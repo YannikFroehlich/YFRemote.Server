@@ -25,17 +25,25 @@ import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
 import { MixerComponent } from './mixer.component';
 import { PresentationComponent } from './presentation.component';
+import { ScreenViewComponent } from './screen-view.component';
 
 type RemoteView =
   | 'remote'
   | 'touchpad'
+  | 'screen'
   | 'keyboard'
   | 'presentation'
   | 'gamepad'
   | 'system'
   | 'mixer';
-// "Nur Medien": Eingaben ausser Medientasten lehnt der PC ab.
-const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set(['touchpad', 'keyboard', 'presentation', 'gamepad']);
+// "Nur Medien": Eingaben ausser Medientasten und den Bildschirm lehnt der PC ab.
+const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set([
+  'touchpad',
+  'screen',
+  'keyboard',
+  'presentation',
+  'gamepad',
+]);
 
 // Etwas laenger als der Sekundentakt der Medienmeldung, damit die neue Position schon da ist.
 const SEEK_SETTLE_MS = 1500;
@@ -52,6 +60,7 @@ const SEEK_SETTLE_MS = 1500;
     SystemStatsComponent,
     MixerComponent,
     PresentationComponent,
+    ScreenViewComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './remote-control.component.html',
@@ -112,6 +121,8 @@ export class RemoteControlComponent {
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
   protected readonly mixerSupported = this.remote.mixerSupported;
+  // Bildschirmaufnahme kann nur der Windows-Server, und erst ab der Version mit GET /screen.
+  protected readonly screenSupported = this.remote.screenAvailable;
   protected readonly systemTabKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'shell.tabSystem.android' : 'shell.tabSystem',
   );
@@ -128,6 +139,7 @@ export class RemoteControlComponent {
     if (
       (!this.systemStatsSupported() && view === 'system') ||
       (!this.mixerSupported() && view === 'mixer') ||
+      (!this.screenSupported() && view === 'screen') ||
       (this.mediaOnly() && INPUT_VIEWS.has(view))
     ) {
       this.activeView.set('remote');

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.47.0] - 2026-11-03
+
 ### Added
 
 - Web-Oberfläche: Im Tab "Bildschirm" klickt ein Tipp ins Bild an genau dieser Stelle am PC, langes Drücken klickt rechts. Der Mauszeiger springt dabei dorthin.

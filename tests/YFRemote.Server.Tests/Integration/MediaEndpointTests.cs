@@ -165,6 +165,14 @@ public sealed class MediaEndpointTests
     }
 
     [TestMethod]
+    public async Task Health_ReportsScreenWhenCaptureIsRegistered()
+    {
+        var health = await httpClient.GetFromJsonAsync<HealthResponse>("/health", JsonOptions);
+
+        Assert.IsTrue(health!.Screen);
+    }
+
+    [TestMethod]
     public async Task Screen_IsUnavailableOnSecureDesktopAndForMediaOnlyDevices()
     {
         var token = await PairAndGetTokenAsync();

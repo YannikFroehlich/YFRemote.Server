@@ -121,8 +121,8 @@ export class RemoteControlComponent {
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
   protected readonly mixerSupported = this.remote.mixerSupported;
-  // Bildschirmaufnahme kann nur der Windows-Server.
-  protected readonly screenSupported = computed(() => this.remote.serverPlatform() === 'windows');
+  // Bildschirmaufnahme kann nur der Windows-Server, und erst ab der Version mit GET /screen.
+  protected readonly screenSupported = this.remote.screenAvailable;
   protected readonly systemTabKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'shell.tabSystem.android' : 'shell.tabSystem',
   );

@@ -158,6 +158,7 @@ export class RemoteService implements OnDestroy {
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
+  private readonly screenAvailableSignal = signal(false);
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private readonly recordedStepsSignal = signal<readonly MacroStep[] | null>(null);
   private lastRecordedAt = 0;
@@ -219,6 +220,8 @@ export class RemoteService implements OnDestroy {
   readonly mixerSupported = this.clipboardSyncSupported;
   /** Ob am PC Voicemeeter installiert ist (`GET /health`); dann gibt es den Tab "Mixer". */
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
+  /** `GET /screen` gibt es erst ab dem Server, der es in /health meldet. */
+  readonly screenAvailable = this.screenAvailableSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
@@ -812,6 +815,7 @@ export class RemoteService implements OnDestroy {
         readonly platform?: unknown;
         readonly gamepad?: unknown;
         readonly voicemeeter?: unknown;
+        readonly screen?: unknown;
       };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
@@ -820,10 +824,12 @@ export class RemoteService implements OnDestroy {
       );
       this.gamepadAvailableSignal.set(body.gamepad === true);
       this.voicemeeterAvailableSignal.set(body.voicemeeter === true);
+      this.screenAvailableSignal.set(body.screen === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
+      this.screenAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,

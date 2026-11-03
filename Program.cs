@@ -466,6 +466,7 @@ internal static class Program
 
         var gamepadService = app.Services.GetService<IGamepadService>();
         var voicemeeterService = app.Services.GetService<IVoicemeeterService>();
+        var screenSupported = app.Services.GetService<IScreenCapture>() is not null;
         app.MapGet("/health", () =>
         {
             var adapter = NetworkAddressService.GetDeviceAdapter();
@@ -477,7 +478,8 @@ internal static class Program
                 adapter.MacAddress,
                 adapter.Wireless,
                 voicemeeterService?.IsInstalled ?? false,
-                Environment.MachineName);
+                Environment.MachineName,
+                screenSupported);
         });
 
         if (httpsOptions.Enabled)

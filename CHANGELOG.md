@@ -28,6 +28,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Web-Oberfläche: Makro-Rekorder für eigene Buttons. Unter "Layout bearbeiten" startet "Aufnehmen" eine Aufnahme; danach bedient man die Fernbedienung ganz normal, und Tasten, Tastenkombinationen, Text und Klicks werden samt den Pausen dazwischen mitgeschrieben (bis zu 10 Schritte, Mausbewegungen und Scrollen nicht). "Fertig" öffnet den Button-Editor mit den aufgenommenen Schritten, "Verwerfen" bricht ab.
 
 - Web-Oberfläche: Der Tab "Folien" misst die Vortragszeit. Der Timer startet mit "Starten" oder "Ab hier", läuft auch beim Wechsel in andere Tabs weiter, springt beim Antippen auf 0:00 und verschwindet mit "Beenden".
+- Web-Oberfläche: Zielzeit im Tab "Folien" (5 bis 60 Minuten, bleibt gespeichert). Der Timer zeigt dann z. B. "12:34 / 15:00", wird zwei Minuten vor Schluss gelb (bei kurzen Vorträgen nach vier Fünfteln der Zeit) und nach Ablauf rot. Beide Male vibriert das Handy lautlos, auch wenn gerade ein anderer Tab offen ist.
 
 ### Changed
 

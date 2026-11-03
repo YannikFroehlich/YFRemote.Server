@@ -8,7 +8,8 @@ namespace YFRemote.Server.Models;
 // klappt Wake-on-LAN meist nicht - die App weist darauf hin. Voicemeeter: installiert, der Client
 // zeigt dann den Tab "Mixer". Name: der Rechnername, den die Android-App in "Steuern" statt der IP
 // zeigt - im LAN ohnehin sichtbar (NetBIOS/mDNS). Screen: GET /screen gibt es, der Client zeigt
-// dann den Tab "Bildschirm" - aeltere Server antworteten dort mit der Startseite.
+// dann den Tab "Bildschirm" - aeltere Server antworteten dort mit der Startseite. Audio: GET
+// /screen/audio gibt es, der Tab zeigt dann den Schalter "Ton".
 public sealed record HealthResponse(
     string Status,
     string Service,
@@ -18,4 +19,5 @@ public sealed record HealthResponse(
     bool MacAddressWireless = false,
     bool Voicemeeter = false,
     string? Name = null,
-    bool Screen = false);
+    bool Screen = false,
+    bool Audio = false);

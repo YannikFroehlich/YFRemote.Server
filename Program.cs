@@ -369,6 +369,7 @@ internal static class Program
         builder.Services.AddSingleton<IAppLauncher, WindowsAppLauncher>();
         builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
         builder.Services.AddSingleton<IScreenCapture, WindowsScreenCapture>();
+        builder.Services.AddSingleton<IAudioCapture, WindowsAudioCapture>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
         builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
         builder.Services.AddSingleton(voicemeeterOptions);
@@ -467,6 +468,7 @@ internal static class Program
         var gamepadService = app.Services.GetService<IGamepadService>();
         var voicemeeterService = app.Services.GetService<IVoicemeeterService>();
         var screenSupported = app.Services.GetService<IScreenCapture>() is not null;
+        var audioSupported = app.Services.GetService<IAudioCapture>() is not null;
         app.MapGet("/health", () =>
         {
             var adapter = NetworkAddressService.GetDeviceAdapter();
@@ -479,7 +481,8 @@ internal static class Program
                 adapter.Wireless,
                 voicemeeterService?.IsInstalled ?? false,
                 Environment.MachineName,
-                screenSupported);
+                screenSupported,
+                audioSupported);
         });
 
         if (httpsOptions.Enabled)

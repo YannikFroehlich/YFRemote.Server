@@ -129,7 +129,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `voicemeeter` (Voicemeeter installed; the Client then adds its inputs and outputs to the "Mixer" tab),
   and `name` (`Environment.MachineName`), which the Android app shows in "Steuern" instead of the IP,
   and `screen` (an `IScreenCapture` is registered), without which the Client hides the "Bildschirm"
-  tab - an older server would answer `GET /screen` with the SPA's `index.html`.
+  tab - an older server would answer `GET /screen` with the SPA's `index.html`, and `audio` (an
+  `IAudioCapture` is registered), without which the tab hides its "Ton" switch.
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -197,6 +198,17 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `left`/`right`, long press = right): `IMouseService.MoveToPrimaryScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
   `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
+- `GET /screen/audio` (same gate) → one endless response of raw 16-bit little-endian PCM, format in
+  `X-Sample-Rate`/`X-Channels`, until the device aborts. `WindowsAudioCapture` is a WASAPI loopback
+  of the default playback device (mix format float32 or int16, at most the first two channels),
+  polled every 20 ms; during silence loopback delivers nothing, so nothing is sent. Raw because the
+  browser plays PCM without a decoder: `screen-audio.ts` schedules each chunk as its own
+  `AudioBufferSourceNode` (AudioWorklet exists only over HTTPS), 150 ms lead, chunks dropped beyond
+  600 ms queued. The capture was checked against a played tone on the dev PC on 2026-11-03 (48 kHz
+  stereo). The tab's "Tastatur" switch opens the device keyboard on a live field
+  (`liveTextActions` in `keyboard-keys.ts`, shared with the touchpad), "Vollbild" puts the view
+  into `requestFullscreen` with a landscape lock. The owner confirmed all three on the phone against
+  a dev build on 2026-11-03.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over

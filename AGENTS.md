@@ -460,11 +460,15 @@ Galaxy S25 (Android 16).
      session (`setAppPackageName`, `USER_ACTION_NOT_REQUIRED` on Android 12+) and the result comes
      back to `SetupActivity` as a mutable `PendingIntent` (`ACTION_UPDATE_STATUS`, singleTop); on
      `STATUS_PENDING_USER_ACTION` it starts the system's confirm dialog. The first time it sends the
-     user to "Unbekannte Apps installieren" (`REQUEST_INSTALL_PACKAGES`). Android itself rejects an
-     APK with a different signature. A successful update ends the process, so the foreground
-     service is off until the app is opened again. Only the parser and version check have unit
-     tests; download, install and the Android 12+ no-prompt path are unverified on a device (the
-     first release with the updater has to be installed by hand).
+     user to "Unbekannte Apps installieren" (`REQUEST_INSTALL_PACKAGES`); back in the app with the
+     permission granted, `onResume` continues the install on its own (`installAfterPermission`).
+     Android itself rejects an APK with a different signature. A successful update ends the
+     process, so the foreground service is off until the app is opened again. Only the parser and
+     version check have unit tests. The update 2.46.0 → 2.47.0 was verified on the phone on
+     2026-11-03. The steps were: the permission, Android's "Diese App aktualisieren?", and Google
+     Play Protect's "App-Scan empfohlen" (Play Protect does not know the self-signed APK).
+     Afterwards YFRemote is its own installer (`installerPackageName`). Whether a later update
+     then skips the prompt on Android 12+ is still unverified.
    - There is no separate Android version or trigger: every push to `main` releases Windows,
      Linux and Android together, so an Android-only change releases the PC packages too unless
      `[skip release]` is used deliberately.

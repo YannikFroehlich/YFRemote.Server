@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Android-App: Nach dem einmaligen Erlauben von "Unbekannte Apps installieren" lädt das Update gleich weiter. Bisher musste man danach "Installieren" ein zweites Mal antippen.
+
 ## [2.47.0] - 2026-11-03
 
 ### Added

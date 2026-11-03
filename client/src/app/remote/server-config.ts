@@ -17,6 +17,9 @@ export const HAPTICS_STORAGE_KEY = 'yfremote.haptics';
 export const POINTER_ACCELERATION_STORAGE_KEY = 'yfremote.pointerAcceleration';
 export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
 export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
+export const SCREEN_QUALITY_STORAGE_KEY = 'yfremote.screenQuality';
+export type ScreenQuality = 'performance' | 'balanced' | 'quality';
+export const SCREEN_QUALITIES: readonly ScreenQuality[] = ['performance', 'balanced', 'quality'];
 
 const IPV4_SEGMENT_PATTERN = '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])';
 const IPV4_PATTERN = new RegExp(
@@ -165,6 +168,10 @@ export function parseStoredScrollSpeed(rawValue: string | null): number {
   return rawValue === null
     ? DEFAULT_SCROLL_SPEED
     : (normalizeScrollSpeed(Number(rawValue)) ?? DEFAULT_SCROLL_SPEED);
+}
+
+export function parseScreenQuality(rawValue: string | null): ScreenQuality {
+  return SCREEN_QUALITIES.find((quality) => quality === rawValue) ?? 'balanced';
 }
 
 export function parseStoredFlag(rawValue: string | null, fallback: boolean): boolean {

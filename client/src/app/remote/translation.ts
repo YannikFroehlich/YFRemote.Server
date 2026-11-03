@@ -453,6 +453,10 @@ export const TRANSLATIONS = {
     en: 'Every letter goes straight to the PC',
   },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.quality': { de: 'Bildqualität', en: 'Picture quality' },
+  'screen.quality.performance': { de: 'Leistung', en: 'Performance' },
+  'screen.quality.balanced': { de: 'Ausgeglichen', en: 'Balanced' },
+  'screen.quality.quality': { de: 'Qualität', en: 'Quality' },
   'stats.windows.refresh': { de: 'Aktualisieren', en: 'Refresh' },
   'stats.windows.empty': { de: 'Keine offenen Fenster', en: 'No open windows' },
   'stats.windows.unavailable': {

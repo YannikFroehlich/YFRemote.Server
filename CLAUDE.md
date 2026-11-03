@@ -186,12 +186,20 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   windows are restored. Listing and switching back and forth were checked on the dev PC on
   2026-10-24.
 - `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of the primary screen for the Client's
-  "Bildschirm" tab, which fetches the next frame as soon as one arrived (at most 10/s, paused while
-  the page is hidden). Same gate and `no-store` as `GET /windows`, refused for "Nur Medien"
-  devices; `width` (320-3840, never upscaled) is the device's display width. `WindowsScreenCapture`
-  copies the screen with `CopyFromScreen` in physical pixels (per-monitor DPI context, like
-  `WindowsMouseService`), draws the cursor itself and encodes at quality 70; 1080 px wide took about
-  85 ms on the dev PC on 2026-11-03. The secure desktop makes it throw `Win32Exception` → `503`,
+  "Bildschirm" tab, which keeps two requests in flight, each at most every 33 ms (paused while the
+  page is hidden), and shows a frame only if no later-started one was shown already. Same gate and
+  `no-store` as `GET /windows`, refused for "Nur Medien" devices; `width` (320-3840, never upscaled)
+  is the device's display width, `quality` (30-95, default 70) the JPEG quality. The tab's select
+  (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
+  "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. `WindowsScreenCapture` uses DXGI
+  Desktop Duplication (`Vortice.Direct3D11`) of the output at (0,0): `AcquireNextFrame` waits up to
+  100 ms for a change, the staging texture keeps the last image, and the JPEG for an unchanged
+  frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
+  overlap; it drops the duplication after 10 s without requests. A lost duplication (mode change,
+  secure desktop) or a rotated monitor falls back to GDI `CopyFromScreen` (about 38 ms per copy at
+  1080p, which is why it is not the default). Both run in physical pixels (per-monitor DPI context,
+  like `WindowsMouseService`), draw the cursor themselves and encode at quality 70. On the dev PC on
+  2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop makes it throw `Win32Exception` → `503`,
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
   A tap into the image sends `screenClick` (`x`/`y` 0-1 on the primary screen, `button`

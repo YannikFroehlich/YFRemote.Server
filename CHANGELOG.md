@@ -23,7 +23,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
-- Web-Oberfläche: Der Tab "Bildschirm" hat jetzt die Schalter "Ton", "Tastatur" und "Vollbild". "Ton" spielt den Ton des PCs auf dem Gerät ab (unkomprimiert, etwa 1,5 MBit/s im WLAN). "Tastatur" blendet unter dem Bild ein Feld ein und öffnet die Handy-Tastatur; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. "Vollbild" zeigt nur noch das Bild, quer gedreht.
+- Web-Oberfläche: Der Tab "Bildschirm" hat jetzt die Schalter "Ton", "Tastatur" und "Vollbild". "Ton" spielt den Ton des PCs auf dem Gerät ab (unkomprimiert, etwa 1,5 MBit/s im WLAN). "Tastatur" blendet unter dem Bild ein Feld ein und öffnet die Handy-Tastatur; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. "Vollbild" zeigt nur noch das Bild, quer gedreht; die Schalter schweben dann als Symbole über dem Bild.
+
+### Changed
+
+- Web-Oberfläche: Der Tab "Bildschirm" läuft deutlich flüssiger, mit 30 Bildern pro Sekunde und mehr statt bisher etwa 5 bis 10. Der PC nimmt den Bildschirm jetzt über die Grafikkarte auf (DXGI Desktop Duplication) statt über GDI, und das Gerät holt zwei Bilder gleichzeitig ab. Steht das Bild still, schickt der PC deutlich weniger. Neben den Schaltern wählt man "Leistung" (mehr Bilder, gröber), "Ausgeglichen" oder "Qualität" (schärfer, mehr WLAN); das Gerät merkt sich die Wahl.
 
 ## [2.47.1] - 2026-11-03
 

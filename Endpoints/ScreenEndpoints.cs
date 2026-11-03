@@ -10,6 +10,9 @@ internal static class ScreenEndpoints
     private const int MinWidth = 320;
     private const int MaxWidth = 3840;
     private const int DefaultWidth = 1280;
+    private const int MinQuality = 30;
+    private const int MaxQuality = 95;
+    private const int DefaultQuality = 70;
 
     internal static void MapScreenEndpoints(this WebApplication app)
     {
@@ -17,7 +20,7 @@ internal static class ScreenEndpoints
         // sobald eins angekommen ist. width ist die Anzeigebreite am Geraet - mehr Pixel waeren nur
         // laengere Uebertragung. Wie GET /windows: Bearer-Token, Origin nur pruefen, wenn einer
         // mitkommt, 501 ohne Bildschirmaufnahme (Linux), 503 auf dem sicheren Desktop.
-        app.MapGet("/screen", async (HttpContext context, int? width) =>
+        app.MapGet("/screen", async (HttpContext context, int? width, int? quality) =>
         {
             if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is not { } deviceId)
             {
@@ -34,7 +37,9 @@ internal static class ScreenEndpoints
             byte[] jpeg;
             try
             {
-                jpeg = capture.CaptureJpeg(Math.Clamp(width ?? DefaultWidth, MinWidth, MaxWidth));
+                jpeg = capture.CaptureJpeg(
+                    Math.Clamp(width ?? DefaultWidth, MinWidth, MaxWidth),
+                    Math.Clamp(quality ?? DefaultQuality, MinQuality, MaxQuality));
             }
             catch (Win32Exception)
             {

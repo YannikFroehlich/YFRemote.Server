@@ -155,7 +155,7 @@ public sealed class MediaEndpointTests
         var token = await PairAndGetTokenAsync();
         using var unauthorized = await httpClient.GetAsync("/screen");
 
-        var response = await GetScreenAsync(token, "/screen?width=99999");
+        var response = await GetScreenAsync(token, "/screen?width=99999&quality=5");
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -163,6 +163,7 @@ public sealed class MediaEndpointTests
         Assert.IsTrue(response.Headers.CacheControl!.NoStore);
         CollectionAssert.AreEqual(FakeScreenCapture.Jpeg, await response.Content.ReadAsByteArrayAsync());
         Assert.AreEqual(3840, screen.LastMaxWidth);
+        Assert.AreEqual(30, screen.LastQuality);
     }
 
     [TestMethod]
@@ -253,9 +254,12 @@ public sealed class MediaEndpointTests
 
         public int LastMaxWidth { get; private set; }
 
-        public byte[] CaptureJpeg(int maxWidth)
+        public int LastQuality { get; private set; }
+
+        public byte[] CaptureJpeg(int maxWidth, int quality)
         {
             LastMaxWidth = maxWidth;
+            LastQuality = quality;
             return Blocked ? throw new System.ComponentModel.Win32Exception(5) : Jpeg;
         }
     }

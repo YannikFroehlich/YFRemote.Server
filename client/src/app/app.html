@@ -8,7 +8,9 @@
 }
 
 @if (bluetooth; as bridge) {
-  <app-gamepad (closed)="bridge.close()" />
+  @defer (on immediate) {
+    <app-gamepad (closed)="bridge.close()" />
+  }
 } @else if (pairing.isPaired()) {
   <app-remote-control />
 } @else {

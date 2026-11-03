@@ -21,6 +21,26 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Aktualisiert sich selbst. Beim Öffnen (und danach alle 6 Stunden, solange sie offen ist) prüft die App, ob auf GitHub eine neuere Version liegt, und zeigt dann oben "Update verfügbar". "Installieren" lädt die neue APK und installiert sie über die alte, die Daten bleiben erhalten. Beim ersten Mal fragt Android, ob YFRemote Apps installieren darf; danach bestätigt man jedes Update mit einem Tippen (ab Android 12 kann diese Rückfrage auch entfallen). Gilt ab der Version nach dieser: die erste muss man noch von Hand installieren.
+- Android-App: Die Lautstärketasten des Handys regeln die Lautstärke am gesteuerten PC, solange die Fernbedienung offen und verbunden ist. Ohne Verbindung regeln sie wie gewohnt das Handy.
+- Web-Oberfläche: Neuer Tab "Folien" zum Präsentieren. Große Tasten für Zurück und Weiter, dazu "Starten", "Ab hier", "Schwarz" und "Beenden"; das klappt mit PowerPoint, LibreOffice, Google Slides und PDF-Betrachtern. "Laserpointer" schaltet in PowerPoint den Laserpointer ein und blendet eine Fläche ein, mit der man ihn per Finger bewegt. In der Android-App blättern die Lautstärketasten in diesem Tab (lauter = weiter, leiser = zurück).
+- Web-Oberfläche: Makro-Rekorder für eigene Buttons. Unter "Layout bearbeiten" startet "Aufnehmen" eine Aufnahme; danach bedient man die Fernbedienung ganz normal, und Tasten, Tastenkombinationen, Text und Klicks werden samt den Pausen dazwischen mitgeschrieben (bis zu 10 Schritte, Mausbewegungen und Scrollen nicht). "Fertig" öffnet den Button-Editor mit den aufgenommenen Schritten, "Verwerfen" bricht ab.
+
+- Web-Oberfläche: Der Tab "Folien" misst die Vortragszeit. Der Timer startet mit "Starten" oder "Ab hier", läuft auch beim Wechsel in andere Tabs weiter, springt beim Antippen auf 0:00 und verschwindet mit "Beenden".
+- Web-Oberfläche: Zielzeit im Tab "Folien" (5 bis 60 Minuten, bleibt gespeichert). Der Timer zeigt dann z. B. "12:34 / 15:00", wird zwei Minuten vor Schluss gelb (bei kurzen Vorträgen nach vier Fünfteln der Zeit) und nach Ablauf rot. Beide Male vibriert das Handy lautlos, auch wenn gerade ein anderer Tab offen ist.
+
+### Changed
+
+- Web-Oberfläche: Controller, "PC", "Mixer" und "Folien" laden erst beim Öffnen nach. Das erste Laden wird dadurch rund 40 kB kleiner.
+
+### Added
+
+- Android-App: Was am gesteuerten PC läuft, erscheint als Media-Benachrichtigung und auf dem Sperrbildschirm – mit Titel, Interpret, Cover und Zeitleiste. Zurück, Abspielen/Pause und Weiter steuern den PC direkt von dort, und wo die Medien-App es erlaubt, springt ein Ziehen an der Zeitleiste an die Stelle. Die Benachrichtigung gibt es, solange die Fernbedienung in der App geöffnet ist, und sie verschwindet beim Verlassen oder wenn am PC nichts mehr läuft.
+
+## [2.44.0] - 2026-11-02
+
 ### Changed
 
 - Android-App: Der Startbildschirm sieht moderner aus und bewegt sich weich. Karten gleiten beim Öffnen und beim Wechsel zwischen "Steuern", "Freigeben" und "Controller" gestaffelt herein, die Leiste unten blendet den aktiven Eintrag animiert um, Buttons sind Pillen mit Farbverlauf, Ripple und leichtem Eindrücken beim Antippen. Status-Punkte, PIN und QR-Code wechseln mit Übergang statt hart, Dialoge wachsen aus der Mitte auf (ab Android 12 mit unscharfem Hintergrund), und die App reicht randlos bis unter die Statusleiste. Die Liste der gekoppelten Geräte wird nur noch bei einer Änderung neu aufgebaut, sodass ein Tipp auf "Nur Medien" oder "Entkoppeln" nicht mehr verloren gehen kann.

@@ -296,7 +296,27 @@ have no URL for `DownloadManager`, so the Client's `FILE_SAVER` hands them to
 `YFRemoteDownloads.save(fileName, mimeType, base64)`, which writes them through
 `MediaStore.Downloads` into `Downloads/YFRemote` - only while the loaded page is still on the
 target's origin. An older app without `save` makes `FILE_SAVER` report failure instead of
-clicking a dead `blob:` link.
+clicking a dead `blob:` link. A third bridge, `window.YFRemoteMedia`, mirrors the target's `media`
+push into a media notification: the Client's `MediaBridgeService` (`MEDIA_BRIDGE`) calls
+`update(json)` with title/artist/playing/position/duration/canSeek, `cover(dataUrl)` per new cover
+and `clear()` without a title, and `remote/RemoteMediaNotification` turns that into a
+`MediaSession` plus `Notification.MediaStyle` (lock screen too, no `POST_NOTIFICATIONS` needed for
+media notifications on Android 13+). Its buttons answer with `yfremote-media` events (`key` with
+`MEDIA_PLAY_PAUSE`/`MEDIA_NEXT`/`MEDIA_PREVIOUS`, `seek` in seconds), which the Client sends as
+normal actions. The same bridge's `captureVolumeKeys(enabled)` (sent by the Client while connected)
+makes `RemoteWebActivity.dispatchKeyEvent` swallow the phone's volume keys and answer with
+`{type:'volume',direction}`, which the Client sends as `VOLUME_UP`/`VOLUME_DOWN`, or which the
+"Folien" tab turns into slide steps (`MediaBridgeService.setVolumeKeyHandler`); only in the
+foreground. The notification lives as long as `RemoteWebActivity`. Two things keep it working in
+the background, both measured on the dev phone (Android 16) on 2026-11-03:
+`remote/RemoteMediaService`, a `mediaPlayback` foreground service that runs only while the
+notification is shown (Android's background firewall chain otherwise cut the app's network about
+6 s after leaving it), and a `WebView` subclass in `RemoteWebActivity` that reports itself visible
+while `media.isShowing` (Chromium otherwise froze the hidden page after about 60 s, so no `media`
+pushes arrived and the notification stayed on the old state; a Web Lock did not prevent that).
+With both, pushes and the notification's buttons kept working with the app in the background and
+with the screen off for 150 s, and the lock screen shows the player. Not measured: hours with the
+screen off (Doze).
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as
@@ -432,6 +452,19 @@ Galaxy S25 (Android 16).
      assemble`). Neither may be named
      `build-and-test` — that name is the required status check on `main` (see "Release
      automation" below) and must stay pointed at the Windows server job.
+   - The app updates itself from the same GitHub Release (`update/AppUpdate.kt`, Velopack has no
+     Android support): `SetupActivity.checkForUpdate` asks `releases/latest` on every `onResume`
+     at most every 6 hours, takes the `.apk` asset only from this repository's
+     `releases/download/` URL, and offers it only for a strictly higher `x.y.z` versionName, so a
+     `0.1-dev` build never sees one. "Installieren" streams the APK into a `PackageInstaller`
+     session (`setAppPackageName`, `USER_ACTION_NOT_REQUIRED` on Android 12+) and the result comes
+     back to `SetupActivity` as a mutable `PendingIntent` (`ACTION_UPDATE_STATUS`, singleTop); on
+     `STATUS_PENDING_USER_ACTION` it starts the system's confirm dialog. The first time it sends the
+     user to "Unbekannte Apps installieren" (`REQUEST_INSTALL_PACKAGES`). Android itself rejects an
+     APK with a different signature. A successful update ends the process, so the foreground
+     service is off until the app is opened again. Only the parser and version check have unit
+     tests; download, install and the Android 12+ no-prompt path are unverified on a device (the
+     first release with the updater has to be installed by hand).
    - There is no separate Android version or trigger: every push to `main` releases Windows,
      Linux and Android together, so an Android-only change releases the PC packages too unless
      `[skip release]` is used deliberately.

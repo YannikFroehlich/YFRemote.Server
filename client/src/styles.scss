@@ -894,9 +894,30 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-.timer-strip .secondary-button {
+.timer-strip .secondary-button,
+.recorder-strip .primary-button {
   min-height: 32px;
   padding: 0 12px;
+}
+
+.recorder-strip {
+  border-color: rgba(var(--danger-rgb), 0.4);
+  color: var(--danger);
+}
+
+.recorder-strip__dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: recorder-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recorder-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .system-stats {
@@ -1368,6 +1389,7 @@ select:focus-visible {
 
 .field input,
 .field select,
+.presentation__target select,
 .macro-text-input {
   width: 100%;
   min-height: 50px;
@@ -1385,12 +1407,14 @@ select:focus-visible {
 
 .field input:hover,
 .field select:hover,
+.presentation__target select:hover,
 .macro-text-input:hover {
   border-color: rgba(var(--line-rgb), 0.16);
 }
 
 .field input:focus,
 .field select:focus,
+.presentation__target select:focus,
 .macro-text-input:focus {
   border-color: var(--line-strong);
   background: var(--surface-focus);
@@ -2050,6 +2074,108 @@ select:focus-visible {
   color: var(--accent);
   font-size: 0.79rem;
   font-weight: 720;
+}
+
+.presentation__steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.presentation__step {
+  min-height: 132px;
+}
+
+.presentation__step svg {
+  width: 36px;
+  height: 36px;
+}
+
+.presentation__step span {
+  font-size: 0.95rem;
+}
+
+.presentation__actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.presentation__timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: var(--border-width) solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.presentation__timer--warning {
+  border-color: rgba(var(--warning-rgb), 0.5);
+  background: rgba(var(--warning-rgb), 0.14);
+  color: var(--warning);
+}
+
+.presentation__timer--over {
+  border-color: rgba(var(--danger-rgb), 0.55);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.presentation__options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.presentation__target {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.presentation__target select {
+  width: auto;
+  min-height: 38px;
+  font-size: 0.9rem;
+}
+
+.presentation__timer svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.presentation__actions .secondary-button {
+  padding: 0 6px;
+}
+
+.presentation__pad {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle, rgba(var(--well-dot-rgb), 0.07) 1px, transparent 1.2px),
+    var(--surface-well);
+  background-size: 22px 22px, auto;
+  color: var(--muted);
+  font-size: 0.76rem;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .keyboard-card {

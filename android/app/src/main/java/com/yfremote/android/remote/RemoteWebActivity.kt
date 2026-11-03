@@ -23,6 +23,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -57,6 +58,10 @@ class RemoteWebActivity : Activity() {
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
     private var orientationWanted = false
     private var speech: SpeechRecognizer? = null
+    private lateinit var media: RemoteMediaNotification
+    // Nur auf Wunsch des Web-Clients: eine aeltere Oberflaeche ohne Gegenstelle bekaeme die Tasten nie.
+    @Volatile
+    private var captureVolumeKeys = false
     // Bridge-Aufrufe kommen auf einem eigenen Thread; webView.url duerfte dort nicht gelesen werden.
     @Volatile
     private var pageOrigin: String? = null
@@ -91,8 +96,15 @@ class RemoteWebActivity : Activity() {
         val url = intent.getStringExtra(EXTRA_URL) ?: return finish()
         val origin = originOf(url)
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
+        media = RemoteMediaNotification(this, title?.toString(), ::sendMedia)
 
-        webView = WebView(this).apply {
+        // Chromium friert eine unsichtbare Seite nach etwa einer Minute ein: Danach kamen keine
+        // Medien-Meldungen mehr an, und die Benachrichtigung blieb auf dem alten Stand. Solange sie
+        // zu sehen ist, gilt das WebView darum weiter als sichtbar (das Netz haelt RemoteMediaService).
+        webView = object : WebView(this) {
+            override fun onWindowVisibilityChanged(visibility: Int) =
+                super.onWindowVisibilityChanged(if (media.isShowing) View.VISIBLE else visibility)
+        }.apply {
             setBackgroundColor(getColor(R.color.brand_background))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
@@ -102,6 +114,7 @@ class RemoteWebActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                     pageOrigin = originOf(url)
+                    captureVolumeKeys = false
                 }
 
                 // Der lokalen CA des PCs vertraut Android nicht. Durchgelassen wird nur das Zielgeraet,
@@ -122,6 +135,7 @@ class RemoteWebActivity : Activity() {
             addJavascriptInterface(SensorBridge(), "YFRemoteSensors")
             addJavascriptInterface(DeviceBridge(), "YFRemoteDevice")
             addJavascriptInterface(SpeechBridge(), "YFRemoteSpeech")
+            addJavascriptInterface(MediaBridge(origin), "YFRemoteMedia")
             // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden"),
             // ohne onShowCustomView lehnt das WebView requestFullscreen() ab ("Fullscreen is not
             // supported") - der Controller bliebe dann hochkant mit Browser-Rand.
@@ -292,6 +306,45 @@ class RemoteWebActivity : Activity() {
         fun stop() = runOnUiThread { speech?.stopListening() }
     }
 
+    // Media-Benachrichtigung (RemoteMediaNotification), nur fuer die Oberflaeche des Zielgeraets.
+    private inner class MediaBridge(private val origin: String) {
+        @JavascriptInterface
+        fun update(json: String) {
+            val status = runCatching { JSONObject(json) }.getOrNull() ?: return
+            runOnUiThread { if (pageOrigin == origin) media.update(status) }
+        }
+
+        @JavascriptInterface
+        fun cover(dataUrl: String) = runOnUiThread { if (pageOrigin == origin) media.cover(dataUrl) }
+
+        @JavascriptInterface
+        fun clear() = runOnUiThread { media.clear() }
+
+        // Lautstaerketasten des Handys gehen an das Zielgeraet (oder blaettern im Praesentationsmodus).
+        @JavascriptInterface
+        fun captureVolumeKeys(enabled: Boolean) {
+            captureVolumeKeys = enabled && pageOrigin == origin
+        }
+    }
+
+    private fun sendMedia(detail: JSONObject) {
+        webView.evaluateJavascript("dispatchEvent(new CustomEvent('yfremote-media',{detail:$detail}))", null)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val direction = when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> "up"
+            KeyEvent.KEYCODE_VOLUME_DOWN -> "down"
+            else -> null
+        }
+        if (direction == null || !captureVolumeKeys) return super.dispatchKeyEvent(event)
+        // Gedrueckt halten wiederholt ACTION_DOWN, wie am Handy selbst.
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            sendMedia(JSONObject().put("type", "volume").put("direction", direction))
+        }
+        return true
+    }
+
     private fun startSpeech(lang: String) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             pendingSpeechLang = lang
@@ -434,6 +487,7 @@ class RemoteWebActivity : Activity() {
 
     override fun onDestroy() {
         speech?.destroy()
+        if (::media.isInitialized) media.release()
         webView.destroy()
         super.onDestroy()
     }

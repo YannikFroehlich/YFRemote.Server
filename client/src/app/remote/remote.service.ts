@@ -17,6 +17,7 @@ import {
   VoicemeeterMessage,
   AppVolumesMessage,
 } from './remote.models';
+import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
   CLIPBOARD_SYNC_STORAGE_KEY,
@@ -158,6 +159,8 @@ export class RemoteService implements OnDestroy {
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
+  private readonly recordedStepsSignal = signal<readonly MacroStep[] | null>(null);
+  private lastRecordedAt = 0;
   private voicemeeterWatched = false;
   private readonly appsSignal = signal<AppVolumesMessage | null>(null);
   private appsWatched = false;
@@ -220,6 +223,8 @@ export class RemoteService implements OnDestroy {
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
   readonly apps = this.appsSignal.asReadonly();
+  /** Bisher aufgenommene Makro-Schritte; `null`, solange keine Aufnahme laeuft. */
+  readonly recordedSteps = this.recordedStepsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
@@ -480,6 +485,7 @@ export class RemoteService implements OnDestroy {
         await sleep(step.delayMs);
       }
 
+      this.record(step.action);
       const succeeded = waitForServerConfirmation
         ? await this.sendActionAndWait(step.action)
         : this.sendActionRequest(step.action);
@@ -495,7 +501,38 @@ export class RemoteService implements OnDestroy {
       this.hapticPulse();
     }
 
+    this.record(action);
     return this.sendActionRequest(action);
+  }
+
+  /** Nimmt ab jetzt alles auf, was ein eigener Button wiederholen kann (Tasten, Text, Klicks,
+   *  Öffnen, ...); Mausbewegungen, Scrollen und Controller fallen weg. */
+  startRecording(): void {
+    this.recordedStepsSignal.set([]);
+  }
+
+  stopRecording(): readonly MacroStep[] {
+    const steps = this.recordedStepsSignal() ?? [];
+    this.recordedStepsSignal.set(null);
+    return steps;
+  }
+
+  // Die Pause vor einem Schritt ist der Abstand zur vorigen Eingabe, gekappt wie im Editor.
+  private record(action: RemoteAction): void {
+    const steps = this.recordedStepsSignal();
+    if (steps === null || steps.length >= MAX_MACRO_STEPS) {
+      return;
+    }
+
+    const now = Date.now();
+    const step = normalizeMacroStep({
+      action,
+      delayMs: steps.length === 0 ? 0 : now - this.lastRecordedAt,
+    });
+    if (step !== null) {
+      this.lastRecordedAt = now;
+      this.recordedStepsSignal.set([...steps, step]);
+    }
   }
 
   private hapticPulse(): void {

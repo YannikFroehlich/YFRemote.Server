@@ -6,8 +6,10 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Dialog
+import android.app.PendingIntent
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -20,12 +22,14 @@ import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.net.ConnectivityManager
+import android.net.Uri
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.text.InputType
 import android.util.Base64
@@ -68,6 +72,10 @@ import com.yfremote.android.remote.RemoteWebActivity
 import com.yfremote.android.remote.WakeOnLan
 import com.yfremote.android.server.KtorServer
 import com.yfremote.android.service.YFRemoteForegroundService
+import com.yfremote.android.update.AppRelease
+import com.yfremote.android.update.fetchLatestRelease
+import com.yfremote.android.update.installRelease
+import com.yfremote.android.update.isNewerVersion
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.NetworkInterface
@@ -76,6 +84,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.HttpsURLConnection
+import kotlin.concurrent.thread
 import org.json.JSONObject
 
 // Android-Aequivalent zu TrayApplicationContext (Windows) - PIN-Anzeige, gekoppelte Geraete,
@@ -105,6 +114,11 @@ class SetupActivity : Activity() {
     private var currentSection = -1
     private var renderedPairedDevices: Any? = null
     private lateinit var headerView: View
+    private lateinit var updateCard: View
+    private lateinit var updateText: TextView
+    private lateinit var updateButton: Button
+    private var availableUpdate: AppRelease? = null
+    private var lastUpdateCheck = 0L
 
     // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
     private val emphasized = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
@@ -155,12 +169,19 @@ class SetupActivity : Activity() {
         window.navigationBarColor = Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         setContentView(buildLayout())
+        handleUpdateStatus(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleUpdateStatus(intent)
     }
 
     override fun onResume() {
         super.onResume()
         BluetoothGamepad.listeners += gamepadListener
         refreshHandler.post(refreshRunnable)
+        checkForUpdate()
     }
 
     override fun onPause() {
@@ -187,6 +208,7 @@ class SetupActivity : Activity() {
 
         val root = column().apply { setPadding(dp(20), dp(16), dp(20), dp(32)) }
         root.addView(header())
+        root.addView(updateCard())
         sections.forEach {
             root.addView(it.page)
             (it.page as ViewGroup).layoutTransition = smoothResize()
@@ -590,6 +612,85 @@ class SetupActivity : Activity() {
                 addView(subtitleText)
             },
         )
+    }
+
+    private fun updateCard(): View = card("Update verfügbar").also { updateCard = it }.apply {
+        visibility = View.GONE
+        updateText = mutedText()
+        addView(updateText)
+        updateButton = primaryButton("Installieren") { installUpdate() }
+        addView(updateButton)
+    }
+
+    // Wie der Tray unter Windows: beim Start und danach alle 6 Stunden, solange die App offen ist.
+    private fun checkForUpdate() {
+        val now = SystemClock.elapsedRealtime()
+        if (lastUpdateCheck != 0L && now - lastUpdateCheck < UPDATE_CHECK_INTERVAL_MS) return
+        lastUpdateCheck = now
+        val current = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+        remoteCheckExecutor.execute {
+            val release = try {
+                fetchLatestRelease()
+            } catch (e: Exception) {
+                null
+            }
+            if (release != null && isNewerVersion(release.version, current)) {
+                runOnUiThread {
+                    availableUpdate = release
+                    updateText.text = "Version ${release.version} ist da (installiert: $current)."
+                    updateCard.visibility = View.VISIBLE
+                }
+            }
+        }
+    }
+
+    private fun installUpdate() {
+        val release = availableUpdate ?: return
+        // Einmalig: Android verlangt fuer YFRemote die Freigabe "Unbekannte Apps installieren".
+        if (!packageManager.canRequestPackageInstalls()) {
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            return
+        }
+        updateButton.isEnabled = false
+        updateButton.text = "Wird geladen …"
+        // MUTABLE: PackageInstaller traegt Status und Bestaetigungs-Intent als Extras ein.
+        val status = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, SetupActivity::class.java)
+                .setAction(ACTION_UPDATE_STATUS)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        )
+        thread {
+            try {
+                installRelease(this, release, status)
+            } catch (e: Exception) {
+                runOnUiThread { updateFailed("Download fehlgeschlagen.") }
+            }
+        }
+    }
+
+    // Bei Erfolg beendet Android die App fuer das Update; hier landen nur Rueckfrage und Fehler.
+    private fun handleUpdateStatus(intent: Intent?) {
+        if (intent?.action != ACTION_UPDATE_STATUS) return
+        when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION ->
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)?.let { startActivity(it) }
+            PackageInstaller.STATUS_SUCCESS -> Unit
+            PackageInstaller.STATUS_FAILURE_ABORTED -> updateFailed("Installation abgebrochen.")
+            else -> updateFailed(
+                "Update fehlgeschlagen: ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "unbekannter Fehler"}",
+            )
+        }
+    }
+
+    private fun updateFailed(message: String) {
+        if (availableUpdate == null) return
+        updateText.text = message
+        updateButton.isEnabled = true
+        updateButton.text = "Erneut versuchen"
     }
 
     private fun card(title: String): LinearLayout = column().apply {
@@ -1459,6 +1560,8 @@ class SetupActivity : Activity() {
     private companion object {
         const val OFFLINE = "offline"
         const val KEY_SECTION = "section"
+        const val ACTION_UPDATE_STATUS = "com.yfremote.android.UPDATE_STATUS"
+        const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
         const val BLUETOOTH_REQUEST = 2
         const val QR_SIZE_DP = 220
     }

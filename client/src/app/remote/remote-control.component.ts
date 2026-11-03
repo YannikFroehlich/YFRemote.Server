@@ -10,19 +10,32 @@ import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
 import { ClipboardSyncService } from './clipboard-sync.service';
+import { MediaBridgeService } from './media-bridge.service';
 import { FileTransferService } from './file-transfer.service';
 import { GamepadComponent } from './gamepad/gamepad.component';
 import { KeyboardPadComponent } from './keyboard-pad.component';
 import { REMOTE_ICON_PATHS } from './remote-icons';
-import { ConnectionStatus, FileOfferMessage } from './remote.models';
+import { MAX_MACRO_STEPS } from './button-layout';
+import { formatDuration } from './duration';
+import { ConnectionStatus, FileOfferMessage, MacroStep } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SettingsDialogComponent } from './settings-dialog.component';
 import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
 import { MixerComponent } from './mixer.component';
+import { PresentationComponent } from './presentation.component';
 
-type RemoteView = 'remote' | 'touchpad' | 'keyboard' | 'gamepad' | 'system' | 'mixer';
+type RemoteView =
+  | 'remote'
+  | 'touchpad'
+  | 'keyboard'
+  | 'presentation'
+  | 'gamepad'
+  | 'system'
+  | 'mixer';
+// "Nur Medien": Eingaben ausser Medientasten lehnt der PC ab.
+const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set(['touchpad', 'keyboard', 'presentation', 'gamepad']);
 
 // Etwas laenger als der Sekundentakt der Medienmeldung, damit die neue Position schon da ist.
 const SEEK_SETTLE_MS = 1500;
@@ -38,6 +51,7 @@ const SEEK_SETTLE_MS = 1500;
     GamepadComponent,
     SystemStatsComponent,
     MixerComponent,
+    PresentationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './remote-control.component.html',
@@ -60,7 +74,7 @@ export class RemoteControlComponent {
   protected readonly fileOffer = this.remote.fileOffer;
   protected readonly mediaStatus = this.remote.mediaStatus;
   protected readonly mediaCover = this.remote.mediaCover;
-  protected readonly formatTime = formatCountdown;
+  protected readonly formatTime = formatDuration;
   // Waehrend des Ziehens und kurz danach zeigt die Zeitleiste die Zielstelle: die sekuendliche
   // Meldung setzte den Regler sonst mitten im Ziehen zurueck, und die neue Position kommt erst mit
   // der naechsten Meldung.
@@ -80,10 +94,12 @@ export class RemoteControlComponent {
   protected readonly shutdownCountdown = computed(() => {
     const deadline = this.remote.shutdownDeadline();
     const seconds = deadline === null ? 0 : Math.ceil((deadline - this.now()) / 1000);
-    return seconds > 0 ? formatCountdown(seconds) : null;
+    return seconds > 0 ? formatDuration(seconds) : null;
   });
   // Lebt, solange die Fernbedienung offen ist - sonst haette niemand die Zwischenablage im Blick.
   private readonly clipboardSync = inject(ClipboardSyncService);
+  // Media-Benachrichtigung der Android-App; ausserhalb der App tut der Dienst nichts.
+  private readonly mediaBridge = inject(MediaBridgeService);
   protected readonly fileOfferTitleKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'fileOffer.title.android' : 'fileOffer.title',
   );
@@ -112,7 +128,7 @@ export class RemoteControlComponent {
     if (
       (!this.systemStatsSupported() && view === 'system') ||
       (!this.mixerSupported() && view === 'mixer') ||
-      (this.mediaOnly() && (view === 'touchpad' || view === 'keyboard' || view === 'gamepad'))
+      (this.mediaOnly() && INPUT_VIEWS.has(view))
     ) {
       this.activeView.set('remote');
     }
@@ -120,6 +136,9 @@ export class RemoteControlComponent {
   protected readonly editMode = signal(false);
   protected readonly editorOpen = signal(false);
   protected readonly editorTargetId = signal<string | null>(null);
+  protected readonly editorInitialSteps = signal<readonly MacroStep[]>([]);
+  protected readonly recordedSteps = this.remote.recordedSteps;
+  protected readonly maxMacroSteps = MAX_MACRO_STEPS;
   protected readonly resetPending = signal(false);
 
   protected async downloadFileOffer(offer: FileOfferMessage): Promise<void> {
@@ -193,9 +212,27 @@ export class RemoteControlComponent {
     this.layout.setSnapToGrid(!this.layout.snapToGrid());
   }
 
-  protected openButtonEditor(id: string | null): void {
+  protected openButtonEditor(id: string | null, initialSteps: readonly MacroStep[] = []): void {
     this.editorTargetId.set(id);
+    this.editorInitialSteps.set(initialSteps);
     this.editorOpen.set(true);
+  }
+
+  // Waehrend der Aufnahme bedient man die Fernbedienung ganz normal, also ohne Bearbeitungsmodus.
+  protected startRecording(): void {
+    this.editMode.set(false);
+    this.remote.startRecording();
+  }
+
+  protected stopRecording(): void {
+    const steps = this.remote.stopRecording();
+    if (steps.length > 0) {
+      this.openButtonEditor(null, steps);
+    }
+  }
+
+  protected discardRecording(): void {
+    this.remote.stopRecording();
   }
 
   protected onEditButtonRequested(id: string): void {
@@ -235,11 +272,3 @@ export class RemoteControlComponent {
   }
 }
 
-function formatCountdown(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = String(totalSeconds % 60).padStart(2, '0');
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
-    : `${minutes}:${seconds}`;
-}

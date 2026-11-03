@@ -1,0 +1,97 @@
+<section class="keyboard-card presentation">
+  <header class="keyboard-card__header">
+    <div>
+      <p class="eyebrow">{{ i18n.t('presentation.eyebrow') }}</p>
+      <h2>{{ i18n.t('presentation.title') }}</h2>
+    </div>
+    @if (elapsed(); as time) {
+      <button
+        class="presentation__timer"
+        [class.presentation__timer--warning]="clock.phase() === 'warning'"
+        [class.presentation__timer--over]="clock.phase() === 'over'"
+        type="button"
+        [attr.aria-label]="i18n.t('presentation.timerRestart', { time })"
+        [attr.title]="i18n.t('presentation.timerRestart', { time })"
+        (click)="restartTimer()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.timer"></path>
+        </svg>
+        {{ time }}
+      </button>
+    } @else {
+      <span class="keyboard-card__hint">
+        {{ i18n.t(volumeKeysAvailable ? 'presentation.hintVolumeKeys' : 'presentation.hint') }}
+      </span>
+    }
+  </header>
+
+  <div class="presentation__steps">
+    <button class="control-button presentation__step" type="button" (click)="step(-1)">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths['arrow-left']"></path>
+      </svg>
+      <span>{{ i18n.t('presentation.previous') }}</span>
+    </button>
+    <button class="control-button presentation__step" type="button" (click)="step(1)">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths['arrow-right']"></path>
+      </svg>
+      <span>{{ i18n.t('presentation.next') }}</span>
+    </button>
+  </div>
+
+  <div class="presentation__actions">
+    <button class="secondary-button" type="button" (click)="start('F5')">
+      {{ i18n.t('presentation.start') }}
+    </button>
+    <button class="secondary-button" type="button" (click)="start('SHIFT', 'F5')">
+      {{ i18n.t('presentation.startHere') }}
+    </button>
+    <button class="secondary-button" type="button" (click)="press('B')">
+      {{ i18n.t('presentation.black') }}
+    </button>
+    <button class="secondary-button" type="button" (click)="end()">
+      {{ i18n.t('presentation.end') }}
+    </button>
+  </div>
+
+  <div class="presentation__options">
+    <button
+      class="snap-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="laser()"
+      (click)="toggleLaser()"
+    >
+      {{ i18n.t('presentation.laser') }}
+    </button>
+    <label class="presentation__target">
+      {{ i18n.t('presentation.target') }}
+      <select (change)="onTargetChange($event)">
+        @for (minutes of targets; track minutes) {
+          <option [value]="'' + minutes" [selected]="minutes === clock.targetMinutes()">
+            {{
+              minutes === 0
+                ? i18n.t('presentation.targetNone')
+                : i18n.t('presentation.targetMinutes', { minutes: '' + minutes })
+            }}
+          </option>
+        }
+      </select>
+    </label>
+  </div>
+
+  @if (laser()) {
+    <div
+      class="presentation__pad"
+      [attr.aria-label]="i18n.t('presentation.pad')"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (pointercancel)="onPointerUp($event)"
+    >
+      {{ i18n.t('presentation.pad') }}
+    </div>
+  }
+</section>

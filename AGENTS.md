@@ -296,7 +296,15 @@ have no URL for `DownloadManager`, so the Client's `FILE_SAVER` hands them to
 `YFRemoteDownloads.save(fileName, mimeType, base64)`, which writes them through
 `MediaStore.Downloads` into `Downloads/YFRemote` - only while the loaded page is still on the
 target's origin. An older app without `save` makes `FILE_SAVER` report failure instead of
-clicking a dead `blob:` link.
+clicking a dead `blob:` link. A third bridge, `window.YFRemoteMedia`, mirrors the target's `media`
+push into a media notification: the Client's `MediaBridgeService` (`MEDIA_BRIDGE`) calls
+`update(json)` with title/artist/playing/position/duration/canSeek, `cover(dataUrl)` per new cover
+and `clear()` without a title, and `remote/RemoteMediaNotification` turns that into a
+`MediaSession` plus `Notification.MediaStyle` (lock screen too, no `POST_NOTIFICATIONS` needed for
+media notifications on Android 13+). Its buttons answer with `yfremote-media` events (`key` with
+`MEDIA_PLAY_PAUSE`/`MEDIA_NEXT`/`MEDIA_PREVIOUS`, `seek` in seconds), which the Client sends as
+normal actions. It lives as long as `RemoteWebActivity`; whether the WebView keeps the socket and
+the notification alive in the background or with the screen off is not verified on a phone yet.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as

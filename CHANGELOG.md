@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Was am gesteuerten PC läuft, erscheint als Media-Benachrichtigung und auf dem Sperrbildschirm – mit Titel, Interpret, Cover und Zeitleiste. Zurück, Abspielen/Pause und Weiter steuern den PC direkt von dort, und wo die Medien-App es erlaubt, springt ein Ziehen an der Zeitleiste an die Stelle. Die Benachrichtigung gibt es, solange die Fernbedienung in der App geöffnet ist, und sie verschwindet beim Verlassen oder wenn am PC nichts mehr läuft.
+
 ## [2.44.0] - 2026-11-02
 
 ### Changed

@@ -57,6 +57,7 @@ class RemoteWebActivity : Activity() {
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
     private var orientationWanted = false
     private var speech: SpeechRecognizer? = null
+    private lateinit var media: RemoteMediaNotification
     // Bridge-Aufrufe kommen auf einem eigenen Thread; webView.url duerfte dort nicht gelesen werden.
     @Volatile
     private var pageOrigin: String? = null
@@ -91,6 +92,9 @@ class RemoteWebActivity : Activity() {
         val url = intent.getStringExtra(EXTRA_URL) ?: return finish()
         val origin = originOf(url)
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
+        media = RemoteMediaNotification(this, title?.toString()) { detail ->
+            webView.evaluateJavascript("dispatchEvent(new CustomEvent('yfremote-media',{detail:$detail}))", null)
+        }
 
         webView = WebView(this).apply {
             setBackgroundColor(getColor(R.color.brand_background))
@@ -122,6 +126,7 @@ class RemoteWebActivity : Activity() {
             addJavascriptInterface(SensorBridge(), "YFRemoteSensors")
             addJavascriptInterface(DeviceBridge(), "YFRemoteDevice")
             addJavascriptInterface(SpeechBridge(), "YFRemoteSpeech")
+            addJavascriptInterface(MediaBridge(origin), "YFRemoteMedia")
             // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden"),
             // ohne onShowCustomView lehnt das WebView requestFullscreen() ab ("Fullscreen is not
             // supported") - der Controller bliebe dann hochkant mit Browser-Rand.
@@ -292,6 +297,21 @@ class RemoteWebActivity : Activity() {
         fun stop() = runOnUiThread { speech?.stopListening() }
     }
 
+    // Media-Benachrichtigung (RemoteMediaNotification), nur fuer die Oberflaeche des Zielgeraets.
+    private inner class MediaBridge(private val origin: String) {
+        @JavascriptInterface
+        fun update(json: String) {
+            val status = runCatching { JSONObject(json) }.getOrNull() ?: return
+            runOnUiThread { if (pageOrigin == origin) media.update(status) }
+        }
+
+        @JavascriptInterface
+        fun cover(dataUrl: String) = runOnUiThread { if (pageOrigin == origin) media.cover(dataUrl) }
+
+        @JavascriptInterface
+        fun clear() = runOnUiThread { media.clear() }
+    }
+
     private fun startSpeech(lang: String) {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             pendingSpeechLang = lang
@@ -434,6 +454,7 @@ class RemoteWebActivity : Activity() {
 
     override fun onDestroy() {
         speech?.destroy()
+        if (::media.isInitialized) media.release()
         webView.destroy()
         super.onDestroy()
     }

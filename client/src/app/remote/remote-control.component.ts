@@ -10,6 +10,7 @@ import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
 import { ClipboardSyncService } from './clipboard-sync.service';
+import { MediaBridgeService } from './media-bridge.service';
 import { FileTransferService } from './file-transfer.service';
 import { GamepadComponent } from './gamepad/gamepad.component';
 import { KeyboardPadComponent } from './keyboard-pad.component';
@@ -84,6 +85,8 @@ export class RemoteControlComponent {
   });
   // Lebt, solange die Fernbedienung offen ist - sonst haette niemand die Zwischenablage im Blick.
   private readonly clipboardSync = inject(ClipboardSyncService);
+  // Media-Benachrichtigung der Android-App; ausserhalb der App tut der Dienst nichts.
+  private readonly mediaBridge = inject(MediaBridgeService);
   protected readonly fileOfferTitleKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'fileOffer.title.android' : 'fileOffer.title',
   );

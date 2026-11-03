@@ -253,6 +253,19 @@ new component the same, unless everything its template reads is a signal or an i
      the keys. Their brand colors are `--pad-*`/`--xbox-*`/`--ps-*`/`--snes-*` tokens in `:root` with no
      light-mode override on purpose - the buttons stay dark like on the real pad. That styling is
      why the `anyComponentStyle` budget in `angular.json` is 16/20 kB.
+   - `PresentationComponent` (the "Folien" tab, hidden for "Nur Medien") sends `LEFT`/`RIGHT`,
+     `F5`, `SHIFT+F5`, `B`, `ESC`; "Laserpointer" sends PowerPoint's `CTRL+L` (`CTRL+A` back to the
+     arrow) and shows a drag pad that sends `mouseMove` like the touchpad (rAF-batched). In the
+     Android app it takes the phone's volume keys via `MediaBridgeService.setVolumeKeyHandler`
+     (`window.YFRemoteMedia`, `media-bridge.service.ts`), which otherwise sends them as
+     `VOLUME_UP`/`VOLUME_DOWN`. Presentation, system stats, mixer and gamepad render inside
+     `@defer (on immediate)`, so they are lazy chunks - keep them out of eager imports elsewhere,
+     or they fall back into the initial bundle.
+   - Macro recorder: `RemoteService.startRecording`/`stopRecording` (`recordedSteps` signal) record
+     every action of `sendAction` and `runSteps` that `normalizeMacroStep` accepts, with the time
+     since the previous one as `delayMs`, up to `MAX_MACRO_STEPS`. `RemoteControlComponent` starts
+     it from the edit toolbar, shows the `.recorder-strip` and hands the steps to
+     `ButtonEditorDialogComponent`'s `initialSteps`.
    - `SettingsDialogComponent` — a `ReactiveFormsModule` form for host/port/mouse sensitivity,
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an

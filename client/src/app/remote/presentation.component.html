@@ -1,0 +1,64 @@
+<section class="keyboard-card presentation">
+  <header class="keyboard-card__header">
+    <div>
+      <p class="eyebrow">{{ i18n.t('presentation.eyebrow') }}</p>
+      <h2>{{ i18n.t('presentation.title') }}</h2>
+    </div>
+    <span class="keyboard-card__hint">
+      {{ i18n.t(volumeKeysAvailable ? 'presentation.hintVolumeKeys' : 'presentation.hint') }}
+    </span>
+  </header>
+
+  <div class="presentation__steps">
+    <button class="control-button presentation__step" type="button" (click)="step(-1)">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths['arrow-left']"></path>
+      </svg>
+      <span>{{ i18n.t('presentation.previous') }}</span>
+    </button>
+    <button class="control-button presentation__step" type="button" (click)="step(1)">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths['arrow-right']"></path>
+      </svg>
+      <span>{{ i18n.t('presentation.next') }}</span>
+    </button>
+  </div>
+
+  <div class="presentation__actions">
+    <button class="secondary-button" type="button" (click)="press('F5')">
+      {{ i18n.t('presentation.start') }}
+    </button>
+    <button class="secondary-button" type="button" (click)="press('SHIFT', 'F5')">
+      {{ i18n.t('presentation.startHere') }}
+    </button>
+    <button class="secondary-button" type="button" (click)="press('B')">
+      {{ i18n.t('presentation.black') }}
+    </button>
+    <button class="secondary-button" type="button" (click)="press('ESC')">
+      {{ i18n.t('presentation.end') }}
+    </button>
+  </div>
+
+  <button
+    class="snap-switch"
+    type="button"
+    role="switch"
+    [attr.aria-checked]="laser()"
+    (click)="toggleLaser()"
+  >
+    {{ i18n.t('presentation.laser') }}
+  </button>
+
+  @if (laser()) {
+    <div
+      class="presentation__pad"
+      [attr.aria-label]="i18n.t('presentation.pad')"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (pointercancel)="onPointerUp($event)"
+    >
+      {{ i18n.t('presentation.pad') }}
+    </div>
+  }
+</section>

@@ -894,9 +894,30 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-.timer-strip .secondary-button {
+.timer-strip .secondary-button,
+.recorder-strip .primary-button {
   min-height: 32px;
   padding: 0 12px;
+}
+
+.recorder-strip {
+  border-color: rgba(var(--danger-rgb), 0.4);
+  color: var(--danger);
+}
+
+.recorder-strip__dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: recorder-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recorder-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .system-stats {
@@ -2050,6 +2071,57 @@ select:focus-visible {
   color: var(--accent);
   font-size: 0.79rem;
   font-weight: 720;
+}
+
+.presentation__steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.presentation__step {
+  min-height: 132px;
+}
+
+.presentation__step svg {
+  width: 36px;
+  height: 36px;
+}
+
+.presentation__step span {
+  font-size: 0.95rem;
+}
+
+.presentation__actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.presentation__actions .secondary-button {
+  padding: 0 6px;
+}
+
+.presentation .snap-switch {
+  justify-self: start;
+}
+
+.presentation__pad {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle, rgba(var(--well-dot-rgb), 0.07) 1px, transparent 1.2px),
+    var(--surface-well);
+  background-size: 22px 22px, auto;
+  color: var(--muted);
+  font-size: 0.76rem;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .keyboard-card {

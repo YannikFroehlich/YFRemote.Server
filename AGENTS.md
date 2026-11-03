@@ -303,7 +303,11 @@ and `clear()` without a title, and `remote/RemoteMediaNotification` turns that i
 `MediaSession` plus `Notification.MediaStyle` (lock screen too, no `POST_NOTIFICATIONS` needed for
 media notifications on Android 13+). Its buttons answer with `yfremote-media` events (`key` with
 `MEDIA_PLAY_PAUSE`/`MEDIA_NEXT`/`MEDIA_PREVIOUS`, `seek` in seconds), which the Client sends as
-normal actions. It lives as long as `RemoteWebActivity`; whether the WebView keeps the socket and
+normal actions. The same bridge's `captureVolumeKeys(enabled)` (sent by the Client while connected)
+makes `RemoteWebActivity.dispatchKeyEvent` swallow the phone's volume keys and answer with
+`{type:'volume',direction}`, which the Client sends as `VOLUME_UP`/`VOLUME_DOWN`, or which the
+"Folien" tab turns into slide steps (`MediaBridgeService.setVolumeKeyHandler`); only in the
+foreground. The notification lives as long as `RemoteWebActivity`; whether the WebView keeps the socket and
 the notification alive in the background or with the screen off is not verified on a phone yet.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):

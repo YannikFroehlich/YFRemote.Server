@@ -48,6 +48,8 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   protected readonly i18n = inject(TranslationService);
 
   readonly targetId = input<string | null>(null);
+  /** Vorbelegung eines neuen Buttons, z. B. aus einer Makro-Aufnahme. */
+  readonly initialSteps = input<readonly MacroStep[]>([]);
   readonly closed = output<void>();
 
   protected readonly icons = REMOTE_ICONS;
@@ -145,6 +147,7 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     const id = this.targetId();
 
     if (id === null) {
+      this.steps.set(this.initialSteps());
       return;
     }
 

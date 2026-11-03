@@ -119,6 +119,9 @@ class SetupActivity : Activity() {
     private lateinit var updateButton: Button
     private var availableUpdate: AppRelease? = null
     private var lastUpdateCheck = 0L
+    // Zurueck aus "Unbekannte Apps installieren": mit erteilter Freigabe gleich weiter, statt
+    // dass man "Installieren" ein zweites Mal antippen muss.
+    private var installAfterPermission = false
 
     // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
     private val emphasized = PathInterpolator(0.05f, 0.7f, 0.1f, 1f)
@@ -182,6 +185,10 @@ class SetupActivity : Activity() {
         BluetoothGamepad.listeners += gamepadListener
         refreshHandler.post(refreshRunnable)
         checkForUpdate()
+        if (installAfterPermission) {
+            installAfterPermission = false
+            if (packageManager.canRequestPackageInstalls()) installUpdate()
+        }
     }
 
     override fun onPause() {
@@ -648,6 +655,7 @@ class SetupActivity : Activity() {
         val release = availableUpdate ?: return
         // Einmalig: Android verlangt fuer YFRemote die Freigabe "Unbekannte Apps installieren".
         if (!packageManager.canRequestPackageInstalls()) {
+            installAfterPermission = true
             startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
             return
         }

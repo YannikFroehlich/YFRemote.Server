@@ -1389,6 +1389,7 @@ select:focus-visible {
 
 .field input,
 .field select,
+.presentation__target select,
 .macro-text-input {
   width: 100%;
   min-height: 50px;
@@ -1406,12 +1407,14 @@ select:focus-visible {
 
 .field input:hover,
 .field select:hover,
+.presentation__target select:hover,
 .macro-text-input:hover {
   border-color: rgba(var(--line-rgb), 0.16);
 }
 
 .field input:focus,
 .field select:focus,
+.presentation__target select:focus,
 .macro-text-input:focus {
   border-color: var(--line-strong);
   background: var(--surface-focus);
@@ -2142,7 +2145,9 @@ select:focus-visible {
 }
 
 .presentation__target select {
+  width: auto;
   min-height: 38px;
+  font-size: 0.9rem;
 }
 
 .presentation__timer svg {

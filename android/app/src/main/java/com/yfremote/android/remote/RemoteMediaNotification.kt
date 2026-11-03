@@ -22,7 +22,7 @@ import com.yfremote.android.R
 import org.json.JSONObject
 
 // Wiedergabe des gesteuerten Geraets als Media-Benachrichtigung (auch Sperrbildschirm), solange
-// RemoteWebActivity verbunden ist. Die Daten meldet der Web-Client ueber YFRemoteMedia
+// RemoteWebActivity verbunden ist; RemoteMediaService haelt dafuer im Hintergrund das Netz. Die Daten meldet der Web-Client ueber YFRemoteMedia
 // (client/src/app/remote/media-bridge.service.ts), Tasten gehen als 'yfremote-media'-Ereignis zurueck.
 // Medien-Benachrichtigungen brauchen ab Android 13 keine POST_NOTIFICATIONS-Berechtigung.
 internal class RemoteMediaNotification(
@@ -61,6 +61,10 @@ internal class RemoteMediaNotification(
     private var duration: Long = -1
     private var playing = false
     private var cover: Bitmap? = null
+    private var serviceStarted = false
+
+    val isShowing: Boolean
+        get() = title != null
 
     init {
         ContextCompat.registerReceiver(activity, receiver, IntentFilter(ACTION_KEY), ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -112,6 +116,8 @@ internal class RemoteMediaNotification(
     fun clear() {
         if (title == null) return
         title = null
+        activity.stopService(Intent(activity, RemoteMediaService::class.java))
+        serviceStarted = false
         notifications.cancel(NOTIFICATION_ID)
         session.isActive = false
     }
@@ -155,7 +161,14 @@ internal class RemoteMediaNotification(
             .addAction(action(android.R.drawable.ic_media_next, "Weiter", NEXT, 3))
             .setStyle(Notification.MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(0, 1, 2))
             .build()
+        RemoteMediaService.notification = notification
         notifications.notify(NOTIFICATION_ID, notification)
+        if (!serviceStarted) {
+            // Ab Android 12 nur aus dem Vordergrund erlaubt - sonst beim naechsten show() erneut.
+            serviceStarted = runCatching {
+                activity.startForegroundService(Intent(activity, RemoteMediaService::class.java))
+            }.isSuccess
+        }
     }
 
     private fun action(icon: Int, label: String, key: String, requestCode: Int): Notification.Action {
@@ -166,7 +179,7 @@ internal class RemoteMediaNotification(
 
     private companion object {
         const val CHANNEL_ID = "yfremote_remote_media"
-        const val NOTIFICATION_ID = 2
+        const val NOTIFICATION_ID = RemoteMediaService.NOTIFICATION_ID
         const val ACTION_KEY = "com.yfremote.android.REMOTE_MEDIA_KEY"
         const val EXTRA_KEY = "key"
         const val PLAY_PAUSE = "MEDIA_PLAY_PAUSE"

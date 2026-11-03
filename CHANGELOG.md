@@ -27,7 +27,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Changed
 
-- Web-Oberfläche: Der Tab "Bildschirm" läuft deutlich flüssiger, mit 30 Bildern pro Sekunde und mehr statt bisher etwa 5 bis 10. Der PC nimmt den Bildschirm jetzt über die Grafikkarte auf (DXGI Desktop Duplication) statt über GDI, und das Gerät holt zwei Bilder gleichzeitig ab. Steht das Bild still, schickt der PC deutlich weniger.
+- Web-Oberfläche: Der Tab "Bildschirm" läuft deutlich flüssiger, mit 30 Bildern pro Sekunde und mehr statt bisher etwa 5 bis 10. Der PC nimmt den Bildschirm jetzt über die Grafikkarte auf (DXGI Desktop Duplication) statt über GDI, und das Gerät holt zwei Bilder gleichzeitig ab. Steht das Bild still, schickt der PC deutlich weniger. Neben den Schaltern wählt man "Leistung" (mehr Bilder, gröber), "Ausgeglichen" oder "Qualität" (schärfer, mehr WLAN); das Gerät merkt sich die Wahl.
 
 ## [2.47.1] - 2026-11-03
 

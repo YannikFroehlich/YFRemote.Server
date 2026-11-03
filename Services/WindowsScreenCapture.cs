@@ -18,7 +18,6 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
     private const int SmCxScreen = 0;
     private const int SmCyScreen = 1;
     private const int CursorShowing = 1;
-    private const long JpegQuality = 70;
     // Solange sich nichts aendert, wartet ein Abruf hoechstens so lange auf ein neues Bild und
     // liefert dann das letzte noch einmal - so fragt der Client ein stehendes Bild nicht 30-mal
     // pro Sekunde ab.
@@ -32,7 +31,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
     private readonly System.Threading.Timer idleTimer;
     private Duplication? duplication;
     private DateTime lastUse;
-    private (long Frame, int CursorX, int CursorY, IntPtr Cursor, int MaxWidth) cachedKey;
+    private (long Frame, int CursorX, int CursorY, IntPtr Cursor, int MaxWidth, int Quality) cachedKey;
     private byte[]? cachedJpeg;
 
     public WindowsScreenCapture()
@@ -41,13 +40,13 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
     }
 
     // Auf dem sicheren Desktop (UAC, Sperrbildschirm) schlaegt BitBlt mit Win32Exception fehl.
-    public byte[] CaptureJpeg(int maxWidth)
+    public byte[] CaptureJpeg(int maxWidth, int quality)
     {
         // Physische Pixel wie in WindowsMouseService - sonst schnitte eine skalierte Anzeige ab.
         var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
         try
         {
-            return TryCaptureDuplicated(maxWidth) ?? CaptureWithBitBlt(maxWidth);
+            return TryCaptureDuplicated(maxWidth, quality) ?? CaptureWithBitBlt(maxWidth, quality);
         }
         finally
         {
@@ -65,11 +64,11 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
         }
     }
 
-    private byte[]? TryCaptureDuplicated(int maxWidth)
+    private byte[]? TryCaptureDuplicated(int maxWidth, int quality)
     {
         Bitmap scaled;
         double scale;
-        (long, int, int, IntPtr, int) key;
+        (long, int, int, IntPtr, int, int) key;
         // Nur Abholen und Kopieren brauchen die Duplication; das JPEG entsteht danach ausserhalb
         // der Sperre, so laufen zwei Abrufe des Clients ueberlappend.
         lock (gate)
@@ -86,7 +85,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
                 duplication.WaitForChange(FrameWaitMs);
                 var cursor = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
                 var cursorVisible = GetCursorInfo(ref cursor) && cursor.Flags == CursorShowing && cursor.Cursor != IntPtr.Zero;
-                key = (duplication.Frame, cursor.X, cursor.Y, cursorVisible ? cursor.Cursor : IntPtr.Zero, maxWidth);
+                key = (duplication.Frame, cursor.X, cursor.Y, cursorVisible ? cursor.Cursor : IntPtr.Zero, maxWidth, quality);
                 if (cachedJpeg is not null && key == cachedKey)
                 {
                     return cachedJpeg;
@@ -112,7 +111,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
                 DrawCursor(graphics, scale);
             }
 
-            var jpeg = Encode(scaled);
+            var jpeg = Encode(scaled, quality);
             lock (gate)
             {
                 cachedJpeg = jpeg;
@@ -123,7 +122,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
         }
     }
 
-    private static byte[] CaptureWithBitBlt(int maxWidth)
+    private static byte[] CaptureWithBitBlt(int maxWidth, int quality)
     {
         var width = GetSystemMetrics(SmCxScreen);
         var height = GetSystemMetrics(SmCyScreen);
@@ -136,7 +135,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
 
         var scale = Math.Min(1.0, (double)maxWidth / width);
         using var scaled = scale < 1.0 ? Resize(screen, scale) : null;
-        return Encode(scaled ?? screen);
+        return Encode(scaled ?? screen, quality);
     }
 
     private void ReleaseWhenIdle()
@@ -153,11 +152,11 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
         }
     }
 
-    private static byte[] Encode(Bitmap bitmap)
+    private static byte[] Encode(Bitmap bitmap, long quality)
     {
         using var stream = new MemoryStream();
         using var parameters = new EncoderParameters(1);
-        parameters.Param[0] = new EncoderParameter(Encoder.Quality, JpegQuality);
+        parameters.Param[0] = new EncoderParameter(Encoder.Quality, quality);
         bitmap.Save(stream, JpegCodec, parameters);
         return stream.ToArray();
     }

@@ -26,6 +26,9 @@ import {
   getServerPageUrl,
   getServerWebSocketBaseUrl,
   HAPTICS_STORAGE_KEY,
+  parseScreenQuality,
+  SCREEN_QUALITY_STORAGE_KEY,
+  ScreenQuality,
   INVERT_SCROLL_STORAGE_KEY,
   LIVE_TYPING_STORAGE_KEY,
   MOUSE_SENSITIVITY_STORAGE_KEY,
@@ -133,6 +136,9 @@ export class RemoteService implements OnDestroy {
   private readonly hapticsSignal = signal(
     parseStoredFlag(this.readStorage(HAPTICS_STORAGE_KEY), true),
   );
+  private readonly screenQualitySignal = signal(
+    parseScreenQuality(this.readStorage(SCREEN_QUALITY_STORAGE_KEY)),
+  );
   private readonly pointerAccelerationSignal = signal(
     parseStoredFlag(this.readStorage(POINTER_ACCELERATION_STORAGE_KEY), true),
   );
@@ -183,6 +189,8 @@ export class RemoteService implements OnDestroy {
   readonly scrollSpeed = this.scrollSpeedSignal.asReadonly();
   readonly invertScroll = this.invertScrollSignal.asReadonly();
   readonly haptics = this.hapticsSignal.asReadonly();
+  /** Bildschirm-Tab: Bilder pro Sekunde oder Bildschaerfe vorziehen. */
+  readonly screenQuality = this.screenQualitySignal.asReadonly();
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
   /** Gewuenschter Zwischenablage-Abgleich; wirksam nur, wo `clipboardSyncSupported()` gilt. */
@@ -332,6 +340,11 @@ export class RemoteService implements OnDestroy {
     return true;
   }
 
+  saveScreenQuality(quality: ScreenQuality): void {
+    this.screenQualitySignal.set(quality);
+    this.storage?.setItem(SCREEN_QUALITY_STORAGE_KEY, quality);
+  }
+
   saveHaptics(enabled: boolean): void {
     this.hapticsSignal.set(enabled);
     this.storage?.setItem(HAPTICS_STORAGE_KEY, String(enabled));
@@ -454,7 +467,7 @@ export class RemoteService implements OnDestroy {
 
   /** Ein Standbild des PC-Bildschirms, hoechstens `width` Pixel breit; `'blocked'` auf dem
    *  sicheren Desktop (UAC, Sperrbildschirm), `null`, wenn der PC nicht antwortet. */
-  async readScreen(width: number): Promise<Blob | 'blocked' | null> {
+  async readScreen(width: number, quality: number): Promise<Blob | 'blocked' | null> {
     const token = this.pairing.token();
     if (token === null) {
       return null;
@@ -462,7 +475,7 @@ export class RemoteService implements OnDestroy {
 
     try {
       const response = await this.fetchFn(
-        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}`,
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}&quality=${quality}`,
         { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
       );
       if (response.status === 503) {

@@ -30,6 +30,17 @@
       </svg>
       <span>{{ i18n.t('screen.keyboard') }}</span>
     </button>
+    <select
+      class="screen-view__quality"
+      [attr.aria-label]="i18n.t('screen.quality')"
+      (change)="selectQuality($event)"
+    >
+      @for (option of qualities; track option) {
+        <option [value]="option" [selected]="option === quality()">
+          {{ i18n.t('screen.quality.' + option) }}
+        </option>
+      }
+    </select>
     @if (fullscreenSupported) {
       <button
         class="snap-switch"

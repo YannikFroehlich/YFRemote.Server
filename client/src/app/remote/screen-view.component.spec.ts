@@ -12,9 +12,10 @@ describe('ScreenViewComponent', () => {
   });
 
   async function setup(result: Blob | 'blocked' | null, audioResponse: Response | null = null) {
-    const readScreen = vi.fn(async () => result);
+    const readScreen = vi.fn(async (_width: number, _quality: number) => result);
     const sendAction = vi.fn();
     const openScreenAudio = vi.fn(async () => audioResponse);
+    const screenQuality = signal<'performance' | 'balanced' | 'quality'>('balanced');
     const context = {
       currentTime: 0,
       destination: {},
@@ -30,7 +31,15 @@ describe('ScreenViewComponent', () => {
       providers: [
         {
           provide: RemoteService,
-          useValue: { readScreen, sendAction, openScreenAudio, audioAvailable: signal(true) },
+          useValue: {
+            readScreen,
+            sendAction,
+            openScreenAudio,
+            audioAvailable: signal(true),
+            screenQuality,
+            saveScreenQuality: (quality: 'performance' | 'balanced' | 'quality') =>
+              screenQuality.set(quality),
+          },
         },
         { provide: SCREEN_AUDIO_CONTEXT_FACTORY, useValue: () => context },
       ],
@@ -41,6 +50,8 @@ describe('ScreenViewComponent', () => {
     fixture.detectChanges();
     return {
       fixture,
+      readScreen,
+      screenQuality,
       sendAction,
       openScreenAudio,
       context,
@@ -77,6 +88,19 @@ describe('ScreenViewComponent', () => {
     const { fixture, element } = await setup('blocked');
 
     expect(element.textContent).toContain('Sperrbildschirm');
+    fixture.destroy();
+  });
+
+  it('asks for the JPEG quality of the chosen setting', async () => {
+    const { fixture, readScreen, screenQuality, element } = await setup(new Blob(['jpeg']));
+    const select = element.querySelector<HTMLSelectElement>('.screen-view__quality')!;
+
+    select.value = 'performance';
+    select.dispatchEvent(new Event('change'));
+
+    expect(readScreen.mock.calls[0][1]).toBe(70);
+    expect(screenQuality()).toBe('performance');
+    await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[1]).toBe(50));
     fixture.destroy();
   });
 

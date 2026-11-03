@@ -189,7 +189,9 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   "Bildschirm" tab, which keeps two requests in flight, each at most every 33 ms (paused while the
   page is hidden), and shows a frame only if no later-started one was shown already. Same gate and
   `no-store` as `GET /windows`, refused for "Nur Medien" devices; `width` (320-3840, never upscaled)
-  is the device's display width at a pixel ratio of at most 1.5. `WindowsScreenCapture` uses DXGI
+  is the device's display width, `quality` (30-95, default 70) the JPEG quality. The tab's select
+  (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
+  "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. `WindowsScreenCapture` uses DXGI
   Desktop Duplication (`Vortice.Direct3D11`) of the output at (0,0): `AcquireNextFrame` waits up to
   100 ms for a change, the staging texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests

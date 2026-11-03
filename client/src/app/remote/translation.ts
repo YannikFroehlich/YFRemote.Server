@@ -43,6 +43,7 @@ export const TRANSLATIONS = {
   'shell.tabSystem.android': { de: 'Gerät', en: 'Device' },
   'shell.tabMixer': { de: 'Mixer', en: 'Mixer' },
   'shell.tabPresentation': { de: 'Folien', en: 'Slides' },
+  'shell.tabScreen': { de: 'Bildschirm', en: 'Screen' },
   'shell.done': { de: 'Fertig', en: 'Done' },
   'shell.add': { de: 'Hinzufügen', en: 'Add' },
   'shell.snapToGrid': { de: 'Raster', en: 'Snap to grid' },
@@ -430,6 +431,12 @@ export const TRANSLATIONS = {
   'stats.battery.charging': { de: 'lädt', en: 'charging' },
   'stats.battery.discharging': { de: 'nicht am Strom', en: 'on battery' },
   'stats.windows': { de: 'Fenster', en: 'Windows' },
+  'screen.alt': { de: 'Bildschirm des PCs', en: 'PC screen' },
+  'screen.waiting': { de: 'Bildschirm wird geladen…', en: 'Loading screen…' },
+  'screen.blocked': {
+    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm.',
+    en: 'The PC is showing a security prompt or the lock screen.',
+  },
   'stats.windows.refresh': { de: 'Aktualisieren', en: 'Refresh' },
   'stats.windows.empty': { de: 'Keine offenen Fenster', en: 'No open windows' },
   'stats.windows.unavailable': {

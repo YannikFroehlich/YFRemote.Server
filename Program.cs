@@ -360,6 +360,7 @@ internal static class Program
         builder.Services.AddSingleton(inputOptions);
         builder.Services.AddSingleton(systemStatsOptions);
         builder.Services.AddSingleton<ClipboardReadNotifier>();
+        builder.Services.AddSingleton<ScreenViewNotifier>();
 #if WINDOWS
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
@@ -367,6 +368,7 @@ internal static class Program
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IAppLauncher, WindowsAppLauncher>();
         builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
+        builder.Services.AddSingleton<IScreenCapture, WindowsScreenCapture>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();
         builder.Services.AddSingleton<IGamepadService, WindowsGamepadService>();
         builder.Services.AddSingleton(voicemeeterOptions);
@@ -496,6 +498,7 @@ internal static class Program
         app.MapMediaEndpoints();
         app.MapLaunchEndpoints();
         app.MapWindowEndpoints();
+        app.MapScreenEndpoints();
 
         var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
         if (File.Exists(indexPath))

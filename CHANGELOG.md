@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Web-Oberfläche: Neuer Tab "Bildschirm" zeigt den Hauptbildschirm des Windows-PCs live auf dem Gerät, samt Mauszeiger (bis zu etwa 10 Bilder pro Sekunde, je nach WLAN weniger). Das Bild kommt nur, solange der Tab offen und die App im Vordergrund ist. Am PC meldet das Tray "Bildschirm wird übertragen", sobald ein Gerät nach einer Pause wieder zusieht. Geräte mit "Nur Medien" bekommen den Tab nicht; bei einer UAC-Abfrage oder auf dem Sperrbildschirm zeigt er einen Hinweis statt des Bildes.
+
 ## [2.45.0] - 2026-11-03
 
 ### Added

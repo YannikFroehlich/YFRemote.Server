@@ -446,6 +446,28 @@ export class RemoteService implements OnDestroy {
       : null;
   }
 
+  /** Ein Standbild des PC-Bildschirms, hoechstens `width` Pixel breit; `'blocked'` auf dem
+   *  sicheren Desktop (UAC, Sperrbildschirm), `null`, wenn der PC nicht antwortet. */
+  async readScreen(width: number): Promise<Blob | 'blocked' | null> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return null;
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}`,
+        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (response.status === 503) {
+        return 'blocked';
+      }
+      return response.ok ? await response.blob() : null;
+    } catch {
+      return null;
+    }
+  }
+
   private async readJson(path: string): Promise<Record<string, unknown> | null> {
     const token = this.pairing.token();
     if (token === null) {

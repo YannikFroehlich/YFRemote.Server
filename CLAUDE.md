@@ -182,6 +182,15 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   first sends a 0-pixel mouse move through `WindowsInputSender` (the PowerToys trick); minimized
   windows are restored. Listing and switching back and forth were checked on the dev PC on
   2026-10-24.
+- `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of the primary screen for the Client's
+  "Bildschirm" tab, which fetches the next frame as soon as one arrived (at most 10/s, paused while
+  the page is hidden). Same gate and `no-store` as `GET /windows`, refused for "Nur Medien"
+  devices; `width` (320-3840, never upscaled) is the device's display width. `WindowsScreenCapture`
+  copies the screen with `CopyFromScreen` in physical pixels (per-monitor DPI context, like
+  `WindowsMouseService`), draws the cursor itself and encodes at quality 70; 1080 px wide took about
+  85 ms on the dev PC on 2026-11-03. The secure desktop makes it throw `Win32Exception` → `503`,
+  without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
+  übertragen" balloon when a device starts viewing after more than a minute without frames.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over

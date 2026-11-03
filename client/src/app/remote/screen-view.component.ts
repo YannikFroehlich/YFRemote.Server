@@ -65,6 +65,23 @@ export class ScreenViewComponent implements OnDestroy {
     }
   }
 
+  // Tippen klickt links, langes Druecken (Kontextmenue) rechts - jeweils an der Stelle im Bild.
+  protected click(event: MouseEvent, button: 'left' | 'right'): void {
+    event.preventDefault();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return;
+    }
+
+    const clamp = (value: number) => Math.min(1, Math.max(0, value));
+    this.remote.sendAction({
+      type: 'screenClick',
+      x: clamp((event.clientX - rect.left) / rect.width),
+      y: clamp((event.clientY - rect.top) / rect.height),
+      button,
+    });
+  }
+
   private show(src: string | null): void {
     const previous = this.frame();
     this.frame.set(src);

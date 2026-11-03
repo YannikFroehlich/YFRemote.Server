@@ -60,6 +60,7 @@ public sealed partial class RemoteActionHandler(
                 "text" => HandleText(request),
                 "mousemove" => HandleMouseMove(request),
                 "mouseclick" => HandleMouseClick(request),
+                "screenclick" => HandleScreenClick(request),
                 "mousedown" => HandleMouseButton(request, isDown: true),
                 "mouseup" => HandleMouseButton(request, isDown: false),
                 "mousescroll" => HandleMouseScroll(request),
@@ -211,6 +212,23 @@ public sealed partial class RemoteActionHandler(
         mouseService.MoveRelative(request.DeltaX.Value, request.DeltaY.Value);
 
         return RemoteActionResponse.Ok();
+    }
+
+    // Ein Tipp ins Bild des Tabs "Bildschirm": Zeiger an die Stelle, dann klicken.
+    private RemoteActionResponse HandleScreenClick(RemoteActionRequest request)
+    {
+        if (request.X is not { } x || request.Y is not { } y || !(x is >= 0 and <= 1) || !(y is >= 0 and <= 1))
+        {
+            return Fail("Action 'screenClick' requires x and y between 0 and 1.");
+        }
+
+        if (request.Button?.Trim().ToLowerInvariant() is not ("left" or "right"))
+        {
+            return Fail("Action 'screenClick' requires button 'left' or 'right'.");
+        }
+
+        mouseService.MoveToPrimaryScreen(x, y);
+        return HandleMouseClick(request);
     }
 
     private RemoteActionResponse HandleMouseClick(RemoteActionRequest request)

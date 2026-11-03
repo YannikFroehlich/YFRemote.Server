@@ -1,6 +1,13 @@
 <div class="screen-view">
   @if (frame(); as src) {
-    <img class="screen-view__image" [src]="src" [attr.alt]="i18n.t('screen.alt')" />
+    <img
+      class="screen-view__image"
+      [src]="src"
+      [attr.alt]="i18n.t('screen.alt')"
+      draggable="false"
+      (click)="click($event, 'left')"
+      (contextmenu)="click($event, 'right')"
+    />
   }
   @if (blocked()) {
     <p class="stats-waiting">{{ i18n.t('screen.blocked') }}</p>

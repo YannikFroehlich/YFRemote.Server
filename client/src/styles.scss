@@ -976,7 +976,11 @@ h2 {
   height: auto;
   border: var(--border-width) solid var(--line);
   border-radius: calc(14px * var(--radius-scale));
-  background: #000;
+  background: var(--surface-soft);
+  // Langes Druecken klickt rechts statt das Bild-Menue des Browsers zu oeffnen.
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .stats-waiting {

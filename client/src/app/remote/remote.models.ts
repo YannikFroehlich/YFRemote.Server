@@ -14,6 +14,14 @@ export interface MouseClickAction {
   readonly button: 'left' | 'right' | 'middle';
 }
 
+/** Tipp ins Bild des Tabs "Bildschirm": x und y von 0 bis 1 auf dem Hauptbildschirm. */
+export interface ScreenClickAction {
+  readonly type: 'screenClick';
+  readonly x: number;
+  readonly y: number;
+  readonly button: 'left' | 'right';
+}
+
 export interface MouseButtonAction {
   readonly type: 'mouseDown' | 'mouseUp';
   readonly button: 'left' | 'right' | 'middle';
@@ -254,6 +262,7 @@ export type RemoteAction =
   | KeyboardAction
   | MouseMoveAction
   | MouseClickAction
+  | ScreenClickAction
   | MouseButtonAction
   | MouseScrollAction
   | PowerAction

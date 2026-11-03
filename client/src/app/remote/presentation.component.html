@@ -7,6 +7,8 @@
     @if (elapsed(); as time) {
       <button
         class="presentation__timer"
+        [class.presentation__timer--warning]="clock.phase() === 'warning'"
+        [class.presentation__timer--over]="clock.phase() === 'over'"
         type="button"
         [attr.aria-label]="i18n.t('presentation.timerRestart', { time })"
         [attr.title]="i18n.t('presentation.timerRestart', { time })"
@@ -54,15 +56,31 @@
     </button>
   </div>
 
-  <button
-    class="snap-switch"
-    type="button"
-    role="switch"
-    [attr.aria-checked]="laser()"
-    (click)="toggleLaser()"
-  >
-    {{ i18n.t('presentation.laser') }}
-  </button>
+  <div class="presentation__options">
+    <button
+      class="snap-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="laser()"
+      (click)="toggleLaser()"
+    >
+      {{ i18n.t('presentation.laser') }}
+    </button>
+    <label class="presentation__target">
+      {{ i18n.t('presentation.target') }}
+      <select (change)="onTargetChange($event)">
+        @for (minutes of targets; track minutes) {
+          <option [value]="'' + minutes" [selected]="minutes === clock.targetMinutes()">
+            {{
+              minutes === 0
+                ? i18n.t('presentation.targetNone')
+                : i18n.t('presentation.targetMinutes', { minutes: '' + minutes })
+            }}
+          </option>
+        }
+      </select>
+    </label>
+  </div>
 
   @if (laser()) {
     <div

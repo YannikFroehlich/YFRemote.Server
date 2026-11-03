@@ -2112,6 +2112,39 @@ select:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.presentation__timer--warning {
+  border-color: rgba(var(--warning-rgb), 0.5);
+  background: rgba(var(--warning-rgb), 0.14);
+  color: var(--warning);
+}
+
+.presentation__timer--over {
+  border-color: rgba(var(--danger-rgb), 0.55);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.presentation__options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.presentation__target {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.presentation__target select {
+  min-height: 38px;
+}
+
 .presentation__timer svg {
   width: 18px;
   height: 18px;
@@ -2120,10 +2153,6 @@ select:focus-visible {
 
 .presentation__actions .secondary-button {
   padding: 0 6px;
-}
-
-.presentation .snap-switch {
-  justify-self: start;
 }
 
 .presentation__pad {

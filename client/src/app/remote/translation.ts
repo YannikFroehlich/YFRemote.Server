@@ -339,6 +339,9 @@ export const TRANSLATIONS = {
     de: 'Vortrag läuft seit {{time}} – antippen setzt auf 0',
     en: 'Talk running for {{time}} – tap to reset',
   },
+  'presentation.target': { de: 'Zielzeit', en: 'Target time' },
+  'presentation.targetNone': { de: 'Keine', en: 'None' },
+  'presentation.targetMinutes': { de: '{{minutes}} Min.', en: '{{minutes}} min' },
   'presentation.laser': { de: 'Laserpointer', en: 'Laser pointer' },
   'presentation.pad': { de: 'Hier ziehen, um zu zeigen', en: 'Drag here to point' },
 

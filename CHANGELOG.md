@@ -23,6 +23,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Android-App: Die Lautstärketasten des Handys regeln die Lautstärke am gesteuerten PC, solange die Fernbedienung offen und verbunden ist. Ohne Verbindung regeln sie wie gewohnt das Handy.
+- Web-Oberfläche: Neuer Tab "Folien" zum Präsentieren. Große Tasten für Zurück und Weiter, dazu "Starten", "Ab hier", "Schwarz" und "Beenden"; das klappt mit PowerPoint, LibreOffice, Google Slides und PDF-Betrachtern. "Laserpointer" schaltet in PowerPoint den Laserpointer ein und blendet eine Fläche ein, mit der man ihn per Finger bewegt. In der Android-App blättern die Lautstärketasten in diesem Tab (lauter = weiter, leiser = zurück).
+- Web-Oberfläche: Makro-Rekorder für eigene Buttons. Unter "Layout bearbeiten" startet "Aufnehmen" eine Aufnahme; danach bedient man die Fernbedienung ganz normal, und Tasten, Tastenkombinationen, Text und Klicks werden samt den Pausen dazwischen mitgeschrieben (bis zu 10 Schritte, Mausbewegungen und Scrollen nicht). "Fertig" öffnet den Button-Editor mit den aufgenommenen Schritten, "Verwerfen" bricht ab.
+
+### Changed
+
+- Web-Oberfläche: Controller, "PC", "Mixer" und "Folien" laden erst beim Öffnen nach. Das erste Laden wird dadurch rund 40 kB kleiner.
+
+### Added
+
 - Android-App: Was am gesteuerten PC läuft, erscheint als Media-Benachrichtigung und auf dem Sperrbildschirm – mit Titel, Interpret, Cover und Zeitleiste. Zurück, Abspielen/Pause und Weiter steuern den PC direkt von dort, und wo die Medien-App es erlaubt, springt ein Ziehen an der Zeitleiste an die Stelle. Die Benachrichtigung gibt es, solange die Fernbedienung in der App geöffnet ist, und sie verschwindet beim Verlassen oder wenn am PC nichts mehr läuft.
 
 ## [2.44.0] - 2026-11-02

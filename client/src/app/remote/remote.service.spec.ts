@@ -852,6 +852,35 @@ describe('RemoteService', () => {
     expect(vibrations).toHaveLength(3);
   });
 
+  it('records repeatable actions with the pause between them', async () => {
+    vi.useFakeTimers();
+    try {
+      const { remote, sockets } = setupRemoteService();
+      remote.connect();
+      sockets[0].open();
+
+      remote.sendAction({ type: 'key', keys: ['F5'] });
+      expect(remote.recordedSteps()).toBeNull();
+
+      remote.startRecording();
+      remote.sendAction({ type: 'hotkey', keys: ['CTRL', 'C'] });
+      remote.sendAction({ type: 'mouseMove', deltaX: 3, deltaY: 1 });
+      vi.advanceTimersByTime(700);
+      await remote.runSteps([{ action: { type: 'text', text: 'hallo' }, delayMs: 0 }]);
+      vi.advanceTimersByTime(9000);
+      remote.sendAction({ type: 'mouseClick', button: 'left' });
+
+      expect(remote.stopRecording()).toEqual([
+        { action: { type: 'hotkey', keys: ['CTRL', 'C'] }, delayMs: 0 },
+        { action: { type: 'text', text: 'hallo' }, delayMs: 700 },
+        { action: { type: 'mouseClick', button: 'left' }, delayMs: 5000 },
+      ]);
+      expect(remote.recordedSteps()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('rejects invalid settings without changing the active config', () => {
     const { remote, sockets, serverLocation } = setupRemoteService();
 

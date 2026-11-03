@@ -23,6 +23,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Base64
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -58,6 +59,9 @@ class RemoteWebActivity : Activity() {
     private var orientationWanted = false
     private var speech: SpeechRecognizer? = null
     private lateinit var media: RemoteMediaNotification
+    // Nur auf Wunsch des Web-Clients: eine aeltere Oberflaeche ohne Gegenstelle bekaeme die Tasten nie.
+    @Volatile
+    private var captureVolumeKeys = false
     // Bridge-Aufrufe kommen auf einem eigenen Thread; webView.url duerfte dort nicht gelesen werden.
     @Volatile
     private var pageOrigin: String? = null
@@ -92,9 +96,7 @@ class RemoteWebActivity : Activity() {
         val url = intent.getStringExtra(EXTRA_URL) ?: return finish()
         val origin = originOf(url)
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
-        media = RemoteMediaNotification(this, title?.toString()) { detail ->
-            webView.evaluateJavascript("dispatchEvent(new CustomEvent('yfremote-media',{detail:$detail}))", null)
-        }
+        media = RemoteMediaNotification(this, title?.toString(), ::sendMedia)
 
         webView = WebView(this).apply {
             setBackgroundColor(getColor(R.color.brand_background))
@@ -106,6 +108,7 @@ class RemoteWebActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                     pageOrigin = originOf(url)
+                    captureVolumeKeys = false
                 }
 
                 // Der lokalen CA des PCs vertraut Android nicht. Durchgelassen wird nur das Zielgeraet,
@@ -310,6 +313,30 @@ class RemoteWebActivity : Activity() {
 
         @JavascriptInterface
         fun clear() = runOnUiThread { media.clear() }
+
+        // Lautstaerketasten des Handys gehen an das Zielgeraet (oder blaettern im Praesentationsmodus).
+        @JavascriptInterface
+        fun captureVolumeKeys(enabled: Boolean) {
+            captureVolumeKeys = enabled && pageOrigin == origin
+        }
+    }
+
+    private fun sendMedia(detail: JSONObject) {
+        webView.evaluateJavascript("dispatchEvent(new CustomEvent('yfremote-media',{detail:$detail}))", null)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val direction = when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> "up"
+            KeyEvent.KEYCODE_VOLUME_DOWN -> "down"
+            else -> null
+        }
+        if (direction == null || !captureVolumeKeys) return super.dispatchKeyEvent(event)
+        // Gedrueckt halten wiederholt ACTION_DOWN, wie am Handy selbst.
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            sendMedia(JSONObject().put("type", "volume").put("direction", direction))
+        }
+        return true
     }
 
     private fun startSpeech(lang: String) {

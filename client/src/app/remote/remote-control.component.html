@@ -133,6 +133,21 @@
             </svg>
             <span>{{ i18n.t('shell.tabKeyboard') }}</span>
           </button>
+          <button
+            class="view-tab"
+            [class.view-tab--active]="activeView() === 'presentation'"
+            type="button"
+            role="tab"
+            [attr.aria-selected]="activeView() === 'presentation'"
+            (click)="selectView('presentation')"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M3 3h18v2h-1v10a2 2 0 0 1-2 2h-5v2.6l2.7 1.8-1.1 1.6-2.6-1.7-2.6 1.7-1.1-1.6 2.7-1.8V17H6a2 2 0 0 1-2-2V5H3V3Zm3 2v10h12V5H6Zm2 7 3-3 2 2 3-3 1.4 1.4L13 13.8l-2-2-1.6 1.6L8 12Z"
+              />
+            </svg>
+            <span>{{ i18n.t('shell.tabPresentation') }}</span>
+          </button>
         }
         @if (gamepadAvailable() && !mediaOnly()) {
           <button
@@ -207,6 +222,28 @@
           </div>
         </div>
       }
+    }
+
+    @if (recordedSteps(); as recorded) {
+      <div class="media-strip timer-strip recorder-strip" role="status">
+        <span class="media-strip__now">
+          <span class="recorder-strip__dot" aria-hidden="true"></span>
+          <span class="media-strip__title">
+            {{
+              i18n.t(recorded.length >= maxMacroSteps ? 'recorder.full' : 'recorder.active', {
+                count: '' + recorded.length,
+                max: '' + maxMacroSteps,
+              })
+            }}
+          </span>
+        </span>
+        <button class="primary-button" type="button" (click)="stopRecording()">
+          {{ i18n.t('recorder.stop') }}
+        </button>
+        <button class="secondary-button" type="button" (click)="discardRecording()">
+          {{ i18n.t('recorder.discard') }}
+        </button>
+      </div>
     }
 
     @if (activeView() === 'remote' && !editMode()) {
@@ -322,6 +359,9 @@
             <button class="secondary-button" type="button" (click)="openButtonEditor(null)">
               {{ i18n.t('shell.add') }}
             </button>
+            <button class="secondary-button" type="button" (click)="startRecording()">
+              {{ i18n.t('recorder.start') }}
+            </button>
             <button
               class="snap-switch"
               type="button"
@@ -372,16 +412,27 @@
         <app-touchpad />
       } @else if (activeView() === 'keyboard') {
         <app-keyboard-pad />
+      } @else if (activeView() === 'presentation') {
+        <!-- Seltener genutzte Tabs laden erst beim Oeffnen nach; das haelt das erste Laden klein. -->
+        @defer (on immediate) {
+          <app-presentation />
+        }
       } @else if (activeView() === 'system' && systemStatsSupported()) {
-        <app-system-stats />
+        @defer (on immediate) {
+          <app-system-stats />
+        }
       } @else if (activeView() === 'mixer' && mixerSupported()) {
-        <app-mixer />
+        @defer (on immediate) {
+          <app-mixer />
+        }
       }
     </section>
   </section>
 
   @if (activeView() === 'gamepad') {
-    <app-gamepad (closed)="selectView('remote')" />
+    @defer (on immediate) {
+      <app-gamepad (closed)="selectView('remote')" />
+    }
   }
 
   @if (settingsOpen()) {
@@ -392,6 +443,7 @@
     <app-button-editor-dialog
       animate.leave="dialog-leave"
       [targetId]="editorTargetId()"
+      [initialSteps]="editorInitialSteps()"
       (closed)="closeButtonEditor()"
     />
   }

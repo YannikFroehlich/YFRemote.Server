@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.45.0] - 2026-11-03
+
 ### Added
 
 - Android-App: Aktualisiert sich selbst. Beim Öffnen (und danach alle 6 Stunden, solange sie offen ist) prüft die App, ob auf GitHub eine neuere Version liegt, und zeigt dann oben "Update verfügbar". "Installieren" lädt die neue APK und installiert sie über die alte, die Daten bleiben erhalten. Beim ersten Mal fragt Android, ob YFRemote Apps installieren darf; danach bestätigt man jedes Update mit einem Tippen (ab Android 12 kann diese Rückfrage auch entfallen). Gilt ab der Version nach dieser: die erste muss man noch von Hand installieren.

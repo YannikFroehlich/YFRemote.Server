@@ -46,6 +46,8 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly keyboardOpen = signal(false);
   protected readonly fullscreen = signal(false);
   private readonly keyboardInput = viewChild<ElementRef<HTMLInputElement>>('keyboardInput');
+  // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
+  private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
   private stopped = false;
@@ -206,7 +208,7 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     try {
-      await this.host.nativeElement.requestFullscreen();
+      await this.view().nativeElement.requestFullscreen();
       // Der PC-Bildschirm ist quer. Die Android-App dreht im Vollbild selbst; Browser ohne
       // Ausrichtungssperre (Desktop, iOS) bleiben einfach, wie sie sind.
       const orientation = this.document.defaultView?.screen.orientation as
@@ -218,7 +220,7 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected onFullscreenChange(): void {
-    this.fullscreen.set(this.document.fullscreenElement === this.host.nativeElement);
+    this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
   }
 
   private show(src: string | null): void {

@@ -23,7 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
-- Web-Oberfläche: Der Tab "Bildschirm" hat jetzt die Schalter "Ton", "Tastatur" und "Vollbild". "Ton" spielt den Ton des PCs auf dem Gerät ab (unkomprimiert, etwa 1,5 MBit/s im WLAN). "Tastatur" blendet unter dem Bild ein Feld ein und öffnet die Handy-Tastatur; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. "Vollbild" zeigt nur noch das Bild, quer gedreht.
+- Web-Oberfläche: Der Tab "Bildschirm" hat jetzt die Schalter "Ton", "Tastatur" und "Vollbild". "Ton" spielt den Ton des PCs auf dem Gerät ab (unkomprimiert, etwa 1,5 MBit/s im WLAN). "Tastatur" blendet unter dem Bild ein Feld ein und öffnet die Handy-Tastatur; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. "Vollbild" zeigt nur noch das Bild, quer gedreht; die Schalter schweben dann als Symbole über dem Bild.
 
 ## [2.47.1] - 2026-11-03
 

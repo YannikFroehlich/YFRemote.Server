@@ -1,4 +1,4 @@
-<div class="screen-view">
+<div #view class="screen-view">
   <div class="screen-view__toolbar">
     @if (soundSupported()) {
       <button
@@ -6,6 +6,7 @@
         type="button"
         role="switch"
         [attr.title]="i18n.t('screen.soundTitle')"
+        [attr.aria-label]="i18n.t('screen.sound')"
         [attr.aria-checked]="soundOn()"
         (click)="toggleSound()"
       >
@@ -20,11 +21,12 @@
       type="button"
       role="switch"
       [attr.title]="i18n.t('screen.keyboardTitle')"
+      [attr.aria-label]="i18n.t('screen.keyboard')"
       [attr.aria-checked]="keyboardOpen()"
       (click)="toggleKeyboard()"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path [attr.d]="iconPaths.key"></path>
+        <path [attr.d]="iconPaths.keyboard"></path>
       </svg>
       <span>{{ i18n.t('screen.keyboard') }}</span>
     </button>
@@ -33,6 +35,7 @@
         class="snap-switch"
         type="button"
         role="switch"
+        [attr.aria-label]="i18n.t('screen.fullscreen')"
         [attr.aria-checked]="fullscreen()"
         (click)="toggleFullscreen()"
       >

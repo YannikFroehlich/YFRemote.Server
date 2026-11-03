@@ -16,10 +16,14 @@ import { RemoteService } from './remote.service';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
 import { TranslationService } from './translation.service';
 
-// Hoechstens 10 Bilder pro Sekunde; das naechste holt die Ansicht erst, wenn das letzte da ist,
-// so staut sich bei langsamem WLAN nichts.
-const FRAME_INTERVAL_MS = 100;
+// Zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
+// nimmt der PC schon das naechste auf. Jeder Abruf wartet aufs letzte, so staut sich bei
+// langsamem WLAN nichts; ein stehendes Bild haelt der Server ohnehin bis zu 100 ms zurueck.
+const PARALLEL_REQUESTS = 2;
+const FRAME_INTERVAL_MS = 33;
 const RETRY_MS = 1000;
+// Mehr Pixel als 1,5-fach sieht man auf dem Handy nicht, sie kosten aber Zeit und WLAN.
+const MAX_PIXEL_RATIO = 1.5;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -51,9 +55,13 @@ export class ScreenViewComponent implements OnDestroy {
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
   private stopped = false;
+  private requested = 0;
+  private shown = 0;
 
   constructor() {
-    void this.run();
+    for (let index = 0; index < PARALLEL_REQUESTS; index++) {
+      void this.run();
+    }
   }
 
   ngOnDestroy(): void {
@@ -74,7 +82,11 @@ export class ScreenViewComponent implements OnDestroy {
         continue;
       }
 
-      const pixelRatio = this.document.defaultView?.devicePixelRatio ?? 1;
+      const pixelRatio = Math.min(
+        MAX_PIXEL_RATIO,
+        this.document.defaultView?.devicePixelRatio ?? 1,
+      );
+      const sequence = ++this.requested;
       const result = await this.remote.readScreen(this.host.nativeElement.clientWidth * pixelRatio);
       if (this.stopped) {
         return;
@@ -82,7 +94,11 @@ export class ScreenViewComponent implements OnDestroy {
 
       this.blocked.set(result === 'blocked');
       if (result instanceof Blob) {
-        this.show(URL.createObjectURL(result));
+        // Ueberholt ein spaeter gestarteter Abruf diesen, waere sein Bild schon wieder alt.
+        if (sequence > this.shown) {
+          this.shown = sequence;
+          this.show(URL.createObjectURL(result));
+        }
         await delay(Math.max(0, FRAME_INTERVAL_MS - (Date.now() - started)));
       } else {
         await delay(RETRY_MS);

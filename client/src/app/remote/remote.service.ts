@@ -26,6 +26,9 @@ import {
   getServerPageUrl,
   getServerWebSocketBaseUrl,
   HAPTICS_STORAGE_KEY,
+  parseScreenQuality,
+  SCREEN_QUALITY_STORAGE_KEY,
+  ScreenQuality,
   INVERT_SCROLL_STORAGE_KEY,
   LIVE_TYPING_STORAGE_KEY,
   MOUSE_SENSITIVITY_STORAGE_KEY,
@@ -133,6 +136,9 @@ export class RemoteService implements OnDestroy {
   private readonly hapticsSignal = signal(
     parseStoredFlag(this.readStorage(HAPTICS_STORAGE_KEY), true),
   );
+  private readonly screenQualitySignal = signal(
+    parseScreenQuality(this.readStorage(SCREEN_QUALITY_STORAGE_KEY)),
+  );
   private readonly pointerAccelerationSignal = signal(
     parseStoredFlag(this.readStorage(POINTER_ACCELERATION_STORAGE_KEY), true),
   );
@@ -159,6 +165,7 @@ export class RemoteService implements OnDestroy {
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly screenAvailableSignal = signal(false);
+  private readonly audioAvailableSignal = signal(false);
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private readonly recordedStepsSignal = signal<readonly MacroStep[] | null>(null);
   private lastRecordedAt = 0;
@@ -182,6 +189,8 @@ export class RemoteService implements OnDestroy {
   readonly scrollSpeed = this.scrollSpeedSignal.asReadonly();
   readonly invertScroll = this.invertScrollSignal.asReadonly();
   readonly haptics = this.hapticsSignal.asReadonly();
+  /** Bildschirm-Tab: Bilder pro Sekunde oder Bildschaerfe vorziehen. */
+  readonly screenQuality = this.screenQualitySignal.asReadonly();
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
   /** Gewuenschter Zwischenablage-Abgleich; wirksam nur, wo `clipboardSyncSupported()` gilt. */
@@ -222,6 +231,8 @@ export class RemoteService implements OnDestroy {
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
   /** `GET /screen` gibt es erst ab dem Server, der es in /health meldet. */
   readonly screenAvailable = this.screenAvailableSignal.asReadonly();
+  /** `GET /screen/audio` (PC-Ton im Tab "Bildschirm"), ebenfalls laut /health. */
+  readonly audioAvailable = this.audioAvailableSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
@@ -327,6 +338,11 @@ export class RemoteService implements OnDestroy {
     this.storage?.setItem(SCROLL_SPEED_STORAGE_KEY, String(normalizedSpeed));
     this.storage?.setItem(INVERT_SCROLL_STORAGE_KEY, String(invert));
     return true;
+  }
+
+  saveScreenQuality(quality: ScreenQuality): void {
+    this.screenQualitySignal.set(quality);
+    this.storage?.setItem(SCREEN_QUALITY_STORAGE_KEY, quality);
   }
 
   saveHaptics(enabled: boolean): void {
@@ -451,7 +467,7 @@ export class RemoteService implements OnDestroy {
 
   /** Ein Standbild des PC-Bildschirms, hoechstens `width` Pixel breit; `'blocked'` auf dem
    *  sicheren Desktop (UAC, Sperrbildschirm), `null`, wenn der PC nicht antwortet. */
-  async readScreen(width: number): Promise<Blob | 'blocked' | null> {
+  async readScreen(width: number, quality: number): Promise<Blob | 'blocked' | null> {
     const token = this.pairing.token();
     if (token === null) {
       return null;
@@ -459,13 +475,36 @@ export class RemoteService implements OnDestroy {
 
     try {
       const response = await this.fetchFn(
-        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}`,
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}&quality=${quality}`,
         { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
       );
       if (response.status === 503) {
         return 'blocked';
       }
       return response.ok ? await response.blob() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Der PC-Ton als offene Antwort mit rohem PCM; `null`, wenn er nicht geht. Beendet wird er
+   *  ueber `signal`. */
+  async openScreenAudio(signal: AbortSignal): Promise<Response | null> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return null;
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen/audio`,
+        {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
+        },
+      );
+      return response.ok && response.body !== null ? response : null;
     } catch {
       return null;
     }
@@ -816,6 +855,7 @@ export class RemoteService implements OnDestroy {
         readonly gamepad?: unknown;
         readonly voicemeeter?: unknown;
         readonly screen?: unknown;
+        readonly audio?: unknown;
       };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
@@ -825,11 +865,13 @@ export class RemoteService implements OnDestroy {
       this.gamepadAvailableSignal.set(body.gamepad === true);
       this.voicemeeterAvailableSignal.set(body.voicemeeter === true);
       this.screenAvailableSignal.set(body.screen === true);
+      this.audioAvailableSignal.set(body.audio === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
       this.screenAvailableSignal.set(false);
+      this.audioAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,

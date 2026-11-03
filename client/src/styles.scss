@@ -970,6 +970,96 @@ h2 {
   gap: 10px;
 }
 
+.screen-view__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.screen-view__toolbar svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.screen-view__keyboard input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: var(--border-width) solid var(--line);
+  border-radius: calc(13px * var(--radius-scale));
+  background: var(--surface-raised);
+  color: var(--text);
+  caret-color: var(--accent);
+}
+
+// Im Vollbild fuellt das Bild den Rest; object-fit haelt das Seitenverhaeltnis, den Klick
+// rechnet die Komponente auf das eigentliche Bild um.
+.screen-view:fullscreen {
+  display: flex;
+  flex-direction: column;
+  background: var(--app-bg);
+}
+
+.screen-view:fullscreen .screen-view__image {
+  flex: 1 1 0;
+  min-height: 0;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+// Im Vollbild schweben Schalter, Tastaturfeld und Hinweise ueber dem Bild, statt ihm Hoehe
+// wegzunehmen; die Schalter dann nur als Symbol.
+.screen-view:fullscreen .screen-view__toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+}
+
+.screen-view:fullscreen .screen-view__toolbar .snap-switch {
+  min-width: 42px;
+  min-height: 42px;
+  justify-content: center;
+  padding: 0;
+  background: rgba(var(--overlay-rgb), 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.screen-view:fullscreen .screen-view__quality {
+  min-height: 42px;
+  background: rgba(var(--overlay-rgb), 0.72);
+}
+
+.screen-view:fullscreen .screen-view__toolbar .snap-switch span {
+  display: none;
+}
+
+.screen-view:fullscreen .screen-view__toolbar .snap-switch[aria-checked='true'] {
+  background: rgba(var(--accent-rgb), 0.3);
+}
+
+.screen-view:fullscreen .screen-view__keyboard {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 1;
+}
+
+.screen-view:fullscreen .stats-waiting {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: calc(10px * var(--radius-scale));
+  background: rgba(var(--overlay-rgb), 0.72);
+}
+
 .screen-view__image {
   display: block;
   width: 100%;
@@ -1412,6 +1502,7 @@ select:focus-visible {
 .field input,
 .field select,
 .presentation__target select,
+.screen-view__quality,
 .macro-text-input {
   width: 100%;
   min-height: 50px;
@@ -1430,6 +1521,7 @@ select:focus-visible {
 .field input:hover,
 .field select:hover,
 .presentation__target select:hover,
+.screen-view__quality:hover,
 .macro-text-input:hover {
   border-color: rgba(var(--line-rgb), 0.16);
 }
@@ -1437,6 +1529,7 @@ select:focus-visible {
 .field input:focus,
 .field select:focus,
 .presentation__target select:focus,
+.screen-view__quality:focus,
 .macro-text-input:focus {
   border-color: var(--line-strong);
   background: var(--surface-focus);
@@ -2166,7 +2259,8 @@ select:focus-visible {
   font-weight: 700;
 }
 
-.presentation__target select {
+.presentation__target select,
+.screen-view__quality {
   width: auto;
   min-height: 38px;
   font-size: 0.9rem;

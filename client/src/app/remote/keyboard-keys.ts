@@ -1,5 +1,5 @@
 import { AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
-import { KeyboardAction } from './remote.models';
+import { KeyboardAction, TextAction } from './remote.models';
 
 export const MAX_HOTKEY_KEYS = 4;
 
@@ -165,3 +165,32 @@ export const keySelectionValidator: ValidatorFn = (
   const keys = value.filter((entry): entry is string => typeof entry === 'string');
   return keysToAction(keys) === null ? { keys: true } : null;
 };
+
+/** Live-Eingabe: vergleicht das Feld mit dem zuletzt gesendeten Stand und liefert nur die
+ *  Differenz (Rücktasten + neuer Text). So funktionieren auch Autokorrektur und
+ *  Wortvorschläge der Handy-Tastatur, die ganze Wörter auf einmal ersetzen. */
+export function liveTextActions(
+  previousText: string,
+  nextText: string,
+): (KeyboardAction | TextAction)[] {
+  // ponytail: eine Rücktaste pro Codepoint. Löscht die PC-Anwendung zusammengesetzte Emoji
+  // am Stück, gehen dabei zu viele Zeichen weg; dann auf Intl.Segmenter (Grapheme) umstellen.
+  const previous = Array.from(previousText);
+  const next = Array.from(nextText);
+  let common = 0;
+
+  while (common < previous.length && common < next.length && previous[common] === next[common]) {
+    common++;
+  }
+
+  const actions: (KeyboardAction | TextAction)[] = previous
+    .slice(common)
+    .map(() => ({ type: 'key', keys: ['BACKSPACE'] }));
+  const inserted = next.slice(common).join('');
+
+  if (inserted.length > 0) {
+    actions.push({ type: 'text', text: inserted });
+  }
+
+  return actions;
+}

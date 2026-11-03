@@ -437,6 +437,26 @@ export const TRANSLATIONS = {
     de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm.',
     en: 'The PC is showing a security prompt or the lock screen.',
   },
+  'screen.sound': { de: 'Ton', en: 'Sound' },
+  'screen.soundTitle': {
+    de: 'Ton des PCs auf diesem Gerät abspielen',
+    en: 'Play the PC sound on this device',
+  },
+  'screen.soundFailed': {
+    de: 'Der Ton des PCs lässt sich gerade nicht abspielen.',
+    en: 'The PC sound cannot be played right now.',
+  },
+  'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
+  'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
+  'screen.keyboardPlaceholder': {
+    de: 'Jeder Buchstabe geht direkt an den PC',
+    en: 'Every letter goes straight to the PC',
+  },
+  'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.quality': { de: 'Bildqualität', en: 'Picture quality' },
+  'screen.quality.performance': { de: 'Leistung', en: 'Performance' },
+  'screen.quality.balanced': { de: 'Ausgeglichen', en: 'Balanced' },
+  'screen.quality.quality': { de: 'Qualität', en: 'Quality' },
   'stats.windows.refresh': { de: 'Aktualisieren', en: 'Refresh' },
   'stats.windows.empty': { de: 'Keine offenen Fenster', en: 'No open windows' },
   'stats.windows.unavailable': {

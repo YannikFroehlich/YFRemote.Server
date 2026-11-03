@@ -1,4 +1,62 @@
-<div class="screen-view">
+<div #view class="screen-view">
+  <div class="screen-view__toolbar">
+    @if (soundSupported()) {
+      <button
+        class="snap-switch"
+        type="button"
+        role="switch"
+        [attr.title]="i18n.t('screen.soundTitle')"
+        [attr.aria-label]="i18n.t('screen.sound')"
+        [attr.aria-checked]="soundOn()"
+        (click)="toggleSound()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="soundOn() ? iconPaths['volume-plus'] : iconPaths['volume-mute']"></path>
+        </svg>
+        <span>{{ i18n.t('screen.sound') }}</span>
+      </button>
+    }
+    <button
+      class="snap-switch"
+      type="button"
+      role="switch"
+      [attr.title]="i18n.t('screen.keyboardTitle')"
+      [attr.aria-label]="i18n.t('screen.keyboard')"
+      [attr.aria-checked]="keyboardOpen()"
+      (click)="toggleKeyboard()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths.keyboard"></path>
+      </svg>
+      <span>{{ i18n.t('screen.keyboard') }}</span>
+    </button>
+    <select
+      class="screen-view__quality"
+      [attr.aria-label]="i18n.t('screen.quality')"
+      (change)="selectQuality($event)"
+    >
+      @for (option of qualities; track option) {
+        <option [value]="option" [selected]="option === quality()">
+          {{ i18n.t('screen.quality.' + option) }}
+        </option>
+      }
+    </select>
+    @if (fullscreenSupported) {
+      <button
+        class="snap-switch"
+        type="button"
+        role="switch"
+        [attr.aria-label]="i18n.t('screen.fullscreen')"
+        [attr.aria-checked]="fullscreen()"
+        (click)="toggleFullscreen()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.fullscreen"></path>
+        </svg>
+        <span>{{ i18n.t('screen.fullscreen') }}</span>
+      </button>
+    }
+  </div>
   @if (frame(); as src) {
     <img
       class="screen-view__image"
@@ -9,9 +67,26 @@
       (contextmenu)="click($event, 'right')"
     />
   }
+  @if (keyboardOpen()) {
+    <form class="screen-view__keyboard" (submit)="submitKeyboard($event, keyboardInput)">
+      <input
+        #keyboardInput
+        type="text"
+        autocomplete="off"
+        enterkeyhint="enter"
+        [attr.aria-label]="i18n.t('screen.keyboardTitle')"
+        [placeholder]="i18n.t('screen.keyboardPlaceholder')"
+        (input)="onKeyboardInput(keyboardInput)"
+        (keydown)="onKeyboardKeydown($event, keyboardInput)"
+      />
+    </form>
+  }
   @if (blocked()) {
     <p class="stats-waiting">{{ i18n.t('screen.blocked') }}</p>
   } @else if (frame() === null) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
+  }
+  @if (soundFailed()) {
+    <p class="stats-waiting">{{ i18n.t('screen.soundFailed') }}</p>
   }
 </div>

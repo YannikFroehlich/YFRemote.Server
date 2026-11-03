@@ -346,6 +346,7 @@ export type RemoteIcon =
   | 'monitor'
   | 'timer'
   | 'mic'
+  | 'keyboard'
   | 'upload'
   | 'download'
   | 'clipboard';

@@ -307,8 +307,16 @@ normal actions. The same bridge's `captureVolumeKeys(enabled)` (sent by the Clie
 makes `RemoteWebActivity.dispatchKeyEvent` swallow the phone's volume keys and answer with
 `{type:'volume',direction}`, which the Client sends as `VOLUME_UP`/`VOLUME_DOWN`, or which the
 "Folien" tab turns into slide steps (`MediaBridgeService.setVolumeKeyHandler`); only in the
-foreground. The notification lives as long as `RemoteWebActivity`; whether the WebView keeps the socket and
-the notification alive in the background or with the screen off is not verified on a phone yet.
+foreground. The notification lives as long as `RemoteWebActivity`. Two things keep it working in
+the background, both measured on the dev phone (Android 16) on 2026-11-03:
+`remote/RemoteMediaService`, a `mediaPlayback` foreground service that runs only while the
+notification is shown (Android's background firewall chain otherwise cut the app's network about
+6 s after leaving it), and a `WebView` subclass in `RemoteWebActivity` that reports itself visible
+while `media.isShowing` (Chromium otherwise froze the hidden page after about 60 s, so no `media`
+pushes arrived and the notification stayed on the old state; a Web Lock did not prevent that).
+With both, pushes and the notification's buttons kept working with the app in the background and
+with the screen off for 150 s, and the lock screen shows the player. Not measured: hours with the
+screen off (Doze).
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as

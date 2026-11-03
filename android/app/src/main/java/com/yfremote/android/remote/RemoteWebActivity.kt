@@ -98,7 +98,13 @@ class RemoteWebActivity : Activity() {
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
         media = RemoteMediaNotification(this, title?.toString(), ::sendMedia)
 
-        webView = WebView(this).apply {
+        // Chromium friert eine unsichtbare Seite nach etwa einer Minute ein: Danach kamen keine
+        // Medien-Meldungen mehr an, und die Benachrichtigung blieb auf dem alten Stand. Solange sie
+        // zu sehen ist, gilt das WebView darum weiter als sichtbar (das Netz haelt RemoteMediaService).
+        webView = object : WebView(this) {
+            override fun onWindowVisibilityChanged(visibility: Int) =
+                super.onWindowVisibilityChanged(if (media.isShowing) View.VISIBLE else visibility)
+        }.apply {
             setBackgroundColor(getColor(R.color.brand_background))
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true

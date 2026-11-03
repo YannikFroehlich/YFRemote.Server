@@ -444,6 +444,19 @@ Galaxy S25 (Android 16).
      assemble`). Neither may be named
      `build-and-test` — that name is the required status check on `main` (see "Release
      automation" below) and must stay pointed at the Windows server job.
+   - The app updates itself from the same GitHub Release (`update/AppUpdate.kt`, Velopack has no
+     Android support): `SetupActivity.checkForUpdate` asks `releases/latest` on every `onResume`
+     at most every 6 hours, takes the `.apk` asset only from this repository's
+     `releases/download/` URL, and offers it only for a strictly higher `x.y.z` versionName, so a
+     `0.1-dev` build never sees one. "Installieren" streams the APK into a `PackageInstaller`
+     session (`setAppPackageName`, `USER_ACTION_NOT_REQUIRED` on Android 12+) and the result comes
+     back to `SetupActivity` as a mutable `PendingIntent` (`ACTION_UPDATE_STATUS`, singleTop); on
+     `STATUS_PENDING_USER_ACTION` it starts the system's confirm dialog. The first time it sends the
+     user to "Unbekannte Apps installieren" (`REQUEST_INSTALL_PACKAGES`). Android itself rejects an
+     APK with a different signature. A successful update ends the process, so the foreground
+     service is off until the app is opened again. Only the parser and version check have unit
+     tests; download, install and the Android 12+ no-prompt path are unverified on a device (the
+     first release with the updater has to be installed by hand).
    - There is no separate Android version or trigger: every push to `main` releases Windows,
      Linux and Android together, so an Android-only change releases the PC packages too unless
      `[skip release]` is used deliberately.

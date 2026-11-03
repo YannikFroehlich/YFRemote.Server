@@ -11,8 +11,8 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tests.Integration;
 
-// Deckt GET /media/cover (Endpoints/MediaEndpoints.cs), GET /launch/apps und GET /windows ab. Die
-// Dienste dahinter werden wie in ClipboardEndpointTests ueber den configureServices-Hook ersetzt,
+// Deckt GET /media/cover (Endpoints/MediaEndpoints.cs), GET /launch/apps, GET /windows und GET /screen
+// ab. Die Dienste dahinter werden wie in ClipboardEndpointTests ueber den configureServices-Hook ersetzt,
 // damit kein Test von Medien-App, Startmenue oder Fenstern der Maschine abhaengt.
 [TestClass]
 public sealed class MediaEndpointTests
@@ -24,6 +24,7 @@ public sealed class MediaEndpointTests
     private HttpClient httpClient = null!;
     private string baseUrl = null!;
     private FakeMediaControl media = null!;
+    private FakeScreenCapture screen = null!;
 
     [TestInitialize]
     public async Task InitializeAsync()
@@ -38,6 +39,7 @@ public sealed class MediaEndpointTests
         baseUrl = $"http://127.0.0.1:{port}";
 
         media = new FakeMediaControl();
+        screen = new FakeScreenCapture();
         app = Program.BuildApplication(
             [
                 "Server:Host=127.0.0.1",
@@ -47,7 +49,8 @@ public sealed class MediaEndpointTests
             services => services
                 .AddSingleton<IMediaControl>(media)
                 .AddSingleton<IAppLauncher>(new FakeAppLauncher())
-                .AddSingleton<IWindowService>(new FakeWindowService()));
+                .AddSingleton<IWindowService>(new FakeWindowService())
+                .AddSingleton<IScreenCapture>(screen));
         await app.StartAsync();
 
         httpClient = new HttpClient { BaseAddress = new Uri(baseUrl) };
@@ -145,6 +148,52 @@ public sealed class MediaEndpointTests
             body.GetProperty("windows").GetRawText());
     }
 
+    [TestMethod]
+    public async Task Screen_ReturnsJpegForPairedDeviceWithClampedWidth()
+    {
+        var token = await PairAndGetTokenAsync();
+        using var unauthorized = await httpClient.GetAsync("/screen");
+
+        var response = await GetScreenAsync(token, "/screen?width=99999");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("image/jpeg", response.Content.Headers.ContentType!.MediaType);
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        CollectionAssert.AreEqual(FakeScreenCapture.Jpeg, await response.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual(3840, screen.LastMaxWidth);
+    }
+
+    [TestMethod]
+    public async Task Health_ReportsScreenWhenCaptureIsRegistered()
+    {
+        var health = await httpClient.GetFromJsonAsync<HealthResponse>("/health", JsonOptions);
+
+        Assert.IsTrue(health!.Screen);
+    }
+
+    [TestMethod]
+    public async Task Screen_IsUnavailableOnSecureDesktopAndForMediaOnlyDevices()
+    {
+        var token = await PairAndGetTokenAsync();
+        screen.Blocked = true;
+
+        var blocked = await GetScreenAsync(token, "/screen");
+        var pairing = app.Services.GetRequiredService<PairingService>();
+        Assert.IsTrue(pairing.SetMediaOnly(pairing.GetPairedDevices()[0].Id, mediaOnly: true));
+        var mediaOnly = await GetScreenAsync(token, "/screen");
+
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, blocked.StatusCode);
+        Assert.AreEqual(HttpStatusCode.Forbidden, mediaOnly.StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> GetScreenAsync(string token, string path)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return await httpClient.SendAsync(request);
+    }
+
     private async Task<HttpResponseMessage> GetCoverAsync(string? token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/media/cover");
@@ -171,6 +220,21 @@ public sealed class MediaEndpointTests
         var response = await httpClient.SendAsync(request);
         var body = await response.Content.ReadFromJsonAsync<PairResponse>(JsonOptions);
         return body!.Token!;
+    }
+
+    private sealed class FakeScreenCapture : IScreenCapture
+    {
+        public static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 7];
+
+        public bool Blocked { get; set; }
+
+        public int LastMaxWidth { get; private set; }
+
+        public byte[] CaptureJpeg(int maxWidth)
+        {
+            LastMaxWidth = maxWidth;
+            return Blocked ? throw new System.ComponentModel.Win32Exception(5) : Jpeg;
+        }
     }
 
     private sealed class FakeWindowService : IWindowService

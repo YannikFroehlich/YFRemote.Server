@@ -118,6 +118,23 @@
             </svg>
             <span>Touchpad</span>
           </button>
+          @if (screenSupported()) {
+            <button
+              class="view-tab"
+              [class.view-tab--active]="activeView() === 'screen'"
+              type="button"
+              role="tab"
+              [attr.aria-selected]="activeView() === 'screen'"
+              (click)="selectView('screen')"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v9h16V6H4Z"
+                />
+              </svg>
+              <span>{{ i18n.t('shell.tabScreen') }}</span>
+            </button>
+          }
           <button
             class="view-tab"
             [class.view-tab--active]="activeView() === 'keyboard'"
@@ -410,6 +427,10 @@
         }
       } @else if (activeView() === 'touchpad') {
         <app-touchpad />
+      } @else if (activeView() === 'screen' && screenSupported()) {
+        @defer (on immediate) {
+          <app-screen-view />
+        }
       } @else if (activeView() === 'keyboard') {
         <app-keyboard-pad />
       } @else if (activeView() === 'presentation') {

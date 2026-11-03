@@ -23,6 +23,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly FileTransferService fileTransferService;
     private readonly FileOfferService fileOfferService;
     private readonly ClipboardReadNotifier clipboardReadNotifier;
+    private readonly ScreenViewNotifier screenViewNotifier;
     private readonly IGamepadService gamepadService;
     private readonly Icon trayIcon;
     private readonly NotifyIcon notifyIcon;
@@ -56,6 +57,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         fileTransferService = app.Services.GetRequiredService<FileTransferService>();
         fileOfferService = app.Services.GetRequiredService<FileOfferService>();
         clipboardReadNotifier = app.Services.GetRequiredService<ClipboardReadNotifier>();
+        screenViewNotifier = app.Services.GetRequiredService<ScreenViewNotifier>();
         gamepadService = app.Services.GetRequiredService<IGamepadService>();
         shutdownTimer = app.Services.GetRequiredService<ShutdownTimer>();
         httpsOptions = app.Services.GetRequiredService<HttpsOptions>();
@@ -76,6 +78,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         fileOfferService.Downloaded += OnOfferedFileDownloaded;
         clipboardReadNotifier.Read += OnClipboardRead;
         clipboardReadNotifier.SyncEnabled += OnClipboardSyncEnabled;
+        screenViewNotifier.Started += OnScreenViewStarted;
         shutdownTimer.Changed += OnShutdownTimerChanged;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
@@ -244,6 +247,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.Read -= OnClipboardRead;
             clipboardReadNotifier.SyncEnabled -= OnClipboardSyncEnabled;
+            screenViewNotifier.Started -= OnScreenViewStarted;
             shutdownTimer.Changed -= OnShutdownTimerChanged;
             connectionRegistry.ConnectionsChanged -= OnConnectionsChanged;
             initialUpdateTimer.Dispose();
@@ -452,6 +456,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 4000,
                 "Zwischenablage-Abgleich",
                 $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
+                ToolTipIcon.Info));
+
+    private void OnScreenViewStarted(string deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(
+                4000,
+                "Bildschirm wird übertragen",
+                $"\"{deviceName}\" sieht deinen Bildschirm.",
                 ToolTipIcon.Info));
 
     // Ein Geraet plant das Herunterfahren aus der Ferne - wer am PC sitzt, soll das sehen und

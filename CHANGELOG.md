@@ -23,6 +23,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Web-Oberfläche: Neuer Tab "Bildschirm" zeigt den Hauptbildschirm des Windows-PCs live auf dem Gerät, samt Mauszeiger (bis zu etwa 10 Bilder pro Sekunde, je nach WLAN weniger). Das Bild kommt nur, solange der Tab offen und die App im Vordergrund ist. Am PC meldet das Tray "Bildschirm wird übertragen", sobald ein Gerät nach einer Pause wieder zusieht. Geräte mit "Nur Medien" bekommen den Tab nicht; bei einer UAC-Abfrage oder auf dem Sperrbildschirm zeigt er einen Hinweis statt des Bildes.
+
+### Changed
+
+- Web-Oberfläche: Passen nicht alle Tabs nebeneinander (schmales Telefon), lässt sich die Tab-Leiste seitlich wischen, statt dass sich die Beschriftungen überlappen.
+
+## [2.45.0] - 2026-11-03
+
+### Added
+
 - Android-App: Aktualisiert sich selbst. Beim Öffnen (und danach alle 6 Stunden, solange sie offen ist) prüft die App, ob auf GitHub eine neuere Version liegt, und zeigt dann oben "Update verfügbar". "Installieren" lädt die neue APK und installiert sie über die alte, die Daten bleiben erhalten. Beim ersten Mal fragt Android, ob YFRemote Apps installieren darf; danach bestätigt man jedes Update mit einem Tippen (ab Android 12 kann diese Rückfrage auch entfallen). Gilt ab der Version nach dieser: die erste muss man noch von Hand installieren.
 - Android-App: Die Lautstärketasten des Handys regeln die Lautstärke am gesteuerten PC, solange die Fernbedienung offen und verbunden ist. Ohne Verbindung regeln sie wie gewohnt das Handy.
 - Web-Oberfläche: Neuer Tab "Folien" zum Präsentieren. Große Tasten für Zurück und Weiter, dazu "Starten", "Ab hier", "Schwarz" und "Beenden"; das klappt mit PowerPoint, LibreOffice, Google Slides und PDF-Betrachtern. "Laserpointer" schaltet in PowerPoint den Laserpointer ein und blendet eine Fläche ein, mit der man ihn per Finger bewegt. In der Android-App blättern die Lautstärketasten in diesem Tab (lauter = weiter, leiser = zurück).

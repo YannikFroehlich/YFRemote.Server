@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.48.1] - 2026-11-04
+
 ### Fixed
 
 - Web-Oberfläche: Im Tab "Bildschirm" öffnet der Schalter "Tastatur" jetzt zuverlässig die Handy-Tastatur, ohne zusätzliches Eingabefeld; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. Schließt man die Tastatur, geht der Schalter von selbst aus. Bisher blieb die Tastatur auf Android oft zu.

@@ -448,10 +448,6 @@ export const TRANSLATIONS = {
   },
   'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
-  'screen.keyboardPlaceholder': {
-    de: 'Jeder Buchstabe geht direkt an den PC',
-    en: 'Every letter goes straight to the PC',
-  },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
   'screen.quality': { de: 'Bildqualität', en: 'Picture quality' },
   'screen.quality.performance': { de: 'Leistung', en: 'Performance' },

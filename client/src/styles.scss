@@ -982,15 +982,19 @@ h2 {
   fill: currentColor;
 }
 
+// Unsichtbares Feld, nur damit die Handy-Tastatur aufgeht; was man tippt, landet live am PC.
+.screen-view__keyboard {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .screen-view__keyboard input {
-  width: 100%;
-  min-height: 48px;
-  padding: 0 14px;
-  border: var(--border-width) solid var(--line);
-  border-radius: calc(13px * var(--radius-scale));
-  background: var(--surface-raised);
-  color: var(--text);
-  caret-color: var(--accent);
+  // 16px, sonst zoomt iOS beim Fokus in die Seite.
+  font-size: 16px;
 }
 
 // Im Vollbild fuellt das Bild den Rest; object-fit haelt das Seitenverhaeltnis, den Klick
@@ -1039,14 +1043,6 @@ h2 {
 
 .screen-view:fullscreen .screen-view__toolbar .snap-switch[aria-checked='true'] {
   background: rgba(var(--accent-rgb), 0.3);
-}
-
-.screen-view:fullscreen .screen-view__keyboard {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  left: 10px;
-  z-index: 1;
 }
 
 .screen-view:fullscreen .stats-waiting {
@@ -1135,6 +1131,8 @@ h2 {
 
 .mixer {
   display: grid;
+  // minmax(0, ...): sonst macht ein langer App-Name (nowrap) die Spalte breiter als den Bildschirm.
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -1146,6 +1144,7 @@ h2 {
 
 .mixer-channel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   padding: 10px 12px;
   border: var(--border-width) solid var(--line);

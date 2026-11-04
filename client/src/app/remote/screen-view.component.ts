@@ -1,10 +1,8 @@
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
   inject,
-  Injector,
   OnDestroy,
   signal,
   viewChild,
@@ -46,7 +44,6 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly i18n = inject(TranslationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
-  private readonly injector = inject(Injector);
   private readonly createAudioContext = inject(SCREEN_AUDIO_CONTEXT_FACTORY);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly soundSupported = this.remote.audioAvailable;
@@ -59,7 +56,6 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundFailed = signal(false);
   protected readonly keyboardOpen = signal(false);
   protected readonly fullscreen = signal(false);
-  private readonly keyboardInput = viewChild<ElementRef<HTMLInputElement>>('keyboardInput');
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
@@ -203,18 +199,21 @@ export class ScreenViewComponent implements OnDestroy {
     void sound?.context.close().catch(() => undefined);
   }
 
-  protected toggleKeyboard(): void {
-    this.typedText = '';
+  // Fokus direkt im Klick, sonst oeffnet Android die Tastatur nicht. mousedown am Schalter ist
+  // abgefangen, damit der Klick das Feld nicht erst entfokussiert und gleich wieder oeffnet.
+  protected toggleKeyboard(input: HTMLInputElement): void {
     if (this.keyboardOpen()) {
-      this.keyboardOpen.set(false);
-      return;
+      input.blur();
+    } else {
+      input.focus();
     }
+  }
 
-    this.keyboardOpen.set(true);
-    // Die Handy-Tastatur geht nur mit dem Fokus auf, und den kann das Feld erst nach dem Rendern.
-    afterNextRender(() => this.keyboardInput()?.nativeElement.focus(), {
-      injector: this.injector,
-    });
+  // Tastatur zu (Zurueck-Taste, Tipp daneben): Schalter aus, beim naechsten Mal leeres Feld.
+  protected closeKeyboard(input: HTMLInputElement): void {
+    this.keyboardOpen.set(false);
+    input.value = '';
+    this.typedText = '';
   }
 
   protected onKeyboardInput(input: HTMLInputElement): void {

@@ -104,7 +104,7 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
-  it('types live into the PC from the shown keyboard field', async () => {
+  it('types live into the PC from the hidden keyboard field', async () => {
     const { fixture, sendAction, element } = await setup(new Blob(['jpeg']));
     const keyboard = Array.from(element.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('Tastatur'),
@@ -126,6 +126,11 @@ describe('ScreenViewComponent', () => {
       [{ type: 'key', keys: ['ENTER'] }],
     ]);
     expect(input.value).toBe('');
+    expect(keyboard.getAttribute('aria-checked')).toBe('true');
+
+    keyboard.click();
+    fixture.detectChanges();
+    expect(keyboard.getAttribute('aria-checked')).toBe('false');
     fixture.destroy();
   });
 

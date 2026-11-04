@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Web-Oberfläche: Im Tab "Bildschirm" öffnet der Schalter "Tastatur" jetzt zuverlässig die Handy-Tastatur, ohne zusätzliches Eingabefeld; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. Schließt man die Tastatur, geht der Schalter von selbst aus. Bisher blieb die Tastatur auf Android oft zu.
+- Web-Oberfläche: Im Tab "Mixer" ragen Apps mit langem Namen (z. B. "VB-AUDIO Virtual Audio Device Mixing Console Application") nicht mehr rechts über den Bildschirm hinaus; der Name wird gekürzt, und alle Karten samt Schieberegler passen wieder in die Breite.
+
+## [2.48.0] - 2026-11-03
+
 ### Added
 
 - Web-Oberfläche: Der Tab "Bildschirm" hat jetzt die Schalter "Ton", "Tastatur" und "Vollbild". "Ton" spielt den Ton des PCs auf dem Gerät ab (unkomprimiert, etwa 1,5 MBit/s im WLAN). "Tastatur" blendet unter dem Bild ein Feld ein und öffnet die Handy-Tastatur; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. "Vollbild" zeigt nur noch das Bild, quer gedreht; die Schalter schweben dann als Symbole über dem Bild.

@@ -23,7 +23,8 @@
       [attr.title]="i18n.t('screen.keyboardTitle')"
       [attr.aria-label]="i18n.t('screen.keyboard')"
       [attr.aria-checked]="keyboardOpen()"
-      (click)="toggleKeyboard()"
+      (mousedown)="$event.preventDefault()"
+      (click)="toggleKeyboard(keyboardInput)"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path [attr.d]="iconPaths.keyboard"></path>
@@ -67,20 +68,21 @@
       (contextmenu)="click($event, 'right')"
     />
   }
-  @if (keyboardOpen()) {
-    <form class="screen-view__keyboard" (submit)="submitKeyboard($event, keyboardInput)">
-      <input
-        #keyboardInput
-        type="text"
-        autocomplete="off"
-        enterkeyhint="enter"
-        [attr.aria-label]="i18n.t('screen.keyboardTitle')"
-        [placeholder]="i18n.t('screen.keyboardPlaceholder')"
-        (input)="onKeyboardInput(keyboardInput)"
-        (keydown)="onKeyboardKeydown($event, keyboardInput)"
-      />
-    </form>
-  }
+  <!-- Bleibt immer im DOM: die Handy-Tastatur geht nur auf, wenn der Fokus noch im Klick kommt. -->
+  <form class="screen-view__keyboard" (submit)="submitKeyboard($event, keyboardInput)">
+    <input
+      #keyboardInput
+      type="text"
+      tabindex="-1"
+      autocomplete="off"
+      enterkeyhint="enter"
+      [attr.aria-label]="i18n.t('screen.keyboardTitle')"
+      (focus)="keyboardOpen.set(true)"
+      (blur)="closeKeyboard(keyboardInput)"
+      (input)="onKeyboardInput(keyboardInput)"
+      (keydown)="onKeyboardKeydown($event, keyboardInput)"
+    />
+  </form>
   @if (blocked()) {
     <p class="stats-waiting">{{ i18n.t('screen.blocked') }}</p>
   } @else if (frame() === null) {

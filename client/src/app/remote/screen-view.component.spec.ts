@@ -519,6 +519,8 @@ describe('ScreenViewComponent', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
   describe('in fullscreen', () => {
     const enterFullscreen = async (element: HTMLElement) => {
       const view = element.querySelector('.screen-view')!;

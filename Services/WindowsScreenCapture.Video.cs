@@ -24,10 +24,13 @@ public sealed partial class WindowsScreenCapture
     // Ein Schluesselbild alle 2 s Videozeit: der Browser kann alten Puffer nur bis zu einem
     // Schluesselbild verwerfen.
     private const uint GopFrames = 120;
+    private const uint UnconstrainedVbr = 2;
     // Auch ohne Aenderung ein Bild pro Sekunde, damit der Browser die Verbindung nicht fuer tot haelt.
     private static readonly TimeSpan KeepAlive = TimeSpan.FromSeconds(1);
     private static readonly Guid LowLatencyMode = new("9c27891a-ed7a-40e1-88e8-b22727a024ee");
     private static readonly Guid GopSize = new("95f31b26-95a4-41aa-9303-246a7fc6eef1");
+    private static readonly Guid MeanBitRate = new("f7222374-2144-4815-b550-a37f8e12ee52");
+    private static readonly Guid RateControlMode = new("1c0608e9-370c-4710-8a58-cb6181c42423");
     private static readonly Guid EnumAdapterLuid = new("1d39518c-e220-4da8-a07f-ba172552d6b1");
     private static readonly Guid H264 = VideoFormatGuids.FromFourCC(new FourCC("H264"));
     private static readonly Guid Nv12 = VideoFormatGuids.FromFourCC(new FourCC("NV12"));
@@ -46,16 +49,17 @@ public sealed partial class WindowsScreenCapture
         CancellationToken cancellationToken)
     {
         // Rueckstau: kommt das WLAN nicht nach, wartet die Aufnahme - die Bildrate sinkt, statt
-        // dass sich Bilder stauen.
+        // dass sich Bilder stauen. Das Warten beim Senden senkt zugleich die Bitrate.
         var fragments = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(3) { SingleReader = true, SingleWriter = true });
         var started = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var bitrate = new VideoBitrateControl(bitrateKbps);
         var producer = Task.Factory.StartNew(
             () =>
             {
                 try
                 {
-                    ProduceVideo(maxWidth, bitrateKbps, monitor, started, fragments.Writer, stop.Token);
+                    ProduceVideo(maxWidth, bitrate, monitor, started, fragments.Writer, stop.Token);
                     fragments.Writer.TryComplete();
                 }
                 catch (Exception exception)
@@ -71,9 +75,12 @@ public sealed partial class WindowsScreenCapture
         try
         {
             onStart(await started.Task.WaitAsync(cancellationToken));
+            var clock = Stopwatch.StartNew();
             await foreach (var fragment in fragments.Reader.ReadAllAsync(cancellationToken))
             {
+                var before = clock.Elapsed;
                 await onFragment(fragment);
+                bitrate.Report(fragment.Length, clock.Elapsed - before, clock.Elapsed);
             }
         }
         finally
@@ -85,7 +92,7 @@ public sealed partial class WindowsScreenCapture
 
     private void ProduceVideo(
         int maxWidth,
-        int bitrateKbps,
+        VideoBitrateControl bitrate,
         string? monitor,
         TaskCompletionSource<string> started,
         ChannelWriter<byte[]> fragments,
@@ -97,7 +104,8 @@ public sealed partial class WindowsScreenCapture
         var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
         try
         {
-            var start = StartPipeline(screen, capture, maxWidth, bitrateKbps);
+            var encoderKbps = bitrate.Kbps;
+            var start = StartPipeline(screen, capture, maxWidth, encoderKbps);
             var source = start.Source;
             using var pipeline = start.Pipeline;
             var writer = new Fmp4Writer(start.Width, start.Height, VideoTimescale, VideoFrameDuration);
@@ -139,6 +147,12 @@ public sealed partial class WindowsScreenCapture
                                 lastFrame = source.Frame;
                                 lastCursor = cursor;
                                 lastInput = clock.Elapsed;
+                                if (bitrate.Kbps != encoderKbps)
+                                {
+                                    encoderKbps = bitrate.Kbps;
+                                    pipeline.SetBitrate(encoderKbps * 1000);
+                                }
+
                                 pipeline.Encode(source, screen, clock.Elapsed.Ticks);
                                 break;
                             }
@@ -305,6 +319,9 @@ public sealed partial class WindowsScreenCapture
                 encoder.ProcessMessage(TMessageType.MessageSetD3DManager, (UIntPtr)(ulong)deviceManager.NativePointer);
                 SetCodecValue(encoder, LowLatencyMode, 1u);
                 SetCodecValue(encoder, GopSize, GopFrames);
+                // Nur im VBR-Modus nimmt der Intel-Encoder eine neue Bitrate waehrend des Stroms an;
+                // im Standardmodus und bei CBR meldet IsModifiable S_FALSE und nichts aendert sich.
+                SetCodecValue(encoder, RateControlMode, UnconstrainedVbr);
 
                 using (var output = MediaFactory.MFCreateMediaType())
                 {
@@ -333,6 +350,8 @@ public sealed partial class WindowsScreenCapture
                 throw;
             }
         }
+
+        public void SetBitrate(int bitrate) => SetCodecValue(encoder, MeanBitRate, (uint)bitrate);
 
         public void Encode(Duplication source, ScreenMonitor screen, long timestamp)
         {

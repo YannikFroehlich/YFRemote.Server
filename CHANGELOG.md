@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Windows: Die automatische Bitrate im Tab "Bildschirm" tastet sich an einer knappen Verbindung immer seltener nach oben, statt alle gut 20 Sekunden kurz zu stocken.
+
 ## [2.49.0] - 2026-11-06
 
 ### Fixed

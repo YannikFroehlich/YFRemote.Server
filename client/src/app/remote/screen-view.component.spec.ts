@@ -11,6 +11,7 @@ describe('ScreenViewComponent', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   async function setup(
@@ -97,9 +98,9 @@ describe('ScreenViewComponent', () => {
     const image = element.querySelector('img')!;
     image.getBoundingClientRect = () => ({ left: 10, top: 20, width: 200, height: 100 }) as DOMRect;
 
-    image.dispatchEvent(new MouseEvent('click', { clientX: 60, clientY: 120 }));
+    image.dispatchEvent(new MouseEvent('click', { clientX: 60, clientY: 120, bubbles: true }));
     image.dispatchEvent(
-      new MouseEvent('contextmenu', { clientX: 500, clientY: 20, cancelable: true }),
+      new MouseEvent('contextmenu', { clientX: 500, clientY: 20, cancelable: true, bubbles: true }),
     );
 
     expect(sendAction.mock.calls).toEqual([
@@ -194,7 +195,7 @@ describe('ScreenViewComponent', () => {
 
     const image = element.querySelector('img')!;
     image.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
-    image.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }));
+    image.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50, bubbles: true }));
     expect(sendAction).toHaveBeenCalledWith({
       type: 'screenClick',
       x: 0.5,
@@ -235,6 +236,134 @@ describe('ScreenViewComponent', () => {
     select.dispatchEvent(new Event('change'));
 
     await vi.waitFor(() => expect(openScreenVideo.mock.calls.at(-1)?.[3]).toBe('left'));
+    fixture.destroy();
+  });
+
+  function pointer(
+    target: Element,
+    type: string,
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+  ): void {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      pointerId: { value: pointerId },
+      clientX: { value: clientX },
+      clientY: { value: clientY },
+      pointerType: { value: 'touch' },
+      button: { value: 0 },
+    });
+    target.dispatchEvent(event);
+  }
+
+  async function setupGestures() {
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+    const result = await setup(new Blob(['jpeg']));
+    const stage = result.element.querySelector<HTMLElement>('.screen-view__stage')!;
+    const image = result.element.querySelector('img')!;
+    Object.defineProperty(stage, 'clientWidth', { value: 400 });
+    Object.defineProperty(stage, 'clientHeight', { value: 200 });
+    const box = { left: 0, top: 0, width: 400, height: 200 } as DOMRect;
+    stage.getBoundingClientRect = () => box;
+    image.getBoundingClientRect = () => box;
+    return { ...result, stage, image };
+  }
+
+  it('drags on the PC with one finger', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+
+    pointer(stage, 'pointerdown', 1, 100, 100);
+    pointer(stage, 'pointermove', 1, 103, 100);
+    expect(sendAction).not.toHaveBeenCalled();
+    pointer(stage, 'pointermove', 1, 200, 100);
+    pointer(stage, 'pointerup', 1, 200, 100);
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 200, clientY: 100, bubbles: true }));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenMove', x: 0.25, y: 0.5 }],
+      [{ type: 'mouseDown', button: 'left' }],
+      [{ type: 'screenMove', x: 0.5, y: 0.5 }],
+      [{ type: 'mouseUp', button: 'left' }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('keeps the pointer inside the picture when dragging past its edge', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+
+    pointer(stage, 'pointerdown', 1, 100, 100);
+    pointer(stage, 'pointermove', 1, 900, -50);
+    pointer(stage, 'pointerup', 1, 900, -50);
+
+    expect(sendAction.mock.calls[2]).toEqual([{ type: 'screenMove', x: 1, y: 0 }]);
+    fixture.destroy();
+  });
+
+  it('releases the mouse button when the page goes to the background mid-drag', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    pointer(stage, 'pointerdown', 1, 100, 100);
+    pointer(stage, 'pointermove', 1, 200, 100);
+
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(sendAction.mock.calls.at(-1)).toEqual([{ type: 'mouseUp', button: 'left' }]);
+    fixture.destroy();
+  });
+
+  it('zooms with two fingers without touching the PC', async () => {
+    const { fixture, sendAction, stage, image } = await setupGestures();
+
+    pointer(stage, 'pointerdown', 1, 90, 100);
+    pointer(stage, 'pointerdown', 2, 110, 100);
+    pointer(stage, 'pointermove', 1, 80, 100);
+    pointer(stage, 'pointermove', 2, 120, 100);
+    fixture.detectChanges();
+    expect(image.style.transform).toBe('translate(-100px, -100px) scale(2)');
+
+    pointer(stage, 'pointerup', 1, 80, 100);
+    pointer(stage, 'pointermove', 2, 300, 100);
+    pointer(stage, 'pointerup', 2, 300, 100);
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 300, clientY: 100, bubbles: true }));
+
+    expect(sendAction).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('clicks at the zoomed spot', async () => {
+    const { fixture, sendAction, stage, image } = await setupGestures();
+    // Der Browser rechnet den Zoom in den Rahmen ein: doppelt so gross, nach links oben verschoben.
+    image.getBoundingClientRect = () =>
+      ({ left: -100, top: -100, width: 800, height: 400 }) as DOMRect;
+
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenClick', x: 0.25, y: 0.5, button: 'left' }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('does not start a drag after a long press opened the right click', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+
+    pointer(stage, 'pointerdown', 1, 100, 100);
+    stage.dispatchEvent(
+      new MouseEvent('contextmenu', {
+        clientX: 100,
+        clientY: 100,
+        cancelable: true,
+        bubbles: true,
+      }),
+    );
+    pointer(stage, 'pointermove', 1, 200, 100);
+    pointer(stage, 'pointerup', 1, 200, 100);
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenClick', x: 0.25, y: 0.5, button: 'right' }],
+    ]);
     fixture.destroy();
   });
 

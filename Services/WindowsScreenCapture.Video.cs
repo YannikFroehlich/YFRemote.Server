@@ -164,14 +164,13 @@ public sealed partial class WindowsScreenCapture
             // Wie beim JPEG: Zugriff verloren (sicherer Desktop, Aufloesung) - neu aufsetzen,
             // sobald wieder jemand zusieht.
             capture.Reset();
-            if (started.Task.IsCompleted)
+            if (started.Task.IsCompleted || exception.HResult == AccessDenied)
             {
                 throw new Win32Exception(exception.HResult, "Bildschirmaufnahme unterbrochen.");
             }
 
-            // Noch kein Bild: sicherer Desktop (BitBlt wirft Win32Exception, der Client zeigt den
-            // Hinweis) oder der Encoder will nicht (dann bleibt der Client bei JPEG).
-            _ = CaptureWithBitBlt(screen, 320, 30);
+            // Noch kein Bild und der Encoder will nicht: der Client bleibt bei JPEG. Bei verweigertem
+            // Zugriff (oben) zeigt er dagegen den Hinweis und versucht das Video weiter.
             throw new NotSupportedException("H.264-Aufnahme nicht moeglich.", exception);
         }
         finally

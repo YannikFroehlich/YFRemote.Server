@@ -79,6 +79,26 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void SessionEnd_ReleasesOnlyMouseButtonsStillHeld()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+        using var session = new RemoteActionSession();
+
+        handler.Handle(new RemoteActionRequest { Type = "mouseDown", Button = "left" }, session);
+        handler.Handle(new RemoteActionRequest { Type = "mouseDown", Button = "right" }, session);
+        handler.Handle(new RemoteActionRequest { Type = "mouseUp", Button = "right" }, session);
+        Assert.AreEqual("right", mouseService.LastButtonUp);
+
+        session.Dispose();
+        Assert.AreEqual("left", mouseService.LastButtonUp);
+
+        mouseService.LastButtonUp = null;
+        session.Dispose();
+        Assert.IsNull(mouseService.LastButtonUp);
+    }
+
+    [TestMethod]
     public void Handle_ScreenMove_MovesWithoutClickingAndChecksTheRange()
     {
         var mouseService = new RecordingMouseService();
@@ -846,7 +866,7 @@ public sealed class RemoteActionHandlerTests
 
         public string? LastButtonDown { get; private set; }
 
-        public string? LastButtonUp { get; private set; }
+        public string? LastButtonUp { get; set; }
 
         public int? LastScrollDelta { get; private set; }
 

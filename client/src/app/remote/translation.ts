@@ -434,8 +434,8 @@ export const TRANSLATIONS = {
   'screen.alt': { de: 'Bildschirm des PCs', en: 'PC screen' },
   'screen.waiting': { de: 'Bildschirm wird geladen…', en: 'Loading screen…' },
   'screen.blocked': {
-    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm.',
-    en: 'The PC is showing a security prompt or the lock screen.',
+    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm, oder sein Bildschirm ist aus.',
+    en: 'The PC is showing a security prompt or the lock screen, or its display is off.',
   },
   'screen.sound': { de: 'Ton', en: 'Sound' },
   'screen.soundTitle': {

@@ -19,7 +19,7 @@ describe('ScreenViewComponent', () => {
     audioResponse: Response | null = null,
     video: {
       player: ScreenVideoPlayer;
-      stream: { body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | null;
+      stream: { body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | 'blocked' | null;
     } | null = null,
     monitors: readonly ScreenMonitor[] | null = null,
   ) {
@@ -332,6 +332,44 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
+  it('scrolls the page with two fingers while not zoomed', async () => {
+    const { fixture, sendAction, stage, image } = await setupGestures();
+    const scroller = stage.parentElement!;
+    scroller.style.overflowY = 'auto';
+    Object.defineProperty(scroller, 'scrollHeight', { value: 1000 });
+    Object.defineProperty(scroller, 'clientHeight', { value: 300 });
+    scroller.scrollTop = 100;
+
+    pointer(stage, 'pointerdown', 1, 100, 150);
+    pointer(stage, 'pointerdown', 2, 200, 150);
+    pointer(stage, 'pointermove', 1, 100, 130);
+    pointer(stage, 'pointermove', 2, 200, 130);
+    pointer(stage, 'pointerup', 1, 100, 130);
+    pointer(stage, 'pointerup', 2, 200, 130);
+    fixture.detectChanges();
+
+    expect(scroller.scrollTop).toBe(120);
+    expect(image.style.transform).toBe('');
+    expect(sendAction).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('does not scroll the page while zoomed', async () => {
+    const { fixture, stage } = await setupGestures();
+    const scroller = stage.parentElement!;
+    scroller.style.overflowY = 'auto';
+    Object.defineProperty(scroller, 'scrollHeight', { value: 1000 });
+    Object.defineProperty(scroller, 'clientHeight', { value: 300 });
+
+    pointer(stage, 'pointerdown', 1, 90, 100);
+    pointer(stage, 'pointerdown', 2, 110, 100);
+    pointer(stage, 'pointermove', 1, 50, 80);
+    pointer(stage, 'pointermove', 2, 150, 80);
+
+    expect(scroller.scrollTop).toBe(0);
+    fixture.destroy();
+  });
+
   it('clicks at the zoomed spot', async () => {
     const { fixture, sendAction, stage, image } = await setupGestures();
     // Der Browser rechnet den Zoom in den Rahmen ein: doppelt so gross, nach links oben verschoben.
@@ -364,6 +402,42 @@ describe('ScreenViewComponent', () => {
     expect(sendAction.mock.calls).toEqual([
       [{ type: 'screenClick', x: 0.25, y: 0.5, button: 'right' }],
     ]);
+    fixture.destroy();
+  });
+
+  it('shows the hint and resumes the video when the screen becomes available', async () => {
+    const play = vi.fn(
+      (
+        _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+        _video: HTMLVideoElement,
+        _codec: string,
+        abort: AbortSignal,
+        onFrame: () => void,
+      ) => {
+        onFrame();
+        return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+      },
+    );
+    const { fixture, readScreen, openScreenVideo, element } = await setup(
+      new Blob(['jpeg']),
+      null,
+      { player: { play }, stream: 'blocked' },
+    );
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(element.textContent).toContain('Sperrbildschirm');
+    });
+    expect(readScreen).not.toHaveBeenCalled();
+    openScreenVideo.mockResolvedValue({
+      body: new ReadableStream(),
+      codec: 'avc1.4d002a',
+    } as never);
+
+    await vi.waitFor(() => expect(play).toHaveBeenCalled(), { timeout: 3000 });
+    fixture.detectChanges();
+
+    expect(element.textContent).not.toContain('Sperrbildschirm');
+    expect(readScreen).not.toHaveBeenCalled();
     fixture.destroy();
   });
 

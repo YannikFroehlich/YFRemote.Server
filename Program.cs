@@ -462,7 +462,10 @@ internal static class Program
         app.UseStaticFiles();
         app.UseWebSockets(new WebSocketOptions
         {
-            KeepAliveInterval = TimeSpan.FromSeconds(30)
+            KeepAliveInterval = TimeSpan.FromSeconds(30),
+            // Ohne Zeitlimit faellt ein weggebrochenes WLAN erst nach Minuten auf - so lange bliebe
+            // etwa eine beim Ziehen gedrueckte Maustaste gedrueckt.
+            KeepAliveTimeout = TimeSpan.FromSeconds(30)
         });
 
         var gamepadService = app.Services.GetService<IGamepadService>();

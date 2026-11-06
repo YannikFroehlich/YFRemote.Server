@@ -17,6 +17,9 @@ namespace YFRemote.Server.Services;
 public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 {
     private const int CursorShowing = 1;
+    // DuplicateOutput meldet das bei sicherem Desktop und bei ausgeschaltetem Bildschirm. BitBlt
+    // liefert dann teils ohne Fehler ein altes Bild, deshalb hier kein Rueckweg, sondern ein Hinweis.
+    private const int AccessDenied = unchecked((int)0x80070005);
     // Solange sich nichts aendert, wartet ein Abruf hoechstens so lange auf ein neues Bild und
     // liefert dann das letzte noch einmal - so fragt der Client ein stehendes Bild nicht 30-mal
     // pro Sekunde ab.
@@ -94,11 +97,16 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
                 scaled = capture.Duplication.CopyScaled(maxWidth, out scale);
             }
-            catch (SharpGen.Runtime.SharpGenException)
+            catch (SharpGen.Runtime.SharpGenException exception)
             {
                 // Zugriff verloren (Aufloesung geaendert, sicherer Desktop, Vollbildspiel): beim
                 // naechsten Abruf neu aufsetzen, diesmal per BitBlt.
                 capture.Reset();
+                if (exception.HResult == AccessDenied)
+                {
+                    throw new System.ComponentModel.Win32Exception(exception.HResult, "Bildschirm nicht zugaenglich.");
+                }
+
                 return null;
             }
         }

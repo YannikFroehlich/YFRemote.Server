@@ -1000,9 +1000,43 @@ h2 {
 // Im Vollbild fuellt das Bild den Rest; object-fit haelt das Seitenverhaeltnis, den Klick
 // rechnet die Komponente auf das eigentliche Bild um.
 .screen-view:fullscreen {
+  // Das Logo bleibt ganz sichtbar, auch wenn es an den Rand gezogen oder das Geraet gedreht wird.
+  --handle-left: clamp(30px, calc(var(--handle-x) * 100%), calc(100% - 30px));
+  --handle-top: clamp(30px, calc(var(--handle-y) * 100%), calc(100% - 30px));
   display: flex;
   flex-direction: column;
   background: var(--app-bg);
+}
+
+.screen-view__handle {
+  display: none;
+}
+
+.screen-view:fullscreen .screen-view__handle {
+  position: absolute;
+  top: var(--handle-top);
+  left: var(--handle-left);
+  z-index: 2;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: var(--border-width) solid var(--line);
+  border-radius: 50%;
+  background: rgba(var(--overlay-rgb), 0.72);
+  backdrop-filter: blur(6px);
+  cursor: grab;
+  // Ziehen gehoert dem Logo, nicht der Seite.
+  touch-action: none;
+  transform: translate(-50%, -50%);
+  user-select: none;
+}
+
+.screen-view__handle img {
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
 }
 
 .screen-view:fullscreen .screen-view__stage {
@@ -1022,9 +1056,27 @@ h2 {
 // wegzunehmen; die Schalter dann nur als Symbol.
 .screen-view:fullscreen .screen-view__toolbar {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: calc(var(--handle-top) + 28px);
+  right: calc(100% - var(--handle-left) - 22px);
   z-index: 1;
+  justify-content: flex-end;
+  max-width: calc(var(--handle-left) + 12px);
+}
+
+.screen-view:fullscreen .screen-view__toolbar--closed {
+  display: none;
+}
+
+.screen-view:fullscreen .screen-view__toolbar--left {
+  right: auto;
+  left: calc(var(--handle-left) - 22px);
+  justify-content: flex-start;
+  max-width: calc(100% - var(--handle-left) + 12px);
+}
+
+.screen-view:fullscreen .screen-view__toolbar--up {
+  top: auto;
+  bottom: calc(100% - var(--handle-top) + 28px);
 }
 
 .screen-view:fullscreen .screen-view__toolbar .snap-switch {

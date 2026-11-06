@@ -211,6 +211,12 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop makes it throw `Win32Exception` → `503`,
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
+  Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
+  image): two fingers zoom and pan by CSS transform only (`screen-gestures.ts`, up to 6x, the PC
+  sees nothing). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
+  per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away.
+  A lost connection mid-drag leaves the button held on the PC, because the server does not release
+  buttons on disconnect (same as the touchpad). Zoom resets on a monitor or fullscreen change.
   A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`
   `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws

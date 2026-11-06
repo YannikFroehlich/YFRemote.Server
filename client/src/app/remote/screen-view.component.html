@@ -77,29 +77,41 @@
       </button>
     }
   </div>
-  <!-- Bleibt im DOM, damit der Videostrom es gleich beim Start bekommt; sichtbar ab dem ersten Bild. -->
-  <video
-    #video
-    class="screen-view__image"
-    autoplay
-    playsinline
-    disablepictureinpicture
-    [muted]="true"
-    [hidden]="!videoShown()"
-    [attr.aria-label]="i18n.t('screen.alt')"
-    (click)="click($event, 'left')"
-    (contextmenu)="click($event, 'right')"
-  ></video>
-  @if (frame(); as src) {
-    <img
+  <!-- Ein Finger klickt und zieht am PC, zwei zoomen und verschieben das Bild. -->
+  <div
+    #stage
+    class="screen-view__stage"
+    [hidden]="!videoShown() && frame() === null"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerEnd($event)"
+    (pointercancel)="onPointerEnd($event)"
+    (click)="onClick($event)"
+    (contextmenu)="onContextMenu($event)"
+  >
+    <!-- Bleibt im DOM, damit der Videostrom es gleich beim Start bekommt; sichtbar ab dem ersten Bild. -->
+    <video
+      #video
       class="screen-view__image"
-      [src]="src"
-      [attr.alt]="i18n.t('screen.alt')"
-      draggable="false"
-      (click)="click($event, 'left')"
-      (contextmenu)="click($event, 'right')"
-    />
-  }
+      autoplay
+      playsinline
+      disablepictureinpicture
+      [muted]="true"
+      [hidden]="!videoShown()"
+      [attr.aria-label]="i18n.t('screen.alt')"
+      [style.transform]="mediaTransform()"
+    ></video>
+    @if (frame(); as src) {
+      <img
+        #image
+        class="screen-view__image"
+        [src]="src"
+        [attr.alt]="i18n.t('screen.alt')"
+        [style.transform]="mediaTransform()"
+        draggable="false"
+      />
+    }
+  </div>
   <!-- Bleibt immer im DOM: die Handy-Tastatur geht nur auf, wenn der Fokus noch im Klick kommt. -->
   <form class="screen-view__keyboard" (submit)="submitKeyboard($event, keyboardInput)">
     <input

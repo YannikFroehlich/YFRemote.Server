@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   ElementRef,
   inject,
   OnDestroy,
@@ -13,6 +14,7 @@ import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
+import { distance, FULL_VIEW, pinchViewport, Point } from './screen-gestures';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
 import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
@@ -35,6 +37,11 @@ const SCREEN_PROFILES: Readonly<
 };
 // Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2).
 const MAX_VIDEO_WIDTH = 1920;
+
+// Ab dieser Strecke wird aus einem Tipp ein Ziehen.
+const DRAG_THRESHOLD_PX = 8;
+// Ein 120-Hz-Display soll beim Ziehen nicht an die 120 Nachrichten/s des Servers stossen.
+const DRAG_MOVE_INTERVAL_MS = 16;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -70,6 +77,23 @@ export class ScreenViewComponent implements OnDestroy {
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
+  private readonly image = viewChild<ElementRef<HTMLImageElement>>('image');
+  private readonly stage = viewChild.required<ElementRef<HTMLElement>>('stage');
+  private readonly viewport = signal(FULL_VIEW);
+  protected readonly mediaTransform = computed(() => {
+    const { scale, x, y } = this.viewport();
+    return scale === 1 ? null : `translate(${x}px, ${y}px) scale(${scale})`;
+  });
+  private readonly pointers = new Map<number, Point>();
+  private pinchStart: { view: typeof FULL_VIEW; fingers: readonly [Point, Point] } | null = null;
+  // Der erste Finger, solange er noch Tipp oder Ziehen werden kann.
+  private dragOrigin: Point | null = null;
+  private dragging = false;
+  private pendingMove: { x: number; y: number } | null = null;
+  private moveFrame: number | null = null;
+  private lastMoveAt = 0;
+  // Nach Ziehen oder Zoomen meldet der Browser noch einen Klick, der keiner sein soll.
+  private swallowClick = false;
   private videoAbort: AbortController | null = null;
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
@@ -85,6 +109,7 @@ export class ScreenViewComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopped = true;
     this.videoAbort?.abort();
+    this.endDrag();
     this.show(null);
     this.stopSound();
     if (this.fullscreen()) {
@@ -109,6 +134,7 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected selectMonitor(event: Event): void {
     this.remote.saveScreenMonitor((event.target as HTMLSelectElement).value);
+    this.viewport.set(FULL_VIEW);
     this.videoAbort?.abort();
   }
 
@@ -233,13 +259,194 @@ export class ScreenViewComponent implements OnDestroy {
     }
   }
 
-  // Tippen klickt links, langes Druecken (Kontextmenue) rechts - jeweils an der Stelle im Bild.
-  protected click(event: MouseEvent, button: 'left' | 'right'): void {
+  protected onPointerDown(event: PointerEvent): void {
+    // Die rechte Maustaste laeuft ueber das Kontextmenue.
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    const stage = event.currentTarget as HTMLElement;
+    try {
+      stage.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
+    }
+
+    this.pointers.set(event.pointerId, this.toStagePoint(event));
+    if (this.pointers.size === 1) {
+      this.swallowClick = false;
+      this.dragOrigin = { x: event.clientX, y: event.clientY };
+    } else if (this.pointers.size === 2) {
+      this.endDrag();
+      this.dragOrigin = null;
+      this.swallowClick = true;
+      this.pinchStart = { view: this.viewport(), fingers: this.fingers() };
+    }
+  }
+
+  protected onPointerMove(event: PointerEvent): void {
+    if (!this.pointers.has(event.pointerId)) {
+      return;
+    }
+
+    this.pointers.set(event.pointerId, this.toStagePoint(event));
+    if (this.pinchStart !== null) {
+      if (this.pointers.size === 2) {
+        const stage = this.stage().nativeElement;
+        this.viewport.set(
+          pinchViewport(this.pinchStart.view, this.pinchStart.fingers, this.fingers(), {
+            width: stage.clientWidth,
+            height: stage.clientHeight,
+          }),
+        );
+      }
+      return;
+    }
+
+    if (this.dragOrigin === null) {
+      return;
+    }
+
+    if (!this.dragging) {
+      const finger = { x: event.clientX, y: event.clientY };
+      if (distance(this.dragOrigin, finger) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      const start = this.toScreenPosition(this.dragOrigin.x, this.dragOrigin.y);
+      if (start === null) {
+        this.dragOrigin = null;
+        return;
+      }
+
+      this.dragging = true;
+      this.swallowClick = true;
+      this.sendMove(start);
+      this.remote.sendAction({ type: 'mouseDown', button: 'left' });
+    }
+
+    this.pendingMove = this.toScreenPosition(event.clientX, event.clientY, true);
+    this.scheduleMove();
+  }
+
+  protected onPointerEnd(event: PointerEvent): void {
+    if (!this.pointers.delete(event.pointerId)) {
+      return;
+    }
+
+    if (this.pointers.size === 0) {
+      this.endDrag();
+      this.dragOrigin = null;
+      this.pinchStart = null;
+    } else if (this.pointers.size === 1) {
+      // Ein Finger bleibt nach dem Zoomen liegen: er soll nicht ploetzlich ziehen.
+      this.pinchStart = null;
+    }
+  }
+
+  protected onClick(event: MouseEvent): void {
     event.preventDefault();
-    const media = event.currentTarget as HTMLImageElement | HTMLVideoElement;
+    if (this.swallowClick) {
+      this.swallowClick = false;
+      return;
+    }
+
+    this.sendClick(event, 'left');
+  }
+
+  // Langes Druecken klickt rechts; danach wird aus demselben Finger kein Ziehen mehr.
+  protected onContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    if (this.dragging || this.pointers.size > 1) {
+      return;
+    }
+
+    this.dragOrigin = null;
+    this.sendClick(event, 'right');
+  }
+
+  private sendClick(event: MouseEvent, button: 'left' | 'right'): void {
+    const position = this.toScreenPosition(event.clientX, event.clientY);
+    if (position !== null) {
+      const monitor = this.remote.screenMonitor();
+      this.remote.sendAction({
+        type: 'screenClick',
+        ...position,
+        button,
+        ...(monitor === null ? {} : { monitor }),
+      });
+    }
+  }
+
+  private sendMove(position: { x: number; y: number }): void {
+    const monitor = this.remote.screenMonitor();
+    this.lastMoveAt = performance.now();
+    this.remote.sendAction({
+      type: 'screenMove',
+      ...position,
+      ...(monitor === null ? {} : { monitor }),
+    });
+  }
+
+  private scheduleMove(): void {
+    if (this.moveFrame !== null) {
+      return;
+    }
+
+    this.moveFrame = requestAnimationFrame(() => {
+      this.moveFrame = null;
+      if (performance.now() - this.lastMoveAt < DRAG_MOVE_INTERVAL_MS) {
+        this.scheduleMove();
+      } else if (this.pendingMove !== null) {
+        this.sendMove(this.pendingMove);
+        this.pendingMove = null;
+      }
+    });
+  }
+
+  private endDrag(): void {
+    if (this.moveFrame !== null) {
+      cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = null;
+    }
+
+    if (this.dragging) {
+      if (this.pendingMove !== null) {
+        this.sendMove(this.pendingMove);
+      }
+
+      this.remote.sendAction({ type: 'mouseUp', button: 'left' });
+    }
+
+    this.pendingMove = null;
+    this.dragging = false;
+  }
+
+  private fingers(): readonly [Point, Point] {
+    const [first, second] = this.pointers.values();
+    return [first, second];
+  }
+
+  private toStagePoint(event: MouseEvent): Point {
+    const box = this.stage().nativeElement.getBoundingClientRect();
+    return { x: event.clientX - box.left, y: event.clientY - box.top };
+  }
+
+  // x und y von 0 bis 1 im Bild; null neben dem Bild, ausser beim Ziehen (clampToPicture): dort
+  // bleibt der Zeiger am Rand. Der Rahmen enthaelt den Zoom schon, die Rechnung gilt also auch dann.
+  private toScreenPosition(
+    clientX: number,
+    clientY: number,
+    clampToPicture = false,
+  ): { x: number; y: number } | null {
+    const media = this.videoShown() ? this.video().nativeElement : this.image()?.nativeElement;
+    if (media === undefined) {
+      return null;
+    }
+
     const box = media.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) {
-      return;
+      return null;
     }
 
     // Im Vollbild zeigt object-fit: contain das Bild mit Raendern; gemeint ist nur das Bild selbst.
@@ -253,21 +460,14 @@ export class ScreenViewComponent implements OnDestroy {
         : 0;
     const width = scale > 0 ? naturalWidth * scale : box.width;
     const height = scale > 0 ? naturalHeight * scale : box.height;
-    const x = (event.clientX - box.left - (box.width - width) / 2) / width;
-    const y = (event.clientY - box.top - (box.height - height) / 2) / height;
-    if (scale > 0 && (x < 0 || x > 1 || y < 0 || y > 1)) {
-      return;
+    const x = (clientX - box.left - (box.width - width) / 2) / width;
+    const y = (clientY - box.top - (box.height - height) / 2) / height;
+    if (!clampToPicture && scale > 0 && (x < 0 || x > 1 || y < 0 || y > 1)) {
+      return null;
     }
 
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
-    const monitor = this.remote.screenMonitor();
-    this.remote.sendAction({
-      type: 'screenClick',
-      x: clamp(x),
-      y: clamp(y),
-      button,
-      ...(monitor === null ? {} : { monitor }),
-    });
+    return { x: clamp(x), y: clamp(y) };
   }
 
   protected selectQuality(event: Event): void {
@@ -388,6 +588,7 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onFullscreenChange(): void {
     this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
+    this.viewport.set(FULL_VIEW);
     // Im Vollbild ist die Ansicht breiter - das Video in passender Breite neu holen.
     this.videoAbort?.abort();
   }
@@ -395,6 +596,11 @@ export class ScreenViewComponent implements OnDestroy {
   protected onVisibilityChange(): void {
     if (this.document.hidden) {
       this.videoAbort?.abort();
+      // Im Hintergrund kommt kein pointerup mehr; die Maustaste am PC darf nicht haengen bleiben.
+      this.endDrag();
+      this.pointers.clear();
+      this.dragOrigin = null;
+      this.pinchStart = null;
     }
   }
 

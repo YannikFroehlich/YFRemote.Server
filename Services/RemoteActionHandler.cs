@@ -61,6 +61,7 @@ public sealed partial class RemoteActionHandler(
                 "mousemove" => HandleMouseMove(request),
                 "mouseclick" => HandleMouseClick(request),
                 "screenclick" => HandleScreenClick(request),
+                "screenmove" => HandleScreenMove(request),
                 "mousedown" => HandleMouseButton(request, isDown: true),
                 "mouseup" => HandleMouseButton(request, isDown: false),
                 "mousescroll" => HandleMouseScroll(request),
@@ -229,6 +230,18 @@ public sealed partial class RemoteActionHandler(
 
         mouseService.MoveToScreen(x, y, request.Monitor);
         return HandleMouseClick(request);
+    }
+
+    // Ziehen im Bild des Tabs "Bildschirm": der Zeiger folgt dem Finger, gedrueckt wird mit mouseDown.
+    private RemoteActionResponse HandleScreenMove(RemoteActionRequest request)
+    {
+        if (request.X is not { } x || request.Y is not { } y || !(x is >= 0 and <= 1) || !(y is >= 0 and <= 1))
+        {
+            return Fail("Action 'screenMove' requires x and y between 0 and 1.");
+        }
+
+        mouseService.MoveToScreen(x, y, request.Monitor);
+        return RemoteActionResponse.Ok();
     }
 
     private RemoteActionResponse HandleMouseClick(RemoteActionRequest request)

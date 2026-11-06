@@ -24,6 +24,14 @@ export interface ScreenClickAction {
   readonly monitor?: string;
 }
 
+/** Der Zeiger folgt dem Finger beim Ziehen im Bild; gedrueckt wird mit `mouseDown`. */
+export interface ScreenMoveAction {
+  readonly type: 'screenMove';
+  readonly x: number;
+  readonly y: number;
+  readonly monitor?: string;
+}
+
 /** Ein Monitor des PCs aus `GET /screen/monitors`. */
 export interface ScreenMonitor {
   readonly id: string;
@@ -273,6 +281,7 @@ export type RemoteAction =
   | MouseMoveAction
   | MouseClickAction
   | ScreenClickAction
+  | ScreenMoveAction
   | MouseButtonAction
   | MouseScrollAction
   | PowerAction

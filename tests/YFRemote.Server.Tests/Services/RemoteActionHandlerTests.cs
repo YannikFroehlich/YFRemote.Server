@@ -79,6 +79,22 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_ScreenMove_MovesWithoutClickingAndChecksTheRange()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var moved = handler.Handle(new RemoteActionRequest { Type = "screenMove", X = 0.25, Y = 0.5 });
+        var outside = handler.Handle(new RemoteActionRequest { Type = "screenMove", X = -0.1, Y = 0.5 });
+        var missing = handler.Handle(new RemoteActionRequest { Type = "screenMove", X = 0.1 });
+
+        Assert.IsTrue(moved.Success, moved.Error);
+        Assert.IsFalse(outside.Success);
+        Assert.IsFalse(missing.Success);
+        CollectionAssert.AreEqual(new[] { "moveTo 0.25,0.5" }, mouseService.Calls);
+    }
+
+    [TestMethod]
     public void Handle_ScreenClick_PassesTheChosenMonitor()
     {
         var mouseService = new RecordingMouseService();

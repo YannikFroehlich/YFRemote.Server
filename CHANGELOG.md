@@ -23,6 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Web-Oberfläche: Im Tab "Bildschirm" zoomen und verschieben zwei Finger das Bild, ein Finger zieht am PC mit gedrückter linker Maustaste, zum Beispiel Fenster oder Markierungen. Tippen und langes Drücken klicken weiterhin, auch im Zoom an der richtigen Stelle.
 - Windows: Mit mehr als einem Monitor erscheint im Tab "Bildschirm" eine Monitor-Auswahl. Bild, Mauszeiger und Tipps gelten dann für den gewählten Monitor, das Gerät merkt sich die Wahl. Gibt es den Monitor nicht mehr, nimmt der PC den Hauptmonitor.
 
 ### Changed

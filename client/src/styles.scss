@@ -1005,13 +1005,17 @@ h2 {
   background: var(--app-bg);
 }
 
-.screen-view:fullscreen .screen-view__image {
+.screen-view:fullscreen .screen-view__stage {
   flex: 1 1 0;
   min-height: 0;
-  object-fit: contain;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.screen-view:fullscreen .screen-view__image {
+  height: 100%;
+  object-fit: contain;
 }
 
 // Im Vollbild schweben Schalter, Tastaturfeld und Hinweise ueber dem Bild, statt ihm Hoehe
@@ -1056,19 +1060,26 @@ h2 {
   background: rgba(var(--overlay-rgb), 0.72);
 }
 
-.screen-view__image {
-  display: block;
-  width: 100%;
-  height: auto;
+.screen-view__stage {
+  overflow: hidden;
   border: var(--border-width) solid var(--line);
   border-radius: calc(14px * var(--radius-scale));
   background: var(--surface-soft);
   // Langes Druecken klickt rechts statt das Bild-Menue des Browsers zu oeffnen.
   -webkit-touch-callout: none;
   user-select: none;
-  touch-action: manipulation;
+  // Alle Gesten gehoeren der Komponente: ziehen am PC, zoomen im Bild.
+  touch-action: none;
 }
 
+.screen-view__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: 0 0;
+}
+
+.screen-view__stage[hidden],
 .screen-view__image[hidden] {
   display: none;
 }

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.50.0] - 2026-11-06
+
 ### Fixed
 
 - Web-Oberfläche: Kommen im Tab "Bildschirm" länger als 3 Sekunden keine Daten vom PC, weist ein Hinweis darauf hin, dass das Bild nicht aktuell ist. Nach 10 Sekunden verbindet sich das Video neu, statt auf einen toten Strom zu warten.

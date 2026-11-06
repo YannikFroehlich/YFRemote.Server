@@ -129,6 +129,8 @@
   </form>
   @if (blocked()) {
     <p class="stats-waiting">{{ i18n.t('screen.blocked') }}</p>
+  } @else if (stalled()) {
+    <p class="stats-waiting" role="status">{{ i18n.t('screen.stalled') }}</p>
   } @else if (frame() === null && !videoShown()) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
   }

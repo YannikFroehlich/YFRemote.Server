@@ -1,7 +1,7 @@
 import { InjectionToken } from '@angular/core';
 
 /** Spielt den H.264-Strom von `GET /screen/video` in `video` ab, bis er endet oder `signal`
- *  abbricht; `onFrame` meldet das erste Bild. In Tests durch eine Attrappe ersetzt. */
+ *  abbricht; `onFrame` meldet jedes angekommene Bild. In Tests durch eine Attrappe ersetzt. */
 export interface ScreenVideoPlayer {
   play(
     body: ReadableStream<Uint8Array<ArrayBuffer>>,
@@ -68,9 +68,9 @@ async function playFmp4Stream(
       if (!started) {
         started = true;
         video.currentTime = start;
-        onFrame();
       }
 
+      onFrame();
       // Auch negativ: ohne Darstellung (verdecktes Fenster) laeuft die Uhr dem Puffer davon.
       const lag = end - video.currentTime;
       if (Math.abs(lag) > JUMP_SECONDS) {
@@ -88,8 +88,8 @@ async function playFmp4Stream(
   } finally {
     signal.removeEventListener('abort', cancel);
     cancel();
-    video.removeAttribute('src');
-    video.load();
+    // Das letzte Bild bleibt stehen, bis der naechste Strom da ist: beim Neuverbinden wuerde das
+    // Video sonst leer und schrumpft auf 150 px Hoehe.
     URL.revokeObjectURL(url);
   }
 }

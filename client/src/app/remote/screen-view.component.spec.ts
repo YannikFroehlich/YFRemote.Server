@@ -44,6 +44,7 @@ describe('ScreenViewComponent', () => {
     };
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
     TestBed.configureTestingModule({
       imports: [ScreenViewComponent],
       providers: [
@@ -439,6 +440,85 @@ describe('ScreenViewComponent', () => {
     expect(element.textContent).not.toContain('Sperrbildschirm');
     expect(readScreen).not.toHaveBeenCalled();
     fixture.destroy();
+  });
+
+  it('flags a hanging video stream and reconnects', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      let frame: () => void = () => undefined;
+      const play = vi.fn(
+        (
+          _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+          _video: HTMLVideoElement,
+          _codec: string,
+          abort: AbortSignal,
+          onFrame: () => void,
+        ) => {
+          frame = onFrame;
+          onFrame();
+          return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+        },
+      );
+      const { fixture, openScreenVideo, element } = await setup(null, null, {
+        player: { play },
+        stream: { body: new ReadableStream(), codec: 'avc1.4d002a' },
+      });
+      await vi.waitFor(() => expect(play).toHaveBeenCalled());
+      vi.advanceTimersByTime(2000);
+      fixture.detectChanges();
+      expect(element.textContent).not.toContain('Verbindung hängt');
+
+      // Geprueft wird einmal pro Sekunde, der Hinweis kommt also nach 3 bis 4 s.
+      vi.advanceTimersByTime(2000);
+      fixture.detectChanges();
+      expect(element.textContent).toContain('Verbindung hängt');
+
+      frame();
+      fixture.detectChanges();
+      expect(element.textContent).not.toContain('Verbindung hängt');
+      expect(openScreenVideo).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(11000);
+      await vi.waitFor(() => expect(openScreenVideo).toHaveBeenCalledTimes(2));
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flags hanging JPEG requests', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      const { fixture, readScreen, element } = await setup(new Blob(['jpeg']));
+      readScreen.mockImplementation(() => new Promise(() => undefined));
+      // Beide laufenden Abrufe enden noch mit Bild, erst danach kommt nichts mehr.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      vi.advanceTimersByTime(4000);
+      fixture.detectChanges();
+
+      expect(element.textContent).toContain('Verbindung hängt');
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ['the first picture', null],
+    ['the lock screen', 'blocked'],
+  ] as const)('shows no stall hint while waiting for %s', async (_name, result) => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      const { fixture, element } = await setup(result);
+      vi.advanceTimersByTime(5000);
+      fixture.detectChanges();
+
+      expect(element.textContent).not.toContain('Verbindung hängt');
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('explains a blocked secure desktop', async () => {

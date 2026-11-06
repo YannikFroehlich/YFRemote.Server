@@ -8,6 +8,7 @@ import {
   MacroStep,
   MediaStatusMessage,
   OpenWindow,
+  ScreenMonitor,
   RemoteAction,
   RemoteResponse,
   ServerConfig,
@@ -27,6 +28,7 @@ import {
   getServerWebSocketBaseUrl,
   HAPTICS_STORAGE_KEY,
   parseScreenQuality,
+  SCREEN_MONITOR_STORAGE_KEY,
   SCREEN_QUALITY_STORAGE_KEY,
   ScreenQuality,
   INVERT_SCROLL_STORAGE_KEY,
@@ -136,6 +138,7 @@ export class RemoteService implements OnDestroy {
   private readonly hapticsSignal = signal(
     parseStoredFlag(this.readStorage(HAPTICS_STORAGE_KEY), true),
   );
+  private readonly screenMonitorSignal = signal(this.readStorage(SCREEN_MONITOR_STORAGE_KEY));
   private readonly screenQualitySignal = signal(
     parseScreenQuality(this.readStorage(SCREEN_QUALITY_STORAGE_KEY)),
   );
@@ -191,6 +194,9 @@ export class RemoteService implements OnDestroy {
   readonly haptics = this.hapticsSignal.asReadonly();
   /** Bildschirm-Tab: Bilder pro Sekunde oder Bildschaerfe vorziehen. */
   readonly screenQuality = this.screenQualitySignal.asReadonly();
+  /** Der im Tab "Bildschirm" gewaehlte Monitor, `null` = Hauptbildschirm. Eine veraltete Kennung
+   *  ist harmlos: der PC nimmt dann fuer Bild und Klick den Hauptbildschirm. */
+  readonly screenMonitor = this.screenMonitorSignal.asReadonly();
   readonly pointerAcceleration = this.pointerAccelerationSignal.asReadonly();
   readonly liveTyping = this.liveTypingSignal.asReadonly();
   /** Gewuenschter Zwischenablage-Abgleich; wirksam nur, wo `clipboardSyncSupported()` gilt. */
@@ -340,6 +346,11 @@ export class RemoteService implements OnDestroy {
     return true;
   }
 
+  saveScreenMonitor(monitor: string): void {
+    this.screenMonitorSignal.set(monitor);
+    this.storage?.setItem(SCREEN_MONITOR_STORAGE_KEY, monitor);
+  }
+
   saveScreenQuality(quality: ScreenQuality): void {
     this.screenQualitySignal.set(quality);
     this.storage?.setItem(SCREEN_QUALITY_STORAGE_KEY, quality);
@@ -465,9 +476,27 @@ export class RemoteService implements OnDestroy {
       : null;
   }
 
+  /** Die Monitore des PCs von links nach rechts; `null` bei einem Server ohne diese Liste. */
+  async readScreenMonitors(): Promise<readonly ScreenMonitor[] | null> {
+    const monitors = (await this.readJson('/screen/monitors'))?.['monitors'];
+    return Array.isArray(monitors)
+      ? monitors.filter(
+          (monitor): monitor is ScreenMonitor =>
+            typeof monitor?.id === 'string' &&
+            typeof monitor.width === 'number' &&
+            typeof monitor.height === 'number' &&
+            typeof monitor.primary === 'boolean',
+        )
+      : null;
+  }
+
   /** Ein Standbild des PC-Bildschirms, hoechstens `width` Pixel breit; `'blocked'` auf dem
    *  sicheren Desktop (UAC, Sperrbildschirm), `null`, wenn der PC nicht antwortet. */
-  async readScreen(width: number, quality: number): Promise<Blob | 'blocked' | null> {
+  async readScreen(
+    width: number,
+    quality: number,
+    monitor: string | null = null,
+  ): Promise<Blob | 'blocked' | null> {
     const token = this.pairing.token();
     if (token === null) {
       return null;
@@ -475,7 +504,7 @@ export class RemoteService implements OnDestroy {
 
     try {
       const response = await this.fetchFn(
-        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}&quality=${quality}`,
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}&quality=${quality}${monitorQuery(monitor)}`,
         { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
       );
       if (response.status === 503) {
@@ -494,6 +523,7 @@ export class RemoteService implements OnDestroy {
     width: number,
     bitrateKbps: number,
     signal: AbortSignal,
+    monitor: string | null = null,
   ): Promise<{ body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | 'blocked' | null> {
     const token = this.pairing.token();
     if (token === null) {
@@ -502,7 +532,7 @@ export class RemoteService implements OnDestroy {
 
     try {
       const response = await this.fetchFn(
-        `${getServerHttpBaseUrl(this.serverLocation)}/screen/video?width=${Math.round(width)}&bitrate=${bitrateKbps}`,
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen/video?width=${Math.round(width)}&bitrate=${bitrateKbps}${monitorQuery(monitor)}`,
         { cache: 'no-store', headers: { Authorization: `Bearer ${token}` }, signal },
       );
       if (response.status === 503) {
@@ -1124,6 +1154,10 @@ export class RemoteService implements OnDestroy {
       ? error.message
       : this.i18n.t('common.unknownError');
   }
+}
+
+function monitorQuery(monitor: string | null): string {
+  return monitor === null ? '' : `&monitor=${encodeURIComponent(monitor)}`;
 }
 
 function parseJson(rawMessage: string): unknown {

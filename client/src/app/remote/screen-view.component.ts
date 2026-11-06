@@ -10,6 +10,7 @@ import {
 import { DOCUMENT } from '@angular/common';
 import { liveTextActions } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
+import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
@@ -58,6 +59,7 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
+  protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
   protected readonly blocked = signal(false);
@@ -77,6 +79,7 @@ export class ScreenViewComponent implements OnDestroy {
 
   constructor() {
     void this.start();
+    void this.loadMonitors();
   }
 
   ngOnDestroy(): void {
@@ -87,6 +90,26 @@ export class ScreenViewComponent implements OnDestroy {
     if (this.fullscreen()) {
       void this.document.exitFullscreen?.().catch(() => undefined);
     }
+  }
+
+  private async loadMonitors(): Promise<void> {
+    const monitors = await this.remote.readScreenMonitors();
+    if (monitors !== null && !this.stopped) {
+      this.monitors.set(monitors);
+    }
+  }
+
+  // Die gemerkte Kennung, wenn es den Monitor noch gibt, sonst wie am PC der Hauptbildschirm.
+  protected isSelectedMonitor(monitor: ScreenMonitor): boolean {
+    const selected = this.remote.screenMonitor();
+    return this.monitors().some((candidate) => candidate.id === selected)
+      ? monitor.id === selected
+      : monitor.primary;
+  }
+
+  protected selectMonitor(event: Event): void {
+    this.remote.saveScreenMonitor((event.target as HTMLSelectElement).value);
+    this.videoAbort?.abort();
   }
 
   private async start(): Promise<void> {
@@ -123,7 +146,12 @@ export class ScreenViewComponent implements OnDestroy {
         this.document.defaultView?.devicePixelRatio ?? 1,
       );
       const width = Math.min(MAX_VIDEO_WIDTH, this.host.nativeElement.clientWidth * pixelRatio);
-      const stream = await this.remote.openScreenVideo(width, profile.videoKbps, abort.signal);
+      const stream = await this.remote.openScreenVideo(
+        width,
+        profile.videoKbps,
+        abort.signal,
+        this.remote.screenMonitor(),
+      );
       if (this.stopped) {
         return true;
       }
@@ -185,6 +213,7 @@ export class ScreenViewComponent implements OnDestroy {
       const result = await this.remote.readScreen(
         this.host.nativeElement.clientWidth * pixelRatio,
         profile.jpegQuality,
+        this.remote.screenMonitor(),
       );
       if (this.stopped) {
         return;
@@ -231,7 +260,14 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
-    this.remote.sendAction({ type: 'screenClick', x: clamp(x), y: clamp(y), button });
+    const monitor = this.remote.screenMonitor();
+    this.remote.sendAction({
+      type: 'screenClick',
+      x: clamp(x),
+      y: clamp(y),
+      button,
+      ...(monitor === null ? {} : { monitor }),
+    });
   }
 
   protected selectQuality(event: Event): void {

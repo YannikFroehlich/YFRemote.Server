@@ -8,7 +8,7 @@ public sealed class LinuxMouseService(LinuxInputSender inputSender) : IMouseServ
     }
 
     // uinput kennt nur relative Bewegungen, und ein Bildschirmbild gibt es unter Linux ohnehin nicht.
-    public void MoveToPrimaryScreen(double x, double y) =>
+    public void MoveToScreen(double x, double y, string? monitor) =>
         throw new NotSupportedException("Screen positions are not supported on Linux.");
 
     public void ClickLeft() => Click(LinuxInputSender.BtnLeft);

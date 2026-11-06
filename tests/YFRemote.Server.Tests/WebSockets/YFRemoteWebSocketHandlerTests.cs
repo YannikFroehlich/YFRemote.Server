@@ -541,7 +541,7 @@ public sealed class YFRemoteWebSocketHandlerTests
         {
         }
 
-        public void MoveToPrimaryScreen(double x, double y)
+        public void MoveToScreen(double x, double y, string? monitor)
         {
         }
 

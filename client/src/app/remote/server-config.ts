@@ -18,6 +18,7 @@ export const POINTER_ACCELERATION_STORAGE_KEY = 'yfremote.pointerAcceleration';
 export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
 export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
 export const SCREEN_QUALITY_STORAGE_KEY = 'yfremote.screenQuality';
+export const SCREEN_MONITOR_STORAGE_KEY = 'yfremote.screenMonitor';
 export type ScreenQuality = 'performance' | 'balanced' | 'quality';
 export const SCREEN_QUALITIES: readonly ScreenQuality[] = ['performance', 'balanced', 'quality'];
 
@@ -225,7 +226,12 @@ export function isTrustworthyOrigin(location: ServerLocation): boolean {
   }
 
   const hostname = location.hostname.replace(/^\[|]$/g, '');
-  return hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '127.0.0.1' || hostname === '::1';
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1'
+  );
 }
 
 export function getServerPageUrl(config: ServerConfig, location: ServerLocation): string {

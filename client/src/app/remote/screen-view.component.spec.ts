@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_AUDIO_CONTEXT_FACTORY } from './screen-audio';
 import { SCREEN_VIDEO_PLAYER, ScreenVideoPlayer } from './screen-video';
@@ -19,10 +20,15 @@ describe('ScreenViewComponent', () => {
       player: ScreenVideoPlayer;
       stream: { body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | null;
     } | null = null,
+    monitors: readonly ScreenMonitor[] | null = null,
   ) {
-    const readScreen = vi.fn(async (_width: number, _quality: number) => result);
+    const screenMonitor = signal<string | null>(null);
+    const readScreen = vi.fn(
+      async (_width: number, _quality: number, _monitor?: string | null) => result,
+    );
     const openScreenVideo = vi.fn(
-      async (_width: number, _bitrate: number, _signal: AbortSignal) => video?.stream ?? null,
+      async (_width: number, _bitrate: number, _signal: AbortSignal, _monitor?: string | null) =>
+        video?.stream ?? null,
     );
     const sendAction = vi.fn();
     const openScreenAudio = vi.fn(async () => audioResponse);
@@ -44,6 +50,9 @@ describe('ScreenViewComponent', () => {
           provide: RemoteService,
           useValue: {
             readScreen,
+            readScreenMonitors: async () => monitors,
+            screenMonitor,
+            saveScreenMonitor: (monitor: string) => screenMonitor.set(monitor),
             openScreenVideo,
             sendAction,
             openScreenAudio,
@@ -145,6 +154,87 @@ describe('ScreenViewComponent', () => {
     expect(play).not.toHaveBeenCalled();
     expect(readScreen).toHaveBeenCalled();
     expect(element.querySelector('img')?.getAttribute('src')).toBe('blob:frame');
+    fixture.destroy();
+  });
+
+  const twoMonitors: readonly ScreenMonitor[] = [
+    { id: 'left', width: 1920, height: 1080, primary: false },
+    { id: 'main', width: 2560, height: 1440, primary: true },
+  ];
+
+  it('offers no monitor choice with a single monitor', async () => {
+    const { fixture, element } = await setup(new Blob(['jpeg']), null, null, [twoMonitors[1]]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(element.querySelectorAll('select')).toHaveLength(1);
+    fixture.destroy();
+  });
+
+  it('captures and clicks on the chosen monitor, starting on the primary one', async () => {
+    const { fixture, readScreen, sendAction, element } = await setup(
+      new Blob(['jpeg']),
+      null,
+      null,
+      twoMonitors,
+    );
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(element.querySelectorAll('select')).toHaveLength(2);
+    });
+    const select = element.querySelectorAll('select')[1];
+    expect(select.value).toBe('main');
+    expect(select.options[0].textContent).toContain('Monitor 1 (1920×1080)');
+    expect(select.options[1].textContent).toContain('Hauptmonitor (2560×1440)');
+
+    select.value = 'left';
+    select.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[2]).toBe('left'));
+    fixture.detectChanges();
+
+    const image = element.querySelector('img')!;
+    image.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect;
+    image.dispatchEvent(new MouseEvent('click', { clientX: 50, clientY: 50 }));
+    expect(sendAction).toHaveBeenCalledWith({
+      type: 'screenClick',
+      x: 0.5,
+      y: 0.5,
+      button: 'left',
+      monitor: 'left',
+    });
+    fixture.destroy();
+  });
+
+  it('restarts the video stream on the chosen monitor', async () => {
+    const play = vi.fn(
+      (
+        _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+        _video: HTMLVideoElement,
+        _codec: string,
+        abort: AbortSignal,
+        onFrame: () => void,
+      ) => {
+        onFrame();
+        return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+      },
+    );
+    const { fixture, openScreenVideo, element } = await setup(
+      null,
+      null,
+      { player: { play }, stream: { body: new ReadableStream(), codec: 'avc1.4d002a' } },
+      twoMonitors,
+    );
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(element.querySelectorAll('select')).toHaveLength(2);
+    });
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+    const select = element.querySelectorAll('select')[1];
+
+    select.value = 'left';
+    select.dispatchEvent(new Event('change'));
+
+    await vi.waitFor(() => expect(openScreenVideo.mock.calls.at(-1)?.[3]).toBe('left'));
     fixture.destroy();
   });
 

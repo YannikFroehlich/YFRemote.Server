@@ -227,7 +227,7 @@ public sealed partial class RemoteActionHandler(
             return Fail("Action 'screenClick' requires button 'left' or 'right'.");
         }
 
-        mouseService.MoveToPrimaryScreen(x, y);
+        mouseService.MoveToScreen(x, y, request.Monitor);
         return HandleMouseClick(request);
     }
 

@@ -449,6 +449,15 @@ export const TRANSLATIONS = {
   'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.monitor': { de: 'Monitor', en: 'Monitor' },
+  'screen.monitor.primary': {
+    de: 'Hauptmonitor ({{width}}×{{height}})',
+    en: 'Main monitor ({{width}}×{{height}})',
+  },
+  'screen.monitor.other': {
+    de: 'Monitor {{number}} ({{width}}×{{height}})',
+    en: 'Monitor {{number}} ({{width}}×{{height}})',
+  },
   'screen.quality': { de: 'Bildqualität', en: 'Picture quality' },
   'screen.quality.performance': { de: 'Leistung', en: 'Performance' },
   'screen.quality.balanced': { de: 'Ausgeglichen', en: 'Balanced' },

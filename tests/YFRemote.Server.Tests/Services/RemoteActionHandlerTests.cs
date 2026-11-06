@@ -79,6 +79,18 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_ScreenClick_PassesTheChosenMonitor()
+    {
+        var mouseService = new RecordingMouseService();
+        var handler = CreateHandler(mouseService: mouseService);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "screenClick", X = 0.5, Y = 0.5, Button = "left", Monitor = @"\\.\DISPLAY2" });
+
+        Assert.IsTrue(response.Success, response.Error);
+        CollectionAssert.AreEqual(new[] { @"moveTo 0.5,0.5 \\.\DISPLAY2", "click left" }, mouseService.Calls);
+    }
+
+    [TestMethod]
     public void Handle_ScreenClick_OutsideScreenOrMiddleButton_FailsWithoutMoving()
     {
         var mouseService = new RecordingMouseService();
@@ -797,9 +809,9 @@ public sealed class RemoteActionHandlerTests
         {
         }
 
-        public void MoveToPrimaryScreen(double x, double y)
+        public void MoveToScreen(double x, double y, string? monitor)
         {
-            Calls.Add(FormattableString.Invariant($"moveTo {x},{y}"));
+            Calls.Add(FormattableString.Invariant($"moveTo {x},{y}{(monitor is null ? "" : " " + monitor)}"));
         }
 
         public void ClickLeft()

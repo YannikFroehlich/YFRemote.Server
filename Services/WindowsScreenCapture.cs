@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -15,8 +16,6 @@ namespace YFRemote.Server.Services;
 // BitBlt bleibt der Rueckweg, wenn die Duplication nicht geht (sicherer Desktop, Remotedesktop).
 public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 {
-    private const int SmCxScreen = 0;
-    private const int SmCyScreen = 1;
     private const int CursorShowing = 1;
     // Solange sich nichts aendert, wartet ein Abruf hoechstens so lange auf ein neues Bild und
     // liefert dann das letzte noch einmal - so fragt der Client ein stehendes Bild nicht 30-mal
@@ -27,26 +26,27 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
     private static readonly ImageCodecInfo JpegCodec =
         ImageCodecInfo.GetImageEncoders().First(codec => codec.FormatID == ImageFormat.Jpeg.Guid);
 
-    private readonly Lock gate = new();
+    // Je Monitor eine eigene Sperre: das Warten auf ein neues Bild soll Zuschauer eines anderen
+    // Monitors nicht aufhalten.
+    private readonly ConcurrentDictionary<string, MonitorCapture> captures = new();
     private readonly System.Threading.Timer idleTimer;
-    private Duplication? duplication;
-    private DateTime lastUse;
-    private (long Frame, int CursorX, int CursorY, IntPtr Cursor, int MaxWidth, int Quality) cachedKey;
-    private byte[]? cachedJpeg;
 
     public WindowsScreenCapture()
     {
         idleTimer = new System.Threading.Timer(_ => ReleaseWhenIdle(), null, IdleRelease, IdleRelease);
     }
 
+    public IReadOnlyList<ScreenMonitor> ListMonitors() => WindowsMonitors.List();
+
     // Auf dem sicheren Desktop (UAC, Sperrbildschirm) schlaegt BitBlt mit Win32Exception fehl.
-    public byte[] CaptureJpeg(int maxWidth, int quality)
+    public byte[] CaptureJpeg(int maxWidth, int quality, string? monitor)
     {
         // Physische Pixel wie in WindowsMouseService - sonst schnitte eine skalierte Anzeige ab.
         var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
         try
         {
-            return TryCaptureDuplicated(maxWidth, quality) ?? CaptureWithBitBlt(maxWidth, quality);
+            var screen = WindowsMonitors.Find(monitor);
+            return TryCaptureDuplicated(screen, maxWidth, quality) ?? CaptureWithBitBlt(screen, maxWidth, quality);
         }
         finally
         {
@@ -57,49 +57,48 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
     public void Dispose()
     {
         idleTimer.Dispose();
-        lock (gate)
+        foreach (var capture in captures.Values)
         {
-            duplication?.Dispose();
-            duplication = null;
+            capture.Reset();
         }
     }
 
-    private byte[]? TryCaptureDuplicated(int maxWidth, int quality)
+    private MonitorCapture CaptureFor(ScreenMonitor screen) => captures.GetOrAdd(screen.Id, _ => new MonitorCapture());
+
+    private byte[]? TryCaptureDuplicated(ScreenMonitor screen, int maxWidth, int quality)
     {
+        var capture = CaptureFor(screen);
         Bitmap scaled;
         double scale;
         (long, int, int, IntPtr, int, int) key;
         // Nur Abholen und Kopieren brauchen die Duplication; das JPEG entsteht danach ausserhalb
         // der Sperre, so laufen zwei Abrufe des Clients ueberlappend.
-        lock (gate)
+        lock (capture.Gate)
         {
-            lastUse = DateTime.UtcNow;
+            capture.LastUse = DateTime.UtcNow;
             try
             {
-                duplication ??= Duplication.Create();
-                if (duplication is null)
+                capture.Duplication ??= Duplication.Create(screen.Id);
+                if (capture.Duplication is null)
                 {
                     return null;
                 }
 
-                duplication.WaitForChange(FrameWaitMs);
-                var cursor = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
-                var cursorVisible = GetCursorInfo(ref cursor) && cursor.Flags == CursorShowing && cursor.Cursor != IntPtr.Zero;
-                key = (duplication.Frame, cursor.X, cursor.Y, cursorVisible ? cursor.Cursor : IntPtr.Zero, maxWidth, quality);
-                if (cachedJpeg is not null && key == cachedKey)
+                capture.Duplication.WaitForChange(FrameWaitMs);
+                var cursor = ReadCursor(screen);
+                key = (capture.Duplication.Frame, cursor.X, cursor.Y, cursor.Handle, maxWidth, quality);
+                if (capture.Jpeg is not null && key == capture.JpegKey)
                 {
-                    return cachedJpeg;
+                    return capture.Jpeg;
                 }
 
-                scaled = duplication.CopyScaled(maxWidth, out scale);
+                scaled = capture.Duplication.CopyScaled(maxWidth, out scale);
             }
             catch (SharpGen.Runtime.SharpGenException)
             {
                 // Zugriff verloren (Aufloesung geaendert, sicherer Desktop, Vollbildspiel): beim
                 // naechsten Abruf neu aufsetzen, diesmal per BitBlt.
-                duplication?.Dispose();
-                duplication = null;
-                cachedJpeg = null;
+                capture.Reset();
                 return null;
             }
         }
@@ -108,46 +107,45 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
         {
             using (var graphics = Graphics.FromImage(scaled))
             {
-                DrawCursor(graphics, scale);
+                DrawCursor(graphics, scale, screen);
             }
 
             var jpeg = Encode(scaled, quality);
-            lock (gate)
+            lock (capture.Gate)
             {
-                cachedJpeg = jpeg;
-                cachedKey = key;
+                capture.Jpeg = jpeg;
+                capture.JpegKey = key;
             }
 
             return jpeg;
         }
     }
 
-    private static byte[] CaptureWithBitBlt(int maxWidth, int quality)
+    private static byte[] CaptureWithBitBlt(ScreenMonitor screen, int maxWidth, int quality)
     {
-        var width = GetSystemMetrics(SmCxScreen);
-        var height = GetSystemMetrics(SmCyScreen);
-        using var screen = new Bitmap(width, height, PixelFormat.Format24bppRgb);
-        using (var graphics = Graphics.FromImage(screen))
+        using var image = new Bitmap(screen.Width, screen.Height, PixelFormat.Format24bppRgb);
+        using (var graphics = Graphics.FromImage(image))
         {
-            graphics.CopyFromScreen(0, 0, 0, 0, screen.Size, CopyPixelOperation.SourceCopy);
-            DrawCursor(graphics, 1.0);
+            graphics.CopyFromScreen(screen.Left, screen.Top, 0, 0, image.Size, CopyPixelOperation.SourceCopy);
+            DrawCursor(graphics, 1.0, screen);
         }
 
-        var scale = Math.Min(1.0, (double)maxWidth / width);
-        using var scaled = scale < 1.0 ? Resize(screen, scale) : null;
-        return Encode(scaled ?? screen, quality);
+        var scale = Math.Min(1.0, (double)maxWidth / screen.Width);
+        using var scaled = scale < 1.0 ? Resize(image, scale) : null;
+        return Encode(scaled ?? image, quality);
     }
 
     private void ReleaseWhenIdle()
     {
         // Eine offene Duplication laesst den DWM jedes Bild bereitstellen - ohne Zuschauer zuruecklegen.
-        lock (gate)
+        foreach (var capture in captures.Values)
         {
-            if (duplication is not null && DateTime.UtcNow - lastUse > IdleRelease)
+            lock (capture.Gate)
             {
-                duplication.Dispose();
-                duplication = null;
-                cachedJpeg = null;
+                if (capture.Duplication is not null && DateTime.UtcNow - capture.LastUse > IdleRelease)
+                {
+                    capture.Reset();
+                }
             }
         }
     }
@@ -175,16 +173,16 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
     // Weder BitBlt noch die Duplication nehmen den Mauszeiger mit; ohne ihn liesse sich das
     // Touchpad nach dem Bild kaum fuehren.
-    private static void DrawCursor(Graphics graphics, double scale)
+    private static void DrawCursor(Graphics graphics, double scale, ScreenMonitor screen)
     {
-        var info = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
-        if (!GetCursorInfo(ref info) || info.Flags != CursorShowing || info.Cursor == IntPtr.Zero)
+        var info = ReadCursor(screen);
+        if (info.Handle == IntPtr.Zero)
         {
             return;
         }
 
         // Der Cursor gehoert nicht diesem Prozess, Cursor(IntPtr) gibt das Handle nicht frei.
-        using var cursor = new System.Windows.Forms.Cursor(info.Cursor);
+        using var cursor = new System.Windows.Forms.Cursor(info.Handle);
         var hotSpot = cursor.HotSpot;
         cursor.Draw(graphics, new Rectangle(
             (int)((info.X - hotSpot.X) * scale),
@@ -193,8 +191,45 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
             Math.Max(1, (int)(cursor.Size.Height * scale))));
     }
 
-    // Desktop Duplication des Monitors, der bei (0,0) beginnt - der Hauptbildschirm, wie bei
-    // screenClick. Die Staging-Textur behaelt das letzte Bild, solange sich nichts aendert.
+    // Position relativ zum Monitor; Zeiger auf einem anderen Monitor zaehlt als unsichtbar, damit
+    // seine Bewegung hier kein neues Bild ausloest.
+    private static (int X, int Y, IntPtr Handle) ReadCursor(ScreenMonitor screen)
+    {
+        var cursor = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
+        return GetCursorInfo(ref cursor)
+            && cursor.Flags == CursorShowing
+            && cursor.Cursor != IntPtr.Zero
+            && cursor.X >= screen.Left && cursor.X < screen.Left + screen.Width
+            && cursor.Y >= screen.Top && cursor.Y < screen.Top + screen.Height
+            ? (cursor.X - screen.Left, cursor.Y - screen.Top, cursor.Cursor)
+            : (0, 0, IntPtr.Zero);
+    }
+
+    private sealed class MonitorCapture
+    {
+        public Lock Gate { get; } = new();
+
+        public Duplication? Duplication { get; set; }
+
+        public DateTime LastUse { get; set; }
+
+        public (long Frame, int CursorX, int CursorY, IntPtr Cursor, int MaxWidth, int Quality) JpegKey { get; set; }
+
+        public byte[]? Jpeg { get; set; }
+
+        public void Reset()
+        {
+            lock (Gate)
+            {
+                Duplication?.Dispose();
+                Duplication = null;
+                Jpeg = null;
+            }
+        }
+    }
+
+    // Desktop Duplication eines Monitors. Die Textur Latest behaelt das letzte Bild, solange sich
+    // nichts aendert.
     private sealed class Duplication : IDisposable
     {
         private readonly IDXGIOutputDuplication outputDuplication;
@@ -246,7 +281,7 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
         private bool HasImage => Frame > 0;
 
-        public static Duplication? Create()
+        public static Duplication? Create(string deviceName)
         {
             using var factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
             for (uint adapterIndex = 0; factory.EnumAdapters1(adapterIndex, out var adapter).Success; adapterIndex++)
@@ -260,7 +295,7 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
                             var description = output.Description;
                             // ponytail: gedrehte Monitore (Hochformat) liefern ein gedrehtes Bild -
                             // dann lieber BitBlt; drehen, falls das jemand braucht.
-                            if (description.DesktopCoordinates.Left != 0 || description.DesktopCoordinates.Top != 0
+                            if (description.DeviceName != deviceName
                                 || description.Rotation is not (ModeRotation.Identity or ModeRotation.Unspecified))
                             {
                                 continue;
@@ -379,9 +414,6 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool GetCursorInfo(ref CursorInfo info);
-
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(int index);
 
     [DllImport("user32.dll")]
     private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);

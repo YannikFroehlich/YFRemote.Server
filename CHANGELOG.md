@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.49.0] - 2026-11-06
+
 ### Fixed
 
 - Reißt die Verbindung mitten im Ziehen ab, bleibt die Maustaste am PC nicht mehr gedrückt, auch beim Touchpad. Ein weggebrochenes WLAN fällt dem PC dafür jetzt nach spätestens einer Minute auf; das Gerät verbindet sich danach neu.

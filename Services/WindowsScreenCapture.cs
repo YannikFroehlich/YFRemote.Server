@@ -13,7 +13,7 @@ namespace YFRemote.Server.Services;
 // Bevorzugt DXGI Desktop Duplication: die Kopie kommt von der Grafikkarte und dauert wenige ms,
 // BitBlt braucht fuer 1080p rund 38 ms (DWM-Rueckkopie) und schafft damit keine 30 Bilder/s.
 // BitBlt bleibt der Rueckweg, wenn die Duplication nicht geht (sicherer Desktop, Remotedesktop).
-public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
+public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 {
     private const int SmCxScreen = 0;
     private const int SmCyScreen = 1;
@@ -197,21 +197,18 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
     // screenClick. Die Staging-Textur behaelt das letzte Bild, solange sich nichts aendert.
     private sealed class Duplication : IDisposable
     {
-        private readonly ID3D11Device device;
-        private readonly ID3D11DeviceContext context;
         private readonly IDXGIOutputDuplication outputDuplication;
         private readonly ID3D11Texture2D staging;
-        private readonly int width;
-        private readonly int height;
 
-        private Duplication(ID3D11Device device, ID3D11DeviceContext context, IDXGIOutputDuplication outputDuplication, int width, int height)
+        private Duplication(ID3D11Device device, ID3D11DeviceContext context, IDXGIOutputDuplication outputDuplication, int width, int height, long adapterLuid)
         {
-            this.device = device;
-            this.context = context;
+            Device = device;
+            Context = context;
             this.outputDuplication = outputDuplication;
-            this.width = width;
-            this.height = height;
-            staging = device.CreateTexture2D(new Texture2DDescription
+            Width = width;
+            Height = height;
+            AdapterLuid = adapterLuid;
+            var description = new Texture2DDescription
             {
                 Width = (uint)width,
                 Height = (uint)height,
@@ -219,10 +216,30 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
                 ArraySize = 1,
                 Format = Format.B8G8R8A8_UNorm,
                 SampleDescription = new SampleDescription(1, 0),
+                Usage = ResourceUsage.Default,
+                BindFlags = BindFlags.ShaderResource
+            };
+            Latest = device.CreateTexture2D(description);
+            staging = device.CreateTexture2D(description with
+            {
                 Usage = ResourceUsage.Staging,
+                BindFlags = BindFlags.None,
                 CPUAccessFlags = CpuAccessFlags.Read
             });
         }
+
+        public ID3D11Device Device { get; }
+
+        public ID3D11DeviceContext Context { get; }
+
+        // Das letzte Bild auf der Grafikkarte, ohne Mauszeiger.
+        public ID3D11Texture2D Latest { get; }
+
+        public int Width { get; }
+
+        public int Height { get; }
+
+        public long AdapterLuid { get; }
 
         // Zaehlt jedes neue Bild; dient dem JPEG-Zwischenspeicher als Schluessel.
         public long Frame { get; private set; }
@@ -249,13 +266,25 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
                                 continue;
                             }
 
-                            D3D11.D3D11CreateDevice(adapter, DriverType.Unknown, DeviceCreationFlags.BgraSupport, (FeatureLevel[]?)null!, out ID3D11Device device, out ID3D11DeviceContext context).CheckError();
+                            // VideoSupport fuer den Videoprozessor des H.264-Streams; ohne ihn geht wenigstens JPEG.
+                            if (D3D11.D3D11CreateDevice(adapter, DriverType.Unknown, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.VideoSupport, (FeatureLevel[]?)null!, out ID3D11Device device, out ID3D11DeviceContext context).Failure)
+                            {
+                                D3D11.D3D11CreateDevice(adapter, DriverType.Unknown, DeviceCreationFlags.BgraSupport, (FeatureLevel[]?)null!, out device, out context).CheckError();
+                            }
+
                             try
                             {
+                                // Der Encoder benutzt das Geraet auch von eigenen Threads aus.
+                                using (var multithread = device!.QueryInterface<ID3D11Multithread>())
+                                {
+                                    multithread.SetMultithreadProtected(true);
+                                }
+
                                 using var output1 = output.QueryInterface<IDXGIOutput1>();
                                 var outputDuplication = output1.DuplicateOutput(device);
                                 var mode = outputDuplication.Description.ModeDescription;
-                                return new Duplication(device!, context!, outputDuplication, (int)mode.Width, (int)mode.Height);
+                                var luid = adapter.Description1.Luid;
+                                return new Duplication(device, context!, outputDuplication, (int)mode.Width, (int)mode.Height, ((long)luid.HighPart << 32) | luid.LowPart);
                             }
                             catch
                             {
@@ -292,7 +321,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
                 if (info.LastPresentTime != 0)
                 {
                     using var texture = resource!.QueryInterface<ID3D11Texture2D>();
-                    context.CopyResource(staging, texture);
+                    Context.CopyResource(Latest, texture);
                     Frame++;
                 }
             }
@@ -305,15 +334,16 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
 
         public Bitmap CopyScaled(int maxWidth, out double scale)
         {
-            scale = Math.Min(1.0, (double)maxWidth / width);
+            scale = Math.Min(1.0, (double)maxWidth / Width);
             var target = new Bitmap(
-                Math.Max(1, (int)(width * scale)),
-                Math.Max(1, (int)(height * scale)),
+                Math.Max(1, (int)(Width * scale)),
+                Math.Max(1, (int)(Height * scale)),
                 PixelFormat.Format24bppRgb);
-            var mapped = context.Map(staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
+            Context.CopyResource(staging, Latest);
+            var mapped = Context.Map(staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
             try
             {
-                using var source = new Bitmap(width, height, (int)mapped.RowPitch, PixelFormat.Format32bppRgb, mapped.DataPointer);
+                using var source = new Bitmap(Width, Height, (int)mapped.RowPitch, PixelFormat.Format32bppRgb, mapped.DataPointer);
                 using var graphics = Graphics.FromImage(target);
                 graphics.InterpolationMode = scale < 1.0 ? InterpolationMode.Bilinear : InterpolationMode.NearestNeighbor;
                 graphics.PixelOffsetMode = PixelOffsetMode.Half;
@@ -321,7 +351,7 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
             }
             finally
             {
-                context.Unmap(staging, 0);
+                Context.Unmap(staging, 0);
             }
 
             return target;
@@ -330,9 +360,10 @@ public sealed class WindowsScreenCapture : IScreenCapture, IDisposable
         public void Dispose()
         {
             staging.Dispose();
+            Latest.Dispose();
             outputDuplication.Dispose();
-            context.Dispose();
-            device.Dispose();
+            Context.Dispose();
+            Device.Dispose();
         }
     }
 

@@ -211,6 +211,35 @@ public sealed class MediaEndpointTests
         Assert.AreEqual(HttpStatusCode.Forbidden, mediaOnly.StatusCode);
     }
 
+    [TestMethod]
+    public async Task ScreenVideo_StreamsFragmentsWithCodecHeader()
+    {
+        var token = await PairAndGetTokenAsync();
+        using var unauthorized = await httpClient.GetAsync("/screen/video");
+
+        var response = await GetScreenAsync(token, "/screen/video?width=99999&bitrate=1");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("video/mp4", response.Content.Headers.ContentType!.MediaType);
+        Assert.AreEqual("avc1.4d0028", response.Headers.GetValues("X-Codec").Single());
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        CollectionAssert.AreEqual(FakeScreenCapture.Fragment.Concat(FakeScreenCapture.Fragment).ToArray(), await response.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual(3840, screen.LastMaxWidth);
+        Assert.AreEqual(1000, screen.LastBitrate);
+    }
+
+    [TestMethod]
+    public async Task ScreenVideo_WithoutHardwareEncoder_IsNotImplemented()
+    {
+        var token = await PairAndGetTokenAsync();
+        screen.VideoSupported = false;
+
+        var response = await GetScreenAsync(token, "/screen/video");
+
+        Assert.AreEqual(HttpStatusCode.NotImplemented, response.StatusCode);
+    }
+
     private async Task<HttpResponseMessage> GetScreenAsync(string token, string path)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
@@ -261,6 +290,26 @@ public sealed class MediaEndpointTests
             LastMaxWidth = maxWidth;
             LastQuality = quality;
             return Blocked ? throw new System.ComponentModel.Win32Exception(5) : Jpeg;
+        }
+
+        public static readonly byte[] Fragment = [0, 0, 0, 8, 0x6D, 0x64, 0x61, 0x74];
+
+        public bool VideoSupported { get; set; } = true;
+
+        public int LastBitrate { get; private set; }
+
+        public async Task StreamVideoAsync(int maxWidth, int bitrateKbps, Action<string> onStart, Func<byte[], Task> onFragment, CancellationToken cancellationToken)
+        {
+            LastMaxWidth = maxWidth;
+            LastBitrate = bitrateKbps;
+            if (!VideoSupported)
+            {
+                throw new NotSupportedException();
+            }
+
+            onStart("avc1.4d0028");
+            await onFragment(Fragment);
+            await onFragment(Fragment);
         }
     }
 

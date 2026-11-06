@@ -487,6 +487,40 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  /** Der PC-Bildschirm als H.264-Strom (fragmentiertes MP4) samt Codec-Angabe; `'blocked'` auf
+   *  dem sicheren Desktop, `null`, wenn der Server kein Video kann (kein Hardware-Encoder, aelterer
+   *  Server, dessen SPA-Rueckfall hier `index.html` liefert). Beendet wird er ueber `signal`. */
+  async openScreenVideo(
+    width: number,
+    bitrateKbps: number,
+    signal: AbortSignal,
+  ): Promise<{ body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | 'blocked' | null> {
+    const token = this.pairing.token();
+    if (token === null) {
+      return null;
+    }
+
+    try {
+      const response = await this.fetchFn(
+        `${getServerHttpBaseUrl(this.serverLocation)}/screen/video?width=${Math.round(width)}&bitrate=${bitrateKbps}`,
+        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` }, signal },
+      );
+      if (response.status === 503) {
+        return 'blocked';
+      }
+
+      const codec = response.headers.get('X-Codec');
+      return response.ok &&
+        response.body !== null &&
+        codec !== null &&
+        response.headers.get('Content-Type')?.startsWith('video/mp4')
+        ? { body: response.body, codec }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Der PC-Ton als offene Antwort mit rohem PCM; `null`, wenn er nicht geht. Beendet wird er
    *  ueber `signal`. */
   async openScreenAudio(signal: AbortSignal): Promise<Response | null> {

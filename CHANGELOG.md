@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Windows: Der Tab "Bildschirm" überträgt jetzt ein H.264-Video vom Hardware-Encoder der Grafikkarte statt einzelner JPEG-Bilder. Am Entwickler-PC (Intel UHD, 1080p) kostet ein Bild rund 3 ms statt rund 20 ms Prozessorzeit, und statt rund 36 MBit/s bei 30 JPEG-Bildern pro Sekunde fließen rund 5 MBit/s bei rund 40 Videobildern pro Sekunde. Ohne Hardware-Encoder und im iPhone-Safari, das kein MediaSource kennt, bleibt es automatisch bei JPEG.
+
 ## [2.48.1] - 2026-11-04
 
 ### Fixed

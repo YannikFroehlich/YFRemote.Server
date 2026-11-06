@@ -74,6 +74,9 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundFailed = signal(false);
   protected readonly keyboardOpen = signal(false);
   protected readonly fullscreen = signal(false);
+  protected readonly menuOpen = signal(false);
+  // Mitte des Logos im Vollbild, als Anteil der Ansicht: uebersteht auch das Drehen des Geraets.
+  protected readonly handle = signal({ x: 0.95, y: 0.08 });
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
@@ -96,6 +99,8 @@ export class ScreenViewComponent implements OnDestroy {
   private lastMoveAt = 0;
   // Nach Ziehen oder Zoomen meldet der Browser noch einen Klick, der keiner sein soll.
   private swallowClick = false;
+  private handleOrigin: (Point & { pointerId: number }) | null = null;
+  private handleMoved = false;
   private videoAbort: AbortController | null = null;
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
@@ -261,7 +266,57 @@ export class ScreenViewComponent implements OnDestroy {
     }
   }
 
+  protected onHandleDown(event: PointerEvent): void {
+    this.handleOrigin = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    this.handleMoved = false;
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    } catch {
+      // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
+    }
+  }
+
+  protected onHandleMove(event: PointerEvent): void {
+    const origin = this.handleOrigin;
+    if (origin === null || origin.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const point = { x: event.clientX, y: event.clientY };
+    if (!this.handleMoved && distance(origin, point) < DRAG_THRESHOLD_PX) {
+      return;
+    }
+
+    this.handleMoved = true;
+    const view = this.view().nativeElement.getBoundingClientRect();
+    this.handle.set({
+      x: Math.min(1, Math.max(0, (point.x - view.left) / view.width)),
+      y: Math.min(1, Math.max(0, (point.y - view.top) / view.height)),
+    });
+  }
+
+  protected onHandleEnd(): void {
+    this.handleOrigin = null;
+  }
+
+  protected toggleMenu(): void {
+    // Nach dem Verschieben meldet der Browser noch einen Klick, der keiner sein soll.
+    if (this.handleMoved) {
+      this.handleMoved = false;
+      return;
+    }
+
+    this.menuOpen.update((open) => !open);
+  }
+
   protected onPointerDown(event: PointerEvent): void {
+    // Ein Tipp neben die offenen Optionen schliesst sie nur und klickt nicht am PC.
+    if (this.menuOpen()) {
+      this.menuOpen.set(false);
+      this.swallowClick = true;
+      return;
+    }
+
     // Die rechte Maustaste laeuft ueber das Kontextmenue.
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
@@ -369,7 +424,7 @@ export class ScreenViewComponent implements OnDestroy {
   // Langes Druecken klickt rechts; danach wird aus demselben Finger kein Ziehen mehr.
   protected onContextMenu(event: MouseEvent): void {
     event.preventDefault();
-    if (this.dragging || this.pointers.size > 1) {
+    if (this.dragging || this.pointers.size > 1 || this.swallowClick) {
       return;
     }
 
@@ -623,6 +678,7 @@ export class ScreenViewComponent implements OnDestroy {
   protected onFullscreenChange(): void {
     this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
     this.viewport.set(FULL_VIEW);
+    this.menuOpen.set(false);
     // Im Vollbild ist die Ansicht breiter - das Video in passender Breite neu holen.
     this.videoAbort?.abort();
   }

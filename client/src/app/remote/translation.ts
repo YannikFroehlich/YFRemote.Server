@@ -449,6 +449,7 @@ export const TRANSLATIONS = {
   'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.menu': { de: 'Optionen', en: 'Options' },
   'screen.monitor': { de: 'Monitor', en: 'Monitor' },
   'screen.monitor.primary': {
     de: 'Hauptmonitor ({{width}}×{{height}})',

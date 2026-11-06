@@ -217,7 +217,9 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
   releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
   how long a dead connection goes unnoticed). Unzoomed, two fingers scroll the page instead. Zoom
-  resets on a monitor or fullscreen change.
+  resets on a monitor or fullscreen change. In fullscreen the toolbar collapses behind a logo button
+  (`.screen-view__handle`): a tap opens it towards the free side, dragging moves the logo (fraction of
+  the view, kept only until the tab closes), and a tap on the picture closes it without clicking the PC.
   A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`
   `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws

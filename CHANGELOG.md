@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Web-Oberfläche: Im Vollbild des Tabs "Bildschirm" verdecken die Schalter das Bild nicht mehr. Es bleibt nur das App-Logo, Tippen klappt die Optionen auf, Ziehen verschiebt es.
+
 ## [2.49.0] - 2026-11-06
 
 ### Fixed

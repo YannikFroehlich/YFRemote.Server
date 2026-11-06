@@ -441,6 +441,110 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
+  describe('in fullscreen', () => {
+    const enterFullscreen = async (element: HTMLElement) => {
+      const view = element.querySelector('.screen-view')!;
+      Object.defineProperty(document, 'fullscreenElement', {
+        configurable: true,
+        get: () => view,
+      });
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+    const leaveFullscreen = () => {
+      delete (document as { fullscreenElement?: Element }).fullscreenElement;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+    const pointer = (type: string, x: number, y: number) =>
+      new MouseEvent(type, { clientX: x, clientY: y, bubbles: true });
+
+    afterEach(leaveFullscreen);
+
+    it('hides the options behind the logo until it is tapped', async () => {
+      const { fixture, element } = await setup(new Blob(['jpeg']));
+      const toolbar = element.querySelector('.screen-view__toolbar')!;
+      expect(element.querySelector('.screen-view__handle')).toBeNull();
+
+      await enterFullscreen(element);
+      fixture.detectChanges();
+      const handle = element.querySelector<HTMLElement>('.screen-view__handle')!;
+      expect(toolbar.classList).toContain('screen-view__toolbar--closed');
+
+      handle.click();
+      fixture.detectChanges();
+      expect(toolbar.classList).not.toContain('screen-view__toolbar--closed');
+      expect(handle.getAttribute('aria-expanded')).toBe('true');
+
+      handle.click();
+      fixture.detectChanges();
+      expect(toolbar.classList).toContain('screen-view__toolbar--closed');
+
+      handle.click();
+      leaveFullscreen();
+      fixture.detectChanges();
+      expect(element.querySelector('.screen-view__handle')).toBeNull();
+      fixture.destroy();
+    });
+
+    it('moves the logo by dragging, without opening the options or touching the PC', async () => {
+      const { fixture, sendAction, element } = await setup(new Blob(['jpeg']));
+      await enterFullscreen(element);
+      fixture.detectChanges();
+      const view = element.querySelector<HTMLElement>('.screen-view')!;
+      view.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 800, height: 400 }) as DOMRect;
+      const handle = element.querySelector<HTMLElement>('.screen-view__handle')!;
+
+      handle.dispatchEvent(pointer('pointerdown', 760, 30));
+      handle.dispatchEvent(pointer('pointermove', 763, 30));
+      fixture.detectChanges();
+      expect(view.style.getPropertyValue('--handle-x')).toBe('0.95');
+
+      handle.dispatchEvent(pointer('pointermove', 200, 300));
+      handle.dispatchEvent(pointer('pointerup', 200, 300));
+      handle.click();
+      fixture.detectChanges();
+
+      expect(view.style.getPropertyValue('--handle-x')).toBe('0.25');
+      expect(view.style.getPropertyValue('--handle-y')).toBe('0.75');
+      const toolbar = element.querySelector('.screen-view__toolbar')!;
+      expect(toolbar.classList).toContain('screen-view__toolbar--closed');
+      expect(toolbar.classList).toContain('screen-view__toolbar--left');
+      expect(toolbar.classList).toContain('screen-view__toolbar--up');
+      expect(sendAction).not.toHaveBeenCalled();
+
+      handle.click();
+      fixture.detectChanges();
+      expect(toolbar.classList).not.toContain('screen-view__toolbar--closed');
+      fixture.destroy();
+    });
+
+    it('closes the options on a tap beside them without clicking on the PC', async () => {
+      const { fixture, sendAction, element } = await setup(new Blob(['jpeg']));
+      await enterFullscreen(element);
+      fixture.detectChanges();
+      element.querySelector<HTMLElement>('.screen-view__handle')!.click();
+      const image = element.querySelector('img.screen-view__image')!;
+      image.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+
+      image.dispatchEvent(pointer('pointerdown', 50, 50));
+      image.dispatchEvent(pointer('pointerup', 50, 50));
+      image.dispatchEvent(pointer('click', 50, 50));
+      fixture.detectChanges();
+
+      expect(element.querySelector('.screen-view__toolbar')!.classList).toContain(
+        'screen-view__toolbar--closed',
+      );
+      expect(sendAction).not.toHaveBeenCalled();
+
+      image.dispatchEvent(pointer('pointerdown', 50, 50));
+      image.dispatchEvent(pointer('pointerup', 50, 50));
+      image.dispatchEvent(pointer('click', 50, 50));
+      expect(sendAction).toHaveBeenCalledOnce();
+      fixture.destroy();
+    });
+  });
+
   it('explains a blocked secure desktop', async () => {
     const { fixture, element } = await setup('blocked');
 

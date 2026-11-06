@@ -4,8 +4,9 @@ public interface IMouseService
 {
     void MoveRelative(int deltaX, int deltaY);
 
-    // x und y von 0 bis 1 auf dem Hauptbildschirm, fuer einen Tipp ins Bild des Tabs "Bildschirm".
-    void MoveToPrimaryScreen(double x, double y);
+    // x und y von 0 bis 1 auf dem Monitor (null = Hauptbildschirm), fuer einen Tipp ins Bild des
+    // Tabs "Bildschirm".
+    void MoveToScreen(double x, double y, string? monitor);
 
     void ClickLeft();
 

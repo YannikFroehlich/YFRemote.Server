@@ -23,6 +23,24 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Reißt die Verbindung mitten im Ziehen ab, bleibt die Maustaste am PC nicht mehr gedrückt, auch beim Touchpad. Ein weggebrochenes WLAN fällt dem PC dafür jetzt nach spätestens einer Minute auf; das Gerät verbindet sich danach neu.
+- Windows: Ist der Bildschirm des PCs aus oder gesperrt, zeigt der Tab "Bildschirm" einen Hinweis statt eines veralteten Bildes und schaltet von selbst aufs Video, sobald der Bildschirm wieder an ist.
+- Web-Oberfläche: Über dem Bild im Tab "Bildschirm" scrollen zwei Finger die Seite, solange nicht gezoomt ist.
+
+### Added
+
+- Windows: Der Tab "Bildschirm" passt die Video-Bitrate selbst an die Verbindung an. Bei schwachem WLAN sinkt die Bitrate statt der Bildrate, die gewählte Stufe gilt als Obergrenze.
+- Web-Oberfläche: Im Tab "Bildschirm" zoomen und verschieben zwei Finger das Bild, ein Finger zieht am PC mit gedrückter linker Maustaste, zum Beispiel Fenster oder Markierungen. Tippen und langes Drücken klicken weiterhin, auch im Zoom an der richtigen Stelle.
+- Windows: Mit mehr als einem Monitor erscheint im Tab "Bildschirm" eine Monitor-Auswahl. Bild, Mauszeiger und Tipps gelten dann für den gewählten Monitor, das Gerät merkt sich die Wahl. Gibt es den Monitor nicht mehr, nimmt der PC den Hauptmonitor.
+
+### Changed
+
+- Windows: Der Tab "Bildschirm" überträgt jetzt ein H.264-Video vom Hardware-Encoder der Grafikkarte statt einzelner JPEG-Bilder. Am Entwickler-PC (Intel UHD, 1080p) kostet ein Bild rund 3 ms statt rund 20 ms Prozessorzeit, und statt rund 36 MBit/s bei 30 JPEG-Bildern pro Sekunde fließen rund 5 MBit/s bei rund 40 Videobildern pro Sekunde. Ohne Hardware-Encoder und im iPhone-Safari, das kein MediaSource kennt, bleibt es automatisch bei JPEG.
+
+## [2.48.1] - 2026-11-04
+
+### Fixed
+
 - Web-Oberfläche: Im Tab "Bildschirm" öffnet der Schalter "Tastatur" jetzt zuverlässig die Handy-Tastatur, ohne zusätzliches Eingabefeld; jeder Buchstabe geht sofort an den PC, die Eingabetaste schickt Enter. Schließt man die Tastatur, geht der Schalter von selbst aus. Bisher blieb die Tastatur auf Android oft zu.
 - Web-Oberfläche: Im Tab "Mixer" ragen Apps mit langem Namen (z. B. "VB-AUDIO Virtual Audio Device Mixing Console Application") nicht mehr rechts über den Bildschirm hinaus; der Name wird gekürzt, und alle Karten samt Schieberegler passen wieder in die Breite.
 

@@ -194,7 +194,7 @@ public sealed class GamepadActionTests
     private sealed class NoOpMouseService : IMouseService
     {
         public void MoveRelative(int deltaX, int deltaY) { }
-        public void MoveToPrimaryScreen(double x, double y) { }
+        public void MoveToScreen(double x, double y, string? monitor) { }
         public void ClickLeft() { }
         public void ClickRight() { }
         public void ClickMiddle() { }

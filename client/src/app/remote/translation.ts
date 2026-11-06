@@ -434,8 +434,8 @@ export const TRANSLATIONS = {
   'screen.alt': { de: 'Bildschirm des PCs', en: 'PC screen' },
   'screen.waiting': { de: 'Bildschirm wird geladen…', en: 'Loading screen…' },
   'screen.blocked': {
-    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm.',
-    en: 'The PC is showing a security prompt or the lock screen.',
+    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm, oder sein Bildschirm ist aus.',
+    en: 'The PC is showing a security prompt or the lock screen, or its display is off.',
   },
   'screen.sound': { de: 'Ton', en: 'Sound' },
   'screen.soundTitle': {
@@ -449,6 +449,15 @@ export const TRANSLATIONS = {
   'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.monitor': { de: 'Monitor', en: 'Monitor' },
+  'screen.monitor.primary': {
+    de: 'Hauptmonitor ({{width}}×{{height}})',
+    en: 'Main monitor ({{width}}×{{height}})',
+  },
+  'screen.monitor.other': {
+    de: 'Monitor {{number}} ({{width}}×{{height}})',
+    en: 'Monitor {{number}} ({{width}}×{{height}})',
+  },
   'screen.quality': { de: 'Bildqualität', en: 'Picture quality' },
   'screen.quality.performance': { de: 'Leistung', en: 'Performance' },
   'screen.quality.balanced': { de: 'Ausgeglichen', en: 'Balanced' },

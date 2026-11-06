@@ -17,6 +17,10 @@ public sealed class RemoteActionSession(
     // Im Tray auf "Nur Medien" gestellt; gilt fuer die ganze Verbindung, das Umstellen trennt sie.
     public bool MediaOnly { get; init; }
 
+    // Noch gedrueckte Maustasten samt ihrem Loslassen: reisst die Verbindung mitten im Ziehen ab,
+    // kommt kein mouseUp mehr, und die Taste bliebe am PC gedrueckt.
+    private readonly Dictionary<string, Action> heldMouseButtons = [];
+
     internal IVirtualGamepad? Gamepad { get; set; }
 
     internal IDisposable? ClipboardSubscription { get; set; }
@@ -37,6 +41,10 @@ public sealed class RemoteActionSession(
 
     internal void PushApps(AppVolumesMessage message) => onApps?.Invoke(message);
 
+    internal void HoldMouseButton(string button, Action release) => heldMouseButtons[button] = release;
+
+    internal void ReleaseMouseButton(string button) => heldMouseButtons.Remove(button);
+
     internal void DisconnectGamepad()
     {
         Gamepad?.Dispose();
@@ -45,6 +53,19 @@ public sealed class RemoteActionSession(
 
     public void Dispose()
     {
+        foreach (var release in heldMouseButtons.Values)
+        {
+            try
+            {
+                release();
+            }
+            catch (Exception exception) when (exception is InputBlockedException or System.ComponentModel.Win32Exception)
+            {
+                // Sicherer Desktop: mehr geht hier nicht, die Verbindung ist ohnehin weg.
+            }
+        }
+
+        heldMouseButtons.Clear();
         DisconnectGamepad();
         ClipboardSubscription?.Dispose();
         ClipboardSubscription = null;

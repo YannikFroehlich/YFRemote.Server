@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   ElementRef,
   inject,
   OnDestroy,
@@ -10,26 +11,37 @@ import {
 import { DOCUMENT } from '@angular/common';
 import { liveTextActions } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
+import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
+import { distance, FULL_VIEW, pinchViewport, Point } from './screen-gestures';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
+import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
 
-// Zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
+// Nur fuer den JPEG-Rueckweg (Server ohne Hardware-Encoder, Browser ohne MediaSource):
+// zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
 // nimmt der PC schon das naechste auf. Jeder Abruf wartet aufs letzte, so staut sich bei
 // langsamem WLAN nichts; ein stehendes Bild haelt der Server ohnehin bis zu 100 ms zurueck.
 const PARALLEL_REQUESTS = 2;
 const FRAME_INTERVAL_MS = 33;
 const RETRY_MS = 1000;
-// Pixeldichte (hoechstens so viel wie das Geraet hat) und JPEG-Qualitaet je Einstellung; mehr als
-// 1,5-fach sieht man auf dem Handy kaum, es kostet aber Zeit am PC und WLAN.
+// Pixeldichte (hoechstens so viel wie das Geraet hat), JPEG-Qualitaet und Video-Bitrate je
+// Einstellung; mehr als 1,5-fach sieht man auf dem Handy kaum, es kostet aber WLAN.
 const SCREEN_PROFILES: Readonly<
-  Record<ScreenQuality, { pixelRatio: number; jpegQuality: number }>
+  Record<ScreenQuality, { pixelRatio: number; jpegQuality: number; videoKbps: number }>
 > = {
-  performance: { pixelRatio: 1, jpegQuality: 50 },
-  balanced: { pixelRatio: 1.5, jpegQuality: 70 },
-  quality: { pixelRatio: 3, jpegQuality: 85 },
+  performance: { pixelRatio: 1, jpegQuality: 50, videoKbps: 4000 },
+  balanced: { pixelRatio: 1.5, jpegQuality: 70, videoKbps: 8000 },
+  quality: { pixelRatio: 3, jpegQuality: 85, videoKbps: 16000 },
 };
+// Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2).
+const MAX_VIDEO_WIDTH = 1920;
+
+// Ab dieser Strecke wird aus einem Tipp ein Ziehen.
+const DRAG_THRESHOLD_PX = 8;
+// Ein 120-Hz-Display soll beim Ziehen nicht an die 120 Nachrichten/s des Servers stossen.
+const DRAG_MOVE_INTERVAL_MS = 16;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -37,7 +49,10 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
   selector: 'app-screen-view',
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './screen-view.component.html',
-  host: { '(document:fullscreenchange)': 'onFullscreenChange()' },
+  host: {
+    '(document:fullscreenchange)': 'onFullscreenChange()',
+    '(document:visibilitychange)': 'onVisibilityChange()',
+  },
 })
 export class ScreenViewComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
@@ -45,12 +60,15 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
   private readonly createAudioContext = inject(SCREEN_AUDIO_CONTEXT_FACTORY);
+  private readonly videoPlayer = inject(SCREEN_VIDEO_PLAYER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
+  protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
+  protected readonly videoShown = signal(false);
   protected readonly blocked = signal(false);
   protected readonly soundOn = signal(false);
   protected readonly soundFailed = signal(false);
@@ -58,6 +76,27 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly fullscreen = signal(false);
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
+  private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
+  private readonly image = viewChild<ElementRef<HTMLImageElement>>('image');
+  private readonly stage = viewChild.required<ElementRef<HTMLElement>>('stage');
+  private readonly viewport = signal(FULL_VIEW);
+  protected readonly mediaTransform = computed(() => {
+    const { scale, x, y } = this.viewport();
+    return scale === 1 ? null : `translate(${x}px, ${y}px) scale(${scale})`;
+  });
+  private readonly pointers = new Map<number, Point>();
+  private pinchStart: { view: typeof FULL_VIEW; fingers: readonly [Point, Point] } | null = null;
+  private pinchCenterY = 0;
+  private pinchScroller: Element | null = null;
+  // Der erste Finger, solange er noch Tipp oder Ziehen werden kann.
+  private dragOrigin: Point | null = null;
+  private dragging = false;
+  private pendingMove: { x: number; y: number } | null = null;
+  private moveFrame: number | null = null;
+  private lastMoveAt = 0;
+  // Nach Ziehen oder Zoomen meldet der Browser noch einen Klick, der keiner sein soll.
+  private swallowClick = false;
+  private videoAbort: AbortController | null = null;
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
   private stopped = false;
@@ -65,18 +104,123 @@ export class ScreenViewComponent implements OnDestroy {
   private shown = 0;
 
   constructor() {
-    for (let index = 0; index < PARALLEL_REQUESTS; index++) {
-      void this.run();
-    }
+    void this.start();
+    void this.loadMonitors();
   }
 
   ngOnDestroy(): void {
     this.stopped = true;
+    this.videoAbort?.abort();
+    this.endDrag();
     this.show(null);
     this.stopSound();
     if (this.fullscreen()) {
       void this.document.exitFullscreen?.().catch(() => undefined);
     }
+  }
+
+  private async loadMonitors(): Promise<void> {
+    const monitors = await this.remote.readScreenMonitors();
+    if (monitors !== null && !this.stopped) {
+      this.monitors.set(monitors);
+    }
+  }
+
+  // Die gemerkte Kennung, wenn es den Monitor noch gibt, sonst wie am PC der Hauptbildschirm.
+  protected isSelectedMonitor(monitor: ScreenMonitor): boolean {
+    const selected = this.remote.screenMonitor();
+    return this.monitors().some((candidate) => candidate.id === selected)
+      ? monitor.id === selected
+      : monitor.primary;
+  }
+
+  protected selectMonitor(event: Event): void {
+    this.remote.saveScreenMonitor((event.target as HTMLSelectElement).value);
+    this.viewport.set(FULL_VIEW);
+    this.videoAbort?.abort();
+  }
+
+  private async start(): Promise<void> {
+    if (this.videoPlayer !== null && (await this.runVideo())) {
+      return;
+    }
+
+    for (let index = 0; index < PARALLEL_REQUESTS; index++) {
+      void this.run();
+    }
+  }
+
+  // H.264 vom Hardware-Encoder des PCs: hohe Bildrate bei wenig WLAN und Prozessorlast. false,
+  // wenn der Server gleich beim ersten Versuch kein Video liefert - dann JPEG.
+  private async runVideo(): Promise<boolean> {
+    let played = false;
+    while (!this.stopped) {
+      if (this.document.hidden) {
+        await delay(RETRY_MS);
+        continue;
+      }
+
+      // Direkt nach dem Erzeugen ist die Ansicht noch nicht eingehaengt und 0 Pixel breit.
+      if (this.host.nativeElement.clientWidth === 0) {
+        await delay(50);
+        continue;
+      }
+
+      const abort = new AbortController();
+      this.videoAbort = abort;
+      const profile = SCREEN_PROFILES[this.quality()];
+      const pixelRatio = Math.min(
+        profile.pixelRatio,
+        this.document.defaultView?.devicePixelRatio ?? 1,
+      );
+      const width = Math.min(MAX_VIDEO_WIDTH, this.host.nativeElement.clientWidth * pixelRatio);
+      const stream = await this.remote.openScreenVideo(
+        width,
+        profile.videoKbps,
+        abort.signal,
+        this.remote.screenMonitor(),
+      );
+      if (this.stopped) {
+        return true;
+      }
+
+      this.blocked.set(stream === 'blocked');
+      if (stream === 'blocked') {
+        this.videoShown.set(false);
+      }
+
+      if (stream === null && !played && !abort.signal.aborted) {
+        return false;
+      }
+
+      if (stream !== null && stream !== 'blocked') {
+        try {
+          await this.videoPlayer!.play(
+            stream.body,
+            this.video().nativeElement,
+            stream.codec,
+            abort.signal,
+            () => {
+              played = true;
+              this.videoShown.set(true);
+            },
+          );
+        } catch {
+          // Strom abgerissen oder Format abgelehnt - unten entscheiden.
+        }
+
+        if (!played) {
+          return false;
+        }
+      }
+
+      // Abgebrochen (Qualitaet, Vollbild, Hintergrund): gleich neu, sonst kurz warten.
+      if (!abort.signal.aborted) {
+        await delay(RETRY_MS);
+      }
+    }
+
+    return true;
   }
 
   private async run(): Promise<void> {
@@ -97,6 +241,7 @@ export class ScreenViewComponent implements OnDestroy {
       const result = await this.remote.readScreen(
         this.host.nativeElement.clientWidth * pixelRatio,
         profile.jpegQuality,
+        this.remote.screenMonitor(),
       );
       if (this.stopped) {
         return;
@@ -116,30 +261,247 @@ export class ScreenViewComponent implements OnDestroy {
     }
   }
 
-  // Tippen klickt links, langes Druecken (Kontextmenue) rechts - jeweils an der Stelle im Bild.
-  protected click(event: MouseEvent, button: 'left' | 'right'): void {
-    event.preventDefault();
-    const image = event.currentTarget as HTMLImageElement;
-    const box = image.getBoundingClientRect();
-    if (box.width === 0 || box.height === 0) {
+  protected onPointerDown(event: PointerEvent): void {
+    // Die rechte Maustaste laeuft ueber das Kontextmenue.
+    if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
+    }
+
+    const stage = event.currentTarget as HTMLElement;
+    try {
+      stage.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
+    }
+
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.pointers.size === 1) {
+      this.swallowClick = false;
+      this.dragOrigin = { x: event.clientX, y: event.clientY };
+    } else if (this.pointers.size === 2) {
+      this.endDrag();
+      this.dragOrigin = null;
+      this.swallowClick = true;
+      this.pinchStart = { view: this.viewport(), fingers: this.fingers() };
+      this.pinchCenterY = this.fingersCenterY();
+      this.pinchScroller = this.findScroller();
+    }
+  }
+
+  protected onPointerMove(event: PointerEvent): void {
+    if (!this.pointers.has(event.pointerId)) {
+      return;
+    }
+
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.pinchStart !== null) {
+      if (this.pointers.size === 2) {
+        const stage = this.stage().nativeElement;
+        const viewport = pinchViewport(
+          this.pinchStart.view,
+          this.pinchStart.fingers,
+          this.fingers(),
+          { width: stage.clientWidth, height: stage.clientHeight },
+        );
+        this.viewport.set(viewport);
+        // Ohne Zoom gibt es nichts zu verschieben; dann scrollen zwei Finger die Seite, die ueber
+        // dem Bild sonst nicht mehr scrollen wuerde.
+        const centerY = this.fingersCenterY();
+        if (viewport.scale === 1 && this.pinchScroller !== null) {
+          this.pinchScroller.scrollTop += this.pinchCenterY - centerY;
+        }
+        this.pinchCenterY = centerY;
+      }
+      return;
+    }
+
+    if (this.dragOrigin === null) {
+      return;
+    }
+
+    if (!this.dragging) {
+      const finger = { x: event.clientX, y: event.clientY };
+      if (distance(this.dragOrigin, finger) < DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      const start = this.toScreenPosition(this.dragOrigin.x, this.dragOrigin.y);
+      if (start === null) {
+        this.dragOrigin = null;
+        return;
+      }
+
+      this.dragging = true;
+      this.swallowClick = true;
+      this.sendMove(start);
+      this.remote.sendAction({ type: 'mouseDown', button: 'left' });
+    }
+
+    this.pendingMove = this.toScreenPosition(event.clientX, event.clientY, true);
+    this.scheduleMove();
+  }
+
+  protected onPointerEnd(event: PointerEvent): void {
+    if (!this.pointers.delete(event.pointerId)) {
+      return;
+    }
+
+    if (this.pointers.size === 0) {
+      this.endDrag();
+      this.dragOrigin = null;
+      this.pinchStart = null;
+    } else if (this.pointers.size === 1) {
+      // Ein Finger bleibt nach dem Zoomen liegen: er soll nicht ploetzlich ziehen.
+      this.pinchStart = null;
+    }
+  }
+
+  protected onClick(event: MouseEvent): void {
+    event.preventDefault();
+    if (this.swallowClick) {
+      this.swallowClick = false;
+      return;
+    }
+
+    this.sendClick(event, 'left');
+  }
+
+  // Langes Druecken klickt rechts; danach wird aus demselben Finger kein Ziehen mehr.
+  protected onContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    if (this.dragging || this.pointers.size > 1) {
+      return;
+    }
+
+    this.dragOrigin = null;
+    this.sendClick(event, 'right');
+  }
+
+  private sendClick(event: MouseEvent, button: 'left' | 'right'): void {
+    const position = this.toScreenPosition(event.clientX, event.clientY);
+    if (position !== null) {
+      const monitor = this.remote.screenMonitor();
+      this.remote.sendAction({
+        type: 'screenClick',
+        ...position,
+        button,
+        ...(monitor === null ? {} : { monitor }),
+      });
+    }
+  }
+
+  private sendMove(position: { x: number; y: number }): void {
+    const monitor = this.remote.screenMonitor();
+    this.lastMoveAt = performance.now();
+    this.remote.sendAction({
+      type: 'screenMove',
+      ...position,
+      ...(monitor === null ? {} : { monitor }),
+    });
+  }
+
+  private scheduleMove(): void {
+    if (this.moveFrame !== null) {
+      return;
+    }
+
+    this.moveFrame = requestAnimationFrame(() => {
+      this.moveFrame = null;
+      if (performance.now() - this.lastMoveAt < DRAG_MOVE_INTERVAL_MS) {
+        this.scheduleMove();
+      } else if (this.pendingMove !== null) {
+        this.sendMove(this.pendingMove);
+        this.pendingMove = null;
+      }
+    });
+  }
+
+  private endDrag(): void {
+    if (this.moveFrame !== null) {
+      cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = null;
+    }
+
+    if (this.dragging) {
+      if (this.pendingMove !== null) {
+        this.sendMove(this.pendingMove);
+      }
+
+      this.remote.sendAction({ type: 'mouseUp', button: 'left' });
+    }
+
+    this.pendingMove = null;
+    this.dragging = false;
+  }
+
+  private fingers(): readonly [Point, Point] {
+    const box = this.stage().nativeElement.getBoundingClientRect();
+    const [first, second] = this.pointers.values();
+    return [
+      { x: first.x - box.left, y: first.y - box.top },
+      { x: second.x - box.left, y: second.y - box.top },
+    ];
+  }
+
+  private fingersCenterY(): number {
+    const [first, second] = this.pointers.values();
+    return (first.y + second.y) / 2;
+  }
+
+  private findScroller(): Element | null {
+    for (
+      let element = this.stage().nativeElement.parentElement;
+      element !== null;
+      element = element.parentElement
+    ) {
+      const overflow = getComputedStyle(element).overflowY;
+      if (
+        (overflow === 'auto' || overflow === 'scroll') &&
+        element.scrollHeight > element.clientHeight
+      ) {
+        return element;
+      }
+    }
+
+    return this.document.scrollingElement;
+  }
+
+  // x und y von 0 bis 1 im Bild; null neben dem Bild, ausser beim Ziehen (clampToPicture): dort
+  // bleibt der Zeiger am Rand. Der Rahmen enthaelt den Zoom schon, die Rechnung gilt also auch dann.
+  private toScreenPosition(
+    clientX: number,
+    clientY: number,
+    clampToPicture = false,
+  ): { x: number; y: number } | null {
+    const media = this.videoShown() ? this.video().nativeElement : this.image()?.nativeElement;
+    if (media === undefined) {
+      return null;
+    }
+
+    const box = media.getBoundingClientRect();
+    if (box.width === 0 || box.height === 0) {
+      return null;
     }
 
     // Im Vollbild zeigt object-fit: contain das Bild mit Raendern; gemeint ist nur das Bild selbst.
+    const [naturalWidth, naturalHeight] =
+      media instanceof HTMLVideoElement
+        ? [media.videoWidth, media.videoHeight]
+        : [media.naturalWidth, media.naturalHeight];
     const scale =
-      image.naturalWidth > 0 && image.naturalHeight > 0
-        ? Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight)
+      naturalWidth > 0 && naturalHeight > 0
+        ? Math.min(box.width / naturalWidth, box.height / naturalHeight)
         : 0;
-    const width = scale > 0 ? image.naturalWidth * scale : box.width;
-    const height = scale > 0 ? image.naturalHeight * scale : box.height;
-    const x = (event.clientX - box.left - (box.width - width) / 2) / width;
-    const y = (event.clientY - box.top - (box.height - height) / 2) / height;
-    if (scale > 0 && (x < 0 || x > 1 || y < 0 || y > 1)) {
-      return;
+    const width = scale > 0 ? naturalWidth * scale : box.width;
+    const height = scale > 0 ? naturalHeight * scale : box.height;
+    const x = (clientX - box.left - (box.width - width) / 2) / width;
+    const y = (clientY - box.top - (box.height - height) / 2) / height;
+    if (!clampToPicture && scale > 0 && (x < 0 || x > 1 || y < 0 || y > 1)) {
+      return null;
     }
 
     const clamp = (value: number) => Math.min(1, Math.max(0, value));
-    this.remote.sendAction({ type: 'screenClick', x: clamp(x), y: clamp(y), button });
+    return { x: clamp(x), y: clamp(y) };
   }
 
   protected selectQuality(event: Event): void {
@@ -147,6 +509,8 @@ export class ScreenViewComponent implements OnDestroy {
     const quality = this.qualities.find((candidate) => candidate === value);
     if (quality !== undefined) {
       this.remote.saveScreenQuality(quality);
+      // Den Strom mit neuer Breite und Bitrate aufbauen.
+      this.videoAbort?.abort();
     }
   }
 
@@ -258,6 +622,20 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onFullscreenChange(): void {
     this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
+    this.viewport.set(FULL_VIEW);
+    // Im Vollbild ist die Ansicht breiter - das Video in passender Breite neu holen.
+    this.videoAbort?.abort();
+  }
+
+  protected onVisibilityChange(): void {
+    if (this.document.hidden) {
+      this.videoAbort?.abort();
+      // Im Hintergrund kommt kein pointerup mehr; die Maustaste am PC darf nicht haengen bleiben.
+      this.endDrag();
+      this.pointers.clear();
+      this.dragOrigin = null;
+      this.pinchStart = null;
+    }
   }
 
   private show(src: string | null): void {

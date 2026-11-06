@@ -185,15 +185,24 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   first sends a 0-pixel mouse move through `WindowsInputSender` (the PowerToys trick); minimized
   windows are restored. Listing and switching back and forth were checked on the dev PC on
   2026-10-24.
-- `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of the primary screen for the Client's
+- `GET /screen/monitors` (`ScreenEndpoints`, same gate as `GET /screen`) → `{ monitors: [{id,width,height,primary}] }`,
+  left to right, from `WindowsMonitors` (`EnumDisplayMonitors` in physical pixels; `id` is the device
+  name, `\\.\DISPLAY1`). The "Bildschirm" tab shows a select with more than one monitor
+  (`RemoteService.screenMonitor`, `yfremote.screenMonitor`) and passes `monitor` to `/screen`,
+  `/screen/video` and `screenClick`. `ScreenMonitor.Resolve` turns an unknown or missing id into the
+  primary monitor for capture and click alike, so picture and tap always agree. Capture state
+  (`MonitorCapture`: duplication, JPEG cache, lock) is per monitor. A cursor on another monitor counts
+  as invisible, so its movement encodes nothing. The dev PC has one monitor, so a real second one
+  (including negative coordinates left of the primary) is unverified.
+- `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of a monitor for the Client's
   "Bildschirm" tab, which keeps two requests in flight, each at most every 33 ms (paused while the
   page is hidden), and shows a frame only if no later-started one was shown already. Same gate and
   `no-store` as `GET /windows`, refused for "Nur Medien" devices; `width` (320-3840, never upscaled)
   is the device's display width, `quality` (30-95, default 70) the JPEG quality. The tab's select
   (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
   "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. `WindowsScreenCapture` uses DXGI
-  Desktop Duplication (`Vortice.Direct3D11`) of the output at (0,0): `AcquireNextFrame` waits up to
-  100 ms for a change, the staging texture keeps the last image, and the JPEG for an unchanged
+  Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to
+  100 ms for a change, the `Latest` texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
   overlap; it drops the duplication after 10 s without requests. A lost duplication (mode change,
   secure desktop) or a rotated monitor falls back to GDI `CopyFromScreen` (about 38 ms per copy at
@@ -202,10 +211,42 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop makes it throw `Win32Exception` → `503`,
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
-  A tap into the image sends `screenClick` (`x`/`y` 0-1 on the primary screen, `button`
-  `left`/`right`, long press = right): `IMouseService.MoveToPrimaryScreen` sets the pointer in
+  Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
+  image): two fingers zoom and pan by CSS transform only (`screen-gestures.ts`, up to 6x, the PC
+  sees nothing). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
+  per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
+  releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
+  how long a dead connection goes unnoticed). Unzoomed, two fingers scroll the page instead. Zoom
+  resets on a monitor or fullscreen change.
+  A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`
+  `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
   `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
+- `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
+  endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
+  over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the
+  fallback: the Client switches when the first answer is not `video/mp4` (`501` without a hardware
+  encoder, an older server's SPA fallback), and MediaSource is missing in iPhone Safari.
+  `WindowsScreenCapture.Video.cs` runs on the duplication's own D3D11 device: copy of `Latest` into a
+  GDI-compatible texture, cursor via `DrawCursor`, `ID3D11VideoProcessor` (BGRA to NV12 and scaling),
+  hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`
+  is declared by hand for the 120-frame GOP). Encoded sizes are rounded to width % 16 and height % 4,
+  because Intel's encoder fails on the first frame otherwise (710x398, 1376x774 measured). A frame is
+  encoded on a desktop or cursor change, at least once per second, at most 60/s; a full send buffer
+  throttles capture instead of queueing. `Fmp4Writer` (one `moof`+`mdat` per frame) gives every frame
+  1/60 s of media time regardless of when it arrived, because a gap in the timeline would stall the
+  browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player
+  runs at 2x above 100 ms lag and jumps above 1 s. Trimming the buffer only works up to a keyframe,
+  which is why the GOP is fixed. `bitrate` is only the ceiling: `VideoBitrateControl` lowers it when sending blocks for over a quarter of a second-long window (below 80 % of what got through, at most halved, floor 1 Mbit/s) and raises it by 20 % every 2 s after a 5 s hold, only if the stream uses at least 30 % of it. That needs the rate control mode `UnconstrainedVBR`: in the default mode and CBR, Intel's `IsModifiable` answers `S_FALSE` for `AVEncCommonMeanBitRate` and the bitrate stays. A refusal by another encoder is ignored and leaves only the throttled frame rate. Measured against the dev PC's encoder on 2026-11-06 with a reader limited to 3 Mbit/s and noise on screen (loopback, no real WLAN): 42-47 fps and no queue most of the time, without the control 10-12 fps and ~800 ms queue; probing causes about 4 s of queue up to 1 s every 20-odd seconds. Before the first frame, `E_ACCESSDENIED` becomes `Win32Exception` → `503` (the Client shows the hint
+  and keeps retrying the video), any other `SharpGenException` becomes `NotSupportedException` → `501`
+  (JPEG). `/screen` answers `503` on `E_ACCESSDENIED` as well instead of falling back to BitBlt. On
+  2026-11-06 the idle, unlocked dev PC gave `E_ACCESSDENIED` from `DuplicateOutput` while BitBlt
+  returned, without an error, a picture frozen about an hour earlier (`OpenInputDesktop` worked, so no
+  secure desktop); presumably the display had turned off. Each
+  viewer gets its own encoder, all share the duplication. On the dev PC (Intel UHD, 1080p) on
+  2026-11-06: ~3 ms CPU per frame, 36-46 fps of real desktop activity, ~5.5 Mbit/s at 12 Mbit/s
+  target, MediaSource decoded ~42 fps with ~30 ms lag in a hidden browser pane. Frames actually
+  presented on a phone are unverified.
 - `GET /screen/audio` (same gate) → one endless response of raw 16-bit little-endian PCM, format in
   `X-Sample-Rate`/`X-Channels`, until the device aborts. `WindowsAudioCapture` is a WASAPI loopback
   of the default playback device (mix format float32 or int16, at most the first two channels),

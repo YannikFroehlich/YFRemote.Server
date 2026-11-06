@@ -22,7 +22,7 @@ public sealed class FakeInputService : IInputService, IMouseService
 
     public void MoveRelative(int deltaX, int deltaY) => Calls.Enqueue($"move {deltaX},{deltaY}");
 
-    public void MoveToPrimaryScreen(double x, double y) =>
+    public void MoveToScreen(double x, double y, string? monitor) =>
         Calls.Enqueue(FormattableString.Invariant($"moveTo {x},{y}"));
 
     public void ClickLeft() => Calls.Enqueue("click left");

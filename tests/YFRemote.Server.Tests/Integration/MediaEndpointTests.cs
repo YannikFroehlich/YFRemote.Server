@@ -211,6 +211,87 @@ public sealed class MediaEndpointTests
         Assert.AreEqual(HttpStatusCode.Forbidden, mediaOnly.StatusCode);
     }
 
+    [TestMethod]
+    public async Task ScreenVideo_StreamsFragmentsWithCodecHeader()
+    {
+        var token = await PairAndGetTokenAsync();
+        using var unauthorized = await httpClient.GetAsync("/screen/video");
+
+        var response = await GetScreenAsync(token, "/screen/video?width=99999&bitrate=1");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual("video/mp4", response.Content.Headers.ContentType!.MediaType);
+        Assert.AreEqual("avc1.4d0028", response.Headers.GetValues("X-Codec").Single());
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        CollectionAssert.AreEqual(FakeScreenCapture.Fragment.Concat(FakeScreenCapture.Fragment).ToArray(), await response.Content.ReadAsByteArrayAsync());
+        Assert.AreEqual(3840, screen.LastMaxWidth);
+        Assert.AreEqual(1000, screen.LastBitrate);
+    }
+
+    [TestMethod]
+    public async Task ScreenMonitors_ListsMonitorsForPairedDevicesOnly()
+    {
+        var token = await PairAndGetTokenAsync();
+        using var unauthorized = await httpClient.GetAsync("/screen/monitors");
+
+        var response = await GetScreenAsync(token, "/screen/monitors");
+        var json = await response.Content.ReadAsStringAsync();
+        var pairing = app.Services.GetRequiredService<PairingService>();
+        Assert.IsTrue(pairing.SetMediaOnly(pairing.GetPairedDevices()[0].Id, mediaOnly: true));
+        var mediaOnly = await GetScreenAsync(token, "/screen/monitors");
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(response.Headers.CacheControl!.NoStore);
+        using var document = JsonDocument.Parse(json);
+        var monitors = document.RootElement.GetProperty("monitors");
+        Assert.AreEqual(2, monitors.GetArrayLength());
+        Assert.AreEqual(@"\\.\DISPLAY2", monitors[1].GetProperty("id").GetString());
+        Assert.AreEqual(2560, monitors[1].GetProperty("width").GetInt32());
+        Assert.AreEqual(1440, monitors[1].GetProperty("height").GetInt32());
+        Assert.IsFalse(monitors[1].GetProperty("primary").GetBoolean());
+        Assert.AreEqual(HttpStatusCode.Forbidden, mediaOnly.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task Screen_PassesTheChosenMonitor()
+    {
+        var token = await PairAndGetTokenAsync();
+        var id = Uri.EscapeDataString(@"\\.\DISPLAY2");
+
+        await GetScreenAsync(token, $"/screen?monitor={id}");
+        Assert.AreEqual(@"\\.\DISPLAY2", screen.LastMonitor);
+
+        await GetScreenAsync(token, "/screen");
+        Assert.IsNull(screen.LastMonitor);
+
+        await GetScreenAsync(token, $"/screen/video?monitor={id}");
+        Assert.AreEqual(@"\\.\DISPLAY2", screen.LastMonitor);
+    }
+
+    [TestMethod]
+    public async Task ScreenVideo_WithoutAccessToTheScreen_IsUnavailable()
+    {
+        var token = await PairAndGetTokenAsync();
+        screen.Blocked = true;
+
+        var response = await GetScreenAsync(token, "/screen/video");
+
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task ScreenVideo_WithoutHardwareEncoder_IsNotImplemented()
+    {
+        var token = await PairAndGetTokenAsync();
+        screen.VideoSupported = false;
+
+        var response = await GetScreenAsync(token, "/screen/video");
+
+        Assert.AreEqual(HttpStatusCode.NotImplemented, response.StatusCode);
+    }
+
     private async Task<HttpResponseMessage> GetScreenAsync(string token, string path)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, path);
@@ -256,11 +337,43 @@ public sealed class MediaEndpointTests
 
         public int LastQuality { get; private set; }
 
-        public byte[] CaptureJpeg(int maxWidth, int quality)
+        public string? LastMonitor { get; private set; }
+
+        public IReadOnlyList<ScreenMonitor> ListMonitors() =>
+            [new(@"\\.\DISPLAY1", 0, 0, 1920, 1080, true), new(@"\\.\DISPLAY2", 1920, 0, 2560, 1440, false)];
+
+        public byte[] CaptureJpeg(int maxWidth, int quality, string? monitor)
         {
             LastMaxWidth = maxWidth;
             LastQuality = quality;
+            LastMonitor = monitor;
             return Blocked ? throw new System.ComponentModel.Win32Exception(5) : Jpeg;
+        }
+
+        public static readonly byte[] Fragment = [0, 0, 0, 8, 0x6D, 0x64, 0x61, 0x74];
+
+        public bool VideoSupported { get; set; } = true;
+
+        public int LastBitrate { get; private set; }
+
+        public async Task StreamVideoAsync(int maxWidth, int bitrateKbps, string? monitor, Action<string> onStart, Func<byte[], Task> onFragment, CancellationToken cancellationToken)
+        {
+            LastMaxWidth = maxWidth;
+            LastBitrate = bitrateKbps;
+            LastMonitor = monitor;
+            if (Blocked)
+            {
+                throw new System.ComponentModel.Win32Exception(5);
+            }
+
+            if (!VideoSupported)
+            {
+                throw new NotSupportedException();
+            }
+
+            onStart("avc1.4d0028");
+            await onFragment(Fragment);
+            await onFragment(Fragment);
         }
     }
 

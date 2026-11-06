@@ -40,6 +40,7 @@ public sealed partial class WindowsScreenCapture
     public async Task StreamVideoAsync(
         int maxWidth,
         int bitrateKbps,
+        string? monitor,
         Action<string> onStart,
         Func<byte[], Task> onFragment,
         CancellationToken cancellationToken)
@@ -54,7 +55,7 @@ public sealed partial class WindowsScreenCapture
             {
                 try
                 {
-                    ProduceVideo(maxWidth, bitrateKbps, started, fragments.Writer, stop.Token);
+                    ProduceVideo(maxWidth, bitrateKbps, monitor, started, fragments.Writer, stop.Token);
                     fragments.Writer.TryComplete();
                 }
                 catch (Exception exception)
@@ -85,15 +86,18 @@ public sealed partial class WindowsScreenCapture
     private void ProduceVideo(
         int maxWidth,
         int bitrateKbps,
+        string? monitor,
         TaskCompletionSource<string> started,
         ChannelWriter<byte[]> fragments,
         CancellationToken cancellationToken)
     {
         _ = MediaFoundationStarted.Value;
+        var screen = WindowsMonitors.Find(monitor);
+        var capture = CaptureFor(screen);
         var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
         try
         {
-            var start = StartPipeline(maxWidth, bitrateKbps);
+            var start = StartPipeline(screen, capture, maxWidth, bitrateKbps);
             var source = start.Source;
             using var pipeline = start.Pipeline;
             var writer = new Fmp4Writer(start.Width, start.Height, VideoTimescale, VideoFrameDuration);
@@ -117,16 +121,16 @@ public sealed partial class WindowsScreenCapture
 
                         while (!cancellationToken.IsCancellationRequested)
                         {
-                            lock (gate)
+                            lock (capture.Gate)
                             {
-                                if (!ReferenceEquals(duplication, source))
+                                if (!ReferenceEquals(capture.Duplication, source))
                                 {
                                     throw new SharpGenException(Vortice.DXGI.ResultCode.AccessLost);
                                 }
 
-                                lastUse = DateTime.UtcNow;
+                                capture.LastUse = DateTime.UtcNow;
                                 source.WaitForChange(50);
-                                var cursor = ReadCursor();
+                                var cursor = ReadCursor(screen);
                                 if (source.Frame == lastFrame && cursor == lastCursor && clock.Elapsed - lastInput < KeepAlive)
                                 {
                                     continue;
@@ -135,7 +139,7 @@ public sealed partial class WindowsScreenCapture
                                 lastFrame = source.Frame;
                                 lastCursor = cursor;
                                 lastInput = clock.Elapsed;
-                                pipeline.Encode(source, clock.Elapsed.Ticks);
+                                pipeline.Encode(source, screen, clock.Elapsed.Ticks);
                                 break;
                             }
                         }
@@ -159,13 +163,7 @@ public sealed partial class WindowsScreenCapture
         {
             // Wie beim JPEG: Zugriff verloren (sicherer Desktop, Aufloesung) - neu aufsetzen,
             // sobald wieder jemand zusieht.
-            lock (gate)
-            {
-                duplication?.Dispose();
-                duplication = null;
-                cachedJpeg = null;
-            }
-
+            capture.Reset();
             if (started.Task.IsCompleted)
             {
                 throw new Win32Exception(exception.HResult, "Bildschirmaufnahme unterbrochen.");
@@ -173,7 +171,7 @@ public sealed partial class WindowsScreenCapture
 
             // Noch kein Bild: sicherer Desktop (BitBlt wirft Win32Exception, der Client zeigt den
             // Hinweis) oder der Encoder will nicht (dann bleibt der Client bei JPEG).
-            _ = CaptureWithBitBlt(320, 30);
+            _ = CaptureWithBitBlt(screen, 320, 30);
             throw new NotSupportedException("H.264-Aufnahme nicht moeglich.", exception);
         }
         finally
@@ -182,14 +180,14 @@ public sealed partial class WindowsScreenCapture
         }
     }
 
-    private (Duplication Source, VideoPipeline Pipeline, int Width, int Height) StartPipeline(int maxWidth, int bitrateKbps)
+    private static (Duplication Source, VideoPipeline Pipeline, int Width, int Height) StartPipeline(ScreenMonitor screen, MonitorCapture capture, int maxWidth, int bitrateKbps)
     {
         Duplication source;
-        lock (gate)
+        lock (capture.Gate)
         {
-            lastUse = DateTime.UtcNow;
-            duplication ??= Duplication.Create();
-            source = duplication ?? throw new NotSupportedException("Kein Bildschirm fuer die Aufnahme.");
+            capture.LastUse = DateTime.UtcNow;
+            capture.Duplication ??= Duplication.Create(screen.Id);
+            source = capture.Duplication ?? throw new NotSupportedException("Kein Bildschirm fuer die Aufnahme.");
         }
 
         // Krumme Groessen laesst der Intel-Encoder erst beim ersten Bild scheitern (gemessen:
@@ -200,14 +198,6 @@ public sealed partial class WindowsScreenCapture
         var pipeline = VideoPipeline.Create(source, width, height, bitrateKbps * 1000)
             ?? throw new NotSupportedException("Kein Hardware-Encoder fuer H.264.");
         return (source, pipeline, width, height);
-    }
-
-    private static (int X, int Y, IntPtr Handle) ReadCursor()
-    {
-        var cursor = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
-        return GetCursorInfo(ref cursor) && cursor.Flags == CursorShowing && cursor.Cursor != IntPtr.Zero
-            ? (cursor.X, cursor.Y, cursor.Cursor)
-            : (0, 0, IntPtr.Zero);
     }
 
     // Bild mit Zeiger -> Videoprozessor (BGRA nach NV12, verkleinert) -> Hardware-Encoder.
@@ -345,14 +335,14 @@ public sealed partial class WindowsScreenCapture
             }
         }
 
-        public void Encode(Duplication source, long timestamp)
+        public void Encode(Duplication source, ScreenMonitor screen, long timestamp)
         {
             source.Context.CopyResource(composed, source.Latest);
             var hdc = composedSurface.GetDC(false);
             try
             {
                 using var graphics = Graphics.FromHdc(hdc);
-                DrawCursor(graphics, 1.0);
+                DrawCursor(graphics, 1.0, screen);
             }
             finally
             {

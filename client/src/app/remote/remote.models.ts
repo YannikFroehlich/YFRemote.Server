@@ -14,12 +14,22 @@ export interface MouseClickAction {
   readonly button: 'left' | 'right' | 'middle';
 }
 
-/** Tipp ins Bild des Tabs "Bildschirm": x und y von 0 bis 1 auf dem Hauptbildschirm. */
+/** Tipp ins Bild des Tabs "Bildschirm": x und y von 0 bis 1 auf dem Monitor, ohne `monitor` auf
+ *  dem Hauptbildschirm. */
 export interface ScreenClickAction {
   readonly type: 'screenClick';
   readonly x: number;
   readonly y: number;
   readonly button: 'left' | 'right';
+  readonly monitor?: string;
+}
+
+/** Ein Monitor des PCs aus `GET /screen/monitors`. */
+export interface ScreenMonitor {
+  readonly id: string;
+  readonly width: number;
+  readonly height: number;
+  readonly primary: boolean;
 }
 
 export interface MouseButtonAction {

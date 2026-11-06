@@ -43,4 +43,7 @@ public sealed record RemoteActionRequest
     public double? X { get; init; }
 
     public double? Y { get; init; }
+
+    // screenClick: der Monitor aus GET /screen/monitors, ohne Angabe der Hauptbildschirm.
+    public string? Monitor { get; init; }
 }

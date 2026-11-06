@@ -42,6 +42,25 @@
         </option>
       }
     </select>
+    @if (monitors().length > 1) {
+      <select
+        class="screen-view__quality"
+        [attr.aria-label]="i18n.t('screen.monitor')"
+        (change)="selectMonitor($event)"
+      >
+        @for (option of monitors(); track option.id) {
+          <option [value]="option.id" [selected]="isSelectedMonitor(option)">
+            {{
+              i18n.t(option.primary ? 'screen.monitor.primary' : 'screen.monitor.other', {
+                number: $index + 1,
+                width: option.width,
+                height: option.height,
+              })
+            }}
+          </option>
+        }
+      </select>
+    }
     @if (fullscreenSupported) {
       <button
         class="snap-switch"

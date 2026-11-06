@@ -185,14 +185,23 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   first sends a 0-pixel mouse move through `WindowsInputSender` (the PowerToys trick); minimized
   windows are restored. Listing and switching back and forth were checked on the dev PC on
   2026-10-24.
-- `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of the primary screen for the Client's
+- `GET /screen/monitors` (`ScreenEndpoints`, same gate as `GET /screen`) → `{ monitors: [{id,width,height,primary}] }`,
+  left to right, from `WindowsMonitors` (`EnumDisplayMonitors` in physical pixels; `id` is the device
+  name, `\\.\DISPLAY1`). The "Bildschirm" tab shows a select with more than one monitor
+  (`RemoteService.screenMonitor`, `yfremote.screenMonitor`) and passes `monitor` to `/screen`,
+  `/screen/video` and `screenClick`. `ScreenMonitor.Resolve` turns an unknown or missing id into the
+  primary monitor for capture and click alike, so picture and tap always agree. Capture state
+  (`MonitorCapture`: duplication, JPEG cache, lock) is per monitor. A cursor on another monitor counts
+  as invisible, so its movement encodes nothing. The dev PC has one monitor, so a real second one
+  (including negative coordinates left of the primary) is unverified.
+- `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of a monitor for the Client's
   "Bildschirm" tab, which keeps two requests in flight, each at most every 33 ms (paused while the
   page is hidden), and shows a frame only if no later-started one was shown already. Same gate and
   `no-store` as `GET /windows`, refused for "Nur Medien" devices; `width` (320-3840, never upscaled)
   is the device's display width, `quality` (30-95, default 70) the JPEG quality. The tab's select
   (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
   "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. `WindowsScreenCapture` uses DXGI
-  Desktop Duplication (`Vortice.Direct3D11`) of the output at (0,0): `AcquireNextFrame` waits up to
+  Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to
   100 ms for a change, the `Latest` texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
   overlap; it drops the duplication after 10 s without requests. A lost duplication (mode change,
@@ -202,8 +211,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop makes it throw `Win32Exception` → `503`,
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
-  A tap into the image sends `screenClick` (`x`/`y` 0-1 on the primary screen, `button`
-  `left`/`right`, long press = right): `IMouseService.MoveToPrimaryScreen` sets the pointer in
+  A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`
+  `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
   `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
@@ -222,7 +231,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player
   runs at 2x above 100 ms lag and jumps above 1 s. Trimming the buffer only works up to a keyframe,
   which is why the GOP is fixed. Before the first frame, `SharpGenException` is told apart by a BitBlt
-  (`Win32Exception` → `503`, secure desktop) or else becomes `NotSupportedException` → `501`. Each
+  (`Win32Exception` → `503`, secure desktop) or else becomes `NotSupportedException` → `501`. On
+  2026-11-06 the dev PC, apparently locked or asleep (cause not confirmed), gave `E_ACCESSDENIED` from
+  `DuplicateOutput` while BitBlt returned a minutes-old picture without an error; a tab opened in that
+  state stays on JPEG until it is reopened. Each
   viewer gets its own encoder, all share the duplication. On the dev PC (Intel UHD, 1080p) on
   2026-11-06: ~3 ms CPU per frame, 36-46 fps of real desktop activity, ~5.5 Mbit/s at 12 Mbit/s
   target, MediaSource decoded ~42 fps with ~30 ms lag in a hidden browser pane. Frames actually

@@ -1069,6 +1069,10 @@ h2 {
   touch-action: manipulation;
 }
 
+.screen-view__image[hidden] {
+  display: none;
+}
+
 .stats-waiting {
   color: var(--muted);
   font-size: 0.8rem;

@@ -193,7 +193,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
   "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. `WindowsScreenCapture` uses DXGI
   Desktop Duplication (`Vortice.Direct3D11`) of the output at (0,0): `AcquireNextFrame` waits up to
-  100 ms for a change, the staging texture keeps the last image, and the JPEG for an unchanged
+  100 ms for a change, the `Latest` texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
   overlap; it drops the duplication after 10 s without requests. A lost duplication (mode change,
   secure desktop) or a rotated monitor falls back to GDI `CopyFromScreen` (about 38 ms per copy at
@@ -206,6 +206,27 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `left`/`right`, long press = right): `IMouseService.MoveToPrimaryScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
   `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
+- `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
+  endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
+  over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the
+  fallback: the Client switches when the first answer is not `video/mp4` (`501` without a hardware
+  encoder, an older server's SPA fallback), and MediaSource is missing in iPhone Safari.
+  `WindowsScreenCapture.Video.cs` runs on the duplication's own D3D11 device: copy of `Latest` into a
+  GDI-compatible texture, cursor via `DrawCursor`, `ID3D11VideoProcessor` (BGRA to NV12 and scaling),
+  hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`
+  is declared by hand for the 120-frame GOP). Encoded sizes are rounded to width % 16 and height % 4,
+  because Intel's encoder fails on the first frame otherwise (710x398, 1376x774 measured). A frame is
+  encoded on a desktop or cursor change, at least once per second, at most 60/s; a full send buffer
+  throttles capture instead of queueing. `Fmp4Writer` (one `moof`+`mdat` per frame) gives every frame
+  1/60 s of media time regardless of when it arrived, because a gap in the timeline would stall the
+  browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player
+  runs at 2x above 100 ms lag and jumps above 1 s. Trimming the buffer only works up to a keyframe,
+  which is why the GOP is fixed. Before the first frame, `SharpGenException` is told apart by a BitBlt
+  (`Win32Exception` → `503`, secure desktop) or else becomes `NotSupportedException` → `501`. Each
+  viewer gets its own encoder, all share the duplication. On the dev PC (Intel UHD, 1080p) on
+  2026-11-06: ~3 ms CPU per frame, 36-46 fps of real desktop activity, ~5.5 Mbit/s at 12 Mbit/s
+  target, MediaSource decoded ~42 fps with ~30 ms lag in a hidden browser pane. Frames actually
+  presented on a phone are unverified.
 - `GET /screen/audio` (same gate) → one endless response of raw 16-bit little-endian PCM, format in
   `X-Sample-Rate`/`X-Channels`, until the device aborts. `WindowsAudioCapture` is a WASAPI loopback
   of the default playback device (mix format float32 or int16, at most the first two channels),

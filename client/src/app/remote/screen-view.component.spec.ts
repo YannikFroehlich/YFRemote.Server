@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RemoteService } from './remote.service';
 import { SCREEN_AUDIO_CONTEXT_FACTORY } from './screen-audio';
+import { SCREEN_VIDEO_PLAYER, ScreenVideoPlayer } from './screen-video';
 import { ScreenViewComponent } from './screen-view.component';
 
 describe('ScreenViewComponent', () => {
@@ -11,8 +12,18 @@ describe('ScreenViewComponent', () => {
     vi.restoreAllMocks();
   });
 
-  async function setup(result: Blob | 'blocked' | null, audioResponse: Response | null = null) {
+  async function setup(
+    result: Blob | 'blocked' | null,
+    audioResponse: Response | null = null,
+    video: {
+      player: ScreenVideoPlayer;
+      stream: { body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | null;
+    } | null = null,
+  ) {
     const readScreen = vi.fn(async (_width: number, _quality: number) => result);
+    const openScreenVideo = vi.fn(
+      async (_width: number, _bitrate: number, _signal: AbortSignal) => video?.stream ?? null,
+    );
     const sendAction = vi.fn();
     const openScreenAudio = vi.fn(async () => audioResponse);
     const screenQuality = signal<'performance' | 'balanced' | 'quality'>('balanced');
@@ -33,6 +44,7 @@ describe('ScreenViewComponent', () => {
           provide: RemoteService,
           useValue: {
             readScreen,
+            openScreenVideo,
             sendAction,
             openScreenAudio,
             audioAvailable: signal(true),
@@ -42,15 +54,19 @@ describe('ScreenViewComponent', () => {
           },
         },
         { provide: SCREEN_AUDIO_CONTEXT_FACTORY, useValue: () => context },
+        { provide: SCREEN_VIDEO_PLAYER, useValue: video?.player ?? null },
       ],
     });
     const fixture = TestBed.createComponent(ScreenViewComponent);
-    await vi.waitFor(() => expect(readScreen).toHaveBeenCalled());
+    // jsdom rechnet kein Layout; die Komponente wartet auf eine Breite.
+    Object.defineProperty(fixture.nativeElement, 'clientWidth', { value: 400 });
+    await vi.waitFor(() => expect(video?.stream ? openScreenVideo : readScreen).toHaveBeenCalled());
     await fixture.whenStable();
     fixture.detectChanges();
     return {
       fixture,
       readScreen,
+      openScreenVideo,
       screenQuality,
       sendAction,
       openScreenAudio,
@@ -81,6 +97,54 @@ describe('ScreenViewComponent', () => {
       [{ type: 'screenClick', x: 0.25, y: 1, button: 'left' }],
       [{ type: 'screenClick', x: 1, y: 0, button: 'right' }],
     ]);
+    fixture.destroy();
+  });
+
+  it('plays the H.264 stream instead of fetching JPEGs', async () => {
+    const body = new ReadableStream<Uint8Array<ArrayBuffer>>();
+    let signal: AbortSignal | null = null;
+    const play = vi.fn(
+      (
+        _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+        _video: HTMLVideoElement,
+        _codec: string,
+        abort: AbortSignal,
+        onFrame: () => void,
+      ) => {
+        signal = abort;
+        onFrame();
+        return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+      },
+    );
+    const { fixture, readScreen, openScreenVideo, element } = await setup(null, null, {
+      player: { play },
+      stream: { body, codec: 'avc1.4d002a' },
+    });
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+    fixture.detectChanges();
+
+    expect(play.mock.calls[0][0]).toBe(body);
+    expect(play.mock.calls[0][2]).toBe('avc1.4d002a');
+    expect(openScreenVideo.mock.calls[0][1]).toBe(8000);
+    expect(element.querySelector('video')?.hidden).toBe(false);
+    expect(element.textContent).not.toContain('geladen');
+    expect(readScreen).not.toHaveBeenCalled();
+    fixture.destroy();
+    expect(signal!.aborted).toBe(true);
+  });
+
+  it('falls back to JPEG when the server sends no video', async () => {
+    const play = vi.fn(async () => undefined);
+    const { fixture, readScreen, openScreenVideo, element } = await setup(
+      new Blob(['jpeg']),
+      null,
+      { player: { play }, stream: null },
+    );
+
+    expect(openScreenVideo).toHaveBeenCalled();
+    expect(play).not.toHaveBeenCalled();
+    expect(readScreen).toHaveBeenCalled();
+    expect(element.querySelector('img')?.getAttribute('src')).toBe('blob:frame');
     fixture.destroy();
   });
 

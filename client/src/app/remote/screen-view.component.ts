@@ -13,23 +13,27 @@ import { REMOTE_ICON_PATHS } from './remote-icons';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
+import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
 
-// Zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
+// Nur fuer den JPEG-Rueckweg (Server ohne Hardware-Encoder, Browser ohne MediaSource):
+// zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
 // nimmt der PC schon das naechste auf. Jeder Abruf wartet aufs letzte, so staut sich bei
 // langsamem WLAN nichts; ein stehendes Bild haelt der Server ohnehin bis zu 100 ms zurueck.
 const PARALLEL_REQUESTS = 2;
 const FRAME_INTERVAL_MS = 33;
 const RETRY_MS = 1000;
-// Pixeldichte (hoechstens so viel wie das Geraet hat) und JPEG-Qualitaet je Einstellung; mehr als
-// 1,5-fach sieht man auf dem Handy kaum, es kostet aber Zeit am PC und WLAN.
+// Pixeldichte (hoechstens so viel wie das Geraet hat), JPEG-Qualitaet und Video-Bitrate je
+// Einstellung; mehr als 1,5-fach sieht man auf dem Handy kaum, es kostet aber WLAN.
 const SCREEN_PROFILES: Readonly<
-  Record<ScreenQuality, { pixelRatio: number; jpegQuality: number }>
+  Record<ScreenQuality, { pixelRatio: number; jpegQuality: number; videoKbps: number }>
 > = {
-  performance: { pixelRatio: 1, jpegQuality: 50 },
-  balanced: { pixelRatio: 1.5, jpegQuality: 70 },
-  quality: { pixelRatio: 3, jpegQuality: 85 },
+  performance: { pixelRatio: 1, jpegQuality: 50, videoKbps: 4000 },
+  balanced: { pixelRatio: 1.5, jpegQuality: 70, videoKbps: 8000 },
+  quality: { pixelRatio: 3, jpegQuality: 85, videoKbps: 16000 },
 };
+// Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2).
+const MAX_VIDEO_WIDTH = 1920;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -37,7 +41,10 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
   selector: 'app-screen-view',
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './screen-view.component.html',
-  host: { '(document:fullscreenchange)': 'onFullscreenChange()' },
+  host: {
+    '(document:fullscreenchange)': 'onFullscreenChange()',
+    '(document:visibilitychange)': 'onVisibilityChange()',
+  },
 })
 export class ScreenViewComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
@@ -45,12 +52,14 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
   private readonly createAudioContext = inject(SCREEN_AUDIO_CONTEXT_FACTORY);
+  private readonly videoPlayer = inject(SCREEN_VIDEO_PLAYER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
   protected readonly frame = signal<string | null>(null);
+  protected readonly videoShown = signal(false);
   protected readonly blocked = signal(false);
   protected readonly soundOn = signal(false);
   protected readonly soundFailed = signal(false);
@@ -58,6 +67,8 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly fullscreen = signal(false);
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
+  private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
+  private videoAbort: AbortController | null = null;
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
   private stopped = false;
@@ -65,18 +76,95 @@ export class ScreenViewComponent implements OnDestroy {
   private shown = 0;
 
   constructor() {
-    for (let index = 0; index < PARALLEL_REQUESTS; index++) {
-      void this.run();
-    }
+    void this.start();
   }
 
   ngOnDestroy(): void {
     this.stopped = true;
+    this.videoAbort?.abort();
     this.show(null);
     this.stopSound();
     if (this.fullscreen()) {
       void this.document.exitFullscreen?.().catch(() => undefined);
     }
+  }
+
+  private async start(): Promise<void> {
+    if (this.videoPlayer !== null && (await this.runVideo())) {
+      return;
+    }
+
+    for (let index = 0; index < PARALLEL_REQUESTS; index++) {
+      void this.run();
+    }
+  }
+
+  // H.264 vom Hardware-Encoder des PCs: hohe Bildrate bei wenig WLAN und Prozessorlast. false,
+  // wenn der Server gleich beim ersten Versuch kein Video liefert - dann JPEG.
+  private async runVideo(): Promise<boolean> {
+    let played = false;
+    while (!this.stopped) {
+      if (this.document.hidden) {
+        await delay(RETRY_MS);
+        continue;
+      }
+
+      // Direkt nach dem Erzeugen ist die Ansicht noch nicht eingehaengt und 0 Pixel breit.
+      if (this.host.nativeElement.clientWidth === 0) {
+        await delay(50);
+        continue;
+      }
+
+      const abort = new AbortController();
+      this.videoAbort = abort;
+      const profile = SCREEN_PROFILES[this.quality()];
+      const pixelRatio = Math.min(
+        profile.pixelRatio,
+        this.document.defaultView?.devicePixelRatio ?? 1,
+      );
+      const width = Math.min(MAX_VIDEO_WIDTH, this.host.nativeElement.clientWidth * pixelRatio);
+      const stream = await this.remote.openScreenVideo(width, profile.videoKbps, abort.signal);
+      if (this.stopped) {
+        return true;
+      }
+
+      this.blocked.set(stream === 'blocked');
+      if (stream === 'blocked') {
+        this.videoShown.set(false);
+      }
+
+      if (stream === null && !played && !abort.signal.aborted) {
+        return false;
+      }
+
+      if (stream !== null && stream !== 'blocked') {
+        try {
+          await this.videoPlayer!.play(
+            stream.body,
+            this.video().nativeElement,
+            stream.codec,
+            abort.signal,
+            () => {
+              played = true;
+              this.videoShown.set(true);
+            },
+          );
+        } catch {
+          // Strom abgerissen oder Format abgelehnt - unten entscheiden.
+        }
+
+        if (!played) {
+          return false;
+        }
+      }
+
+      // Abgebrochen (Qualitaet, Vollbild, Hintergrund): gleich neu, sonst kurz warten.
+      if (!abort.signal.aborted) {
+        await delay(RETRY_MS);
+      }
+    }
+
+    return true;
   }
 
   private async run(): Promise<void> {
@@ -119,19 +207,23 @@ export class ScreenViewComponent implements OnDestroy {
   // Tippen klickt links, langes Druecken (Kontextmenue) rechts - jeweils an der Stelle im Bild.
   protected click(event: MouseEvent, button: 'left' | 'right'): void {
     event.preventDefault();
-    const image = event.currentTarget as HTMLImageElement;
-    const box = image.getBoundingClientRect();
+    const media = event.currentTarget as HTMLImageElement | HTMLVideoElement;
+    const box = media.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) {
       return;
     }
 
     // Im Vollbild zeigt object-fit: contain das Bild mit Raendern; gemeint ist nur das Bild selbst.
+    const [naturalWidth, naturalHeight] =
+      media instanceof HTMLVideoElement
+        ? [media.videoWidth, media.videoHeight]
+        : [media.naturalWidth, media.naturalHeight];
     const scale =
-      image.naturalWidth > 0 && image.naturalHeight > 0
-        ? Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight)
+      naturalWidth > 0 && naturalHeight > 0
+        ? Math.min(box.width / naturalWidth, box.height / naturalHeight)
         : 0;
-    const width = scale > 0 ? image.naturalWidth * scale : box.width;
-    const height = scale > 0 ? image.naturalHeight * scale : box.height;
+    const width = scale > 0 ? naturalWidth * scale : box.width;
+    const height = scale > 0 ? naturalHeight * scale : box.height;
     const x = (event.clientX - box.left - (box.width - width) / 2) / width;
     const y = (event.clientY - box.top - (box.height - height) / 2) / height;
     if (scale > 0 && (x < 0 || x > 1 || y < 0 || y > 1)) {
@@ -147,6 +239,8 @@ export class ScreenViewComponent implements OnDestroy {
     const quality = this.qualities.find((candidate) => candidate === value);
     if (quality !== undefined) {
       this.remote.saveScreenQuality(quality);
+      // Den Strom mit neuer Breite und Bitrate aufbauen.
+      this.videoAbort?.abort();
     }
   }
 
@@ -258,6 +352,14 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onFullscreenChange(): void {
     this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
+    // Im Vollbild ist die Ansicht breiter - das Video in passender Breite neu holen.
+    this.videoAbort?.abort();
+  }
+
+  protected onVisibilityChange(): void {
+    if (this.document.hidden) {
+      this.videoAbort?.abort();
+    }
   }
 
   private show(src: string | null): void {

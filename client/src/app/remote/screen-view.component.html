@@ -58,6 +58,19 @@
       </button>
     }
   </div>
+  <!-- Bleibt im DOM, damit der Videostrom es gleich beim Start bekommt; sichtbar ab dem ersten Bild. -->
+  <video
+    #video
+    class="screen-view__image"
+    autoplay
+    playsinline
+    disablepictureinpicture
+    [muted]="true"
+    [hidden]="!videoShown()"
+    [attr.aria-label]="i18n.t('screen.alt')"
+    (click)="click($event, 'left')"
+    (contextmenu)="click($event, 'right')"
+  ></video>
   @if (frame(); as src) {
     <img
       class="screen-view__image"
@@ -85,7 +98,7 @@
   </form>
   @if (blocked()) {
     <p class="stats-waiting">{{ i18n.t('screen.blocked') }}</p>
-  } @else if (frame() === null) {
+  } @else if (frame() === null && !videoShown()) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
   }
   @if (soundFailed()) {

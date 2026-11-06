@@ -43,6 +43,13 @@ const DRAG_THRESHOLD_PX = 8;
 // Ein 120-Hz-Display soll beim Ziehen nicht an die 120 Nachrichten/s des Servers stossen.
 const DRAG_MOVE_INTERVAL_MS = 16;
 
+// Auch ein stehender Bildschirm liefert mindestens ein Bild pro Sekunde. Kommt laenger nichts,
+// haengt die Verbindung und das sichtbare Bild ist alt.
+const STALL_CHECK_MS = 1000;
+const STALL_HINT_MS = 3000;
+// Nach einem Netzwechsel wartet der alte Strom sonst ewig: TCP merkt das lange nicht.
+const STALL_RECONNECT_MS = 10000;
+
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 @Component({
@@ -70,6 +77,7 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
   protected readonly blocked = signal(false);
+  protected readonly stalled = signal(false);
   protected readonly soundOn = signal(false);
   protected readonly soundFailed = signal(false);
   protected readonly keyboardOpen = signal(false);
@@ -107,6 +115,9 @@ export class ScreenViewComponent implements OnDestroy {
   private stopped = false;
   private requested = 0;
   private shown = 0;
+  private lastDataAt = Date.now();
+  private lastReconnectAt = 0;
+  private readonly stallTimer = setInterval(() => this.checkStall(), STALL_CHECK_MS);
 
   constructor() {
     void this.start();
@@ -115,6 +126,10 @@ export class ScreenViewComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopped = true;
+    clearInterval(this.stallTimer);
+    const video = this.video().nativeElement;
+    video.removeAttribute('src');
+    video.load();
     this.videoAbort?.abort();
     this.endDrag();
     this.show(null);
@@ -208,6 +223,7 @@ export class ScreenViewComponent implements OnDestroy {
             () => {
               played = true;
               this.videoShown.set(true);
+              this.noteData();
             },
           );
         } catch {
@@ -226,6 +242,23 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     return true;
+  }
+
+  private noteData(): void {
+    this.lastDataAt = Date.now();
+    this.stalled.set(false);
+  }
+
+  private checkStall(): void {
+    const now = Date.now();
+    // Vor dem ersten Bild und beim Sperrbildschirm steht schon ein eigener Hinweis da.
+    const watching =
+      !this.document.hidden && !this.blocked() && (this.videoShown() || this.frame() !== null);
+    this.stalled.set(watching && now - this.lastDataAt >= STALL_HINT_MS);
+    if (watching && now - Math.max(this.lastDataAt, this.lastReconnectAt) >= STALL_RECONNECT_MS) {
+      this.lastReconnectAt = now;
+      this.videoAbort?.abort();
+    }
   }
 
   private async run(): Promise<void> {
@@ -254,6 +287,7 @@ export class ScreenViewComponent implements OnDestroy {
 
       this.blocked.set(result === 'blocked');
       if (result instanceof Blob) {
+        this.noteData();
         // Ueberholt ein spaeter gestarteter Abruf diesen, waere sein Bild schon wieder alt.
         if (sequence > this.shown) {
           this.shown = sequence;
@@ -691,6 +725,9 @@ export class ScreenViewComponent implements OnDestroy {
       this.pointers.clear();
       this.dragOrigin = null;
       this.pinchStart = null;
+    } else {
+      // Die Zeit im Hintergrund zaehlt nicht: dort wird absichtlich nichts geholt.
+      this.noteData();
     }
   }
 

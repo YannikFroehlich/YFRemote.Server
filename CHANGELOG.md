@@ -21,8 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Web-Oberfläche: Kommen im Tab "Bildschirm" länger als 3 Sekunden keine Daten vom PC, weist ein Hinweis darauf hin, dass das Bild nicht aktuell ist. Nach 10 Sekunden verbindet sich das Video neu, statt auf einen toten Strom zu warten.
+
 ### Changed
 
+- Windows: Die automatische Bitrate im Tab "Bildschirm" tastet sich an einer knappen Verbindung immer seltener nach oben, statt alle gut 20 Sekunden kurz zu stocken.
 - Web-Oberfläche: Im Vollbild des Tabs "Bildschirm" verdecken die Schalter das Bild nicht mehr. Es bleibt nur das App-Logo, Tippen klappt die Optionen auf, Ziehen verschiebt es.
 
 ## [2.49.0] - 2026-11-06

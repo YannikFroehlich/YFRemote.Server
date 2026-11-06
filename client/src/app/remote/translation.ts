@@ -437,6 +437,10 @@ export const TRANSLATIONS = {
     de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm, oder sein Bildschirm ist aus.',
     en: 'The PC is showing a security prompt or the lock screen, or its display is off.',
   },
+  'screen.stalled': {
+    de: 'Verbindung hängt, das Bild ist nicht aktuell. Neuer Versuch läuft…',
+    en: 'Connection stalled, the picture is out of date. Retrying…',
+  },
   'screen.sound': { de: 'Ton', en: 'Sound' },
   'screen.soundTitle': {
     de: 'Ton des PCs auf diesem Gerät abspielen',
@@ -449,6 +453,7 @@ export const TRANSLATIONS = {
   'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.menu': { de: 'Optionen', en: 'Options' },
   'screen.monitor': { de: 'Monitor', en: 'Monitor' },
   'screen.monitor.primary': {
     de: 'Hauptmonitor ({{width}}×{{height}})',

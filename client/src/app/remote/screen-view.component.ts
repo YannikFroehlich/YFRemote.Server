@@ -43,6 +43,13 @@ const DRAG_THRESHOLD_PX = 8;
 // Ein 120-Hz-Display soll beim Ziehen nicht an die 120 Nachrichten/s des Servers stossen.
 const DRAG_MOVE_INTERVAL_MS = 16;
 
+// Auch ein stehender Bildschirm liefert mindestens ein Bild pro Sekunde. Kommt laenger nichts,
+// haengt die Verbindung und das sichtbare Bild ist alt.
+const STALL_CHECK_MS = 1000;
+const STALL_HINT_MS = 3000;
+// Nach einem Netzwechsel wartet der alte Strom sonst ewig: TCP merkt das lange nicht.
+const STALL_RECONNECT_MS = 10000;
+
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 @Component({
@@ -70,10 +77,14 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
   protected readonly blocked = signal(false);
+  protected readonly stalled = signal(false);
   protected readonly soundOn = signal(false);
   protected readonly soundFailed = signal(false);
   protected readonly keyboardOpen = signal(false);
   protected readonly fullscreen = signal(false);
+  protected readonly menuOpen = signal(false);
+  // Mitte des Logos im Vollbild, als Anteil der Ansicht: uebersteht auch das Drehen des Geraets.
+  protected readonly handle = signal({ x: 0.95, y: 0.08 });
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
@@ -96,12 +107,17 @@ export class ScreenViewComponent implements OnDestroy {
   private lastMoveAt = 0;
   // Nach Ziehen oder Zoomen meldet der Browser noch einen Klick, der keiner sein soll.
   private swallowClick = false;
+  private handleOrigin: (Point & { pointerId: number }) | null = null;
+  private handleMoved = false;
   private videoAbort: AbortController | null = null;
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
   private stopped = false;
   private requested = 0;
   private shown = 0;
+  private lastDataAt = Date.now();
+  private lastReconnectAt = 0;
+  private readonly stallTimer = setInterval(() => this.checkStall(), STALL_CHECK_MS);
 
   constructor() {
     void this.start();
@@ -110,6 +126,10 @@ export class ScreenViewComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopped = true;
+    clearInterval(this.stallTimer);
+    const video = this.video().nativeElement;
+    video.removeAttribute('src');
+    video.load();
     this.videoAbort?.abort();
     this.endDrag();
     this.show(null);
@@ -203,6 +223,7 @@ export class ScreenViewComponent implements OnDestroy {
             () => {
               played = true;
               this.videoShown.set(true);
+              this.noteData();
             },
           );
         } catch {
@@ -221,6 +242,23 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     return true;
+  }
+
+  private noteData(): void {
+    this.lastDataAt = Date.now();
+    this.stalled.set(false);
+  }
+
+  private checkStall(): void {
+    const now = Date.now();
+    // Vor dem ersten Bild und beim Sperrbildschirm steht schon ein eigener Hinweis da.
+    const watching =
+      !this.document.hidden && !this.blocked() && (this.videoShown() || this.frame() !== null);
+    this.stalled.set(watching && now - this.lastDataAt >= STALL_HINT_MS);
+    if (watching && now - Math.max(this.lastDataAt, this.lastReconnectAt) >= STALL_RECONNECT_MS) {
+      this.lastReconnectAt = now;
+      this.videoAbort?.abort();
+    }
   }
 
   private async run(): Promise<void> {
@@ -249,6 +287,7 @@ export class ScreenViewComponent implements OnDestroy {
 
       this.blocked.set(result === 'blocked');
       if (result instanceof Blob) {
+        this.noteData();
         // Ueberholt ein spaeter gestarteter Abruf diesen, waere sein Bild schon wieder alt.
         if (sequence > this.shown) {
           this.shown = sequence;
@@ -261,7 +300,57 @@ export class ScreenViewComponent implements OnDestroy {
     }
   }
 
+  protected onHandleDown(event: PointerEvent): void {
+    this.handleOrigin = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    this.handleMoved = false;
+    try {
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    } catch {
+      // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
+    }
+  }
+
+  protected onHandleMove(event: PointerEvent): void {
+    const origin = this.handleOrigin;
+    if (origin === null || origin.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const point = { x: event.clientX, y: event.clientY };
+    if (!this.handleMoved && distance(origin, point) < DRAG_THRESHOLD_PX) {
+      return;
+    }
+
+    this.handleMoved = true;
+    const view = this.view().nativeElement.getBoundingClientRect();
+    this.handle.set({
+      x: Math.min(1, Math.max(0, (point.x - view.left) / view.width)),
+      y: Math.min(1, Math.max(0, (point.y - view.top) / view.height)),
+    });
+  }
+
+  protected onHandleEnd(): void {
+    this.handleOrigin = null;
+  }
+
+  protected toggleMenu(): void {
+    // Nach dem Verschieben meldet der Browser noch einen Klick, der keiner sein soll.
+    if (this.handleMoved) {
+      this.handleMoved = false;
+      return;
+    }
+
+    this.menuOpen.update((open) => !open);
+  }
+
   protected onPointerDown(event: PointerEvent): void {
+    // Ein Tipp neben die offenen Optionen schliesst sie nur und klickt nicht am PC.
+    if (this.menuOpen()) {
+      this.menuOpen.set(false);
+      this.swallowClick = true;
+      return;
+    }
+
     // Die rechte Maustaste laeuft ueber das Kontextmenue.
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
@@ -369,7 +458,7 @@ export class ScreenViewComponent implements OnDestroy {
   // Langes Druecken klickt rechts; danach wird aus demselben Finger kein Ziehen mehr.
   protected onContextMenu(event: MouseEvent): void {
     event.preventDefault();
-    if (this.dragging || this.pointers.size > 1) {
+    if (this.dragging || this.pointers.size > 1 || this.swallowClick) {
       return;
     }
 
@@ -623,6 +712,7 @@ export class ScreenViewComponent implements OnDestroy {
   protected onFullscreenChange(): void {
     this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
     this.viewport.set(FULL_VIEW);
+    this.menuOpen.set(false);
     // Im Vollbild ist die Ansicht breiter - das Video in passender Breite neu holen.
     this.videoAbort?.abort();
   }
@@ -635,6 +725,9 @@ export class ScreenViewComponent implements OnDestroy {
       this.pointers.clear();
       this.dragOrigin = null;
       this.pinchStart = null;
+    } else {
+      // Die Zeit im Hintergrund zaehlt nicht: dort wird absichtlich nichts geholt.
+      this.noteData();
     }
   }
 

@@ -44,6 +44,7 @@ describe('ScreenViewComponent', () => {
     };
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
     TestBed.configureTestingModule({
       imports: [ScreenViewComponent],
       providers: [
@@ -439,6 +440,189 @@ describe('ScreenViewComponent', () => {
     expect(element.textContent).not.toContain('Sperrbildschirm');
     expect(readScreen).not.toHaveBeenCalled();
     fixture.destroy();
+  });
+
+  it('flags a hanging video stream and reconnects', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      let frame: () => void = () => undefined;
+      const play = vi.fn(
+        (
+          _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+          _video: HTMLVideoElement,
+          _codec: string,
+          abort: AbortSignal,
+          onFrame: () => void,
+        ) => {
+          frame = onFrame;
+          onFrame();
+          return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+        },
+      );
+      const { fixture, openScreenVideo, element } = await setup(null, null, {
+        player: { play },
+        stream: { body: new ReadableStream(), codec: 'avc1.4d002a' },
+      });
+      await vi.waitFor(() => expect(play).toHaveBeenCalled());
+      vi.advanceTimersByTime(2000);
+      fixture.detectChanges();
+      expect(element.textContent).not.toContain('Verbindung hängt');
+
+      // Geprueft wird einmal pro Sekunde, der Hinweis kommt also nach 3 bis 4 s.
+      vi.advanceTimersByTime(2000);
+      fixture.detectChanges();
+      expect(element.textContent).toContain('Verbindung hängt');
+
+      frame();
+      fixture.detectChanges();
+      expect(element.textContent).not.toContain('Verbindung hängt');
+      expect(openScreenVideo).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(11000);
+      await vi.waitFor(() => expect(openScreenVideo).toHaveBeenCalledTimes(2));
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flags hanging JPEG requests', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      const { fixture, readScreen, element } = await setup(new Blob(['jpeg']));
+      readScreen.mockImplementation(() => new Promise(() => undefined));
+      // Beide laufenden Abrufe enden noch mit Bild, erst danach kommt nichts mehr.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      vi.advanceTimersByTime(4000);
+      fixture.detectChanges();
+
+      expect(element.textContent).toContain('Verbindung hängt');
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ['the first picture', null],
+    ['the lock screen', 'blocked'],
+  ] as const)('shows no stall hint while waiting for %s', async (_name, result) => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      const { fixture, element } = await setup(result);
+      vi.advanceTimersByTime(5000);
+      fixture.detectChanges();
+
+      expect(element.textContent).not.toContain('Verbindung hängt');
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  describe('in fullscreen', () => {
+    const enterFullscreen = async (element: HTMLElement) => {
+      const view = element.querySelector('.screen-view')!;
+      Object.defineProperty(document, 'fullscreenElement', {
+        configurable: true,
+        get: () => view,
+      });
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+    const leaveFullscreen = () => {
+      delete (document as { fullscreenElement?: Element }).fullscreenElement;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+    const pointer = (type: string, x: number, y: number) =>
+      new MouseEvent(type, { clientX: x, clientY: y, bubbles: true });
+
+    afterEach(leaveFullscreen);
+
+    it('hides the options behind the logo until it is tapped', async () => {
+      const { fixture, element } = await setup(new Blob(['jpeg']));
+      const toolbar = element.querySelector('.screen-view__toolbar')!;
+      expect(element.querySelector('.screen-view__handle')).toBeNull();
+
+      await enterFullscreen(element);
+      fixture.detectChanges();
+      const handle = element.querySelector<HTMLElement>('.screen-view__handle')!;
+      expect(toolbar.classList).toContain('screen-view__toolbar--closed');
+
+      handle.click();
+      fixture.detectChanges();
+      expect(toolbar.classList).not.toContain('screen-view__toolbar--closed');
+      expect(handle.getAttribute('aria-expanded')).toBe('true');
+
+      handle.click();
+      fixture.detectChanges();
+      expect(toolbar.classList).toContain('screen-view__toolbar--closed');
+
+      handle.click();
+      leaveFullscreen();
+      fixture.detectChanges();
+      expect(element.querySelector('.screen-view__handle')).toBeNull();
+      fixture.destroy();
+    });
+
+    it('moves the logo by dragging, without opening the options or touching the PC', async () => {
+      const { fixture, sendAction, element } = await setup(new Blob(['jpeg']));
+      await enterFullscreen(element);
+      fixture.detectChanges();
+      const view = element.querySelector<HTMLElement>('.screen-view')!;
+      view.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 800, height: 400 }) as DOMRect;
+      const handle = element.querySelector<HTMLElement>('.screen-view__handle')!;
+
+      handle.dispatchEvent(pointer('pointerdown', 760, 30));
+      handle.dispatchEvent(pointer('pointermove', 763, 30));
+      fixture.detectChanges();
+      expect(view.style.getPropertyValue('--handle-x')).toBe('0.95');
+
+      handle.dispatchEvent(pointer('pointermove', 200, 300));
+      handle.dispatchEvent(pointer('pointerup', 200, 300));
+      handle.click();
+      fixture.detectChanges();
+
+      expect(view.style.getPropertyValue('--handle-x')).toBe('0.25');
+      expect(view.style.getPropertyValue('--handle-y')).toBe('0.75');
+      const toolbar = element.querySelector('.screen-view__toolbar')!;
+      expect(toolbar.classList).toContain('screen-view__toolbar--closed');
+      expect(toolbar.classList).toContain('screen-view__toolbar--left');
+      expect(toolbar.classList).toContain('screen-view__toolbar--up');
+      expect(sendAction).not.toHaveBeenCalled();
+
+      handle.click();
+      fixture.detectChanges();
+      expect(toolbar.classList).not.toContain('screen-view__toolbar--closed');
+      fixture.destroy();
+    });
+
+    it('closes the options on a tap beside them without clicking on the PC', async () => {
+      const { fixture, sendAction, element } = await setup(new Blob(['jpeg']));
+      await enterFullscreen(element);
+      fixture.detectChanges();
+      element.querySelector<HTMLElement>('.screen-view__handle')!.click();
+      const image = element.querySelector('img.screen-view__image')!;
+      image.getBoundingClientRect = () =>
+        ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+
+      image.dispatchEvent(pointer('pointerdown', 50, 50));
+      image.dispatchEvent(pointer('pointerup', 50, 50));
+      image.dispatchEvent(pointer('click', 50, 50));
+      fixture.detectChanges();
+
+      expect(element.querySelector('.screen-view__toolbar')!.classList).toContain(
+        'screen-view__toolbar--closed',
+      );
+      expect(sendAction).not.toHaveBeenCalled();
+
+      image.dispatchEvent(pointer('pointerdown', 50, 50));
+      image.dispatchEvent(pointer('pointerup', 50, 50));
+      image.dispatchEvent(pointer('click', 50, 50));
+      expect(sendAction).toHaveBeenCalledOnce();
+      fixture.destroy();
+    });
   });
 
   it('explains a blocked secure desktop', async () => {

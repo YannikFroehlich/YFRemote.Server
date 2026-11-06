@@ -1,5 +1,31 @@
-<div #view class="screen-view">
-  <div class="screen-view__toolbar">
+<div
+  #view
+  class="screen-view"
+  [style.--handle-x]="handle().x"
+  [style.--handle-y]="handle().y"
+>
+  <!-- Im Vollbild bleibt nur das Logo uebers Bild: Tippen klappt die Optionen auf, Ziehen verschiebt es. -->
+  @if (fullscreen()) {
+    <button
+      class="screen-view__handle"
+      type="button"
+      [attr.aria-label]="i18n.t('screen.menu')"
+      [attr.aria-expanded]="menuOpen()"
+      (pointerdown)="onHandleDown($event)"
+      (pointermove)="onHandleMove($event)"
+      (pointerup)="onHandleEnd()"
+      (pointercancel)="onHandleEnd()"
+      (click)="toggleMenu()"
+    >
+      <img src="/brand-mark.png" alt="" draggable="false" />
+    </button>
+  }
+  <div
+    class="screen-view__toolbar"
+    [class.screen-view__toolbar--closed]="!menuOpen()"
+    [class.screen-view__toolbar--left]="handle().x < 0.5"
+    [class.screen-view__toolbar--up]="handle().y >= 0.5"
+  >
     @if (soundSupported()) {
       <button
         class="snap-switch"
@@ -129,6 +155,8 @@
   </form>
   @if (blocked()) {
     <p class="stats-waiting">{{ i18n.t('screen.blocked') }}</p>
+  } @else if (stalled()) {
+    <p class="stats-waiting" role="status">{{ i18n.t('screen.stalled') }}</p>
   } @else if (frame() === null && !videoShown()) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
   }

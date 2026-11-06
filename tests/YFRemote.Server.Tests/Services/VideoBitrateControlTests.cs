@@ -110,6 +110,70 @@ public sealed class VideoBitrateControlTests
         Assert.AreEqual(5760, control.Kbps);
     }
 
+    // Laeuft ohne Stau weiter, bis die Bitrate steigt, und liefert die Sekunden bis dahin.
+    private static int SecondsUntilRaise(VideoBitrateControl control, ref double now)
+    {
+        var before = control.Kbps;
+        var seconds = 0;
+        while (control.Kbps == before)
+        {
+            Second(control, ref now, control.Kbps, 0);
+            seconds++;
+        }
+
+        return seconds;
+    }
+
+    [TestMethod]
+    public void Report_DoublesTheHoldAfterEveryFailedRaiseUpToAMinute()
+    {
+        var control = new VideoBitrateControl(16000);
+        var now = 0.0;
+        Second(control, ref now, 5000, 0.8);
+        var holds = new List<int>();
+
+        for (var round = 0; round < 6; round++)
+        {
+            holds.Add(SecondsUntilRaise(control, ref now));
+            Second(control, ref now, 3000, 0.8);
+        }
+
+        CollectionAssert.AreEqual(new[] { 5, 10, 20, 40, 60, 60 }, holds);
+    }
+
+    [TestMethod]
+    public void Report_CountsSeveralDropsInARowAsOneJam()
+    {
+        var control = new VideoBitrateControl(16000);
+        var now = 0.0;
+
+        Second(control, ref now, 5000, 0.8);
+        Second(control, ref now, 3000, 0.8);
+        Second(control, ref now, 2000, 0.8);
+
+        Assert.AreEqual(5, SecondsUntilRaise(control, ref now));
+    }
+
+    [TestMethod]
+    public void Report_ResetsTheHoldOnceTheMaximumIsReachedAgain()
+    {
+        var control = new VideoBitrateControl(8000);
+        var now = 0.0;
+        Second(control, ref now, 5000, 0.8);
+        SecondsUntilRaise(control, ref now);
+        Second(control, ref now, 3000, 0.8);
+        Assert.AreEqual(10, SecondsUntilRaise(control, ref now));
+
+        while (control.Kbps < 8000)
+        {
+            Second(control, ref now, control.Kbps, 0);
+        }
+
+        Second(control, ref now, 5000, 0.8);
+
+        Assert.AreEqual(5, SecondsUntilRaise(control, ref now));
+    }
+
     [TestMethod]
     public void Report_NeverRaisesAboveTheMaximum()
     {

@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Reißt die Verbindung mitten im Ziehen ab, bleibt die Maustaste am PC nicht mehr gedrückt, auch beim Touchpad. Ein weggebrochenes WLAN fällt dem PC dafür jetzt nach spätestens einer Minute auf; das Gerät verbindet sich danach neu.
+- Windows: Ist der Bildschirm des PCs aus oder gesperrt, zeigt der Tab "Bildschirm" einen Hinweis statt eines veralteten Bildes und schaltet von selbst aufs Video, sobald der Bildschirm wieder an ist.
+- Web-Oberfläche: Über dem Bild im Tab "Bildschirm" scrollen zwei Finger die Seite, solange nicht gezoomt ist.
+
 ### Added
 
 - Web-Oberfläche: Im Tab "Bildschirm" zoomen und verschieben zwei Finger das Bild, ein Finger zieht am PC mit gedrückter linker Maustaste, zum Beispiel Fenster oder Markierungen. Tippen und langes Drücken klicken weiterhin, auch im Zoom an der richtigen Stelle.

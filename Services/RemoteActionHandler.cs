@@ -62,8 +62,8 @@ public sealed partial class RemoteActionHandler(
                 "mouseclick" => HandleMouseClick(request),
                 "screenclick" => HandleScreenClick(request),
                 "screenmove" => HandleScreenMove(request),
-                "mousedown" => HandleMouseButton(request, isDown: true),
-                "mouseup" => HandleMouseButton(request, isDown: false),
+                "mousedown" => HandleMouseButton(request, isDown: true, session),
+                "mouseup" => HandleMouseButton(request, isDown: false, session),
                 "mousescroll" => HandleMouseScroll(request),
                 "shutdown" => HandlePower(powerService.Shutdown, "shutdown"),
                 "restart" => HandlePower(powerService.Restart, "restart"),
@@ -278,7 +278,7 @@ public sealed partial class RemoteActionHandler(
         }
     }
 
-    private RemoteActionResponse HandleMouseButton(RemoteActionRequest request, bool isDown)
+    private RemoteActionResponse HandleMouseButton(RemoteActionRequest request, bool isDown, RemoteActionSession? session)
     {
         var actionName = isDown ? "mouseDown" : "mouseUp";
         var button = request.Button?.Trim().ToLowerInvariant();
@@ -298,10 +298,12 @@ public sealed partial class RemoteActionHandler(
         if (isDown)
         {
             mouseService.ButtonDown(button);
+            session?.HoldMouseButton(button, () => mouseService.ButtonUp(button));
         }
         else
         {
             mouseService.ButtonUp(button);
+            session?.ReleaseMouseButton(button);
         }
 
         logger.LogDebug("Mouse {Button} {Action} succeeded.", button, actionName);

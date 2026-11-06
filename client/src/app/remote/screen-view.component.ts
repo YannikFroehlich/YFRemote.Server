@@ -86,6 +86,8 @@ export class ScreenViewComponent implements OnDestroy {
   });
   private readonly pointers = new Map<number, Point>();
   private pinchStart: { view: typeof FULL_VIEW; fingers: readonly [Point, Point] } | null = null;
+  private pinchCenterY = 0;
+  private pinchScroller: Element | null = null;
   // Der erste Finger, solange er noch Tipp oder Ziehen werden kann.
   private dragOrigin: Point | null = null;
   private dragging = false;
@@ -272,7 +274,7 @@ export class ScreenViewComponent implements OnDestroy {
       // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
     }
 
-    this.pointers.set(event.pointerId, this.toStagePoint(event));
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (this.pointers.size === 1) {
       this.swallowClick = false;
       this.dragOrigin = { x: event.clientX, y: event.clientY };
@@ -281,6 +283,8 @@ export class ScreenViewComponent implements OnDestroy {
       this.dragOrigin = null;
       this.swallowClick = true;
       this.pinchStart = { view: this.viewport(), fingers: this.fingers() };
+      this.pinchCenterY = this.fingersCenterY();
+      this.pinchScroller = this.findScroller();
     }
   }
 
@@ -289,16 +293,24 @@ export class ScreenViewComponent implements OnDestroy {
       return;
     }
 
-    this.pointers.set(event.pointerId, this.toStagePoint(event));
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (this.pinchStart !== null) {
       if (this.pointers.size === 2) {
         const stage = this.stage().nativeElement;
-        this.viewport.set(
-          pinchViewport(this.pinchStart.view, this.pinchStart.fingers, this.fingers(), {
-            width: stage.clientWidth,
-            height: stage.clientHeight,
-          }),
+        const viewport = pinchViewport(
+          this.pinchStart.view,
+          this.pinchStart.fingers,
+          this.fingers(),
+          { width: stage.clientWidth, height: stage.clientHeight },
         );
+        this.viewport.set(viewport);
+        // Ohne Zoom gibt es nichts zu verschieben; dann scrollen zwei Finger die Seite, die ueber
+        // dem Bild sonst nicht mehr scrollen wuerde.
+        const centerY = this.fingersCenterY();
+        if (viewport.scale === 1 && this.pinchScroller !== null) {
+          this.pinchScroller.scrollTop += this.pinchCenterY - centerY;
+        }
+        this.pinchCenterY = centerY;
       }
       return;
     }
@@ -423,13 +435,35 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   private fingers(): readonly [Point, Point] {
+    const box = this.stage().nativeElement.getBoundingClientRect();
     const [first, second] = this.pointers.values();
-    return [first, second];
+    return [
+      { x: first.x - box.left, y: first.y - box.top },
+      { x: second.x - box.left, y: second.y - box.top },
+    ];
   }
 
-  private toStagePoint(event: MouseEvent): Point {
-    const box = this.stage().nativeElement.getBoundingClientRect();
-    return { x: event.clientX - box.left, y: event.clientY - box.top };
+  private fingersCenterY(): number {
+    const [first, second] = this.pointers.values();
+    return (first.y + second.y) / 2;
+  }
+
+  private findScroller(): Element | null {
+    for (
+      let element = this.stage().nativeElement.parentElement;
+      element !== null;
+      element = element.parentElement
+    ) {
+      const overflow = getComputedStyle(element).overflowY;
+      if (
+        (overflow === 'auto' || overflow === 'scroll') &&
+        element.scrollHeight > element.clientHeight
+      ) {
+        return element;
+      }
+    }
+
+    return this.document.scrollingElement;
   }
 
   // x und y von 0 bis 1 im Bild; null neben dem Bild, ausser beim Ziehen (clampToPicture): dort

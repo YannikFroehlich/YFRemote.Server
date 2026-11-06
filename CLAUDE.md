@@ -214,9 +214,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
   image): two fingers zoom and pan by CSS transform only (`screen-gestures.ts`, up to 6x, the PC
   sees nothing). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
-  per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away.
-  A lost connection mid-drag leaves the button held on the PC, because the server does not release
-  buttons on disconnect (same as the touchpad). Zoom resets on a monitor or fullscreen change.
+  per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
+  releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
+  how long a dead connection goes unnoticed). Unzoomed, two fingers scroll the page instead. Zoom
+  resets on a monitor or fullscreen change.
   A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`
   `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
@@ -236,11 +237,12 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   1/60 s of media time regardless of when it arrived, because a gap in the timeline would stall the
   browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player
   runs at 2x above 100 ms lag and jumps above 1 s. Trimming the buffer only works up to a keyframe,
-  which is why the GOP is fixed. Before the first frame, `SharpGenException` is told apart by a BitBlt
-  (`Win32Exception` → `503`, secure desktop) or else becomes `NotSupportedException` → `501`. On
-  2026-11-06 the dev PC, apparently locked or asleep (cause not confirmed), gave `E_ACCESSDENIED` from
-  `DuplicateOutput` while BitBlt returned a minutes-old picture without an error; a tab opened in that
-  state stays on JPEG until it is reopened. Each
+  which is why the GOP is fixed. Before the first frame, `E_ACCESSDENIED` becomes `Win32Exception` → `503` (the Client shows the hint
+  and keeps retrying the video), any other `SharpGenException` becomes `NotSupportedException` → `501`
+  (JPEG). `/screen` answers `503` on `E_ACCESSDENIED` as well instead of falling back to BitBlt. On
+  2026-11-06 the idle, unlocked dev PC gave `E_ACCESSDENIED` from `DuplicateOutput` while BitBlt
+  returned, without an error, a picture frozen about an hour earlier (`OpenInputDesktop` worked, so no
+  secure desktop); presumably the display had turned off. Each
   viewer gets its own encoder, all share the duplication. On the dev PC (Intel UHD, 1080p) on
   2026-11-06: ~3 ms CPU per frame, 36-46 fps of real desktop activity, ~5.5 Mbit/s at 12 Mbit/s
   target, MediaSource decoded ~42 fps with ~30 ms lag in a hidden browser pane. Frames actually

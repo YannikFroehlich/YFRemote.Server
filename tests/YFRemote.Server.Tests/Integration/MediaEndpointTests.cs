@@ -271,6 +271,17 @@ public sealed class MediaEndpointTests
     }
 
     [TestMethod]
+    public async Task ScreenVideo_WithoutAccessToTheScreen_IsUnavailable()
+    {
+        var token = await PairAndGetTokenAsync();
+        screen.Blocked = true;
+
+        var response = await GetScreenAsync(token, "/screen/video");
+
+        Assert.AreEqual(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    [TestMethod]
     public async Task ScreenVideo_WithoutHardwareEncoder_IsNotImplemented()
     {
         var token = await PairAndGetTokenAsync();
@@ -350,6 +361,11 @@ public sealed class MediaEndpointTests
             LastMaxWidth = maxWidth;
             LastBitrate = bitrateKbps;
             LastMonitor = monitor;
+            if (Blocked)
+            {
+                throw new System.ComponentModel.Win32Exception(5);
+            }
+
             if (!VideoSupported)
             {
                 throw new NotSupportedException();

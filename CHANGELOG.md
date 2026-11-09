@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.50.2] - 2026-11-09
+
 ### Changed
 
 - Tab "Bildschirm": Gedrehte Monitore (Hochformat) werden schneller übertragen. H.264 bleibt ihnen vorerst verschlossen, sie laufen weiter als JPEG.

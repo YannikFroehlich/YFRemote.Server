@@ -204,8 +204,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to
   100 ms for a change, the `Latest` texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
-  overlap; it drops the duplication after 10 s without requests. A lost duplication (mode change,
-  secure desktop) or a rotated monitor falls back to GDI `CopyFromScreen` (about 38 ms per copy at 1080p, which is why it is not the default). Parsec's virtual display never delivers a first frame
+  overlap; it drops the duplication after 10 s without requests. A rotated monitor arrives in panel
+  orientation and `CopyScaled` turns it upright (`UprightCorners`; checked by corner pixels on the dev
+  PC's panel on 2026-11-09 for all three rotations); H.264 answers `501` for it, so the Client uses
+  JPEG. A lost duplication (mode change, secure desktop) falls back to GDI `CopyFromScreen` (about 38 ms per copy at 1080p, which is why it is not the default). Parsec's virtual display never delivers a first frame
   (`DXGI_ERROR_WAIT_TIMEOUT`, cause unknown), so after that timeout `/screen` goes straight to GDI for 5 s
   (`NoFramesUntil`; measured 2026-11-09 at 2244x1080: ~93 ms per frame instead of ~650 ms). Both run in physical pixels (per-monitor DPI context,
   like `WindowsMouseService`), draw the cursor themselves and encode at quality 70. On the dev PC on

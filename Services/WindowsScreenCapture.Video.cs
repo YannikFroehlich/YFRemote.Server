@@ -203,6 +203,13 @@ public sealed partial class WindowsScreenCapture
             source = capture.Duplication ?? throw new NotSupportedException("Kein Bildschirm fuer die Aufnahme.");
         }
 
+        // ponytail: gedrehte Monitore nur per JPEG. Fuers Video muessten Videoprozessor und der per
+        // GDI gemalte Mauszeiger mitdrehen; der Client faellt bei 501 von selbst auf JPEG zurueck.
+        if (!source.Upright)
+        {
+            throw new NotSupportedException("Kein H.264 fuer gedrehte Monitore.");
+        }
+
         // Krumme Groessen laesst der Intel-Encoder erst beim ersten Bild scheitern (gemessen:
         // 710x398 und 1376x774 gehen nicht, 1360x764 und 704x396 schon). Die paar Pixel
         // Verzerrung sieht niemand.

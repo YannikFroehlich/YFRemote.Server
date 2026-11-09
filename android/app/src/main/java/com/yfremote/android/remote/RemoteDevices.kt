@@ -24,8 +24,9 @@ data class RemoteDevice(
     val secure: Boolean get() = url.startsWith("https://")
 }
 
-/** Inhalt eines YFRemote-QR-Codes; `caSha256` nur bei HTTPS mit Fingerabdruck der CA. */
-data class QrCode(val url: String, val pin: String?, val caSha256: String? = null)
+/** Inhalt eines YFRemote-QR-Codes; `caSha256` nur bei HTTPS mit Fingerabdruck der CA, `httpPort` dort,
+ *  wo der PC diese CA ausliefert. */
+data class QrCode(val url: String, val pin: String?, val caSha256: String? = null, val httpPort: Int = RemoteDevices.DEFAULT_PORT)
 
 // Nur die Liste der Adressen: das Pairing-Token liegt im localStorage des WebViews, pro Origin,
 // genau wie im Browser - der Web-Client verwaltet es selbst.
@@ -90,15 +91,17 @@ class RemoteDevices(context: Context) {
             val fragment = uri.rawFragment.orEmpty()
             val pin = Regex("(?:^|&)pin=(\\d{6})(?:&|$)").find(fragment)?.groupValues?.get(1)
             val caSha256 = Regex("(?:^|&)ca=([0-9a-f]{64})(?:&|$)").find(fragment)?.groupValues?.get(1)
+            val httpPort = Regex("(?:^|&)http=(\\d{1,5})(?:&|$)").find(fragment)?.groupValues?.get(1)?.toInt()
+                ?.takeIf { it in 1..65535 } ?: DEFAULT_PORT
             return when (uri.scheme?.lowercase()) {
                 "http" -> normalizeAddress("$host:${if (uri.port == -1) 80 else uri.port}")?.let { QrCode(it, pin) }
-                // Ohne Fingerabdruck (aelterer PC) kein HTTPS: HTTP auf dem Standardport.
-                // ponytail: ein geaenderter Server:Port geht dabei verloren.
+                // Ohne Fingerabdruck (aelterer PC) kein HTTPS: HTTP auf dem Standardport, denn der QR-Code
+                // eines solchen PCs nennt seinen HTTP-Port nicht.
                 "https" -> if (caSha256 == null) {
                     normalizeAddress("$host:$DEFAULT_PORT")?.let { QrCode(it, pin) }
                 } else {
                     normalizeAddress("$host:${if (uri.port == -1) 443 else uri.port}")
-                        ?.let { QrCode(it.replaceFirst("http://", "https://"), pin, caSha256) }
+                        ?.let { QrCode(it.replaceFirst("http://", "https://"), pin, caSha256, httpPort) }
                 }
                 else -> null
             }

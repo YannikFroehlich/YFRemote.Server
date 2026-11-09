@@ -949,7 +949,7 @@ class SetupActivity : Activity() {
 
         // HTTPS: erst die CA vom PC laden und gegen den Fingerabdruck pruefen (Netzwerk, nicht auf dem Main-Thread).
         remoteCheckExecutor.execute {
-            val ca = PinnedCa.fetch(qr.url, caSha256)
+            val ca = PinnedCa.fetch(qr.url, caSha256, qr.httpPort)
             runOnUiThread {
                 if (ca == null) {
                     Toast.makeText(this, "Zertifikat des PCs konnte nicht geprüft werden", Toast.LENGTH_LONG).show()

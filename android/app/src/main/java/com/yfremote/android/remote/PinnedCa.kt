@@ -45,12 +45,10 @@ object PinnedCa {
      * man sie vor jedem Vertrauen laden kann. Die Verbindung muss nichts beweisen: angenommen wird die CA
      * nur mit dem Fingerabdruck aus dem QR-Code, den ein Angreifer im WLAN nicht faelschen kann. Danach
      * laeuft jede HTTPS-Verbindung mit normaler Pruefung gegen sie (sslContext). null bei jeder Abweichung.
-     * ponytail: HTTP-Port fest 5050 (Server:Port-Standard); ein geaenderter Port scheitert hier, dann
-     * muss der QR-Code den Port mitbringen.
      */
-    fun fetch(baseUrl: String, expectedSha256: String): X509Certificate? = try {
+    fun fetch(baseUrl: String, expectedSha256: String, httpPort: Int): X509Certificate? = try {
         val host = URI(baseUrl).host
-        val connection = URL("http://$host:${RemoteDevices.DEFAULT_PORT}/ca.crt").openConnection() as HttpURLConnection
+        val connection = URL("http://$host:$httpPort/ca.crt").openConnection() as HttpURLConnection
         connection.connectTimeout = 3000
         connection.readTimeout = 3000
         val ca = try {

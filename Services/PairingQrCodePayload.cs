@@ -4,10 +4,13 @@ internal static class PairingQrCodePayload
 {
     private const string PinFragmentParameter = "pin";
     private const string AuthorityFragmentParameter = "ca";
+    private const string HttpPortFragmentParameter = "http";
+    private const int StandardHttpPort = 5050;
 
     // caSha256: Fingerabdruck der lokalen CA bei HTTPS. Die Android-App vertraut dem Server nur, wenn
     // sein Zertifikat von genau dieser CA stammt - der QR-Code vom PC-Bildschirm ist der sichere Weg.
-    public static string Create(string deviceAddress, string? pin = null, string? caSha256 = null)
+    // httpPort: dort holt die App bei HTTPS die CA; ohne Angabe nimmt sie den Standardport.
+    public static string Create(string deviceAddress, string? pin = null, string? caSha256 = null, int? httpPort = null)
     {
         if (!Uri.TryCreate(deviceAddress, UriKind.Absolute, out var address) ||
             (address.Scheme != Uri.UriSchemeHttp && address.Scheme != Uri.UriSchemeHttps))
@@ -29,6 +32,7 @@ internal static class PairingQrCodePayload
         [
             pin is null ? null : $"{PinFragmentParameter}={pin}",
             caSha256 is null ? null : $"{AuthorityFragmentParameter}={caSha256}",
+            caSha256 is null || httpPort is null or StandardHttpPort ? null : $"{HttpPortFragmentParameter}={httpPort}",
         ];
         var payload = new UriBuilder(address)
         {

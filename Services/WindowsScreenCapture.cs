@@ -25,6 +25,7 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
     // pro Sekunde ab.
     private const uint FrameWaitMs = 100;
     private static readonly TimeSpan IdleRelease = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan NoFramesRetry = TimeSpan.FromSeconds(5);
     private static readonly IntPtr DpiAwarenessContextPerMonitorAwareV2 = -4;
     private static readonly ImageCodecInfo JpegCodec =
         ImageCodecInfo.GetImageEncoders().First(codec => codec.FormatID == ImageFormat.Jpeg.Guid);
@@ -79,6 +80,11 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
         lock (capture.Gate)
         {
             capture.LastUse = DateTime.UtcNow;
+            if (capture.Duplication is null && DateTime.UtcNow < capture.NoFramesUntil)
+            {
+                return null;
+            }
+
             try
             {
                 capture.Duplication ??= Duplication.Create(screen.Id);
@@ -105,6 +111,13 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
                 if (exception.HResult == AccessDenied)
                 {
                     throw new System.ComponentModel.Win32Exception(exception.HResult, "Bildschirm nicht zugaenglich.");
+                }
+
+                // Parsecs virtuelle Anzeige liefert nie ein erstes Bild; jeder neue Versuch kostete
+                // den Abruf ueber 500 ms, deshalb solange direkt BitBlt.
+                if (exception.HResult == Vortice.DXGI.ResultCode.WaitTimeout.Code)
+                {
+                    capture.NoFramesUntil = DateTime.UtcNow + NoFramesRetry;
                 }
 
                 return null;
@@ -220,6 +233,8 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
         public Duplication? Duplication { get; set; }
 
         public DateTime LastUse { get; set; }
+
+        public DateTime NoFramesUntil { get; set; }
 
         public (long Frame, int CursorX, int CursorY, IntPtr Cursor, int MaxWidth, int Quality) JpegKey { get; set; }
 

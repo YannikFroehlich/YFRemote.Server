@@ -553,7 +553,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         try
         {
-            using var dialog = new PairingQrCodeDialog(deviceAddress, pairingService, authoritySha256);
+            using var dialog = new PairingQrCodeDialog(deviceAddress, pairingService, authoritySha256, serverOptions.Port);
             dialog.ShowDialog();
             RefreshPairingMenu();
         }

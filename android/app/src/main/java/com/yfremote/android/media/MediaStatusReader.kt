@@ -3,16 +3,22 @@ package com.yfremote.android.media
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.net.Uri
 import android.os.SystemClock
 import androidx.core.app.NotificationManagerCompat
 import com.yfremote.android.server.DeviceVolume
 import com.yfremote.android.server.models.MediaStatusMessage
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.concurrent.thread
 
 // Android-Aequivalent zu WindowsMediaStatusReader: Lautstaerke von DeviceVolume, Titel, Zeitleiste und
 // Cover von der aktiven MediaSession. Ohne Benachrichtigungszugriff bleibt es bei der Lautstaerke.
@@ -21,6 +27,7 @@ class MediaStatusReader(private val context: Context, private val audioManager: 
     companion object {
         private const val MAX_COVER_SIZE_PX = 512
         private const val MAX_COVER_BYTES = 2 * 1024 * 1024
+        private const val COVER_TIMEOUT_MS = 5000
     }
 
     private val sessionManager = context.getSystemService(MediaSessionManager::class.java)
@@ -87,19 +94,20 @@ class MediaStatusReader(private val context: Context, private val audioManager: 
 
     // Nur bei neuem Titel oder neu dazugekommenem Bild neu kodieren, nicht jede Sekunde. Die Bildgroesse
     // gehoert zum Schluessel, weil manche Apps das Cover erst nach dem Titel nachreichen.
-    // ponytail: nur eingebettete Bitmaps; Apps, die nur METADATA_KEY_ALBUM_ART_URI setzen, bleiben ohne Cover.
     private fun updateCover(packageName: String?, metadata: MediaMetadata?): String? = synchronized(coverLock) {
         val bitmap = metadata?.let {
             it.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                 ?: it.getBitmap(MediaMetadata.METADATA_KEY_ART)
                 ?: it.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
         }
-        val key = if (bitmap != null && metadata != null) {
+        val uri = if (bitmap == null) metadata?.let(::coverUri) else null
+        val image = bitmap?.let { "${it.width}x${it.height}" } ?: uri
+        val key = if (image != null && metadata != null) {
             listOf(
                 packageName,
                 metadata.getString(MediaMetadata.METADATA_KEY_TITLE),
                 metadata.getString(MediaMetadata.METADATA_KEY_ALBUM),
-                "${bitmap.width}x${bitmap.height}",
+                image,
             ).joinToString("|")
         } else {
             null
@@ -107,10 +115,53 @@ class MediaStatusReader(private val context: Context, private val audioManager: 
         if (key == coverKey) return coverId
 
         coverKey = key
-        val bytes = bitmap?.let(::encodeCover)?.takeIf { it.size <= MAX_COVER_BYTES }
+        setCover(bitmap?.let(::encodeCover))
+        if (key != null && uri != null) loadCover(key, uri)
+        coverId
+    }
+
+    private fun setCover(encoded: ByteArray?) {
+        val bytes = encoded?.takeIf { it.size <= MAX_COVER_BYTES }
         cover = bytes
         coverId = bytes?.let { Integer.toHexString(it.contentHashCode()) }
-        coverId
+    }
+
+    private fun coverUri(metadata: MediaMetadata): String? = listOf(
+        MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
+        MediaMetadata.METADATA_KEY_ART_URI,
+        MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,
+    ).firstNotNullOfOrNull { key -> metadata.getString(key)?.takeIf(::isLoadableCoverUri) }
+
+    // Neben der Abfrage, damit ein langsamer Abruf den Status nicht aufhaelt; die coverId kommt mit
+    // dem naechsten Status. ponytail: ein gescheitertes Laden wird erst beim naechsten Titel wiederholt.
+    private fun loadCover(key: String, uri: String) = thread(isDaemon = true) {
+        val encoded = try {
+            openCover(uri)?.use { readAtMost(it, MAX_COVER_BYTES) }?.let(::decodeCover)?.let(::encodeCover)
+        } catch (e: Exception) {
+            // Fremde content://-Adressen sind oft nicht freigegeben, dann bleibt es ohne Cover.
+            null
+        }
+        synchronized(coverLock) {
+            if (key == coverKey) setCover(encoded)
+        }
+    }
+
+    private fun openCover(uri: String): InputStream? = if (uri.startsWith("http", ignoreCase = true)) {
+        (URL(uri).openConnection() as HttpURLConnection).apply {
+            connectTimeout = COVER_TIMEOUT_MS
+            readTimeout = COVER_TIMEOUT_MS
+        }.inputStream
+    } else {
+        context.contentResolver.openInputStream(Uri.parse(uri))
+    }
+
+    private fun decodeCover(bytes: ByteArray): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = coverSampleSize(maxOf(bounds.outWidth, bounds.outHeight), MAX_COVER_SIZE_PX)
+        }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }
 
     private fun encodeCover(bitmap: Bitmap): ByteArray {
@@ -131,3 +182,27 @@ class MediaStatusReader(private val context: Context, private val audioManager: 
 // laeuft sie seitdem mit playbackSpeed weiter (wie Timeline in WindowsMediaStatusReader).
 internal fun currentPositionMs(positionMs: Long, updateTime: Long, speed: Float, playing: Boolean, now: Long): Long =
     if (playing && updateTime > 0) positionMs + ((now - updateTime) * speed).toLong() else positionMs
+
+// Die Adresse kommt von einer beliebigen Medien-App: file:// bleibt draussen, damit sie keine
+// Dateien aus dem Speicher dieser App zum Cover machen kann.
+internal fun isLoadableCoverUri(uri: String): Boolean = uri.substringBefore(':').lowercase() in setOf("content", "http", "https")
+
+/** Alles bis `limit` Bytes, null wenn mehr kommt. */
+internal fun readAtMost(stream: InputStream, limit: Int): ByteArray? {
+    val buffer = ByteArray(limit + 1)
+    var total = 0
+    while (total < buffer.size) {
+        val read = stream.read(buffer, total, buffer.size - total)
+        if (read < 0) break
+        total += read
+    }
+    return if (total > limit) null else buffer.copyOf(total)
+}
+
+// Grosse Zweierpotenz, die das Bild nicht unter `target` schrumpft: ein kleines PNG kann riesige
+// Abmessungen haben und ungedrosselt den Speicher sprengen.
+internal fun coverSampleSize(largestSide: Int, target: Int): Int {
+    var sample = 1
+    while (largestSide / (sample * 2) >= target) sample *= 2
+    return sample
+}

@@ -37,6 +37,22 @@ public sealed class PairingQrCodePayloadTests
     }
 
     [TestMethod]
+    public void Create_WithChangedHttpPort_AddsItOnlyForHttps()
+    {
+        var fingerprint = new string('a', 64);
+
+        Assert.AreEqual(
+            $"https://192.168.1.42:5443/#ca={fingerprint}&http=5060",
+            PairingQrCodePayload.Create("https://192.168.1.42:5443", caSha256: fingerprint, httpPort: 5060));
+        Assert.AreEqual(
+            $"https://192.168.1.42:5443/#ca={fingerprint}",
+            PairingQrCodePayload.Create("https://192.168.1.42:5443", caSha256: fingerprint, httpPort: 5050));
+        Assert.AreEqual(
+            "http://192.168.1.42:5060/",
+            PairingQrCodePayload.Create("http://192.168.1.42:5060", httpPort: 5060));
+    }
+
+    [TestMethod]
     public void Create_WithInvalidPin_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>

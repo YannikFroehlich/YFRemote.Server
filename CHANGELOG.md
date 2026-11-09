@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Tab "Bildschirm": Gedrehte Monitore (Hochformat) werden schneller übertragen. H.264 bleibt ihnen vorerst verschlossen, sie laufen weiter als JPEG.
+
+## [2.50.1] - 2026-11-09
+
 ### Fixed
 
 - Tab "Bildschirm": Der Ton eines 5.1- oder 7.1-Geräts enthält jetzt auch Center und Surround, also etwa die Sprache in Filmen, statt nur vorne links und rechts.

@@ -257,8 +257,11 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
     {
         private readonly IDXGIOutputDuplication outputDuplication;
         private readonly ID3D11Texture2D staging;
+        private readonly ModeRotation rotation;
+        private readonly int textureWidth;
+        private readonly int textureHeight;
 
-        private Duplication(ID3D11Device device, ID3D11DeviceContext context, IDXGIOutputDuplication outputDuplication, int width, int height, long adapterLuid)
+        private Duplication(ID3D11Device device, ID3D11DeviceContext context, IDXGIOutputDuplication outputDuplication, int width, int height, long adapterLuid, ModeRotation rotation)
         {
             Device = device;
             Context = context;
@@ -266,10 +269,13 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
             Width = width;
             Height = height;
             AdapterLuid = adapterLuid;
+            this.rotation = rotation;
+            // Die Aufnahme kommt in der Lage des Panels, im Hochformat also quer zum Desktop.
+            (textureWidth, textureHeight) = rotation is ModeRotation.Rotate90 or ModeRotation.Rotate270 ? (height, width) : (width, height);
             var description = new Texture2DDescription
             {
-                Width = (uint)width,
-                Height = (uint)height,
+                Width = (uint)textureWidth,
+                Height = (uint)textureHeight,
                 MipLevels = 1,
                 ArraySize = 1,
                 Format = Format.B8G8R8A8_UNorm,
@@ -293,9 +299,12 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
         // Das letzte Bild auf der Grafikkarte, ohne Mauszeiger.
         public ID3D11Texture2D Latest { get; }
 
+        // Lage auf dem Desktop, bei gedrehtem Monitor also nicht die der Textur.
         public int Width { get; }
 
         public int Height { get; }
+
+        public bool Upright => rotation is ModeRotation.Identity or ModeRotation.Unspecified;
 
         public long AdapterLuid { get; }
 
@@ -316,10 +325,7 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
                         using (output)
                         {
                             var description = output.Description;
-                            // ponytail: gedrehte Monitore (Hochformat) liefern ein gedrehtes Bild -
-                            // dann lieber BitBlt; drehen, falls das jemand braucht.
-                            if (description.DeviceName != deviceName
-                                || description.Rotation is not (ModeRotation.Identity or ModeRotation.Unspecified))
+                            if (description.DeviceName != deviceName)
                             {
                                 continue;
                             }
@@ -342,7 +348,16 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
                                 var outputDuplication = output1.DuplicateOutput(device);
                                 var mode = outputDuplication.Description.ModeDescription;
                                 var luid = adapter.Description1.Luid;
-                                return new Duplication(device, context!, outputDuplication, (int)mode.Width, (int)mode.Height, ((long)luid.HighPart << 32) | luid.LowPart);
+                                var bounds = description.DesktopCoordinates;
+                                var upright = description.Rotation is ModeRotation.Identity or ModeRotation.Unspecified;
+                                return new Duplication(
+                                    device,
+                                    context!,
+                                    outputDuplication,
+                                    upright ? (int)mode.Width : bounds.Right - bounds.Left,
+                                    upright ? (int)mode.Height : bounds.Bottom - bounds.Top,
+                                    ((long)luid.HighPart << 32) | luid.LowPart,
+                                    description.Rotation);
                             }
                             catch
                             {
@@ -401,11 +416,11 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
             var mapped = Context.Map(staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
             try
             {
-                using var source = new Bitmap(Width, Height, (int)mapped.RowPitch, PixelFormat.Format32bppRgb, mapped.DataPointer);
+                using var source = new Bitmap(textureWidth, textureHeight, (int)mapped.RowPitch, PixelFormat.Format32bppRgb, mapped.DataPointer);
                 using var graphics = Graphics.FromImage(target);
                 graphics.InterpolationMode = scale < 1.0 ? InterpolationMode.Bilinear : InterpolationMode.NearestNeighbor;
                 graphics.PixelOffsetMode = PixelOffsetMode.Half;
-                graphics.DrawImage(source, 0, 0, target.Width, target.Height);
+                graphics.DrawImage(source, UprightCorners(target.Width, target.Height));
             }
             finally
             {
@@ -414,6 +429,15 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
             return target;
         }
+
+        // Wohin obere linke, obere rechte und untere linke Ecke der Textur im Bild kommen.
+        private Point[] UprightCorners(int width, int height) => rotation switch
+        {
+            ModeRotation.Rotate90 => [new(width, 0), new(width, height), new(0, 0)],
+            ModeRotation.Rotate180 => [new(width, height), new(0, height), new(width, 0)],
+            ModeRotation.Rotate270 => [new(0, height), new(0, 0), new(width, height)],
+            _ => [new(0, 0), new(width, 0), new(0, height)],
+        };
 
         public void Dispose()
         {

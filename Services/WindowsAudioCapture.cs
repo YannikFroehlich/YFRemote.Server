@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace YFRemote.Server.Services;
@@ -57,9 +58,11 @@ public sealed class WindowsAudioCapture : IAudioCapture
             Marshal.ThrowExceptionForHR(client.GetService(ref iid, out captureObject));
             var capture = (IAudioCaptureClient)captureObject;
 
-            // ponytail: bei 5.1/7.1 nur die ersten beiden Kanaele (vorne links/rechts) - Center und
-            // Surround fehlen dann. Richtiger Downmix ueber dwChannelMask, falls das jemand braucht.
             var outputChannels = Math.Min((int)channels, 2);
+            // dwChannelMask steht in WAVEFORMATEXTENSIBLE hinter WAVEFORMATEX und Samples.
+            var downmix = channels > 2
+                ? BuildDownmix(channels, formatTag == FormatExtensible ? Marshal.ReadInt32(format, 20) : 0)
+                : null;
             started(sampleRate, outputChannels);
             Marshal.ThrowExceptionForHR(client.Start());
 
@@ -100,10 +103,12 @@ public sealed class WindowsAudioCapture : IAudioCapture
                             {
                                 for (var channel = 0; channel < outputChannels; channel++)
                                 {
-                                    var sample = Math.Clamp(floats[frame * channels + channel], -1f, 1f);
+                                    var sample = downmix is null
+                                        ? floats[frame * channels + channel]
+                                        : Mix<float>(floats.AsSpan(frame * channels, channels), downmix, channel);
                                     BinaryPrimitives.WriteInt16LittleEndian(
                                         target[(2 * ((frame * outputChannels) + channel))..],
-                                        (short)(sample * short.MaxValue));
+                                        (short)(Math.Clamp(sample, -1f, 1f) * short.MaxValue));
                                 }
                             }
                         }
@@ -119,9 +124,12 @@ public sealed class WindowsAudioCapture : IAudioCapture
                             {
                                 for (var channel = 0; channel < outputChannels; channel++)
                                 {
+                                    var sample = downmix is null
+                                        ? shorts[frame * channels + channel]
+                                        : (short)Math.Clamp(Mix<short>(shorts.AsSpan(frame * channels, channels), downmix, channel), short.MinValue, short.MaxValue);
                                     BinaryPrimitives.WriteInt16LittleEndian(
                                         target[(2 * ((frame * outputChannels) + channel))..],
-                                        shorts[frame * channels + channel]);
+                                        sample);
                                 }
                             }
                         }
@@ -154,6 +162,54 @@ public sealed class WindowsAudioCapture : IAudioCapture
             Release(device);
             Release(enumerator);
         }
+    }
+
+    // Anteil jedes Kanals am linken und rechten Ausgang, in der Reihenfolge des Mischformats. Die
+    // Kanaele stehen nach aufsteigendem Bit in der Maske. Der Bass (LFE, 0x8) faellt wie ueblich weg.
+    // Bewusst nicht normalisiert: Stereo-Inhalt auf einem 5.1-Geraet bliebe sonst deutlich leiser.
+    internal static (float Left, float Right)[] BuildDownmix(int channels, int channelMask)
+    {
+        const float Half = 0.7071f;
+        var gains = new (float Left, float Right)[channels];
+        // Ohne brauchbare Maske sind nur vorne links/rechts sicher.
+        if ((channelMask & 0x3) != 0x3)
+        {
+            gains[0] = (1f, 0f);
+            gains[1] = (0f, 1f);
+            return gains;
+        }
+
+        var channel = 0;
+        for (var bit = 0; bit < 32 && channel < channels; bit++)
+        {
+            var speaker = 1 << bit;
+            if ((channelMask & speaker) != 0)
+            {
+                gains[channel++] = speaker switch
+                {
+                    0x001 => (1f, 0f),
+                    0x002 => (0f, 1f),
+                    0x004 or 0x100 => (Half, Half), // Mitte vorne/hinten
+                    0x010 or 0x040 or 0x200 => (Half, 0f), // hinten, innen vorne, seitlich links
+                    0x020 or 0x080 or 0x400 => (0f, Half), // dasselbe rechts
+                    _ => (0f, 0f),
+                };
+            }
+        }
+
+        return gains;
+    }
+
+    internal static float Mix<T>(ReadOnlySpan<T> frame, (float Left, float Right)[] gains, int output)
+        where T : INumber<T>
+    {
+        var sum = 0f;
+        for (var channel = 0; channel < frame.Length; channel++)
+        {
+            sum += float.CreateTruncating(frame[channel]) * (output == 0 ? gains[channel].Left : gains[channel].Right);
+        }
+
+        return sum;
     }
 
     private static void Release(object? comObject)

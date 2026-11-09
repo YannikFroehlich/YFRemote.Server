@@ -8,6 +8,7 @@ internal sealed class PairingQrCodeDialog : Form
     private readonly string deviceAddress;
     private readonly PairingService pairingService;
     private readonly string? caSha256;
+    private readonly int? httpPort;
     private readonly PictureBox qrPictureBox;
     private readonly CheckBox includePairingCheckBox;
     private readonly Label pairingDetailsLabel;
@@ -17,11 +18,12 @@ internal sealed class PairingQrCodeDialog : Form
     private string currentPayload = string.Empty;
     private string? renderedPin;
 
-    public PairingQrCodeDialog(string deviceAddress, PairingService pairingService, string? caSha256 = null)
+    public PairingQrCodeDialog(string deviceAddress, PairingService pairingService, string? caSha256 = null, int? httpPort = null)
     {
         this.deviceAddress = deviceAddress;
         this.pairingService = pairingService;
         this.caSha256 = caSha256;
+        this.httpPort = httpPort;
 
         Text = "Mit YFRemote verbinden";
         ClientSize = new Size(430, 590);
@@ -211,7 +213,7 @@ internal sealed class PairingQrCodeDialog : Form
             : null;
         renderedPin = currentPin?.Pin;
 
-        var payload = PairingQrCodePayload.Create(deviceAddress, renderedPin, caSha256);
+        var payload = PairingQrCodePayload.Create(deviceAddress, renderedPin, caSha256, httpPort);
         if (!string.Equals(payload, currentPayload, StringComparison.Ordinal))
         {
             var nextImage = CreateQrCodeImage(payload);

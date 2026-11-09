@@ -205,8 +205,9 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   100 ms for a change, the `Latest` texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
   overlap; it drops the duplication after 10 s without requests. A lost duplication (mode change,
-  secure desktop) or a rotated monitor falls back to GDI `CopyFromScreen` (about 38 ms per copy at
-  1080p, which is why it is not the default). Both run in physical pixels (per-monitor DPI context,
+  secure desktop) or a rotated monitor falls back to GDI `CopyFromScreen` (about 38 ms per copy at 1080p, which is why it is not the default). Parsec's virtual display never delivers a first frame
+  (`DXGI_ERROR_WAIT_TIMEOUT`, cause unknown), so after that timeout `/screen` goes straight to GDI for 5 s
+  (`NoFramesUntil`; measured 2026-11-09 at 2244x1080: ~93 ms per frame instead of ~650 ms). Both run in physical pixels (per-monitor DPI context,
   like `WindowsMouseService`), draw the cursor themselves and encode at quality 70. On the dev PC on
   2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop makes it throw `Win32Exception` → `503`,
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
@@ -251,7 +252,8 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   presented on a phone are unverified.
 - `GET /screen/audio` (same gate) → one endless response of raw 16-bit little-endian PCM, format in
   `X-Sample-Rate`/`X-Channels`, until the device aborts. `WindowsAudioCapture` is a WASAPI loopback
-  of the default playback device (mix format float32 or int16, at most the first two channels),
+  of the default playback device (mix format float32 or int16; more than two channels are mixed down
+  to stereo via `dwChannelMask`, LFE dropped, not normalized, only covered by tests),
   polled every 20 ms; during silence loopback delivers nothing, so nothing is sent. Raw because the
   browser plays PCM without a decoder: `screen-audio.ts` schedules each chunk as its own
   `AudioBufferSourceNode` (AudioWorklet exists only over HTTPS), 150 ms lead, chunks dropped beyond

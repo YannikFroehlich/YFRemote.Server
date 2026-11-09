@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Security
+
+- Build: `undici` auf 7.30.2 aktualisiert, das fünf bekannte Schwachstellen behebt. Es wird nur von `jsdom` in den Client-Tests genutzt und nicht ausgeliefert.
+
 ## [2.50.0] - 2026-11-06
 
 ### Fixed

@@ -23,6 +23,19 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Tab "Bildschirm": Der Ton eines 5.1- oder 7.1-Geräts enthält jetzt auch Center und Surround, also etwa die Sprache in Filmen, statt nur vorne links und rechts.
+- Tab "Bildschirm": Auf virtuellen Anzeigen wie der von Parsec läuft das Bild flüssiger, weil nicht mehr jeder Abruf über eine halbe Sekunde auf ein Bild wartet, das nie kommt.
+- Android-App: Medien-Apps, die ihr Cover nur als Adresse angeben, zeigen jetzt ebenfalls ein Cover.
+- Android-App: Der QR-Code eines PCs mit HTTPS funktioniert jetzt auch mit geändertem `Server:Port`.
+
+### Security
+
+- Build: `undici` auf 7.30.2 aktualisiert, das fünf bekannte Schwachstellen behebt. Es wird nur von `jsdom` in den Client-Tests genutzt und nicht ausgeliefert.
+
+## [2.50.0] - 2026-11-06
+
+### Fixed
+
 - Web-Oberfläche: Kommen im Tab "Bildschirm" länger als 3 Sekunden keine Daten vom PC, weist ein Hinweis darauf hin, dass das Bild nicht aktuell ist. Nach 10 Sekunden verbindet sich das Video neu, statt auf einen toten Strom zu warten.
 
 ### Changed

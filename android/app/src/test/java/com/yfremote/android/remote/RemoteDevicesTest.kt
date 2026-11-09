@@ -41,6 +41,9 @@ class RemoteDevicesTest {
             RemoteDevices.parseQrCode("https://192.168.0.5:5443/#pin=123456&ca=$fingerprint"),
         )
         assertEquals(QrCode("https://pc:5443", null, fingerprint), RemoteDevices.parseQrCode("https://pc:5443/#ca=$fingerprint"))
+        assertEquals(QrCode("https://pc:5443", "123456", fingerprint, 5060), RemoteDevices.parseQrCode("https://pc:5443/#pin=123456&ca=$fingerprint&http=5060"))
+        // Ungueltiger Port: Standardport.
+        assertEquals(QrCode("https://pc:5443", null, fingerprint), RemoteDevices.parseQrCode("https://pc:5443/#ca=$fingerprint&http=70000"))
         // Kein gueltiger Fingerabdruck: wie ein HTTPS-QR ohne, also HTTP.
         assertEquals(QrCode("http://pc:5050", null), RemoteDevices.parseQrCode("https://pc:5443/#ca=ABC"))
     }

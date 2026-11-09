@@ -323,10 +323,10 @@ Devices are added by typing an address or by scanning a connection QR code
 `PairingQrCodePayload`, and the PIN is handed to the WebView in the URL fragment so the Client
 prefills it. With "HTTPS verwenden" the tray's QR code also carries `ca=<sha256>`, the fingerprint
 of the PC's local CA (`PairingQrCodePayload`, lowercase hex over the DER). Such a code stays on
-`https://<host>:<port>`: `PinnedCa.fetch` loads `/ca.crt` over plain HTTP (port 5050, where the PC
-serves it before anything is trusted) and keeps it only if its fingerprint matches, then
-`RemoteDevice.ca` stores it. There is deliberately no accept-all `TrustManager` (CodeQL flags it);
-a changed `Server:Port` makes this step fail. `RemoteWebActivity.onReceivedSslError` proceeds only for that device's origin, only when
+`https://<host>:<port>`: `PinnedCa.fetch` loads `/ca.crt` over plain HTTP (port 5050, or the code's
+`http=<port>` when `Server:Port` differs; the PC serves it there before anything is trusted) and
+keeps it only if its fingerprint matches, then `RemoteDevice.ca` stores it. There is deliberately no
+accept-all `TrustManager` (CodeQL flags it). `RemoteWebActivity.onReceivedSslError` proceeds only for that device's origin, only when
 "untrusted" is the sole SSL error and only if `PinnedCa.issued` verifies the leaf against the
 pinned CA (Android 10+, which exposes the leaf; older versions cancel). `/health` and file
 downloads use `HttpsURLConnection` with that CA as the only trust anchor, because

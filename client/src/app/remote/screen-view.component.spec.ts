@@ -25,7 +25,8 @@ describe('ScreenViewComponent', () => {
   ) {
     const screenMonitor = signal<string | null>(null);
     const readScreen = vi.fn(
-      async (_width: number, _quality: number, _monitor?: string | null) => result,
+      async (_width: number, _quality: number, _monitor?: string | null, _signal?: AbortSignal) =>
+        result,
     );
     const openScreenVideo = vi.fn(
       async (_width: number, _bitrate: number, _signal: AbortSignal, _monitor?: string | null) =>
@@ -498,6 +499,32 @@ describe('ScreenViewComponent', () => {
       fixture.detectChanges();
 
       expect(element.textContent).toContain('Verbindung hängt');
+      fixture.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts hanging JPEG requests and asks again', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    try {
+      const { fixture, readScreen } = await setup(new Blob(['jpeg']));
+      const hanging: AbortSignal[] = [];
+      readScreen.mockImplementation(
+        (_width, _quality, _monitor, signal) =>
+          new Promise((resolve) => {
+            hanging.push(signal!);
+            signal!.addEventListener('abort', () => resolve(null));
+          }),
+      );
+      await vi.waitFor(() => expect(hanging).toHaveLength(2));
+
+      vi.advanceTimersByTime(11000);
+
+      expect(hanging.every((signal) => signal.aborted)).toBe(true);
+      // Nach der Wartezeit fuer Fehler geht es mit frischen Abrufen weiter.
+      await vi.waitFor(() => expect(hanging).toHaveLength(4), { timeout: 3000 });
+      expect(hanging.slice(2).some((signal) => signal.aborted)).toBe(false);
       fixture.destroy();
     } finally {
       vi.useRealTimers();

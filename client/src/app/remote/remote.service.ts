@@ -496,6 +496,7 @@ export class RemoteService implements OnDestroy {
     width: number,
     quality: number,
     monitor: string | null = null,
+    signal?: AbortSignal,
   ): Promise<Blob | 'blocked' | null> {
     const token = this.pairing.token();
     if (token === null) {
@@ -505,7 +506,7 @@ export class RemoteService implements OnDestroy {
     try {
       const response = await this.fetchFn(
         `${getServerHttpBaseUrl(this.serverLocation)}/screen?width=${Math.round(width)}&quality=${quality}${monitorQuery(monitor)}`,
-        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } },
+        { cache: 'no-store', headers: { Authorization: `Bearer ${token}` }, signal },
       );
       if (response.status === 503) {
         return 'blocked';

@@ -47,7 +47,7 @@ const DRAG_MOVE_INTERVAL_MS = 16;
 // haengt die Verbindung und das sichtbare Bild ist alt.
 const STALL_CHECK_MS = 1000;
 const STALL_HINT_MS = 3000;
-// Nach einem Netzwechsel wartet der alte Strom sonst ewig: TCP merkt das lange nicht.
+// Nach einem Netzwechsel warten der alte Strom und JPEG-Abrufe sonst ewig: TCP merkt das lange nicht.
 const STALL_RECONNECT_MS = 10000;
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -110,6 +110,8 @@ export class ScreenViewComponent implements OnDestroy {
   private handleOrigin: (Point & { pointerId: number }) | null = null;
   private handleMoved = false;
   private videoAbort: AbortController | null = null;
+  // Gilt fuer alle laufenden JPEG-Abrufe; ein haengender fetch endet sonst nie.
+  private jpegAbort = new AbortController();
   private sound: { context: ScreenAudioContext; abort: AbortController } | null = null;
   private typedText = '';
   private stopped = false;
@@ -131,6 +133,7 @@ export class ScreenViewComponent implements OnDestroy {
     video.removeAttribute('src');
     video.load();
     this.videoAbort?.abort();
+    this.jpegAbort.abort();
     this.endDrag();
     this.show(null);
     this.stopSound();
@@ -258,6 +261,8 @@ export class ScreenViewComponent implements OnDestroy {
     if (watching && now - Math.max(this.lastDataAt, this.lastReconnectAt) >= STALL_RECONNECT_MS) {
       this.lastReconnectAt = now;
       this.videoAbort?.abort();
+      this.jpegAbort.abort();
+      this.jpegAbort = new AbortController();
     }
   }
 
@@ -280,6 +285,7 @@ export class ScreenViewComponent implements OnDestroy {
         this.host.nativeElement.clientWidth * pixelRatio,
         profile.jpegQuality,
         this.remote.screenMonitor(),
+        this.jpegAbort.signal,
       );
       if (this.stopped) {
         return;

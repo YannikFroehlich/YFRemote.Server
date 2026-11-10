@@ -167,6 +167,18 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_MouseZoom_ScrollsWithCtrlHeld()
+    {
+        var input = new Integration.FakeInputService();
+        var handler = new RemoteActionHandler(input, input, new RecordingPowerService(), NullLogger<RemoteActionHandler>.Instance);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "mouseZoom", Delta = -120 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "mouseZoom" }).Success);
+
+        CollectionAssert.AreEqual(new[] { "keyDown CTRL", "scroll -120", "keyUp CTRL" }, input.Calls.ToArray());
+    }
+
+    [TestMethod]
     public void Handle_MouseScroll_Horizontal_ForwardsDeltaXToMouseService()
     {
         var mouseService = new RecordingMouseService();

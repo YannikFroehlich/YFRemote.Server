@@ -48,7 +48,7 @@ new component the same, unless everything its template reads is a signal or an i
 **Everything meaningful lives under `src/app/remote/`.** The feature has six layers:
 
 1. **`remote.models.ts`** — shared types: `RemoteAction` (discriminated union of `key`/`hotkey`/
-   `mouseMove`/`mouseClick`/`mouseScroll`/`shutdown`/`restart`/`sleep`/`lock`/`displayOff`/
+   `mouseMove`/`mouseClick`/`mouseScroll`/`mouseZoom`/`shutdown`/`restart`/`sleep`/`lock`/`displayOff`/
    `shutdownTimer`/`volume`), `ServerConfig`,
    `RemoteResponse`, `RemoteButtonConfig`, `RemoteIcon`.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and

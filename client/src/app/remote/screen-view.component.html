@@ -144,7 +144,6 @@
       [muted]="true"
       [hidden]="!videoShown()"
       [attr.aria-label]="i18n.t('screen.alt')"
-      [style.transform]="mediaTransform()"
     ></video>
     @if (frame(); as src) {
       <img
@@ -152,7 +151,6 @@
         class="screen-view__image"
         [src]="src"
         [attr.alt]="i18n.t('screen.alt')"
-        [style.transform]="mediaTransform()"
         draggable="false"
       />
     }

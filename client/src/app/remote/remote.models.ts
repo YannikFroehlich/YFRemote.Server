@@ -51,6 +51,12 @@ export interface MouseScrollAction {
   readonly deltaX?: number;
 }
 
+/** Mausrad mit gehaltener Strg-Taste: so zoomt am PC auch das Spreizen auf einem Touchpad. */
+export interface MouseZoomAction {
+  readonly type: 'mouseZoom';
+  readonly delta: number;
+}
+
 /** Energieaktion des Rechners; ohne Rueckmeldung, da der Rechner danach weg ist. */
 export interface PowerAction {
   readonly type: 'shutdown' | 'restart' | 'sleep' | 'lock' | 'displayOff';
@@ -299,6 +305,7 @@ export type RemoteAction =
   | ScreenMoveAction
   | MouseButtonAction
   | MouseScrollAction
+  | MouseZoomAction
   | PowerAction
   | ShutdownTimerAction
   | VolumeAction

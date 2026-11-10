@@ -317,27 +317,37 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
-  it('zooms with two fingers without touching the PC', async () => {
-    const { fixture, sendAction, stage, image } = await setupGestures();
+  it('zooms the PC with Ctrl+wheel steps when spreading two fingers', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
 
     pointer(stage, 'pointerdown', 1, 90, 100);
     pointer(stage, 'pointerdown', 2, 110, 100);
     pointer(stage, 'pointermove', 1, 80, 100);
     pointer(stage, 'pointermove', 2, 120, 100);
-    fixture.detectChanges();
-    expect(image.style.transform).toBe('translate(-100px, -100px) scale(2)');
-
+    pointer(stage, 'pointermove', 2, 100, 100);
     pointer(stage, 'pointerup', 1, 80, 100);
     pointer(stage, 'pointermove', 2, 300, 100);
     pointer(stage, 'pointerup', 2, 300, 100);
     stage.dispatchEvent(new MouseEvent('click', { clientX: 300, clientY: 100, bubbles: true }));
 
-    expect(sendAction).not.toHaveBeenCalled();
+    const zoomIn = [{ type: 'mouseZoom', delta: 120 }];
+    const zoomOut = [{ type: 'mouseZoom', delta: -120 }];
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenMove', x: 0.25, y: 0.5 }],
+      zoomIn,
+      zoomIn,
+      zoomIn,
+      zoomIn,
+      zoomOut,
+      zoomOut,
+      zoomOut,
+      zoomOut,
+    ]);
     fixture.destroy();
   });
 
-  it('scrolls the page with two fingers while not zoomed', async () => {
-    const { fixture, sendAction, stage, image } = await setupGestures();
+  it('scrolls the page with two fingers', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
     const scroller = stage.parentElement!;
     scroller.style.overflowY = 'auto';
     Object.defineProperty(scroller, 'scrollHeight', { value: 1000 });
@@ -353,7 +363,6 @@ describe('ScreenViewComponent', () => {
     fixture.detectChanges();
 
     expect(scroller.scrollTop).toBe(120);
-    expect(image.style.transform).toBe('');
     expect(sendAction).not.toHaveBeenCalled();
     fixture.destroy();
   });
@@ -381,8 +390,29 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
-  it('does not scroll the page while zoomed', async () => {
-    const { fixture, stage } = await setupGestures();
+  it('keeps scrolling the PC when the finger distance changes on the way', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    );
+
+    pointer(stage, 'pointerdown', 1, 100, 150);
+    pointer(stage, 'pointerdown', 2, 200, 150);
+    pointer(stage, 'pointermove', 1, 95, 130);
+    pointer(stage, 'pointermove', 2, 210, 130);
+    pointer(stage, 'pointermove', 1, 90, 110);
+    frames.splice(0).forEach((callback) => callback(0));
+
+    expect(sendAction.mock.calls.map(([action]) => action.type)).not.toContain('mouseZoom');
+    expect(sendAction.mock.calls.at(-1)?.[0]).toMatchObject({ type: 'mouseScroll' });
+    pointer(stage, 'pointerup', 1, 90, 110);
+    pointer(stage, 'pointerup', 2, 210, 130);
+    fixture.destroy();
+  });
+
+  it('zooms the PC instead of scrolling the page when spreading two fingers', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
     const scroller = stage.parentElement!;
     scroller.style.overflowY = 'auto';
     Object.defineProperty(scroller, 'scrollHeight', { value: 1000 });
@@ -394,20 +424,7 @@ describe('ScreenViewComponent', () => {
     pointer(stage, 'pointermove', 2, 150, 80);
 
     expect(scroller.scrollTop).toBe(0);
-    fixture.destroy();
-  });
-
-  it('clicks at the zoomed spot', async () => {
-    const { fixture, sendAction, stage, image } = await setupGestures();
-    // Der Browser rechnet den Zoom in den Rahmen ein: doppelt so gross, nach links oben verschoben.
-    image.getBoundingClientRect = () =>
-      ({ left: -100, top: -100, width: 800, height: 400 }) as DOMRect;
-
-    stage.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
-
-    expect(sendAction.mock.calls).toEqual([
-      [{ type: 'screenClick', x: 0.25, y: 0.5, button: 'left' }],
-    ]);
+    expect(sendAction.mock.calls.at(-1)).toEqual([{ type: 'mouseZoom', delta: 120 }]);
     fixture.destroy();
   });
 

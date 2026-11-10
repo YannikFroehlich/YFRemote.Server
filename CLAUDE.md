@@ -217,15 +217,17 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
   Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
-  image): two fingers zoom and pan by CSS transform only (`screen-gestures.ts`, up to 6x, the PC
-  sees nothing). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
+  image). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
   per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
   releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
-  how long a dead connection goes unnoticed). Unzoomed, two fingers scroll the page instead, or,
-  when the page has nothing to scroll (always in fullscreen), the PC: `mouseScroll` like the touchpad
-  (`SCROLL_SCALE`), after one `screenMove` to where the fingers landed, so the wheel hits the window
-  under them. Zoom
-  resets on a monitor or fullscreen change. In fullscreen the toolbar collapses behind a logo button
+  how long a dead connection goes unnoticed). Two fingers work like a touchpad: their first move
+  beyond 8 px decides between zoom and scroll for the rest of the gesture, because the finger
+  distance always changes a little while scrolling. Scrolling moves the page, or, when the page has
+  nothing to scroll (always in fullscreen), the PC: `mouseScroll` like the touchpad (`SCROLL_SCALE`),
+  after one `screenMove` to where the fingers landed, so the wheel hits the window under them.
+  Spreading sends `mouseZoom` (`delta` ±120 per 15 % change of the finger distance), which the
+  server turns into Ctrl + wheel, the same input a real touchpad pinch gives Chrome, Office or
+  Explorer. The picture itself never zooms. In fullscreen the toolbar collapses behind a logo button
   (`.screen-view__handle`): a tap opens it towards the free side, dragging moves the logo (fraction of
   the view, kept only until the tab closes), and a tap on the picture closes it without clicking the PC.
   A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`
@@ -281,7 +283,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 **Action pipeline.** `YFRemoteWebSocketHandler` owns the socket loop: reads a length-capped
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
-`mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `shutdown`, `restart`,
+`mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `mouseZoom`, `shutdown`, `restart`,
 `sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, `launch`, ...) into `IInputService` /
 `IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
 it also unmutes, like the Windows volume slider), validates

@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tab "Bildschirm": Ohne H.264 (JPEG-Modus) erholt sich das Bild jetzt nach einem WLAN-Wechsel von selbst. Hängende Abrufe werden nach 10 s abgebrochen und neu gestartet, statt das Bild für immer einzufrieren.
+
+## [2.50.2] - 2026-11-09
+
 ### Changed
 
 - Tab "Bildschirm": Gedrehte Monitore (Hochformat) werden schneller übertragen. H.264 bleibt ihnen vorerst verschlossen, sie laufen weiter als JPEG.

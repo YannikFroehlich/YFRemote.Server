@@ -23,7 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
-- Tab "Bildschirm": Ohne Zoom scrollen zwei Finger jetzt am PC, wenn die Seite selbst nichts zu scrollen hat (auch im Vollbild). Der Mauszeiger springt dafür unter die Finger.
+- Tab "Bildschirm": Zwei Finger funktionieren jetzt wie auf einem Touchpad. Verschieben scrollt am PC, wenn die Seite selbst nichts zu scrollen hat (auch im Vollbild), und Spreizen zoomt am PC mit Strg + Mausrad, etwa in Chrome. Der Mauszeiger springt dafür unter die Finger.
 - Tab "Bildschirm": Bei offener Tastatur gibt es eine Leiste mit Strg, Alt, Win, Esc, Tab, Pfeiltasten und Entf. Strg/Alt/Win rasten bis zur nächsten Taste ein, auch für einen getippten Buchstaben (Strg+C).
 - Tab "PC": Fenster lassen sich in der Fensterliste minimieren und schließen. Schließen wirkt wie das X am Fenster, die App fragt also noch nach ungespeicherten Änderungen.
 - Tab "PC": Ein Laptop zeigt jetzt seinen Akku (Ladestand, am Netz oder nicht).
@@ -33,6 +33,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Changed
 
 - Build: Angular auf 22.2.5 aktualisiert (CLI und Build-Werkzeug 22.2.6), nur Fehlerbehebungen von Angular.
+
+### Removed
+
+- Tab "Bildschirm": Das Bild selbst lässt sich nicht mehr zoomen. Zwei Finger zoomen stattdessen am PC.
 
 ## [2.50.3] - 2026-11-10
 

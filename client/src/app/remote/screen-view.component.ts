@@ -14,7 +14,7 @@ import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
-import { distance, FULL_VIEW, pinchViewport, Point } from './screen-gestures';
+import { distance, Point } from './screen-gestures';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
 import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
@@ -41,6 +41,8 @@ const MAX_VIDEO_WIDTH = 1920;
 
 // Ab dieser Strecke wird aus einem Tipp ein Ziehen.
 const DRAG_THRESHOLD_PX = 8;
+// Um so viel muss sich der Fingerabstand aendern, bis der PC eine Zoomstufe (Strg + Mausrad) bekommt.
+const ZOOM_STEP = 1.15;
 // Ein 120-Hz-Display soll beim Ziehen nicht an die 120 Nachrichten/s des Servers stossen.
 const DRAG_MOVE_INTERVAL_MS = 16;
 
@@ -100,14 +102,15 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
   private readonly image = viewChild<ElementRef<HTMLImageElement>>('image');
   private readonly stage = viewChild.required<ElementRef<HTMLElement>>('stage');
-  private readonly viewport = signal(FULL_VIEW);
-  protected readonly mediaTransform = computed(() => {
-    const { scale, x, y } = this.viewport();
-    return scale === 1 ? null : `translate(${x}px, ${y}px) scale(${scale})`;
-  });
   private readonly pointers = new Map<number, Point>();
-  private pinchStart: { view: typeof FULL_VIEW; fingers: readonly [Point, Point] } | null = null;
+  // Abstand der zwei Finger beim Aufsetzen, null ohne zwei Finger.
+  private pinchStart: number | null = null;
   private pinchCenter: Point = { x: 0, y: 0 };
+  // Die erste deutliche Bewegung entscheidet, ob zwei Finger am PC zoomen oder scrollen, und bleibt
+  // dabei: Beim Scrollen aendert sich der Fingerabstand immer etwas, das soll nicht zoomen.
+  private pinchMode: 'zoom' | 'scroll' | null = null;
+  // Fingerabstand bei der letzten an den PC geschickten Zoomstufe.
+  private zoomDistance = 0;
   // null: nichts auf der Seite zu scrollen (auch im Vollbild), dann scrollen zwei Finger am PC.
   private pinchScroller: Element | null = null;
   // Das Mausrad wirkt am PC auf das Fenster unter dem Zeiger: vor dem ersten Scrollen also dorthin,
@@ -179,7 +182,6 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected selectMonitor(event: Event): void {
     this.remote.saveScreenMonitor((event.target as HTMLSelectElement).value);
-    this.viewport.set(FULL_VIEW);
     this.videoAbort?.abort();
   }
 
@@ -397,8 +399,10 @@ export class ScreenViewComponent implements OnDestroy {
       this.endDrag();
       this.dragOrigin = null;
       this.swallowClick = true;
-      this.pinchStart = { view: this.viewport(), fingers: this.fingers() };
+      this.pinchStart = this.fingersDistance();
+      this.zoomDistance = this.pinchStart;
       this.pinchCenter = this.fingersCenter();
+      this.pinchMode = null;
       this.pinchScroller = this.fullscreen() ? null : this.findScroller();
       this.scrollTarget = this.toScreenPosition(this.pinchCenter.x, this.pinchCenter.y);
     }
@@ -412,20 +416,25 @@ export class ScreenViewComponent implements OnDestroy {
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (this.pinchStart !== null) {
       if (this.pointers.size === 2) {
-        const stage = this.stage().nativeElement;
-        const viewport = pinchViewport(
-          this.pinchStart.view,
-          this.pinchStart.fingers,
-          this.fingers(),
-          { width: stage.clientWidth, height: stage.clientHeight },
-        );
-        this.viewport.set(viewport);
-        // Ohne Zoom gibt es nichts zu verschieben; dann scrollen zwei Finger die Seite, die ueber
-        // dem Bild sonst nicht mehr scrollen wuerde, oder - hat sie nichts zu scrollen - den PC.
+        const fingers = this.fingersDistance();
         const center = this.fingersCenter();
-        if (viewport.scale === 1 && this.pinchScroller !== null) {
+        if (this.pinchMode === null) {
+          const zoomed = Math.abs(fingers - this.pinchStart);
+          const moved = distance(this.pinchCenter, center);
+          if (Math.max(zoomed, moved) < DRAG_THRESHOLD_PX) {
+            return;
+          }
+
+          this.pinchMode = zoomed > moved ? 'zoom' : 'scroll';
+        }
+
+        if (this.pinchMode === 'zoom') {
+          this.zoomPc(fingers);
+        } else if (this.pinchScroller !== null) {
+          // Zwei Finger scrollen die Seite, die ueber dem Bild sonst nicht mehr scrollen wuerde,
+          // oder - hat sie nichts zu scrollen - den PC.
           this.pinchScroller.scrollTop += this.pinchCenter.y - center.y;
-        } else if (viewport.scale === 1) {
+        } else {
           this.scrollPc(center.x - this.pinchCenter.x, center.y - this.pinchCenter.y);
         }
         this.pinchCenter = center;
@@ -552,13 +561,9 @@ export class ScreenViewComponent implements OnDestroy {
     this.dragging = false;
   }
 
-  private fingers(): readonly [Point, Point] {
-    const box = this.stage().nativeElement.getBoundingClientRect();
+  private fingersDistance(): number {
     const [first, second] = this.pointers.values();
-    return [
-      { x: first.x - box.left, y: first.y - box.top },
-      { x: second.x - box.left, y: second.y - box.top },
-    ];
+    return distance(first, second);
   }
 
   private fingersCenter(): Point {
@@ -568,10 +573,7 @@ export class ScreenViewComponent implements OnDestroy {
 
   // Wie das Touchpad: der Inhalt folgt den Fingern, hoechstens eine Nachricht pro Bild.
   private scrollPc(deltaX: number, deltaY: number): void {
-    if (this.scrollTarget !== null) {
-      this.sendMove(this.scrollTarget);
-      this.scrollTarget = null;
-    }
+    this.moveToScrollTarget();
 
     const scale = SCROLL_SCALE * this.remote.scrollSpeed() * (this.remote.invertScroll() ? -1 : 1);
     this.pendingScrollX -= deltaX * scale;
@@ -594,6 +596,27 @@ export class ScreenViewComponent implements OnDestroy {
     });
   }
 
+  // Wie Spreizen auf einem echten Touchpad: Strg + Mausrad, eine Stufe pro ZOOM_STEP Abstand.
+  private zoomPc(fingers: number): void {
+    this.moveToScrollTarget();
+    while (fingers >= this.zoomDistance * ZOOM_STEP) {
+      this.zoomDistance *= ZOOM_STEP;
+      this.remote.sendAction({ type: 'mouseZoom', delta: 120 });
+    }
+
+    while (fingers <= this.zoomDistance / ZOOM_STEP) {
+      this.zoomDistance /= ZOOM_STEP;
+      this.remote.sendAction({ type: 'mouseZoom', delta: -120 });
+    }
+  }
+
+  private moveToScrollTarget(): void {
+    if (this.scrollTarget !== null) {
+      this.sendMove(this.scrollTarget);
+      this.scrollTarget = null;
+    }
+  }
+
   private findScroller(): Element | null {
     for (
       let element = this.stage().nativeElement.parentElement;
@@ -614,7 +637,7 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   // x und y von 0 bis 1 im Bild; null neben dem Bild, ausser beim Ziehen (clampToPicture): dort
-  // bleibt der Zeiger am Rand. Der Rahmen enthaelt den Zoom schon, die Rechnung gilt also auch dann.
+  // bleibt der Zeiger am Rand.
   private toScreenPosition(
     clientX: number,
     clientY: number,
@@ -800,7 +823,6 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onFullscreenChange(): void {
     this.fullscreen.set(this.document.fullscreenElement === this.view().nativeElement);
-    this.viewport.set(FULL_VIEW);
     this.menuOpen.set(false);
     // Im Vollbild ist die Ansicht breiter - das Video in passender Breite neu holen.
     this.videoAbort?.abort();

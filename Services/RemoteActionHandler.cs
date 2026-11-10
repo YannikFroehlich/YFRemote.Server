@@ -66,6 +66,7 @@ public sealed partial class RemoteActionHandler(
                 "mousedown" => HandleMouseButton(request, isDown: true, session),
                 "mouseup" => HandleMouseButton(request, isDown: false, session),
                 "mousescroll" => HandleMouseScroll(request),
+                "mousezoom" => HandleMouseZoom(request),
                 "shutdown" => HandlePower(powerService.Shutdown, "shutdown"),
                 "restart" => HandlePower(powerService.Restart, "restart"),
                 "sleep" => HandlePower(powerService.Sleep, "sleep"),
@@ -342,6 +343,28 @@ public sealed partial class RemoteActionHandler(
         {
             logger.LogTrace("Executing mouseScroll action: deltaX={DeltaX}", request.DeltaX.Value);
             mouseService.ScrollHorizontal(request.DeltaX.Value);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Strg + Mausrad: so liefert auch ein echtes Touchpad das Spreizen, Chrome, Office und der
+    // Explorer zoomen damit.
+    private RemoteActionResponse HandleMouseZoom(RemoteActionRequest request)
+    {
+        if (request.Delta is null || !IsInRange(request.Delta.Value, MinMouseScrollDelta, MaxMouseScrollDelta))
+        {
+            return Fail($"Action 'mouseZoom' requires delta between {MinMouseScrollDelta} and {MaxMouseScrollDelta}.");
+        }
+
+        inputService.KeyDown("CTRL");
+        try
+        {
+            mouseService.Scroll(request.Delta.Value);
+        }
+        finally
+        {
+            inputService.KeyUp("CTRL");
         }
 
         return RemoteActionResponse.Ok();

@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Tab "Bildschirm": Gedrehte Monitore (Hochformat) laufen jetzt auch als H.264-Video statt als JPEG, also flüssiger und mit weniger Datenverkehr. Kann der Grafiktreiber das Bild nicht drehen, bleibt es bei JPEG.
+
 ## [2.51.0] - 2026-11-10
 
 ### Added

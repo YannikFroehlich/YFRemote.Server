@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Build: Angular auf 22.2.5 aktualisiert (CLI und Build-Werkzeug 22.2.6), nur Fehlerbehebungen von Angular.
+
 ## [2.50.3] - 2026-11-10
 
 ### Fixed

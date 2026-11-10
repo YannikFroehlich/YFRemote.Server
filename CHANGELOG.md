@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.51.0] - 2026-11-10
+
 ### Added
 
 - Tab "Bildschirm": Zwei Finger funktionieren jetzt wie auf einem Touchpad. Verschieben scrollt am PC, wenn die Seite selbst nichts zu scrollen hat (auch im Vollbild), und Spreizen zoomt am PC mit Strg + Mausrad, etwa in Chrome. Der Mauszeiger springt dafür unter die Finger.

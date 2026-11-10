@@ -30,6 +30,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Einstellungen: "Windows-Benachrichtigungen anzeigen" zeigt neue Benachrichtigungen des PCs ein paar Sekunden lang im Client an. Der PC meldet das beim Einschalten im Infobereich.
 - Zwischenablage: Die letzten 10 Texte vom PC stehen im Zwischenablage-Menü unter "Verlauf" und lassen sich kopieren oder wieder an den PC senden. Sie liegen nur im Speicher, nicht im Browser.
 
+### Changed
+
+- Build: Angular auf 22.2.5 aktualisiert (CLI und Build-Werkzeug 22.2.6), nur Fehlerbehebungen von Angular.
+
 ## [2.50.3] - 2026-11-10
 
 ### Fixed

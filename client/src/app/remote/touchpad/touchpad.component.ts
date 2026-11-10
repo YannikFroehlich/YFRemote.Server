@@ -154,8 +154,8 @@ const TAP_MAX_MOVEMENT_PX = 8;
 // So lange nach einem Tipp wird auf erneutes Aufsetzen gewartet (Tippen, halten, ziehen);
 // um genau diese Zeit kommt der Linksklick eines einzelnen Tipps verzögert an.
 const TAP_DRAG_WINDOW_MS = 180;
-const SCROLL_SCALE = 6;
-const MAX_SCROLL_DELTA = 1200;
+export const SCROLL_SCALE = 6;
+export const MAX_SCROLL_DELTA = 1200;
 // Zeiger-Beschleunigung: bis ACCEL_THRESHOLD px/ms bleibt die Bewegung 1:1, darüber wächst
 // der Faktor linear bis ACCEL_MAX_FACTOR. Kürzere Event-Abstände als MIN_EVENT_INTERVAL_MS
 // (zusammengefasste Events) würden sonst eine absurde Geschwindigkeit ergeben.
@@ -215,6 +215,8 @@ export class TouchpadComponent implements OnDestroy {
   protected readonly clipboardMenuOpen = signal(false);
   protected readonly pcClipboardLoading = signal(false);
   protected readonly pcClipboardText = signal<string | null>(null);
+  protected readonly clipboardHistory = this.remote.clipboardHistory;
+  protected readonly clipboardHistoryOpen = signal(false);
   protected readonly pcClipboardImage = signal<{
     readonly blob: Blob;
     readonly url: string;
@@ -503,6 +505,23 @@ export class TouchpadComponent implements OnDestroy {
     this.showClipboardPasteTarget();
   }
 
+  protected openClipboardHistory(): void {
+    this.clipboardMenuOpen.set(false);
+    this.closePcClipboard();
+    this.clipboardHistoryOpen.set(true);
+  }
+
+  // Oeffnet den Eintrag wie frisch geholt, mit "Kopieren".
+  protected showHistoryEntry(text: string): void {
+    this.clipboardHistoryOpen.set(false);
+    this.pcClipboardText.set(text);
+  }
+
+  protected async resendHistoryEntry(text: string): Promise<void> {
+    this.clipboardHistoryOpen.set(false);
+    this.showSendStatus((await this.clipboard.sendText(text)).success);
+  }
+
   protected async fetchPcClipboard(): Promise<void> {
     this.clipboardMenuOpen.set(false);
     this.closePcClipboard();
@@ -523,6 +542,7 @@ export class TouchpadComponent implements OnDestroy {
           : 'touchpad.pcClipboard.error' + this.targetSuffix(),
       );
     } else if (result.text) {
+      this.remote.rememberClipboardText(result.text);
       this.pcClipboardText.set(result.text);
     } else if (imageResult?.image) {
       this.pcClipboardImage.set({
@@ -565,6 +585,7 @@ export class TouchpadComponent implements OnDestroy {
   }
 
   protected closePcClipboard(): void {
+    this.clipboardHistoryOpen.set(false);
     this.pcClipboardText.set(null);
     const image = this.pcClipboardImage();
     if (image !== null) {

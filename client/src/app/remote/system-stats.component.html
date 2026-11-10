@@ -29,10 +29,28 @@
     </div>
     @if (windows(); as windows) {
       @for (window of windows; track window.id) {
-        <button type="button" class="window-list__item" (click)="focusWindow(window)">
-          <span class="window-list__title">{{ window.title }}</span>
-          <span class="window-list__app">{{ window.app }}</span>
-        </button>
+        <div class="window-list__row">
+          <button type="button" class="window-list__item" (click)="focusWindow(window)">
+            <span class="window-list__title">{{ window.title }}</span>
+            <span class="window-list__app">{{ window.app }}</span>
+          </button>
+          <button
+            type="button"
+            class="window-list__item window-list__action"
+            [attr.aria-label]="i18n.t('stats.windows.minimize', { title: window.title })"
+            (click)="minimizeWindow(window)"
+          >
+            –
+          </button>
+          <button
+            type="button"
+            class="window-list__item window-list__action"
+            [attr.aria-label]="i18n.t('stats.windows.close', { title: window.title })"
+            (click)="closeWindow(window)"
+          >
+            ×
+          </button>
+        </div>
       } @empty {
         <p class="stats-waiting">{{ i18n.t('stats.windows.empty') }}</p>
       }

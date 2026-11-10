@@ -8,6 +8,7 @@ import {
   MacroStep,
   MediaStatusMessage,
   OpenWindow,
+  PcNotificationMessage,
   ScreenMonitor,
   RemoteAction,
   RemoteResponse,
@@ -22,6 +23,7 @@ import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
   CLIPBOARD_SYNC_STORAGE_KEY,
+  PC_NOTIFICATIONS_STORAGE_KEY,
   getServerConfigFromLocation,
   getServerHttpBaseUrl,
   getServerPageUrl,
@@ -81,15 +83,20 @@ export const REMOTE_AUTO_CONNECT = new InjectionToken<boolean>('REMOTE_AUTO_CONN
   factory: () => true,
 });
 
-export const REMOTE_VIBRATE = new InjectionToken<(pattern: VibratePattern) => void>('REMOTE_VIBRATE', {
-  providedIn: 'root',
-  // iOS kennt navigator.vibrate nicht; dort bleibt es einfach still.
-  factory: () => (pattern: VibratePattern) => void globalThis.navigator?.vibrate?.(pattern),
-});
+export const REMOTE_VIBRATE = new InjectionToken<(pattern: VibratePattern) => void>(
+  'REMOTE_VIBRATE',
+  {
+    providedIn: 'root',
+    // iOS kennt navigator.vibrate nicht; dort bleibt es einfach still.
+    factory: () => (pattern: VibratePattern) => void globalThis.navigator?.vibrate?.(pattern),
+  },
+);
 
 const SOCKET_OPEN = 1;
 const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
 const ERROR_VISIBLE_MS = 4200;
+const PC_NOTIFICATION_VISIBLE_MS = 8000;
+const CLIPBOARD_HISTORY_SIZE = 10;
 const ACTION_CONFIRMATION_TIMEOUT_MS = 5000;
 const HAPTIC_PULSE_MS = 10;
 /** Wortgleich mit InputBlockedException des Servers: Windows weist waehrend der
@@ -164,6 +171,12 @@ export class RemoteService implements OnDestroy {
   private mediaCoverId: string | null = null;
   private readonly shutdownDeadlineSignal = signal<number | null>(null);
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
+  private readonly clipboardHistorySignal = signal<readonly string[]>([]);
+  private readonly pcNotificationsSignal = signal(
+    parseStoredFlag(this.readStorage(PC_NOTIFICATIONS_STORAGE_KEY), false),
+  );
+  private readonly pcNotificationSignal = signal<PcNotificationMessage | null>(null);
+  private pcNotificationTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
@@ -223,6 +236,13 @@ export class RemoteService implements OnDestroy {
   /** Zuletzt vom PC gemeldeter Zwischenablage-Text (nur bei eingeschaltetem Abgleich). Ein neues
    *  Objekt pro Meldung, damit auch derselbe Text erneut auslöst. */
   readonly pcClipboard = this.pcClipboardSignal.asReadonly();
+  /** Die letzten Texte aus der Zwischenablage des Servers, der neueste zuerst. */
+  readonly clipboardHistory = this.clipboardHistorySignal.asReadonly();
+  /** Gewuenschte Weiterleitung der Windows-Benachrichtigungen; nur der Windows-Server kann sie. */
+  readonly pcNotifications = this.pcNotificationsSignal.asReadonly();
+  readonly pcNotificationsSupported = computed(() => this.serverPlatformSignal() === 'windows');
+  /** Die zuletzt weitergeleitete Benachrichtigung, fuer ein paar Sekunden. */
+  readonly pcNotification = this.pcNotificationSignal.asReadonly();
   /** Den Abgleich koennen nur der Windows- und der Linux-Server, nicht die Android-App. */
   readonly clipboardSyncSupported = computed(
     () => this.serverPlatformSignal() === 'windows' || this.serverPlatformSignal() === 'linux',
@@ -371,6 +391,27 @@ export class RemoteService implements OnDestroy {
     this.storage?.setItem(LIVE_TYPING_STORAGE_KEY, String(enabled));
   }
 
+  // Nur im Speicher, nie in localStorage: Zwischenablagen enthalten oft Passwoerter.
+  rememberClipboardText(text: string): void {
+    this.clipboardHistorySignal.update((history) =>
+      [text, ...history.filter((entry) => entry !== text)].slice(0, CLIPBOARD_HISTORY_SIZE),
+    );
+  }
+
+  savePcNotifications(enabled: boolean): void {
+    this.pcNotificationsSignal.set(enabled);
+    this.storage?.setItem(PC_NOTIFICATIONS_STORAGE_KEY, String(enabled));
+    this.sendPcNotifications();
+  }
+
+  dismissPcNotification(): void {
+    if (this.pcNotificationTimer !== null) {
+      clearTimeout(this.pcNotificationTimer);
+      this.pcNotificationTimer = null;
+    }
+    this.pcNotificationSignal.set(null);
+  }
+
   saveClipboardSync(enabled: boolean): void {
     this.clipboardSyncSignal.set(enabled);
     this.storage?.setItem(CLIPBOARD_SYNC_STORAGE_KEY, String(enabled));
@@ -460,7 +501,9 @@ export class RemoteService implements OnDestroy {
   /** Die Apps, die ein eigener Button am PC starten darf; leer, wenn der PC nicht antwortet. */
   async readLaunchApps(): Promise<readonly string[]> {
     const apps = (await this.readJson('/launch/apps'))?.['apps'];
-    return Array.isArray(apps) ? apps.filter((name): name is string => typeof name === 'string') : [];
+    return Array.isArray(apps)
+      ? apps.filter((name): name is string => typeof name === 'string')
+      : [];
   }
 
   /** Die offenen Fenster am PC (nur Windows); null, wenn der PC nicht antwortet. */
@@ -713,6 +756,7 @@ export class RemoteService implements OnDestroy {
     this.manualDisconnectSignal.set(true);
     this.clearReconnectTimer();
     this.clearErrorTimer();
+    this.dismissPcNotification();
     this.closeActiveSocket();
   }
 
@@ -819,12 +863,25 @@ export class RemoteService implements OnDestroy {
 
     if (isClipboardPushMessage(message)) {
       this.pcClipboardSignal.set(message);
+      this.rememberClipboardText(message.text);
+      return;
+    }
+
+    if (isPcNotificationMessage(message)) {
+      this.dismissPcNotification();
+      this.pcNotificationSignal.set(message);
+      this.pcNotificationTimer = setTimeout(
+        () => this.dismissPcNotification(),
+        PC_NOTIFICATION_VISIBLE_MS,
+      );
       return;
     }
 
     if (isShutdownTimerMessage(message)) {
       this.shutdownDeadlineSignal.set(
-        message.remainingSeconds === undefined ? null : Date.now() + message.remainingSeconds * 1000,
+        message.remainingSeconds === undefined
+          ? null
+          : Date.now() + message.remainingSeconds * 1000,
       );
       return;
     }
@@ -944,6 +1001,9 @@ export class RemoteService implements OnDestroy {
     if (this.clipboardSyncSignal()) {
       this.sendClipboardSync();
     }
+    if (this.pcNotificationsSignal()) {
+      this.sendPcNotifications();
+    }
     if (this.systemStatsWatched) {
       this.sendSystemStats();
     }
@@ -952,6 +1012,12 @@ export class RemoteService implements OnDestroy {
     }
     if (this.appsWatched) {
       this.sendAppsWatch();
+    }
+  }
+
+  private sendPcNotifications(): void {
+    if (this.pcNotificationsSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'notifications', enabled: this.pcNotificationsSignal() });
     }
   }
 
@@ -1222,6 +1288,17 @@ function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
 function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
   const message = value as Partial<ClipboardPushMessage> | null;
   return message?.type === 'clipboard' && typeof message.text === 'string';
+}
+
+function isPcNotificationMessage(value: unknown): value is PcNotificationMessage {
+  const message = value as Partial<PcNotificationMessage> | null;
+  return (
+    message?.type === 'notification' &&
+    typeof message.id === 'number' &&
+    typeof message.app === 'string' &&
+    typeof message.title === 'string' &&
+    typeof message.text === 'string'
+  );
 }
 
 function isSystemStatsMessage(value: unknown): value is SystemStatsMessage {

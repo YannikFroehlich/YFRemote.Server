@@ -286,6 +286,20 @@
   font-size: 0.75rem;
 }
 
+.clipboard-history__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.clipboard-history__text {
+  display: block;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pc-clipboard__actions {
   display: flex;
   justify-content: flex-end;

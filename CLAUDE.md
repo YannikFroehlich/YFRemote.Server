@@ -178,7 +178,9 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   start (`IAppLauncher.ListApps`), for the button editor's suggestions; same gate and `no-store`.
 - `GET /windows` (`WindowEndpoints`) → `{ windows: [{id,title,app}] }` for the "PC" tab's window
   switcher, same gate and `no-store`; `501` without an `IWindowService` (Linux). `focusWindow`
-  (`id`, digits only, must be in the current list) brings one to the front.
+  (`id`, digits only, must be in the current list) brings one to the front, `minimizeWindow` and
+  `closeWindow` (same check, `IWindowService.TryApply`) minimize it or post `WM_CLOSE` like its X
+  button, so the app can still ask about unsaved work; an elevated window refuses the message.
   `WindowsWindowService` follows the Alt+Tab rules (visible, unowned, not cloaked, no
   `WS_EX_TOOLWINDOW`, `WS_EX_NOACTIVATE` only with `WS_EX_APPWINDOW`, own process excluded), front
   window first. `SetForegroundWindow` only works for the process that sent the last input, so it
@@ -219,7 +221,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   sees nothing). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
   per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
   releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
-  how long a dead connection goes unnoticed). Unzoomed, two fingers scroll the page instead. Zoom
+  how long a dead connection goes unnoticed). Unzoomed, two fingers scroll the page instead, or,
+  when the page has nothing to scroll (always in fullscreen), the PC: `mouseScroll` like the touchpad
+  (`SCROLL_SCALE`), after one `screenMove` to where the fingers landed, so the wheel hits the window
+  under them. Zoom
   resets on a monitor or fullscreen change. In fullscreen the toolbar collapses behind a logo button
   (`.screen-view__handle`): a tap opens it towards the free side, dragging moves the logo (fraction of
   the view, kept only until the tab closes), and a tap on the picture closes it without clicking the PC.
@@ -261,7 +266,9 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   `AudioBufferSourceNode` (AudioWorklet exists only over HTTPS), 150 ms lead, chunks dropped beyond
   600 ms queued. The capture was checked against a played tone on the dev PC on 2026-11-03 (48 kHz
   stereo). The tab's "Tastatur" switch opens the device keyboard on a live field
-  (`liveTextActions` in `keyboard-keys.ts`, shared with the touchpad), "Vollbild" puts the view
+  (`liveTextActions` in `keyboard-keys.ts`, shared with the touchpad) plus `.screen-view__keys`
+  (Strg/Alt/Win held until the next key, also a typed letter or digit, which then becomes a
+  `hotkey`; Esc, Tab, arrows, Entf), "Vollbild" puts the view
   into `requestFullscreen` with a landscape lock. The owner confirmed all three on the phone against
   a dev build on 2026-11-03.
 - `/files` and `POST /clipboard/*` require the same `Origin` check plus a `Bearer` pairing token.
@@ -359,8 +366,15 @@ subscribed for every connection and announces the current state on subscribe; th
 broadcaster is subscribed only after the device sends `{"type":"clipboardSync","enabled":true}`
 (kept in the connection's `RemoteActionSession`), and it never sends content that was already in
 the clipboard when sync started. `ClipboardReadNotifier.NotifySyncEnabled` shows a tray balloon
-once per device and run. A third broadcaster pushes
-`{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb"}`,
+once per device and run. Windows notifications work the same way (`{"type":"notifications","enabled"}`,
+Client setting "Windows-Benachrichtigungen anzeigen", Windows server only, own balloon via
+`NotifyNotificationsEnabled`): `WindowsNotificationReader` polls `UserNotificationListener` and
+pushes `{"type":"notification","id","app","title","text"}` for the toast with the highest id seen so
+far, so dismissing the newest never resends an older one. The listener grants access to the
+unpackaged app, but its `NotificationChanged` event needs package identity (`0x80070490`, measured on
+the dev PC on 2026-11-10), hence the polling. The Client shows it for 8 s as a banner. A third broadcaster pushes
+`{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging"}`
+(battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC),
 subscribed only while the device has the Client's "PC" tab open (`{"type":"systemStats","enabled"}`,
 kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing otherwise.
 `WindowsSystemStatsReader` uses `GetSystemTimes`, `GlobalMemoryStatusEx`, the PDH counter

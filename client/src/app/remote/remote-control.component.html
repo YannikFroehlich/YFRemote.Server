@@ -208,7 +208,9 @@
             (click)="selectView('mixer')"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M6 3h2v6h2v4H8v8H6v-8H4V9h2V3Zm5 0h2v10h2v4h-2v4h-2v-4H9v-4h2V3Zm5 0h2v2h2v4h-2v12h-2V9h-2V5h2V3Z" />
+              <path
+                d="M6 3h2v6h2v4H8v8H6v-8H4V9h2V3Zm5 0h2v10h2v4h-2v4h-2v-4H9v-4h2V3Zm5 0h2v2h2v4h-2v12h-2V9h-2V5h2V3Z"
+              />
             </svg>
             <span>{{ i18n.t('shell.tabMixer') }}</span>
           </button>
@@ -235,6 +237,25 @@
             </button>
             <button class="secondary-button" type="button" (click)="dismissFileOffer()">
               {{ i18n.t(fileOfferError() ? 'fileOffer.close' : 'fileOffer.dismiss') }}
+            </button>
+          </div>
+        </div>
+      }
+    }
+
+    @if (pcNotification(); as notification) {
+      @if (activeView() !== 'gamepad' && !fileOffer()) {
+        <div class="update-banner file-offer" role="status">
+          <span class="file-offer__title">{{ notification.title || notification.app }}</span>
+          @if (notification.text) {
+            <span class="pc-notification__text">{{ notification.text }}</span>
+          }
+          @if (notification.title && notification.app) {
+            <span class="file-offer__file">{{ notification.app }}</span>
+          }
+          <div class="file-offer__actions">
+            <button class="secondary-button" type="button" (click)="dismissPcNotification()">
+              {{ i18n.t('fileOffer.close') }}
             </button>
           </div>
         </div>
@@ -293,7 +314,8 @@
             }
             @if (media.title) {
               <span class="media-strip__title">
-                {{ media.title }}@if (media.artist) {
+                {{ media.title }}
+                @if (media.artist) {
                   <span class="media-strip__artist"> · {{ media.artist }}</span>
                 }
               </span>
@@ -414,7 +436,9 @@
               <button
                 class="layout-chip"
                 type="button"
-                [attr.aria-label]="i18n.t('shell.restoreAriaLabel', { label: i18n.t(button.label) })"
+                [attr.aria-label]="
+                  i18n.t('shell.restoreAriaLabel', { label: i18n.t(button.label) })
+                "
                 (click)="restoreButton(button.id)"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">

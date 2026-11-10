@@ -200,6 +200,21 @@
           <p class="settings-hint">{{ i18n.t('settings.clipboardSync.unsupported') }}</p>
         }
 
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="form.controls.pcNotifications.value"
+          [disabled]="!pcNotificationsSupported()"
+          (click)="toggleSetting('pcNotifications')"
+        >
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>{{ i18n.t('settings.pcNotifications') }}</span>
+        </button>
+        @if (!pcNotificationsSupported()) {
+          <p class="settings-hint">{{ i18n.t('settings.pcNotifications.unsupported') }}</p>
+        }
+
         <label class="field" for="settings-language">
           <span>{{ i18n.t('settings.language.label') }}</span>
           <select id="settings-language" formControlName="language">
@@ -400,7 +415,11 @@
                 [disabled]="unpairing()"
                 (click)="confirmUnpair()"
               >
-                {{ unpairing() ? i18n.t('settings.device.unpairing') : i18n.t('settings.device.unpair') }}
+                {{
+                  unpairing()
+                    ? i18n.t('settings.device.unpairing')
+                    : i18n.t('settings.device.unpair')
+                }}
               </button>
               <button
                 class="secondary-button"

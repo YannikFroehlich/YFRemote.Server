@@ -6,7 +6,14 @@ public interface IWindowService
     IReadOnlyList<OpenWindow> ListWindows();
 
     // false, wenn das Fenster nicht (mehr) in der Liste steht.
-    bool TryFocus(string id);
+    bool TryApply(string id, WindowCommand command);
+}
+
+public enum WindowCommand
+{
+    Focus,
+    Minimize,
+    Close,
 }
 
 // Id ist das Fensterhandle als Dezimalzahl, App der Name des Programms.

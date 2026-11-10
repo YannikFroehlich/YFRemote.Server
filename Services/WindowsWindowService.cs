@@ -13,6 +13,8 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
     private const long WsExNoActivate = 0x08000000;
     private const int DwmwaCloaked = 14;
     private const int SwRestore = 9;
+    private const int SwMinimize = 6;
+    private const uint WmClose = 0x10;
 
     // Wie Alt+Tab: sichtbar, ohne Besitzer, kein Werkzeugfenster, nicht aktivierbare Fenster nur mit
     // WS_EX_APPWINDOW (sonst kaemen Hilfsfenster wie Parsecs 1x1-Overlay mit), mit Titel und nicht
@@ -43,7 +45,7 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
         return windows;
     }
 
-    public bool TryFocus(string id)
+    public bool TryApply(string id, WindowCommand command)
     {
         if (!ListWindows().Any(window => window.Id == id))
         {
@@ -51,6 +53,27 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
         }
 
         var handle = (nint)long.Parse(id, CultureInfo.InvariantCulture);
+        switch (command)
+        {
+            case WindowCommand.Minimize:
+                ShowWindow(handle, SwMinimize);
+                break;
+            // Wie das X am Fenster: die App darf noch nach ungespeicherten Aenderungen fragen. Fenster
+            // eines Prozesses mit Adminrechten nehmen die Nachricht nicht an.
+            case WindowCommand.Close when !PostMessage(handle, WmClose, 0, 0):
+                throw new InvalidOperationException("Windows refused to close this window.");
+            case WindowCommand.Close:
+                break;
+            default:
+                Focus(handle);
+                break;
+        }
+
+        return true;
+    }
+
+    private void Focus(nint handle)
+    {
         if (IsIconic(handle))
         {
             ShowWindow(handle, SwRestore);
@@ -64,8 +87,6 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
         {
             throw new InvalidOperationException("Windows refused to bring this window to the front.");
         }
-
-        return true;
     }
 
     internal static bool IsAltTabStyle(long extendedStyle) =>
@@ -124,6 +145,10 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(nint handle);
+
+    [DllImport("user32.dll", EntryPoint = "PostMessageW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessage(nint handle, uint message, nint wParam, nint lParam);
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmGetWindowAttribute(nint handle, int attribute, out int value, int size);

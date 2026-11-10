@@ -396,7 +396,7 @@ public sealed class MediaEndpointTests
     {
         public IReadOnlyList<OpenWindow> ListWindows() => [new OpenWindow("131072", "Editor", "Notepad")];
 
-        public bool TryFocus(string id) => false;
+        public bool TryApply(string id, WindowCommand command) => false;
     }
 
     private sealed class FakeAppLauncher : IAppLauncher

@@ -250,6 +250,17 @@ export const TRANSLATIONS = {
   'touchpad.clipboard.ariaLabel': { de: 'Zwischenablage senden', en: 'Send clipboard' },
   'touchpad.clipboard.hint': { de: 'Jetzt einfügen', en: 'Paste now' },
   'touchpad.clipboard.menuTitle': { de: 'Zwischenablage', en: 'Clipboard' },
+  'touchpad.clipboard.history': { de: 'Verlauf ({{count}})', en: 'History ({{count}})' },
+  'touchpad.clipboard.historyLabel': { de: 'Zwischenablage-Verlauf', en: 'Clipboard history' },
+  'touchpad.clipboard.historySend': { de: 'Senden', en: 'Send' },
+  'touchpad.clipboard.historySendTitle': {
+    de: 'Wieder in die Zwischenablage des PCs legen',
+    en: 'Put it back on the PC clipboard',
+  },
+  'touchpad.clipboard.historySendTitle.android': {
+    de: 'Wieder in die Zwischenablage des Geräts legen',
+    en: 'Put it back on the device clipboard',
+  },
   'touchpad.clipboard.sendOption': { de: 'An PC senden', en: 'Send to PC' },
   'touchpad.clipboard.sendOption.android': { de: 'An Gerät senden', en: 'Send to device' },
   'touchpad.clipboard.success': { de: 'Zwischenablage gesendet.', en: 'Clipboard sent.' },
@@ -401,6 +412,14 @@ export const TRANSLATIONS = {
     de: 'Nur über HTTPS möglich (im Infobereich "HTTPS verwenden").',
     en: 'Only available over HTTPS ("HTTPS verwenden" in the tray menu).',
   },
+  'settings.pcNotifications': {
+    de: 'Windows-Benachrichtigungen anzeigen',
+    en: 'Show Windows notifications',
+  },
+  'settings.pcNotifications.unsupported': {
+    de: 'Nur mit einem Windows-PC.',
+    en: 'Only with a Windows PC.',
+  },
   'settings.clipboardSync.unsupported': {
     de: 'Diese Gegenstelle kann die Zwischenablage nicht abgleichen.',
     en: 'This server cannot sync the clipboard.',
@@ -452,6 +471,7 @@ export const TRANSLATIONS = {
   },
   'screen.keyboard': { de: 'Tastatur', en: 'Keyboard' },
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
+  'screen.keys': { de: 'Sondertasten', en: 'Special keys' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
   'screen.menu': { de: 'Optionen', en: 'Options' },
   'screen.monitor': { de: 'Monitor', en: 'Monitor' },
@@ -468,6 +488,8 @@ export const TRANSLATIONS = {
   'screen.quality.balanced': { de: 'Ausgeglichen', en: 'Balanced' },
   'screen.quality.quality': { de: 'Qualität', en: 'Quality' },
   'stats.windows.refresh': { de: 'Aktualisieren', en: 'Refresh' },
+  'stats.windows.minimize': { de: '{{title}} minimieren', en: 'Minimize {{title}}' },
+  'stats.windows.close': { de: '{{title}} schließen', en: 'Close {{title}}' },
   'stats.windows.empty': { de: 'Keine offenen Fenster', en: 'No open windows' },
   'stats.windows.unavailable': {
     de: 'Fensterliste nicht verfügbar',

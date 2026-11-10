@@ -789,6 +789,14 @@ h2 {
   font-weight: 750;
 }
 
+.pc-notification__text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  white-space: pre-line;
+}
+
 .file-offer__file {
   overflow: hidden;
   color: var(--muted);
@@ -983,6 +991,12 @@ h2 {
 }
 
 // Unsichtbares Feld, nur damit die Handy-Tastatur aufgeht; was man tippt, landet live am PC.
+.screen-view__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .screen-view__keyboard {
   position: absolute;
   width: 1px;
@@ -1173,6 +1187,19 @@ h2 {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.window-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+}
+
+.window-list__action {
+  place-items: center;
+  min-width: 46px;
+  padding: 0 12px;
+  font-size: 1.2rem;
 }
 
 .window-list__item:active {
@@ -2351,7 +2378,9 @@ select:focus-visible {
   background:
     radial-gradient(circle, rgba(var(--well-dot-rgb), 0.07) 1px, transparent 1.2px),
     var(--surface-well);
-  background-size: 22px 22px, auto;
+  background-size:
+    22px 22px,
+    auto;
   color: var(--muted);
   font-size: 0.76rem;
   cursor: crosshair;

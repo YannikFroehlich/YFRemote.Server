@@ -28,14 +28,7 @@ import { PresentationComponent } from './presentation.component';
 import { ScreenViewComponent } from './screen-view.component';
 
 type RemoteView =
-  | 'remote'
-  | 'touchpad'
-  | 'screen'
-  | 'keyboard'
-  | 'presentation'
-  | 'gamepad'
-  | 'system'
-  | 'mixer';
+  'remote' | 'touchpad' | 'screen' | 'keyboard' | 'presentation' | 'gamepad' | 'system' | 'mixer';
 // "Nur Medien": Eingaben ausser Medientasten und den Bildschirm lehnt der PC ab.
 const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set([
   'touchpad',
@@ -81,6 +74,7 @@ export class RemoteControlComponent {
   protected readonly lastError = this.remote.lastError;
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
+  protected readonly pcNotification = this.remote.pcNotification;
   protected readonly mediaStatus = this.remote.mediaStatus;
   protected readonly mediaCover = this.remote.mediaCover;
   protected readonly formatTime = formatDuration;
@@ -159,6 +153,10 @@ export class RemoteControlComponent {
     if (downloaded) {
       this.remote.dismissFileOffer();
     }
+  }
+
+  protected dismissPcNotification(): void {
+    this.remote.dismissPcNotification();
   }
 
   protected dismissFileOffer(): void {
@@ -283,4 +281,3 @@ export class RemoteControlComponent {
     }
   }
 }
-

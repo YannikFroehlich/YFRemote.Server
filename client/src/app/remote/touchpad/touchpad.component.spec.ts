@@ -785,6 +785,37 @@ describe('TouchpadComponent', () => {
     expect(root.querySelector('.settings-message--success')).not.toBeNull();
   });
 
+  it('keeps the PC clipboard texts as a history to open or send again', async () => {
+    const { fixture, sockets } = await setupTouchpad({
+      serverPlatform: 'windows',
+      pcClipboardResponse: { success: true, text: 'Hallo vom PC' },
+    });
+    const root = fixture.nativeElement as HTMLElement;
+    await fetchPcClipboard(fixture);
+    root.querySelector<HTMLButtonElement>('.pc-clipboard .secondary-button')!.click();
+    sockets[0].onmessage?.(
+      new MessageEvent('message', { data: '{"type":"clipboard","text":"gepusht"}' }),
+    );
+    fixture.detectChanges();
+
+    root.querySelector<HTMLButtonElement>('button[aria-label="Zwischenablage"]')!.click();
+    fixture.detectChanges();
+    menuOption(fixture, 'Verlauf (2)').click();
+    fixture.detectChanges();
+    const entries = () =>
+      Array.from(root.querySelectorAll<HTMLButtonElement>('.clipboard-history__text'));
+    expect(entries().map((entry) => entry.textContent?.trim())).toEqual([
+      'gepusht',
+      'Hallo vom PC',
+    ]);
+
+    entries()[1].click();
+    fixture.detectChanges();
+    expect(root.querySelector<HTMLTextAreaElement>('.pc-clipboard__text')!.value).toBe(
+      'Hallo vom PC',
+    );
+  });
+
   it('offers only manual copying where the device clipboard is not writable', async () => {
     const { fixture } = await setupTouchpad({
       serverPlatform: 'windows',
@@ -861,7 +892,9 @@ describe('TouchpadComponent', () => {
       expect(new Uint8Array(await saved[0].blob.arrayBuffer())).toEqual(png);
       expect(root.querySelector('.pc-clipboard')).toBeNull();
       expect(revoked).toEqual(['blob:pc-clipboard']);
-      expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe('Bild gespeichert.');
+      expect(root.querySelector('.settings-message')!.textContent!.trim()).toBe(
+        'Bild gespeichert.',
+      );
     });
 
     it('copies it to the device clipboard where that is possible', async () => {

@@ -44,6 +44,7 @@ export class SettingsDialogComponent {
   protected readonly theme = inject(ThemeService);
   protected readonly i18n = inject(TranslationService);
   protected readonly clipboardSync = inject(ClipboardSyncService);
+  protected readonly pcNotificationsSupported = this.remote.pcNotificationsSupported;
   // Ueber die App-Bruecke, wo es eine gibt: im WebView der Android-App tut ein blob:-Link nichts.
   private readonly saveFile = inject(FILE_SAVER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
@@ -89,6 +90,7 @@ export class SettingsDialogComponent {
     pointerAcceleration: new FormControl(this.remote.pointerAcceleration(), { nonNullable: true }),
     haptics: new FormControl(this.remote.haptics(), { nonNullable: true }),
     clipboardSync: new FormControl(this.remote.clipboardSync(), { nonNullable: true }),
+    pcNotifications: new FormControl(this.remote.pcNotifications(), { nonNullable: true }),
     language: new FormControl<Lang>(this.i18n.language(), { nonNullable: true }),
     themeMode: new FormControl<ThemeMode>(this.theme.mode(), { nonNullable: true }),
     /** Eingebauter Stil oder `custom:<id>` für einen eigenen. */
@@ -129,6 +131,9 @@ export class SettingsDialogComponent {
     this.remote.saveHaptics(this.form.controls.haptics.value);
     if (this.form.controls.clipboardSync.value !== this.remote.clipboardSync()) {
       this.remote.saveClipboardSync(this.form.controls.clipboardSync.value);
+    }
+    if (this.form.controls.pcNotifications.value !== this.remote.pcNotifications()) {
+      this.remote.savePcNotifications(this.form.controls.pcNotifications.value);
     }
     this.i18n.setLanguage(this.form.controls.language.value);
     this.saveTheme();
@@ -244,7 +249,7 @@ export class SettingsDialogComponent {
   }
 
   protected toggleSetting(
-    name: 'pointerAcceleration' | 'invertScroll' | 'haptics' | 'clipboardSync',
+    name: 'pointerAcceleration' | 'invertScroll' | 'haptics' | 'clipboardSync' | 'pcNotifications',
   ): void {
     const control = this.form.controls[name];
     control.setValue(!control.value);

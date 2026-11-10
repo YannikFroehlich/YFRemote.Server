@@ -48,7 +48,7 @@ new component the same, unless everything its template reads is a signal or an i
 **Everything meaningful lives under `src/app/remote/`.** The feature has six layers:
 
 1. **`remote.models.ts`** — shared types: `RemoteAction` (discriminated union of `key`/`hotkey`/
-   `mouseMove`/`mouseClick`/`mouseScroll`/`shutdown`/`restart`/`sleep`/`lock`/`displayOff`/
+   `mouseMove`/`mouseClick`/`mouseScroll`/`mouseZoom`/`shutdown`/`restart`/`sleep`/`lock`/`displayOff`/
    `shutdownTimer`/`volume`), `ServerConfig`,
    `RemoteResponse`, `RemoteButtonConfig`, `RemoteIcon`.
 2. **`remote.service.ts`** (`RemoteService`) — the single source of truth for connection state and
@@ -215,6 +215,9 @@ new component the same, unless everything its template reads is a signal or an i
      default factory returns `AppSpeechRecognizer` instead, an adapter over the app's
      `window.YFRemoteSpeech` (`SPEECH_BRIDGE`): the app recognizes natively and answers with
      `yfremote-speech` events, so dictation works over plain HTTP there and skips the HTTPS hint.
+     The clipboard menu's "Verlauf" lists the last 10 server clipboard texts
+     (`RemoteService.clipboardHistory`, from `clipboard` pushes and "Vom PC holen"; memory only,
+     never `localStorage`, since clipboards hold passwords) to copy or send again.
      The clipboard button's "Vom PC holen" shows the PC's text or, when it has none and the server
      is a PC, the image from `GET /clipboard/image` (`ClipboardService.readImage`) with "Kopieren"
      (`DEVICE_CLIPBOARD_IMAGE_WRITER`, secure context only) and "Speichern" (`FILE_SAVER`). Inside

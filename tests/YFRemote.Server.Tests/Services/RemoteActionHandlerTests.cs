@@ -167,6 +167,18 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_MouseZoom_ScrollsWithCtrlHeld()
+    {
+        var input = new Integration.FakeInputService();
+        var handler = new RemoteActionHandler(input, input, new RecordingPowerService(), NullLogger<RemoteActionHandler>.Instance);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "mouseZoom", Delta = -120 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "mouseZoom" }).Success);
+
+        CollectionAssert.AreEqual(new[] { "keyDown CTRL", "scroll -120", "keyUp CTRL" }, input.Calls.ToArray());
+    }
+
+    [TestMethod]
     public void Handle_MouseScroll_Horizontal_ForwardsDeltaXToMouseService()
     {
         var mouseService = new RecordingMouseService();
@@ -487,6 +499,20 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow("minimizeWindow", WindowCommand.Minimize)]
+    [DataRow("closeWindow", WindowCommand.Close)]
+    public void Handle_WindowCommands_ReachOnlyListedWindows(string type, WindowCommand command)
+    {
+        var windows = new RecordingWindowService();
+        var handler = CreateHandler(windows: windows);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = type, Id = "0x20000" }).Success);
+        Assert.IsNull(windows.Command);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = type, Id = "131072" }).Success);
+        Assert.AreEqual(command, windows.Command);
+    }
+
+    [TestMethod]
     [DataRow("https://www.youtube.com/watch?v=1", true)]
     [DataRow("HTTP://example.org", true)]
     [DataRow("file:///C:/Windows/System32/calc.exe", false)]
@@ -726,11 +752,14 @@ public sealed class RemoteActionHandlerTests
     {
         public string? Focused { get; private set; }
 
+        public WindowCommand? Command { get; private set; }
+
         public IReadOnlyList<OpenWindow> ListWindows() => [new OpenWindow("131072", "Editor", "Notepad")];
 
-        public bool TryFocus(string id)
+        public bool TryApply(string id, WindowCommand command)
         {
             Focused = ListWindows().Any(window => window.Id == id) ? id : null;
+            Command = Focused is null ? null : command;
             return Focused is not null;
         }
     }

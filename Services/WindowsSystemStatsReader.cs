@@ -64,6 +64,9 @@ public sealed partial class WindowsSystemStatsReader(
             var memory = new MemoryStatusEx { Length = (uint)Marshal.SizeOf<MemoryStatusEx>() };
             GlobalMemoryStatusEx(ref memory);
             const long bytesPerMb = 1024 * 1024;
+            var (batteryLevel, batteryCharging) = GetSystemPowerStatus(out var power)
+                ? Battery(power.AcLineStatus, power.BatteryFlag, power.BatteryLifePercent)
+                : default;
 
             stats = new SystemStatsMessage(
                 ReadCpuLoad(),
@@ -71,7 +74,9 @@ public sealed partial class WindowsSystemStatsReader(
                 ReadGpuLoad(resumed),
                 ReadGpuTemperature() ?? sensorToolTemperatures.Gpu,
                 (long)(memory.TotalPhys - memory.AvailPhys) / bytesPerMb,
-                (long)memory.TotalPhys / bytesPerMb);
+                (long)memory.TotalPhys / bytesPerMb,
+                batteryLevel,
+                batteryCharging);
         }
 
         _ = RefreshSensorToolTemperaturesAsync();
@@ -382,6 +387,26 @@ public sealed partial class WindowsSystemStatsReader(
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx buffer);
+
+    // Flag 128: kein Akku (Desktop-PC), 255 bei Flag und Prozent: unbekannt. "Laedt" ist hier
+    // "am Netz", auch voll - sonst stuende bei einem eingesteckten, vollen Laptop "entlaedt".
+    internal static (int? Level, bool? Charging) Battery(byte acLineStatus, byte batteryFlag, byte percent) =>
+        batteryFlag is 128 or 255 || percent > 100 ? (null, null) : (percent, acLineStatus == 1);
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetSystemPowerStatus(out SystemPowerStatus status);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SystemPowerStatus
+    {
+        public byte AcLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
+    }
 
     [DllImport("pdh.dll", EntryPoint = "PdhOpenQueryW", CharSet = CharSet.Unicode)]
     private static extern int PdhOpenQuery(string? dataSource, IntPtr userData, out IntPtr query);

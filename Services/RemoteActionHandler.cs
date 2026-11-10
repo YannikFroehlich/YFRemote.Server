@@ -20,7 +20,8 @@ public sealed partial class RemoteActionHandler(
     IAppVolumeService? appVolumes = null,
     PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null,
     IAppLauncher? appLauncher = null,
-    IWindowService? windows = null)
+    IWindowService? windows = null,
+    PollingBroadcaster<PcNotificationMessage?>? notifications = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -65,6 +66,7 @@ public sealed partial class RemoteActionHandler(
                 "mousedown" => HandleMouseButton(request, isDown: true, session),
                 "mouseup" => HandleMouseButton(request, isDown: false, session),
                 "mousescroll" => HandleMouseScroll(request),
+                "mousezoom" => HandleMouseZoom(request),
                 "shutdown" => HandlePower(powerService.Shutdown, "shutdown"),
                 "restart" => HandlePower(powerService.Restart, "restart"),
                 "sleep" => HandlePower(powerService.Sleep, "sleep"),
@@ -76,6 +78,7 @@ public sealed partial class RemoteActionHandler(
                 "gamepad" => HandleGamepad(request, session),
                 "gamepaddisconnect" => HandleGamepadDisconnect(session),
                 "clipboardsync" => HandleClipboardSync(request, session),
+                "notifications" => HandleNotifications(request, session),
                 "systemstats" => HandleSystemStats(request, session),
                 "voicemeeter" => HandleVoicemeeterWatch(request, session),
                 "voicemeeterparameter" => HandleVoicemeeterParameter(request),
@@ -83,7 +86,9 @@ public sealed partial class RemoteActionHandler(
                 "appvolume" => HandleAppVolume(request),
                 "audiooutput" => HandleAudioOutput(request),
                 "launch" => HandleLaunch(request),
-                "focuswindow" => HandleFocusWindow(request),
+                "focuswindow" => HandleWindow(request, WindowCommand.Focus),
+                "minimizewindow" => HandleWindow(request, WindowCommand.Minimize),
+                "closewindow" => HandleWindow(request, WindowCommand.Close),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -121,7 +126,7 @@ public sealed partial class RemoteActionHandler(
             "key" => keys.Count == 1 && (keys[0].StartsWith("MEDIA_") || keys[0].StartsWith("VOLUME_")),
             "volume" or "mediaseek" or "appvolume" or "audiooutput" or "voicemeeter" or "voicemeeterparameter"
                 or "apps" or "systemstats" or "gamepaddisconnect" => true,
-            "clipboardsync" => request.Enabled == false,
+            "clipboardsync" or "notifications" => request.Enabled == false,
             _ => false
         };
 
@@ -343,6 +348,28 @@ public sealed partial class RemoteActionHandler(
         return RemoteActionResponse.Ok();
     }
 
+    // Strg + Mausrad: so liefert auch ein echtes Touchpad das Spreizen, Chrome, Office und der
+    // Explorer zoomen damit.
+    private RemoteActionResponse HandleMouseZoom(RemoteActionRequest request)
+    {
+        if (request.Delta is null || !IsInRange(request.Delta.Value, MinMouseScrollDelta, MaxMouseScrollDelta))
+        {
+            return Fail($"Action 'mouseZoom' requires delta between {MinMouseScrollDelta} and {MaxMouseScrollDelta}.");
+        }
+
+        inputService.KeyDown("CTRL");
+        try
+        {
+            mouseService.Scroll(request.Delta.Value);
+        }
+        finally
+        {
+            inputService.KeyUp("CTRL");
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
     private RemoteActionResponse HandlePower(Action execute, string actionName)
     {
         // Absichtlich auf Information-Level: ein Herunterfahren aendert den Rechnerzustand und
@@ -471,6 +498,40 @@ public sealed partial class RemoteActionHandler(
             });
             logger.LogInformation("Clipboard sync enabled for {DeviceName}.", session.DeviceName);
             clipboardReadNotifier?.NotifySyncEnabled(session.DeviceName);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Wie der Zwischenablage-Abgleich: nur was ab dem Einschalten neu kommt, und der Tray zeigt es an.
+    private RemoteActionResponse HandleNotifications(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (notifications is null || session is null)
+        {
+            return Fail("Notifications are not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'notifications' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.NotificationsSubscription?.Dispose();
+            session.NotificationsSubscription = null;
+        }
+        else if (session.NotificationsSubscription is null)
+        {
+            session.NotificationsSubscription = notifications.Subscribe(message =>
+            {
+                if (message is not null)
+                {
+                    session.PushNotification(message);
+                }
+            });
+            logger.LogInformation("Notifications forwarded to {DeviceName}.", session.DeviceName);
+            clipboardReadNotifier?.NotifyNotificationsEnabled(session.DeviceName);
         }
 
         return RemoteActionResponse.Ok();
@@ -712,7 +773,7 @@ public sealed partial class RemoteActionHandler(
     }
 
     // Nur ein Fenster aus der aktuellen Liste, wie beim Ausgabegeraet.
-    private RemoteActionResponse HandleFocusWindow(RemoteActionRequest request)
+    private RemoteActionResponse HandleWindow(RemoteActionRequest request, WindowCommand command)
     {
         if (windows is null)
         {
@@ -721,15 +782,15 @@ public sealed partial class RemoteActionHandler(
 
         if (request.Id is not { } id || !WindowIdPattern().IsMatch(id))
         {
-            return Fail("Action 'focusWindow' requires id.");
+            return Fail($"Action '{request.Type}' requires id.");
         }
 
-        if (!windows.TryFocus(id))
+        if (!windows.TryApply(id, command))
         {
             return Fail("This window is no longer open.");
         }
 
-        logger.LogDebug("Brought window {Id} to the front.", id);
+        logger.LogDebug("Window {Id}: {Command}.", id, command);
         return RemoteActionResponse.Ok();
     }
 

@@ -102,6 +102,18 @@ export class SystemStatsComponent implements OnDestroy {
     );
   }
 
+  protected minimizeWindow(window: OpenWindow): void {
+    this.remote.sendAction({ type: 'minimizeWindow', id: window.id });
+  }
+
+  // Wie das X am Fenster: fragt die App noch nach ungespeicherten Aenderungen, bleibt es offen und
+  // steht nach "Aktualisieren" wieder da.
+  protected closeWindow(window: OpenWindow): void {
+    if (this.remote.sendAction({ type: 'closeWindow', id: window.id })) {
+      this.windows.update((current) => current?.filter((other) => other.id !== window.id));
+    }
+  }
+
   ngOnDestroy(): void {
     this.remote.watchSystemStats(false);
   }

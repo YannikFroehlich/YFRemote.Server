@@ -21,6 +21,25 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Tab "Bildschirm": Zwei Finger funktionieren jetzt wie auf einem Touchpad. Verschieben scrollt am PC, wenn die Seite selbst nichts zu scrollen hat (auch im Vollbild), und Spreizen zoomt am PC mit Strg + Mausrad, etwa in Chrome. Der Mauszeiger springt dafür unter die Finger.
+- Tab "Bildschirm": Bei offener Tastatur gibt es eine Leiste mit Strg, Alt, Win, Esc, Tab, Pfeiltasten und Entf. Strg/Alt/Win rasten bis zur nächsten Taste ein, auch für einen getippten Buchstaben (Strg+C).
+- Tab "PC": Fenster lassen sich in der Fensterliste minimieren und schließen. Schließen wirkt wie das X am Fenster, die App fragt also noch nach ungespeicherten Änderungen.
+- Tab "PC": Ein Laptop zeigt jetzt seinen Akku (Ladestand, am Netz oder nicht).
+- Einstellungen: "Windows-Benachrichtigungen anzeigen" zeigt neue Benachrichtigungen des PCs ein paar Sekunden lang im Client an. Der PC meldet das beim Einschalten im Infobereich.
+- Zwischenablage: Die letzten 10 Texte vom PC stehen im Zwischenablage-Menü unter "Verlauf" und lassen sich kopieren oder wieder an den PC senden. Sie liegen nur im Speicher, nicht im Browser.
+
+### Changed
+
+- Build: Angular auf 22.2.5 aktualisiert (CLI und Build-Werkzeug 22.2.6), nur Fehlerbehebungen von Angular.
+
+### Removed
+
+- Tab "Bildschirm": Das Bild selbst lässt sich nicht mehr zoomen. Zwei Finger zoomen stattdessen am PC.
+
+## [2.50.3] - 2026-11-10
+
 ### Fixed
 
 - Tab "Bildschirm": Ohne H.264 (JPEG-Modus) erholt sich das Bild jetzt nach einem WLAN-Wechsel von selbst. Hängende Abrufe werden nach 10 s abgebrochen und neu gestartet, statt das Bild für immer einzufrieren.

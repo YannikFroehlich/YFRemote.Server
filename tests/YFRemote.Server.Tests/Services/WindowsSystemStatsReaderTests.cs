@@ -6,6 +6,19 @@ namespace YFRemote.Server.Tests.Services;
 public sealed class WindowsSystemStatsReaderTests
 {
     [TestMethod]
+    [DataRow((byte)1, (byte)8, (byte)57, 57, true)]
+    [DataRow((byte)0, (byte)1, (byte)80, 80, false)]
+    [DataRow((byte)1, (byte)1, (byte)100, 100, true)]
+    [DataRow((byte)1, (byte)128, (byte)255, null, null)]
+    [DataRow((byte)255, (byte)255, (byte)255, null, null)]
+    [DataRow((byte)0, (byte)2, (byte)255, null, null)]
+    public void Battery_IsMissingOnADesktopAndChargingWhilePluggedIn(
+        byte acLine, byte flag, byte percent, int? level, bool? charging)
+    {
+        Assert.AreEqual((level, charging), WindowsSystemStatsReader.Battery(acLine, flag, percent));
+    }
+
+    [TestMethod]
     public void SumGpuLoad_SumsProcessesPerEngineAndTakesTheBusiestEngine()
     {
         var load = WindowsSystemStatsReader.SumGpuLoad(

@@ -26,7 +26,9 @@ describe('SystemStatsComponent', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
     const titles = () =>
-      [...element.querySelectorAll('.window-list__title')].map((title) => title.textContent?.trim());
+      [...element.querySelectorAll('.window-list__title')].map((title) =>
+        title.textContent?.trim(),
+      );
     return { remote, fixture, element, titles };
   }
 
@@ -38,11 +40,32 @@ describe('SystemStatsComponent', () => {
 
     expect(titles()).toEqual(['Dokument - Editor', 'YouTube - Google Chrome']);
 
-    element.querySelectorAll<HTMLButtonElement>('.window-list__item')[1].click();
+    element
+      .querySelectorAll<HTMLButtonElement>('.window-list__item:not(.window-list__action)')[1]
+      .click();
     fixture.detectChanges();
 
     expect(remote.sendAction).toHaveBeenCalledWith({ type: 'focusWindow', id: '2' });
     expect(titles()).toEqual(['YouTube - Google Chrome', 'Dokument - Editor']);
+  });
+
+  it('minimizes a window and closes another one', async () => {
+    const { remote, fixture, element, titles } = await setup('windows', [
+      { id: '1', title: 'Dokument - Editor', app: 'Editor' },
+      { id: '2', title: 'YouTube - Google Chrome', app: 'Google Chrome' },
+    ]);
+    const action = (label: string) =>
+      element.querySelector<HTMLButtonElement>(`.window-list__action[aria-label="${label}"]`)!;
+
+    action('Dokument - Editor minimieren').click();
+    action('YouTube - Google Chrome schließen').click();
+    fixture.detectChanges();
+
+    expect(remote.sendAction.mock.calls).toEqual([
+      [{ type: 'minimizeWindow', id: '1' }],
+      [{ type: 'closeWindow', id: '2' }],
+    ]);
+    expect(titles()).toEqual(['Dokument - Editor']);
   });
 
   it('says so when the PC does not answer and hides the list on Linux', async () => {

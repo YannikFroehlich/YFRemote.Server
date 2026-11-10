@@ -129,6 +129,12 @@ export interface ClipboardSyncAction {
   readonly enabled: boolean;
 }
 
+/** Leitet fuer diese Verbindung neue Windows-Benachrichtigungen ans Geraet weiter (oder nicht mehr). */
+export interface NotificationsAction {
+  readonly type: 'notifications';
+  readonly enabled: boolean;
+}
+
 /** Schaltet fuer diese Verbindung die Systemanzeige ein oder aus; der PC misst nur, solange
  *  mindestens ein Geraet sie eingeschaltet hat. */
 export interface SystemStatsAction {
@@ -214,9 +220,9 @@ export interface OpenWindow {
   readonly app: string;
 }
 
-/** Holt ein Fenster aus `GET /windows` in den Vordergrund. */
+/** Holt ein Fenster aus `GET /windows` in den Vordergrund, minimiert oder schliesst es. */
 export interface FocusWindowAction {
-  readonly type: 'focusWindow';
+  readonly type: 'focusWindow' | 'minimizeWindow' | 'closeWindow';
   readonly id: string;
 }
 
@@ -276,6 +282,15 @@ export interface ClipboardPushMessage {
   readonly text: string;
 }
 
+/** Eine neue Windows-Benachrichtigung; `title` ist ihre erste Zeile, `text` der Rest. */
+export interface PcNotificationMessage {
+  readonly type: 'notification';
+  readonly id: number;
+  readonly app: string;
+  readonly title: string;
+  readonly text: string;
+}
+
 export type RemoteAction =
   | KeyboardAction
   | MouseMoveAction
@@ -292,6 +307,7 @@ export type RemoteAction =
   | GamepadAction
   | GamepadDisconnectAction
   | ClipboardSyncAction
+  | NotificationsAction
   | SystemStatsAction
   | VoicemeeterWatchAction
   | VoicemeeterParameterAction

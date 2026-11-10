@@ -78,6 +78,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         fileOfferService.Downloaded += OnOfferedFileDownloaded;
         clipboardReadNotifier.Read += OnClipboardRead;
         clipboardReadNotifier.SyncEnabled += OnClipboardSyncEnabled;
+        clipboardReadNotifier.NotificationsEnabled += OnNotificationsEnabled;
         screenViewNotifier.Started += OnScreenViewStarted;
         shutdownTimer.Changed += OnShutdownTimerChanged;
 
@@ -247,6 +248,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.Read -= OnClipboardRead;
             clipboardReadNotifier.SyncEnabled -= OnClipboardSyncEnabled;
+            clipboardReadNotifier.NotificationsEnabled -= OnNotificationsEnabled;
             screenViewNotifier.Started -= OnScreenViewStarted;
             shutdownTimer.Changed -= OnShutdownTimerChanged;
             connectionRegistry.ConnectionsChanged -= OnConnectionsChanged;
@@ -456,6 +458,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 4000,
                 "Zwischenablage-Abgleich",
                 $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
+                ToolTipIcon.Info));
+
+    private void OnNotificationsEnabled(string deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(
+                4000,
+                "Benachrichtigungen weitergeleitet",
+                $"\"{deviceName}\" bekommt ab jetzt die Windows-Benachrichtigungen dieses PCs.",
                 ToolTipIcon.Info));
 
     private void OnScreenViewStarted(string deviceName) =>

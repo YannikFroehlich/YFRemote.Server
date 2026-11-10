@@ -21,6 +21,15 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Tab "Bildschirm": Ohne Zoom scrollen zwei Finger jetzt am PC, wenn die Seite selbst nichts zu scrollen hat (auch im Vollbild). Der Mauszeiger springt dafür unter die Finger.
+- Tab "Bildschirm": Bei offener Tastatur gibt es eine Leiste mit Strg, Alt, Win, Esc, Tab, Pfeiltasten und Entf. Strg/Alt/Win rasten bis zur nächsten Taste ein, auch für einen getippten Buchstaben (Strg+C).
+- Tab "PC": Fenster lassen sich in der Fensterliste minimieren und schließen. Schließen wirkt wie das X am Fenster, die App fragt also noch nach ungespeicherten Änderungen.
+- Tab "PC": Ein Laptop zeigt jetzt seinen Akku (Ladestand, am Netz oder nicht).
+- Einstellungen: "Windows-Benachrichtigungen anzeigen" zeigt neue Benachrichtigungen des PCs ein paar Sekunden lang im Client an. Der PC meldet das beim Einschalten im Infobereich.
+- Zwischenablage: Die letzten 10 Texte vom PC stehen im Zwischenablage-Menü unter "Verlauf" und lassen sich kopieren oder wieder an den PC senden. Sie liegen nur im Speicher, nicht im Browser.
+
 ### Changed
 
 - Build: Angular auf 22.2.5 aktualisiert (CLI und Build-Werkzeug 22.2.6), nur Fehlerbehebungen von Angular.

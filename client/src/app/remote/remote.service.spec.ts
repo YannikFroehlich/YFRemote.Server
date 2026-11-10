@@ -491,6 +491,31 @@ describe('RemoteService', () => {
     expect(storage.getItem('yfremote.clipboardSync')).toBe('false');
   });
 
+  it('forwards Windows notifications from a Windows PC and hides each after a while', async () => {
+    const { remote, sockets, storage } = setupRemoteService({ health: { platform: 'windows' } });
+    remote.savePcNotifications(true);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+    expect(sockets[0].sentMessages).toEqual(['{"type":"notifications","enabled":true}']);
+    expect(storage.getItem('yfremote.pcNotifications')).toBe('true');
+
+    vi.useFakeTimers();
+    try {
+      sockets[0].receive(
+        '{"type":"notification","id":7,"app":"Teams","title":"Anna","text":"Kommst du?"}',
+      );
+      expect(remote.pcNotification()?.title).toBe('Anna');
+      vi.advanceTimersByTime(8000);
+      expect(remote.pcNotification()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    remote.savePcNotifications(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"notifications","enabled":false}');
+  });
+
   it('does not ask an Android server for clipboard sync', async () => {
     const { remote, sockets } = setupRemoteService({ health: { platform: 'android' } });
     remote.saveClipboardSync(true);
@@ -560,7 +585,9 @@ describe('RemoteService', () => {
           return new Response('{}');
         }
         coverRequests.push(init);
-        return new Response(new Uint8Array([1, 2, 3]), { headers: { 'Content-Type': 'image/jpeg' } });
+        return new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Type': 'image/jpeg' },
+        });
       },
     });
     const media = {
@@ -588,7 +615,9 @@ describe('RemoteService', () => {
   });
 
   it('offers the screen only where /health reports it', async () => {
-    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows', screen: true } });
+    const { remote, sockets } = setupRemoteService({
+      health: { platform: 'windows', screen: true },
+    });
 
     remote.connect();
     sockets[0].open();

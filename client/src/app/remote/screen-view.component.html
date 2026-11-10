@@ -1,9 +1,4 @@
-<div
-  #view
-  class="screen-view"
-  [style.--handle-x]="handle().x"
-  [style.--handle-y]="handle().y"
->
+<div #view class="screen-view" [style.--handle-x]="handle().x" [style.--handle-y]="handle().y">
   <!-- Im Vollbild bleibt nur das Logo uebers Bild: Tippen klappt die Optionen auf, Ziehen verschiebt es. -->
   @if (fullscreen()) {
     <button
@@ -103,6 +98,30 @@
       </button>
     }
   </div>
+  @if (keyboardOpen()) {
+    <!-- mousedown abgefangen: sonst verliert das Tastaturfeld den Fokus und die Tastatur geht zu. -->
+    <div
+      class="screen-view__keys"
+      role="group"
+      [attr.aria-label]="i18n.t('screen.keys')"
+      (mousedown)="$event.preventDefault()"
+    >
+      @for (key of heldKeys; track key) {
+        <button
+          class="key-chip"
+          type="button"
+          [class.key-chip--active]="held().includes(key)"
+          [attr.aria-pressed]="held().includes(key)"
+          (click)="toggleHeld(key)"
+        >
+          {{ keyText(key) }}
+        </button>
+      }
+      @for (key of extraKeys; track key) {
+        <button class="key-chip" type="button" (click)="pressKey(key)">{{ keyText(key) }}</button>
+      }
+    </div>
+  }
   <!-- Ein Finger klickt und zieht am PC, zwei zoomen und verschieben das Bild. -->
   <div
     #stage

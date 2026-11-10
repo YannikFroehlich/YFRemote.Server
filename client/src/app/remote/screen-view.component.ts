@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { liveTextActions } from './keyboard-keys';
+import { keyLabel, liveTextActions } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
@@ -18,6 +18,7 @@ import { distance, FULL_VIEW, pinchViewport, Point } from './screen-gestures';
 import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
 import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
+import { MAX_SCROLL_DELTA, SCROLL_SCALE } from './touchpad/touchpad.component';
 
 // Nur fuer den JPEG-Rueckweg (Server ohne Hardware-Encoder, Browser ohne MediaSource):
 // zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
@@ -50,6 +51,12 @@ const STALL_HINT_MS = 3000;
 // Nach einem Netzwechsel warten der alte Strom und JPEG-Abrufe sonst ewig: TCP merkt das lange nicht.
 const STALL_RECONNECT_MS = 10000;
 
+// Leiste neben der Handy-Tastatur, die diese Tasten nicht hat. Strg/Alt/Win rasten bis zur
+// naechsten Taste ein, auch einem getippten Buchstaben (Strg+C).
+const HELD_KEYS = ['CTRL', 'ALT', 'WIN'] as const;
+const EXTRA_KEYS = ['ESC', 'TAB', 'LEFT', 'UP', 'DOWN', 'RIGHT', 'DELETE'] as const;
+const ARROWS: Readonly<Record<string, string>> = { LEFT: '←', UP: '↑', DOWN: '↓', RIGHT: '→' };
+
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 @Component({
@@ -81,6 +88,9 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundOn = signal(false);
   protected readonly soundFailed = signal(false);
   protected readonly keyboardOpen = signal(false);
+  protected readonly heldKeys = HELD_KEYS;
+  protected readonly extraKeys = EXTRA_KEYS;
+  protected readonly held = signal<readonly string[]>([]);
   protected readonly fullscreen = signal(false);
   protected readonly menuOpen = signal(false);
   // Mitte des Logos im Vollbild, als Anteil der Ansicht: uebersteht auch das Drehen des Geraets.
@@ -97,8 +107,15 @@ export class ScreenViewComponent implements OnDestroy {
   });
   private readonly pointers = new Map<number, Point>();
   private pinchStart: { view: typeof FULL_VIEW; fingers: readonly [Point, Point] } | null = null;
-  private pinchCenterY = 0;
+  private pinchCenter: Point = { x: 0, y: 0 };
+  // null: nichts auf der Seite zu scrollen (auch im Vollbild), dann scrollen zwei Finger am PC.
   private pinchScroller: Element | null = null;
+  // Das Mausrad wirkt am PC auf das Fenster unter dem Zeiger: vor dem ersten Scrollen also dorthin,
+  // wo die Finger aufsetzten. Erst dann, damit reines Zoomen den Zeiger nicht bewegt.
+  private scrollTarget: { x: number; y: number } | null = null;
+  private pendingScrollX = 0;
+  private pendingScrollY = 0;
+  private scrollFrame: number | null = null;
   // Der erste Finger, solange er noch Tipp oder Ziehen werden kann.
   private dragOrigin: Point | null = null;
   private dragging = false;
@@ -135,6 +152,9 @@ export class ScreenViewComponent implements OnDestroy {
     this.videoAbort?.abort();
     this.jpegAbort.abort();
     this.endDrag();
+    if (this.scrollFrame !== null) {
+      cancelAnimationFrame(this.scrollFrame);
+    }
     this.show(null);
     this.stopSound();
     if (this.fullscreen()) {
@@ -378,8 +398,9 @@ export class ScreenViewComponent implements OnDestroy {
       this.dragOrigin = null;
       this.swallowClick = true;
       this.pinchStart = { view: this.viewport(), fingers: this.fingers() };
-      this.pinchCenterY = this.fingersCenterY();
-      this.pinchScroller = this.findScroller();
+      this.pinchCenter = this.fingersCenter();
+      this.pinchScroller = this.fullscreen() ? null : this.findScroller();
+      this.scrollTarget = this.toScreenPosition(this.pinchCenter.x, this.pinchCenter.y);
     }
   }
 
@@ -400,12 +421,14 @@ export class ScreenViewComponent implements OnDestroy {
         );
         this.viewport.set(viewport);
         // Ohne Zoom gibt es nichts zu verschieben; dann scrollen zwei Finger die Seite, die ueber
-        // dem Bild sonst nicht mehr scrollen wuerde.
-        const centerY = this.fingersCenterY();
+        // dem Bild sonst nicht mehr scrollen wuerde, oder - hat sie nichts zu scrollen - den PC.
+        const center = this.fingersCenter();
         if (viewport.scale === 1 && this.pinchScroller !== null) {
-          this.pinchScroller.scrollTop += this.pinchCenterY - centerY;
+          this.pinchScroller.scrollTop += this.pinchCenter.y - center.y;
+        } else if (viewport.scale === 1) {
+          this.scrollPc(center.x - this.pinchCenter.x, center.y - this.pinchCenter.y);
         }
-        this.pinchCenterY = centerY;
+        this.pinchCenter = center;
       }
       return;
     }
@@ -538,9 +561,37 @@ export class ScreenViewComponent implements OnDestroy {
     ];
   }
 
-  private fingersCenterY(): number {
+  private fingersCenter(): Point {
     const [first, second] = this.pointers.values();
-    return (first.y + second.y) / 2;
+    return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+  }
+
+  // Wie das Touchpad: der Inhalt folgt den Fingern, hoechstens eine Nachricht pro Bild.
+  private scrollPc(deltaX: number, deltaY: number): void {
+    if (this.scrollTarget !== null) {
+      this.sendMove(this.scrollTarget);
+      this.scrollTarget = null;
+    }
+
+    const scale = SCROLL_SCALE * this.remote.scrollSpeed() * (this.remote.invertScroll() ? -1 : 1);
+    this.pendingScrollX -= deltaX * scale;
+    this.pendingScrollY += deltaY * scale;
+    this.scrollFrame ??= requestAnimationFrame(() => {
+      this.scrollFrame = null;
+      const clamp = (value: number) =>
+        Math.max(-MAX_SCROLL_DELTA, Math.min(MAX_SCROLL_DELTA, Math.round(value)));
+      const x = clamp(this.pendingScrollX);
+      const y = clamp(this.pendingScrollY);
+      this.pendingScrollX -= x;
+      this.pendingScrollY -= y;
+      if (x !== 0 || y !== 0) {
+        this.remote.sendAction({
+          type: 'mouseScroll',
+          ...(y !== 0 ? { delta: y } : {}),
+          ...(x !== 0 ? { deltaX: x } : {}),
+        });
+      }
+    });
   }
 
   private findScroller(): Element | null {
@@ -558,7 +609,8 @@ export class ScreenViewComponent implements OnDestroy {
       }
     }
 
-    return this.document.scrollingElement;
+    const page = this.document.scrollingElement;
+    return (page?.scrollHeight ?? 0) > (page?.clientHeight ?? 0) ? page : null;
   }
 
   // x und y von 0 bis 1 im Bild; null neben dem Bild, ausser beim Ziehen (clampToPicture): dort
@@ -671,11 +723,42 @@ export class ScreenViewComponent implements OnDestroy {
   // Tastatur zu (Zurueck-Taste, Tipp daneben): Schalter aus, beim naechsten Mal leeres Feld.
   protected closeKeyboard(input: HTMLInputElement): void {
     this.keyboardOpen.set(false);
+    this.held.set([]);
     input.value = '';
     this.typedText = '';
   }
 
+  protected keyText(key: string): string {
+    return ARROWS[key] ?? this.i18n.t(keyLabel(key));
+  }
+
+  protected toggleHeld(key: string): void {
+    this.held.update((keys) =>
+      keys.includes(key) ? keys.filter((held) => held !== key) : [...keys, key],
+    );
+  }
+
+  protected pressKey(key: string): void {
+    const held = this.held();
+    this.held.set([]);
+    this.remote.sendAction(
+      held.length === 0 ? { type: 'key', keys: [key] } : { type: 'hotkey', keys: [...held, key] },
+    );
+  }
+
   protected onKeyboardInput(input: HTMLInputElement): void {
+    // Mit eingerasteter Strg/Alt/Win wird ein Buchstabe zum Kuerzel statt zu Text.
+    const typed = input.value.slice(this.typedText.length).toUpperCase();
+    if (
+      this.held().length > 0 &&
+      input.value.startsWith(this.typedText) &&
+      /^[A-Z0-9]$/.test(typed)
+    ) {
+      input.value = this.typedText;
+      this.pressKey(typed);
+      return;
+    }
+
     for (const action of liveTextActions(this.typedText, input.value)) {
       this.remote.sendAction(action);
     }
@@ -686,13 +769,13 @@ export class ScreenViewComponent implements OnDestroy {
   protected onKeyboardKeydown(event: KeyboardEvent, input: HTMLInputElement): void {
     if (event.key === 'Backspace' && input.value.length === 0) {
       event.preventDefault();
-      this.remote.sendAction({ type: 'key', keys: ['BACKSPACE'] });
+      this.pressKey('BACKSPACE');
     }
   }
 
   protected submitKeyboard(event: Event, input: HTMLInputElement): void {
     event.preventDefault();
-    this.remote.sendAction({ type: 'key', keys: ['ENTER'] });
+    this.pressKey('ENTER');
     input.value = '';
     this.typedText = '';
   }

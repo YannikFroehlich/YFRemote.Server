@@ -173,6 +173,43 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_Notifications_PushesOnlyNewOnesWhileEnabled()
+    {
+        var newest = new PcNotificationMessage(1, "Outlook", "Alt", "");
+        var notifications = new PollingBroadcaster<PcNotificationMessage?>(
+            () => Task.FromResult<PcNotificationMessage?>(newest),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: false,
+            NullLogger.Instance);
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(notifications: notifications)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None);
+
+        await SendTextAsync(pair.Client, """{"type":"notifications","enabled":true}""");
+        Assert.IsTrue((await ReceiveResponseAsync(pair.Client)).Success);
+
+        await notifications.PollAsync();
+        newest = new PcNotificationMessage(2, "Teams", "Anna", "Kommst du?");
+        await notifications.PollAsync();
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("notification", pushed.GetProperty("type").GetString());
+        Assert.AreEqual("Teams", pushed.GetProperty("app").GetString());
+        Assert.AreEqual("Anna", pushed.GetProperty("title").GetString());
+        Assert.AreEqual("Kommst du?", pushed.GetProperty("text").GetString());
+
+        await SendTextAsync(pair.Client, """{"type":"notifications","enabled":false,"requestId":"off"}""");
+        Assert.AreEqual("off", (await ReceiveResponseAsync(pair.Client)).RequestId);
+        newest = new PcNotificationMessage(3, "Teams", "Anna", "Hallo?");
+        await notifications.PollAsync();
+
+        await SendTextAsync(pair.Client, """{"type":"key","keys":["ENTER"],"requestId":"next"}""");
+        Assert.AreEqual("next", (await ReceiveResponseAsync(pair.Client)).RequestId);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_MediaStatus_IsPushedWhenItChanges()
     {
         var status = new MediaStatusMessage(40, false, "Song", "Band", true);
@@ -379,7 +416,8 @@ public sealed class YFRemoteWebSocketHandlerTests
         PollingBroadcaster<ClipboardMessage?>? clipboardSync = null,
         PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
         PollingBroadcaster<SystemStatsMessage>? systemStats = null,
-        ShutdownTimer? shutdownTimer = null)
+        ShutdownTimer? shutdownTimer = null,
+        PollingBroadcaster<PcNotificationMessage?>? notifications = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -389,7 +427,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             gamepadService,
             clipboardSync,
             shutdownTimer: shutdownTimer,
-            systemStats: systemStats);
+            systemStats: systemStats,
+            notifications: notifications);
 
         return new YFRemoteWebSocketHandler(
             actionHandler,

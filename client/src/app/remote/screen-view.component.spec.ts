@@ -61,6 +61,8 @@ describe('ScreenViewComponent', () => {
             openScreenAudio,
             audioAvailable: signal(true),
             screenQuality,
+            scrollSpeed: signal(1),
+            invertScroll: signal(false),
             saveScreenQuality: (quality: 'performance' | 'balanced' | 'quality') =>
               screenQuality.set(quality),
           },
@@ -356,6 +358,29 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
+  it('scrolls the PC with two fingers when the page has nothing to scroll', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    );
+
+    pointer(stage, 'pointerdown', 1, 100, 150);
+    pointer(stage, 'pointerdown', 2, 200, 150);
+    expect(sendAction).not.toHaveBeenCalled();
+    pointer(stage, 'pointermove', 1, 100, 130);
+    pointer(stage, 'pointermove', 2, 200, 130);
+    frames.splice(0).forEach((callback) => callback(0));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenMove', x: 0.375, y: 0.75 }],
+      [{ type: 'mouseScroll', delta: -120 }],
+    ]);
+    pointer(stage, 'pointerup', 1, 100, 130);
+    pointer(stage, 'pointerup', 2, 200, 130);
+    fixture.destroy();
+  });
+
   it('does not scroll the page while zoomed', async () => {
     const { fixture, stage } = await setupGestures();
     const scroller = stage.parentElement!;
@@ -597,8 +622,7 @@ describe('ScreenViewComponent', () => {
       await enterFullscreen(element);
       fixture.detectChanges();
       const view = element.querySelector<HTMLElement>('.screen-view')!;
-      view.getBoundingClientRect = () =>
-        ({ left: 0, top: 0, width: 800, height: 400 }) as DOMRect;
+      view.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 400 }) as DOMRect;
       const handle = element.querySelector<HTMLElement>('.screen-view__handle')!;
 
       handle.dispatchEvent(pointer('pointerdown', 760, 30));
@@ -631,8 +655,7 @@ describe('ScreenViewComponent', () => {
       fixture.detectChanges();
       element.querySelector<HTMLElement>('.screen-view__handle')!.click();
       const image = element.querySelector('img.screen-view__image')!;
-      image.getBoundingClientRect = () =>
-        ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
+      image.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 100 }) as DOMRect;
 
       image.dispatchEvent(pointer('pointerdown', 50, 50));
       image.dispatchEvent(pointer('pointerup', 50, 50));
@@ -699,6 +722,41 @@ describe('ScreenViewComponent', () => {
     keyboard.click();
     fixture.detectChanges();
     expect(keyboard.getAttribute('aria-checked')).toBe('false');
+    fixture.destroy();
+  });
+
+  it('sends special keys and held modifiers with the next key while the keyboard is open', async () => {
+    const { fixture, sendAction, element } = await setup(new Blob(['jpeg']));
+    expect(element.querySelector('.screen-view__keys')).toBeNull();
+    Array.from(element.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Tastatur'))!
+      .click();
+    fixture.detectChanges();
+    const key = (label: string) =>
+      Array.from(element.querySelectorAll<HTMLButtonElement>('.screen-view__keys button')).find(
+        (button) => button.textContent?.trim() === label,
+      )!;
+    const input = element.querySelector<HTMLInputElement>('.screen-view__keyboard input')!;
+
+    key('ESC').click();
+    key('CTRL').click();
+    fixture.detectChanges();
+    expect(key('CTRL').getAttribute('aria-pressed')).toBe('true');
+    input.value = 'c';
+    input.dispatchEvent(new Event('input'));
+    key('ALT').click();
+    key('→').click();
+    input.value = 'x';
+    input.dispatchEvent(new Event('input'));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'key', keys: ['ESC'] }],
+      [{ type: 'hotkey', keys: ['CTRL', 'C'] }],
+      [{ type: 'hotkey', keys: ['ALT', 'RIGHT'] }],
+      [{ type: 'text', text: 'x' }],
+    ]);
+    fixture.detectChanges();
+    expect(key('CTRL').getAttribute('aria-pressed')).toBe('false');
     fixture.destroy();
   });
 

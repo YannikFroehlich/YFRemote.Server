@@ -17,6 +17,7 @@ export const HAPTICS_STORAGE_KEY = 'yfremote.haptics';
 export const POINTER_ACCELERATION_STORAGE_KEY = 'yfremote.pointerAcceleration';
 export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
 export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
+export const PC_NOTIFICATIONS_STORAGE_KEY = 'yfremote.pcNotifications';
 export const SCREEN_QUALITY_STORAGE_KEY = 'yfremote.screenQuality';
 export const SCREEN_MONITOR_STORAGE_KEY = 'yfremote.screenMonitor';
 export type ScreenQuality = 'performance' | 'balanced' | 'quality';

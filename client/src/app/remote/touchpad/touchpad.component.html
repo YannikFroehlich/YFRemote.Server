@@ -38,12 +38,7 @@
         </svg>
       </button>
     }
-    <input
-      #fileInput
-      class="visually-hidden"
-      type="file"
-      (change)="onFileSelected($event)"
-    />
+    <input #fileInput class="visually-hidden" type="file" (change)="onFileSelected($event)" />
     <button
       class="snap-switch touchpad-text__file"
       type="button"
@@ -125,6 +120,48 @@
         </svg>
         {{ i18n.t('touchpad.pcClipboard.title' + targetSuffix()) }}
       </button>
+      @if (clipboardHistory().length > 0) {
+        <button
+          class="secondary-button clipboard-menu__option"
+          type="button"
+          (click)="openClipboardHistory()"
+        >
+          {{ i18n.t('touchpad.clipboard.history', { count: clipboardHistory().length }) }}
+        </button>
+      }
+    </div>
+  }
+
+  @if (clipboardHistoryOpen()) {
+    <div
+      class="pc-clipboard"
+      role="group"
+      [attr.aria-label]="i18n.t('touchpad.clipboard.historyLabel')"
+    >
+      @for (entry of clipboardHistory(); track entry) {
+        <div class="clipboard-history__row">
+          <button
+            class="secondary-button clipboard-history__text"
+            type="button"
+            (click)="showHistoryEntry(entry)"
+          >
+            {{ entry }}
+          </button>
+          <button
+            class="secondary-button"
+            type="button"
+            [attr.title]="i18n.t('touchpad.clipboard.historySendTitle' + targetSuffix())"
+            (click)="resendHistoryEntry(entry)"
+          >
+            {{ i18n.t('touchpad.clipboard.historySend') }}
+          </button>
+        </div>
+      }
+      <div class="pc-clipboard__actions">
+        <button class="secondary-button" type="button" (click)="closePcClipboard()">
+          {{ i18n.t('touchpad.pcClipboard.close') }}
+        </button>
+      </div>
     </div>
   }
 

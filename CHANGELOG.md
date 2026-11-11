@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tab "Bildschirm": Lief das Video schon und lieferte der PC danach kein Video mehr (etwa nach einem Update auf eine ältere oder andere Version, oder bei einem Monitor, den er nicht als Video kann), blieb das letzte Bild stehen. Jetzt wechselt der Tab auf Einzelbilder.
+
 ## [2.51.0] - 2026-11-10
 
 ### Added

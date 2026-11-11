@@ -237,8 +237,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the
-  fallback: the Client switches when the first answer is not `video/mp4` (`501` without a hardware
-  encoder, an older server's SPA fallback), and MediaSource is missing in iPhone Safari.
+  fallback: the Client switches as soon as an answer is not `video/mp4` (`501` without a hardware
+  encoder, an older server's SPA fallback), also after video already played (server updated, monitor
+  switched), otherwise the last frame would freeze; only a request that gets no answer at all is
+  retried as video. MediaSource is missing in iPhone Safari.
   `WindowsScreenCapture.Video.cs` runs on the duplication's own D3D11 device: copy of `Latest` into a
   GDI-compatible texture, cursor via `DrawCursor`, `ID3D11VideoProcessor` (BGRA to NV12 and scaling),
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`

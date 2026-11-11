@@ -196,7 +196,8 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   // H.264 vom Hardware-Encoder des PCs: hohe Bildrate bei wenig WLAN und Prozessorlast. false,
-  // wenn der Server gleich beim ersten Versuch kein Video liefert - dann JPEG.
+  // wenn der Server kein Video liefert - dann JPEG. Das gilt auch nach schon gespieltem Video
+  // (Server aktualisiert, anderer oder gedrehter Monitor), sonst bliebe das letzte Bild stehen.
   private async runVideo(): Promise<boolean> {
     let played = false;
     while (!this.stopped) {
@@ -234,11 +235,15 @@ export class ScreenViewComponent implements OnDestroy {
         this.videoShown.set(false);
       }
 
-      if (stream === null && !played && !abort.signal.aborted) {
+      if (
+        !abort.signal.aborted &&
+        (stream === 'unsupported' || (stream === null && !played))
+      ) {
+        this.videoShown.set(false);
         return false;
       }
 
-      if (stream !== null && stream !== 'blocked') {
+      if (stream !== null && stream !== 'blocked' && stream !== 'unsupported') {
         try {
           await this.videoPlayer!.play(
             stream.body,

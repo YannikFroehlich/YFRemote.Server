@@ -304,7 +304,12 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
         public int Height { get; }
 
-        public bool Upright => rotation is ModeRotation.Identity or ModeRotation.Unspecified;
+        public ModeRotation Rotation => rotation;
+
+        // Lage des Panels, wie die Textur Latest.
+        public int TextureWidth => textureWidth;
+
+        public int TextureHeight => textureHeight;
 
         public long AdapterLuid { get; }
 

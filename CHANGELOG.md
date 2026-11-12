@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Tab "Bildschirm": Gedrehte Monitore (Hochformat) laufen jetzt auch als H.264-Video statt als JPEG, also flüssiger und mit weniger Datenverkehr. Kann der Grafiktreiber das Bild nicht drehen, bleibt es bei JPEG.
+
+### Fixed
+
+- Tab "Bildschirm": Lief das Video schon und lieferte der PC danach kein Video mehr (etwa nach einem Update auf eine ältere oder andere Version, oder bei einem Monitor, den er nicht als Video kann), blieb das letzte Bild stehen. Jetzt wechselt der Tab auf Einzelbilder.
+
+## [2.51.0] - 2026-11-10
+
 ### Added
 
 - Tab "Bildschirm": Zwei Finger funktionieren jetzt wie auf einem Touchpad. Verschieben scrollt am PC, wenn die Seite selbst nichts zu scrollen hat (auch im Vollbild), und Spreizen zoomt am PC mit Strg + Mausrad, etwa in Chrome. Der Mauszeiger springt dafür unter die Finger.

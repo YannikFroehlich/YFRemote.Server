@@ -561,14 +561,21 @@ export class RemoteService implements OnDestroy {
   }
 
   /** Der PC-Bildschirm als H.264-Strom (fragmentiertes MP4) samt Codec-Angabe; `'blocked'` auf
-   *  dem sicheren Desktop, `null`, wenn der Server kein Video kann (kein Hardware-Encoder, aelterer
-   *  Server, dessen SPA-Rueckfall hier `index.html` liefert). Beendet wird er ueber `signal`. */
+   *  dem sicheren Desktop, `'unsupported'`, wenn der Server antwortet, aber kein Video kann (kein
+   *  Hardware-Encoder, gedrehter Monitor ohne Drehung im Treiber, aelterer Server, dessen
+   *  SPA-Rueckfall hier `index.html` liefert), `null`, wenn er nicht antwortet. Beendet wird er
+   *  ueber `signal`. */
   async openScreenVideo(
     width: number,
     bitrateKbps: number,
     signal: AbortSignal,
     monitor: string | null = null,
-  ): Promise<{ body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string } | 'blocked' | null> {
+  ): Promise<
+    | { body: ReadableStream<Uint8Array<ArrayBuffer>>; codec: string }
+    | 'blocked'
+    | 'unsupported'
+    | null
+  > {
     const token = this.pairing.token();
     if (token === null) {
       return null;
@@ -589,7 +596,7 @@ export class RemoteService implements OnDestroy {
         codec !== null &&
         response.headers.get('Content-Type')?.startsWith('video/mp4')
         ? { body: response.body, codec }
-        : null;
+        : 'unsupported';
     } catch {
       return null;
     }

@@ -53,7 +53,9 @@
         <button
           class="slot-remove"
           type="button"
-          [attr.aria-label]="i18n.t('buttonCanvas.removeAriaLabel', { label: i18n.t(item.button.label) })"
+          [attr.aria-label]="
+            i18n.t('buttonCanvas.removeAriaLabel', { label: i18n.t(item.button.label) })
+          "
           (click)="remove(item)"
           (pointerdown)="$event.stopPropagation()"
         >
@@ -70,3 +72,46 @@
     </div>
   }
 </div>
+
+<dialog
+  #timerDialog
+  class="timer-dialog"
+  [attr.aria-label]="i18n.t('timer.title')"
+  (close)="timerDraft.set(null)"
+>
+  @if (timerDraft(); as draft) {
+    <form
+      class="timer-dialog__form"
+      (submit)="startTimer($event, timerMinutes.value, timerPower.value)"
+    >
+      <h2>{{ i18n.t('timer.title') }}</h2>
+      <label class="field">
+        <span>{{ i18n.t('timer.minutes') }}</span>
+        <input
+          #timerMinutes
+          type="number"
+          inputmode="numeric"
+          min="0"
+          max="1440"
+          [value]="draft.minutes"
+        />
+      </label>
+      <label class="field">
+        <span>{{ i18n.t('timer.power') }}</span>
+        <select #timerPower>
+          @for (power of timerPowers; track power) {
+            <option [value]="power" [selected]="power === draft.power">
+              {{ i18n.t('timer.power.' + power) }}
+            </option>
+          }
+        </select>
+      </label>
+      <div class="settings-actions">
+        <button class="secondary-button" type="button" (click)="closeTimer()">
+          {{ i18n.t('common.cancel') }}
+        </button>
+        <button class="primary-button" type="submit">{{ i18n.t('timer.start') }}</button>
+      </div>
+    </form>
+  }
+</dialog>

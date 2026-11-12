@@ -19,6 +19,19 @@
   }
 </div>
 
+@if (powerMode(); as mode) {
+  <label class="field power-mode">
+    <span>{{ i18n.t('stats.powerMode') }}</span>
+    <select (change)="selectPowerMode($event)">
+      @for (option of powerModes; track option) {
+        <option [value]="option" [selected]="option === mode">
+          {{ i18n.t('stats.powerMode.' + option) }}
+        </option>
+      }
+    </select>
+  </label>
+}
+
 @if (windowsSupported()) {
   <section class="window-list" [attr.aria-label]="i18n.t('stats.windows')">
     <div class="window-list__head">

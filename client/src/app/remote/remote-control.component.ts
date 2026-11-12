@@ -94,6 +94,10 @@ export class RemoteControlComponent {
     const interval = setInterval(() => this.now.set(Date.now()), 1000);
     onCleanup(() => clearInterval(interval));
   });
+  protected readonly shutdownTimerKey = computed(() => {
+    const power = this.remote.shutdownTimerPower();
+    return power === 'shutdown' ? 'shutdownTimer.remaining' : `shutdownTimer.remaining.${power}`;
+  });
   protected readonly shutdownCountdown = computed(() => {
     const deadline = this.remote.shutdownDeadline();
     const seconds = deadline === null ? 0 : Math.ceil((deadline - this.now()) / 1000);
@@ -157,6 +161,10 @@ export class RemoteControlComponent {
 
   protected dismissPcNotification(): void {
     this.remote.dismissPcNotification();
+  }
+
+  protected removePcNotification(): void {
+    this.remote.removePcNotification();
   }
 
   protected dismissFileOffer(): void {

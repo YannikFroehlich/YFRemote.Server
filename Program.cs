@@ -395,11 +395,12 @@ internal static class Program
             services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
         builder.Services.AddSingleton<WindowsSystemStatsReader>();
         builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
-            services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync,
+            ReadWithPowerMode(services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync, services.GetRequiredService<IPowerService>()),
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));
         builder.Services.AddSingleton<WindowsNotificationReader>();
+        builder.Services.AddSingleton<IPcNotifications>(services => services.GetRequiredService<WindowsNotificationReader>());
         builder.Services.AddSingleton(services => new PollingBroadcaster<PcNotificationMessage?>(
             services.GetRequiredService<WindowsNotificationReader>().ReadNewestAsync,
             BroadcastPollInterval,
@@ -526,6 +527,12 @@ internal static class Program
     }
 
 #if WINDOWS
+    // Der Energiemodus kommt mit den Systemwerten, so zeigt der Tab "PC" ihn ohne eigene Abfrage.
+    private static Func<Task<SystemStatsMessage>> ReadWithPowerMode(
+        Func<Task<SystemStatsMessage>> read,
+        IPowerService powerService) =>
+        async () => await read() with { PowerMode = powerService.PowerMode };
+
     private static void StopAndDisposeApplication(WebApplication app)
     {
         try

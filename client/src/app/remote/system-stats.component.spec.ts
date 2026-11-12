@@ -19,6 +19,7 @@ describe('SystemStatsComponent', () => {
       watchSystemStats: vi.fn(),
       readWindows: vi.fn(() => Promise.resolve(windows)),
       sendAction: vi.fn(() => true),
+      setPowerMode: vi.fn(),
     };
     TestBed.configureTestingModule({ providers: [{ provide: RemoteService, useValue: remote }] });
     const fixture = TestBed.createComponent(SystemStatsComponent);
@@ -81,6 +82,26 @@ describe('SystemStatsComponent', () => {
     const mediaOnly = await setup('windows', [], true);
     expect(mediaOnly.element.querySelector('.window-list')).toBeNull();
     expect(mediaOnly.remote.readWindows).not.toHaveBeenCalled();
+  });
+
+  it('switches the power mode when the PC reports one, but not for a media-only device', async () => {
+    const stats: SystemStatsMessage = {
+      type: 'systemStats',
+      memoryUsedMb: 4096,
+      memoryTotalMb: 16384,
+      powerMode: 'balanced',
+    };
+    const { remote, element } = await setup('windows', [], false, stats);
+    const select = element.querySelector<HTMLSelectElement>('.power-mode select')!;
+
+    expect(select.value).toBe('balanced');
+    select.value = 'performance';
+    select.dispatchEvent(new Event('change'));
+    expect(remote.setPowerMode).toHaveBeenCalledWith('performance');
+
+    TestBed.resetTestingModule();
+    const mediaOnly = await setup('windows', [], true, stats);
+    expect(mediaOnly.element.querySelector('.power-mode')).toBeNull();
   });
 
   it('shows memory and battery instead of CPU and GPU on the Android server', async () => {

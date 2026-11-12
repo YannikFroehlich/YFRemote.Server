@@ -9,12 +9,14 @@ import {
   MediaStatusMessage,
   OpenWindow,
   PcNotificationMessage,
+  PowerMode,
   ScreenMonitor,
   RemoteAction,
   RemoteResponse,
   ServerConfig,
   ServerPlatform,
   ShutdownTimerMessage,
+  TimerPower,
   SystemStatsMessage,
   VoicemeeterMessage,
   AppVolumesMessage,
@@ -170,6 +172,7 @@ export class RemoteService implements OnDestroy {
   private readonly mediaCoverSignal = signal<string | null>(null);
   private mediaCoverId: string | null = null;
   private readonly shutdownDeadlineSignal = signal<number | null>(null);
+  private readonly shutdownTimerPowerSignal = signal<TimerPower>('shutdown');
   private readonly pcClipboardSignal = signal<ClipboardPushMessage | null>(null);
   private readonly clipboardHistorySignal = signal<readonly string[]>([]);
   private readonly pcNotificationsSignal = signal(
@@ -233,6 +236,8 @@ export class RemoteService implements OnDestroy {
   /** Zeitpunkt (`Date.now()`-Basis), zu dem der PC herunterfaehrt; `null` ohne geplanten Termin.
    *  Aus der gemeldeten Restzeit berechnet, weil die Uhr des Geraets von der des PCs abweichen kann. */
   readonly shutdownDeadline = this.shutdownDeadlineSignal.asReadonly();
+  /** Was der laufende Timer tut - nur zusammen mit `shutdownDeadline` aussagekraeftig. */
+  readonly shutdownTimerPower = this.shutdownTimerPowerSignal.asReadonly();
   /** Zuletzt vom PC gemeldeter Zwischenablage-Text (nur bei eingeschaltetem Abgleich). Ein neues
    *  Objekt pro Meldung, damit auch derselbe Text erneut auslöst. */
   readonly pcClipboard = this.pcClipboardSignal.asReadonly();
@@ -402,6 +407,23 @@ export class RemoteService implements OnDestroy {
     this.pcNotificationsSignal.set(enabled);
     this.storage?.setItem(PC_NOTIFICATIONS_STORAGE_KEY, String(enabled));
     this.sendPcNotifications();
+  }
+
+  /** Entfernt die angezeigte Benachrichtigung auch am PC (Info-Center) und blendet sie aus. */
+  removePcNotification(): void {
+    const notification = this.pcNotificationSignal();
+    if (notification !== null) {
+      this.sendAction({ type: 'dismissNotification', id: String(notification.id) });
+    }
+    this.dismissPcNotification();
+  }
+
+  /** Stellt den Energiemodus um; die Anzeige folgt sofort, die Bestaetigung kommt mit der naechsten Messung. */
+  setPowerMode(mode: PowerMode): void {
+    const stats = this.systemStatsSignal();
+    if (this.sendAction({ type: 'powerMode', mode }) && stats !== null) {
+      this.systemStatsSignal.set({ ...stats, powerMode: mode });
+    }
   }
 
   dismissPcNotification(): void {
@@ -885,6 +907,7 @@ export class RemoteService implements OnDestroy {
     }
 
     if (isShutdownTimerMessage(message)) {
+      this.shutdownTimerPowerSignal.set(message.action ?? 'shutdown');
       this.shutdownDeadlineSignal.set(
         message.remainingSeconds === undefined
           ? null
@@ -1288,7 +1311,11 @@ function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
   const message = value as Partial<ShutdownTimerMessage> | null;
   return (
     message?.type === 'shutdownTimer' &&
-    (message.remainingSeconds === undefined || typeof message.remainingSeconds === 'number')
+    (message.remainingSeconds === undefined || typeof message.remainingSeconds === 'number') &&
+    (message.action === undefined ||
+      message.action === 'shutdown' ||
+      message.action === 'sleep' ||
+      message.action === 'displayOff')
   );
 }
 

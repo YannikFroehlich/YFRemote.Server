@@ -46,4 +46,10 @@ public sealed record RemoteActionRequest
 
     // screenClick: der Monitor aus GET /screen/monitors, ohne Angabe der Hauptbildschirm.
     public string? Monitor { get; init; }
+
+    // shutdownTimer: was bei Ablauf passiert ("shutdown", "sleep", "displayOff"), ohne Angabe "shutdown".
+    public string? Power { get; init; }
+
+    // powerMode: "efficiency", "balanced" oder "performance" (Windows-Energiemodus).
+    public string? Mode { get; init; }
 }

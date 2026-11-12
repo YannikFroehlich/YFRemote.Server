@@ -516,6 +516,32 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"notifications","enabled":false}');
   });
 
+  it('removes a forwarded notification on the PC too', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+
+    sockets[0].receive('{"type":"notification","id":42,"app":"Teams","title":"Anna","text":"Hi"}');
+    remote.removePcNotification();
+
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"dismissNotification","id":"42"}');
+    expect(remote.pcNotification()).toBeNull();
+  });
+
+  it('keeps the action of a pending timer from the push', () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    sockets[0].receive('{"type":"shutdownTimer","remainingSeconds":60,"action":"sleep"}');
+    expect(remote.shutdownTimerPower()).toBe('sleep');
+
+    // Ein aelterer Server schickt keine Aktion: dann ist es Herunterfahren.
+    sockets[0].receive('{"type":"shutdownTimer","remainingSeconds":60}');
+    expect(remote.shutdownTimerPower()).toBe('shutdown');
+  });
+
   it('does not ask an Android server for clipboard sync', async () => {
     const { remote, sockets } = setupRemoteService({ health: { platform: 'android' } });
     remote.saveClipboardSync(true);

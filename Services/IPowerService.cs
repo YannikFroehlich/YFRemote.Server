@@ -11,4 +11,9 @@ public interface IPowerService
     void Lock();
 
     void TurnOffDisplay();
+
+    // Energiemodus "efficiency"/"balanced"/"performance", null wenn dieser PC keinen umschaltbaren hat.
+    string? PowerMode => null;
+
+    void SetPowerMode(string mode) => throw new NotSupportedException("Power mode is not supported on this system.");
 }

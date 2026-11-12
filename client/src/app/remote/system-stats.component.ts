@@ -6,7 +6,7 @@ import {
   signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { OpenWindow } from './remote.models';
+import { OpenWindow, PowerMode } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -78,6 +78,12 @@ export class SystemStatsComponent implements OnDestroy {
   protected readonly windowsSupported = computed(
     () => this.remote.serverPlatform() === 'windows' && !this.remote.mediaOnly(),
   );
+  // Nur wenn der PC einen umschaltbaren Energiemodus meldet; "Nur Medien" darf ihn nicht stellen.
+  protected readonly powerMode = computed(() =>
+    this.remote.mediaOnly() ? undefined : this.remote.systemStats()?.powerMode,
+  );
+  protected readonly powerModes: readonly PowerMode[] = ['efficiency', 'balanced', 'performance'];
+
   /** undefined = laedt noch, null = der PC hat nicht geantwortet. */
   protected readonly windows = signal<readonly OpenWindow[] | null | undefined>(undefined);
 
@@ -86,6 +92,10 @@ export class SystemStatsComponent implements OnDestroy {
     if (this.windowsSupported()) {
       void this.refreshWindows();
     }
+  }
+
+  protected selectPowerMode(event: Event): void {
+    this.remote.setPowerMode((event.target as HTMLSelectElement).value as PowerMode);
   }
 
   protected async refreshWindows(): Promise<void> {

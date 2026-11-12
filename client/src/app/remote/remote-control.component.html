@@ -254,6 +254,9 @@
             <span class="file-offer__file">{{ notification.app }}</span>
           }
           <div class="file-offer__actions">
+            <button class="secondary-button" type="button" (click)="removePcNotification()">
+              {{ i18n.t('pcNotification.remove') }}
+            </button>
             <button class="secondary-button" type="button" (click)="dismissPcNotification()">
               {{ i18n.t('fileOffer.close') }}
             </button>
@@ -293,7 +296,7 @@
               <path [attr.d]="iconPaths.timer"></path>
             </svg>
             <span class="media-strip__title">
-              {{ i18n.t('shutdownTimer.remaining', { time: countdown }) }}
+              {{ i18n.t(shutdownTimerKey(), { time: countdown }) }}
             </span>
           </span>
           <button class="secondary-button" type="button" (click)="cancelShutdownTimer()">

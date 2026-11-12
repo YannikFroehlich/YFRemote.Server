@@ -487,29 +487,38 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 return;
             }
 
+            var (noun, announcement) = TimerTexts(shutdownTimer.Action);
             if (shutdownTimer.DueAt is { } dueAt)
             {
                 notifyIcon.ShowBalloonTip(
                     5000,
-                    "Herunterfahren geplant",
-                    $"\"{deviceName}\" fährt den PC um {dueAt:HH:mm} Uhr herunter. Abbrechen über das Tray-Menü.",
+                    $"{noun} geplant",
+                    $"\"{deviceName}\" {string.Format(announcement, dueAt)}. Abbrechen über das Tray-Menü.",
                     ToolTipIcon.Warning);
             }
             else
             {
                 notifyIcon.ShowBalloonTip(
                     3000,
-                    "Herunterfahren abgebrochen",
-                    $"\"{deviceName}\" hat das geplante Herunterfahren abgebrochen.",
+                    $"{noun} abgebrochen",
+                    $"\"{deviceName}\" hat den Termin abgebrochen.",
                     ToolTipIcon.Info);
             }
         });
 
+    private static (string Noun, string Announcement) TimerTexts(TimerAction action) => action switch
+    {
+        TimerAction.Sleep => ("Ruhemodus", "schickt den PC um {0:HH:mm} Uhr in den Ruhemodus"),
+        TimerAction.DisplayOff => ("Bildschirm aus", "schaltet den Bildschirm um {0:HH:mm} Uhr aus"),
+        _ => ("Herunterfahren", "fährt den PC um {0:HH:mm} Uhr herunter"),
+    };
+
     private void RefreshShutdownTimerItem()
     {
         var dueAt = shutdownTimer.DueAt;
+        var (noun, _) = TimerTexts(shutdownTimer.Action);
         shutdownTimerItem.Visible = dueAt is not null;
-        shutdownTimerItem.Text = $"Herunterfahren um {dueAt:HH:mm} Uhr abbrechen";
+        shutdownTimerItem.Text = $"{noun} um {dueAt:HH:mm} Uhr abbrechen";
     }
 
     // Kommt vom Thread der WebSocket-Verbindung. Ist das Menue gerade offen, wird die Geraeteanzahl

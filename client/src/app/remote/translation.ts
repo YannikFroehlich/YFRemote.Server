@@ -159,13 +159,19 @@ export const TRANSLATIONS = {
   'button.display-off.ariaLabel': { de: 'Bildschirm ausschalten', en: 'Turn off the screen' },
   'button.shutdown-timer.label': { de: 'Timer', en: 'Timer' },
   'button.shutdown-timer.ariaLabel': {
-    de: 'Herunterfahren planen',
-    en: 'Schedule a shutdown',
+    de: 'Timer stellen',
+    en: 'Set a timer',
   },
-  'button.shutdown-timer.prompt': {
-    de: 'In wie vielen Minuten herunterfahren? 0 bricht einen geplanten Termin ab.',
-    en: 'Shut down in how many minutes? 0 cancels a scheduled shutdown.',
+  'timer.title': { de: 'Timer', en: 'Timer' },
+  'timer.minutes': {
+    de: 'In Minuten (0 bricht einen Timer ab)',
+    en: 'In minutes (0 cancels a timer)',
   },
+  'timer.power': { de: 'Dann', en: 'Then' },
+  'timer.power.shutdown': { de: 'Herunterfahren', en: 'Shut down' },
+  'timer.power.sleep': { de: 'Ruhemodus', en: 'Sleep' },
+  'timer.power.displayOff': { de: 'Bildschirm aus', en: 'Turn off display' },
+  'timer.start': { de: 'Starten', en: 'Start' },
 
   'keyGroup.modifiers': { de: 'Modifikatoren', en: 'Modifiers' },
   'keyGroup.functionKeys': { de: 'Funktionstasten', en: 'Function keys' },
@@ -235,6 +241,7 @@ export const TRANSLATIONS = {
   'fileOffer.download': { de: 'Annehmen', en: 'Accept' },
   'fileOffer.dismiss': { de: 'Ablehnen', en: 'Decline' },
   'fileOffer.close': { de: 'Schließen', en: 'Close' },
+  'pcNotification.remove': { de: 'Am PC entfernen', en: 'Remove on PC' },
   'fileOffer.error': {
     de: 'Die Datei ist nicht mehr verfügbar.',
     en: 'The file is no longer available.',
@@ -439,6 +446,14 @@ export const TRANSLATIONS = {
     de: 'Herunterfahren in {{time}}',
     en: 'Shutting down in {{time}}',
   },
+  'shutdownTimer.remaining.sleep': {
+    de: 'Ruhemodus in {{time}}',
+    en: 'Sleep in {{time}}',
+  },
+  'shutdownTimer.remaining.displayOff': {
+    de: 'Bildschirm aus in {{time}}',
+    en: 'Display off in {{time}}',
+  },
   'shutdownTimer.cancel': { de: 'Abbrechen', en: 'Cancel' },
   'stats.waiting': { de: 'Warte auf Messwerte vom PC …', en: 'Waiting for readings from the PC …' },
   'stats.waiting.android': {
@@ -446,6 +461,10 @@ export const TRANSLATIONS = {
     en: 'Waiting for readings from the device …',
   },
   'stats.memory': { de: 'Arbeitsspeicher', en: 'Memory' },
+  'stats.powerMode': { de: 'Energiemodus', en: 'Power mode' },
+  'stats.powerMode.efficiency': { de: 'Beste Energieeffizienz', en: 'Best power efficiency' },
+  'stats.powerMode.balanced': { de: 'Ausbalanciert', en: 'Balanced' },
+  'stats.powerMode.performance': { de: 'Beste Leistung', en: 'Best performance' },
   'stats.battery': { de: 'Akku', en: 'Battery' },
   'stats.battery.charging': { de: 'lädt', en: 'charging' },
   'stats.battery.discharging': { de: 'nicht am Strom', en: 'on battery' },

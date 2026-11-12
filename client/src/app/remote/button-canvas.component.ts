@@ -21,7 +21,7 @@ import {
   resolveButtonSteps,
 } from './button-layout';
 import { REMOTE_ICON_PATHS } from './remote-icons';
-import { RemoteButtonConfig } from './remote.models';
+import { RemoteButtonConfig, TimerPower } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -83,10 +83,40 @@ export class ButtonCanvasComponent implements OnDestroy {
   });
 
   private readonly canvasRef = viewChild<ElementRef<HTMLElement>>('canvas');
+  private readonly timerDialog = viewChild.required<ElementRef<HTMLDialogElement>>('timerDialog');
+  protected readonly timerPowers: readonly TimerPower[] = ['shutdown', 'sleep', 'displayOff'];
+  /** null = geschlossen; der Dialoginhalt wird nur waehrend der Eingabe gerendert. */
+  protected readonly timerDraft = signal<{ minutes: number; power: TimerPower } | null>(null);
 
   private drag: DragState | null = null;
   private pendingPreview: DragPosition | null = null;
   private animationFrameId: number | null = null;
+
+  /** Ungueltige Minuten lehnt der Server mit Meldung ab; 0 bricht einen Termin ab. */
+  protected startTimer(event: Event, minutesValue: string, powerValue: string): void {
+    event.preventDefault();
+    const minutes = minutesValue.trim();
+    const power = powerValue as TimerPower;
+    if (minutes !== '') {
+      this.remote.sendAction({
+        type: 'shutdownTimer',
+        minutes: Number.parseInt(minutes, 10),
+        // Ohne Angabe faehrt der PC herunter - so versteht auch ein aelterer Server den Timer.
+        ...(power === 'shutdown' ? {} : { power }),
+      });
+    }
+    this.closeTimer();
+  }
+
+  protected closeTimer(): void {
+    const dialog = this.timerDialog().nativeElement;
+    if (typeof dialog.close === 'function') {
+      dialog.close();
+    } else {
+      dialog.removeAttribute('open');
+    }
+    this.timerDraft.set(null);
+  }
 
   protected labelVisible(button: RemoteButtonConfig): boolean {
     return labelVisibleFor(button);
@@ -104,19 +134,21 @@ export class ButtonCanvasComponent implements OnDestroy {
     const action = item.button.action;
 
     if (action?.type === 'shutdownTimer') {
-      // Laeuft schon ein Termin, steht seine Restzeit im Feld - so ist Verlaengern nur ein Tippen.
+      // Laeuft schon ein Termin, stehen seine Restzeit und Aktion im Dialog - so ist Verlaengern
+      // nur ein Tippen.
       const deadline = this.remote.shutdownDeadline();
       const remainingMinutes = deadline === null ? 0 : Math.ceil((deadline - Date.now()) / 60_000);
-      const answer = globalThis.prompt(
-        this.i18n.t('button.shutdown-timer.prompt'),
-        String(remainingMinutes > 0 ? remainingMinutes : action.minutes),
-      );
-
-      // Ungueltige Eingaben lehnt der Server mit Meldung ab, abbrechen schickt nichts.
-      if (answer !== null && answer.trim() !== '') {
-        this.remote.sendAction({ type: 'shutdownTimer', minutes: Number.parseInt(answer, 10) });
+      this.timerDraft.set({
+        minutes: remainingMinutes > 0 ? remainingMinutes : action.minutes,
+        power:
+          remainingMinutes > 0 ? this.remote.shutdownTimerPower() : (action.power ?? 'shutdown'),
+      });
+      const dialog = this.timerDialog().nativeElement;
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute('open', '');
       }
-
       return;
     }
 

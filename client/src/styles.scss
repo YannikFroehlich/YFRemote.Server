@@ -933,6 +933,11 @@ h2 {
   gap: 10px;
 }
 
+// Energiemodus im Tab "PC", zwischen den Messwerten und der Fensterliste.
+.power-mode {
+  margin-top: 14px;
+}
+
 .stats-tile {
   display: grid;
   gap: 8px;
@@ -3184,7 +3189,9 @@ select:focus-visible {
   border-radius: calc(12px * var(--radius-scale));
 }
 
-.color-picker {
+// Der Timer-Dialog (button-canvas.component) sieht aus wie der Farbwaehler.
+.color-picker,
+.timer-dialog {
   width: min(calc(100% - 36px), 380px);
   max-width: none;
   max-height: calc(100dvh - 36px);
@@ -3199,11 +3206,13 @@ select:focus-visible {
   color: var(--text);
 }
 
-.color-picker[open] {
+.color-picker[open],
+.timer-dialog[open] {
   animation: dialog-in 420ms var(--ease-emphasized) backwards;
 }
 
-.color-picker::backdrop {
+.color-picker::backdrop,
+.timer-dialog::backdrop {
   background: rgba(var(--scrim-rgb), 0.72);
   backdrop-filter: blur(10px);
   animation: fade-in 240ms ease backwards;
@@ -3217,7 +3226,8 @@ select:focus-visible {
   animation: fade-out 200ms ease forwards;
 }
 
-.color-picker__body {
+.color-picker__body,
+.timer-dialog__form {
   display: grid;
   gap: 16px;
   padding: 22px;

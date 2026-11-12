@@ -101,30 +101,65 @@ describe('ButtonCanvasComponent', () => {
     expect(confirmSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('asks for the minutes before scheduling a shutdown', async () => {
-    const { sockets, button } = await setupCanvas(false);
-    const promptSpy = vi.fn().mockReturnValueOnce(null).mockReturnValueOnce('45');
-    vi.stubGlobal('prompt', promptSpy);
+  it('asks for minutes and action before scheduling a timer', async () => {
+    const { fixture, sockets, button } = await setupCanvas(false);
+    const element = fixture.nativeElement as HTMLElement;
+    const dialog = element.querySelector('dialog.timer-dialog') as HTMLDialogElement;
+    const open = () => {
+      button('Timer stellen').click();
+      fixture.detectChanges();
+    };
 
-    button('Herunterfahren planen').click();
+    open();
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector('input')!.value).toBe('30');
+    expect(dialog.querySelector('select')!.value).toBe('shutdown');
+    dialog.querySelector<HTMLButtonElement>('button.secondary-button')!.click();
+    fixture.detectChanges();
+    expect(dialog.open).toBe(false);
+    expect(dialog.querySelector('form')).toBeNull();
     expect(sockets[0].sentMessages).toEqual([]);
 
-    button('Herunterfahren planen').click();
-    expect(sockets[0].sentMessages).toEqual(['{"type":"shutdownTimer","minutes":45}']);
-    expect(promptSpy).toHaveBeenLastCalledWith(expect.any(String), '30');
+    open();
+    dialog.querySelector('input')!.value = '45';
+    dialog.querySelector('select')!.value = 'sleep';
+    dialog.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+
+    expect(sockets[0].sentMessages).toEqual([
+      '{"type":"shutdownTimer","minutes":45,"power":"sleep"}',
+    ]);
+    expect(dialog.open).toBe(false);
   });
 
-  it('offers the remaining minutes of a pending shutdown timer', async () => {
-    const { sockets, button } = await setupCanvas(false);
-    const promptSpy = vi.fn().mockReturnValue(null);
-    vi.stubGlobal('prompt', promptSpy);
+  it('sends a plain shutdown timer without power, as older servers expect', async () => {
+    const { fixture, sockets, button } = await setupCanvas(false);
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector(
+      'dialog.timer-dialog',
+    ) as HTMLDialogElement;
+
+    button('Timer stellen').click();
+    fixture.detectChanges();
+    dialog.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+
+    expect(sockets[0].sentMessages).toEqual(['{"type":"shutdownTimer","minutes":30}']);
+  });
+
+  it('offers the remaining minutes and action of a pending timer', async () => {
+    const { fixture, sockets, button } = await setupCanvas(false);
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector(
+      'dialog.timer-dialog',
+    ) as HTMLDialogElement;
 
     sockets[0].onmessage?.(
-      new MessageEvent('message', { data: '{"type":"shutdownTimer","remainingSeconds":530}' }),
+      new MessageEvent('message', {
+        data: '{"type":"shutdownTimer","remainingSeconds":530,"action":"displayOff"}',
+      }),
     );
-    button('Herunterfahren planen').click();
+    button('Timer stellen').click();
+    fixture.detectChanges();
 
-    expect(promptSpy).toHaveBeenLastCalledWith(expect.any(String), '9');
+    expect(dialog.querySelector('input')!.value).toBe('9');
+    expect(dialog.querySelector('select')!.value).toBe('displayOff');
   });
 
   it('does not send an action when clicked in edit mode', async () => {
@@ -222,9 +257,7 @@ describe('ButtonCanvasComponent', () => {
     view.button('Stumm').click();
 
     expect(view.button('Stumm').disabled).toBe(false);
-    expect(view.sockets[0].sentMessages).toEqual([
-      '{"type":"key","keys":["VOLUME_MUTE"]}',
-    ]);
+    expect(view.sockets[0].sentMessages).toEqual(['{"type":"key","keys":["VOLUME_MUTE"]}']);
   });
 });
 

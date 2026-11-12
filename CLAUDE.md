@@ -351,14 +351,19 @@ while playing. That makes the push change every second during playback, which is
 `IsPlaybackPositionEnabled`; on Linux it is assumed whenever there is a length.
 
 **Shutdown timer.** `shutdownTimer` with `minutes` 1-1440 schedules a shutdown in the singleton
-`ShutdownTimer`, `minutes: 0` cancels it. It deliberately runs its own in-process timer instead of
+`ShutdownTimer`, `minutes: 0` cancels it. An optional `power` (`sleep`, `displayOff`; default
+`shutdown`, so an older Client still means shutdown) picks what happens instead (`TimerAction`);
+there is only ever one timer. It deliberately runs its own in-process timer instead of
 `shutdown.exe /s /t N`: any `/t` above 0 implies `/f` and would close apps with unsaved work
-without asking; when due it calls the normal `IPowerService.Shutdown`. The timer is lost when
-YFRemote exits. The tray shows a balloon naming the device and a "Herunterfahren um HH:mm Uhr
-abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()`. Every
+without asking; when due it calls the normal `IPowerService.Shutdown` (or `Sleep`/`TurnOffDisplay`).
+The timer is lost when YFRemote exits. The tray shows a balloon naming the device and a
+"Herunterfahren/Ruhemodus/Bildschirm aus um HH:mm Uhr abbrechen" entry while one is pending. The
+Client's "Timer" button opens a native `<dialog>` (top layer, so `.remote-panel`'s `backdrop-filter`
+does not clip it) with minutes and that action; it leaves `power` out for a shutdown, so an older
+server still understands it. Every
 change (scheduled, cancelled, elapsed) is pushed to all connected devices as
-`{"type":"shutdownTimer","remainingSeconds"}` (`ShutdownTimer.Status`; no `remainingSeconds` = none
-pending), and again on connect while one is pending. Remaining seconds rather than a time of day,
+`{"type":"shutdownTimer","remainingSeconds","action"}` (`ShutdownTimer.Status`; no
+`remainingSeconds` = none pending), and again on connect while one is pending. Remaining seconds rather than a time of day,
 because the device clock may differ from the PC's. The Client shows a countdown with "Abbrechen"
 above the Remote buttons.
 
@@ -380,9 +385,18 @@ Client setting "Windows-Benachrichtigungen anzeigen", Windows server only, own b
 pushes `{"type":"notification","id","app","title","text"}` for the toast with the highest id seen so
 far, so dismissing the newest never resends an older one. The listener grants access to the
 unpackaged app, but its `NotificationChanged` event needs package identity (`0x80070490`, measured on
-the dev PC on 2026-11-10), hence the polling. The Client shows it for 8 s as a banner. A third broadcaster pushes
-`{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging"}`
-(battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC),
+the dev PC on 2026-11-10), hence the polling. The Client shows it for 8 s as a banner; its "Am PC
+entfernen" sends `dismissNotification` (`id`, digits only), which `IPcNotifications.Dismiss`
+(`UserNotificationListener.RemoveNotification`) turns into removing it from the PC's notification
+center too (not allowed for "Nur Medien"; unverified on a real toast). A third broadcaster pushes
+`{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging","powerMode"}`
+(battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC; `powerMode` is
+the Windows power mode `efficiency`/`balanced`/`performance` from `IPowerService.PowerMode`, added in
+`Program.ReadWithPowerMode`. `WindowsPowerService` reads it with the undocumented but exported
+`PowerGetEffectiveOverlayScheme` and only while the plan is "Ausbalanciert", because Windows ignores
+the overlay under any other plan; `powerMode` (`mode`) sets it with `PowerSetActiveOverlayScheme`.
+The "PC" tab shows a select for it, hidden for "Nur Medien". Reading was checked on the dev PC on
+2026-11-12, switching is unverified),
 subscribed only while the device has the Client's "PC" tab open (`{"type":"systemStats","enabled"}`,
 kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing otherwise.
 `WindowsSystemStatsReader` uses `GetSystemTimes`, `GlobalMemoryStatusEx`, the PDH counter

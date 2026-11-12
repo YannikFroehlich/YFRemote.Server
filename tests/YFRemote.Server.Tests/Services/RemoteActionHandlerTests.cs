@@ -638,6 +638,106 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow("sleep", TimerAction.Sleep, "sleep")]
+    [DataRow("displayOff", TimerAction.DisplayOff, "displayOff")]
+    [DataRow(null, TimerAction.Shutdown, "shutdown")]
+    public void Handle_ShutdownTimer_SchedulesChosenPowerAction(string? power, TimerAction expected, string pushed)
+    {
+        using var shutdownTimer = new ShutdownTimer(new RecordingPowerService(), NullLogger<ShutdownTimer>.Instance);
+        var handler = CreateHandler(shutdownTimer: shutdownTimer);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "shutdownTimer", Minutes = 5, Power = power });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(expected, shutdownTimer.Action);
+        Assert.AreEqual(pushed, shutdownTimer.Status.Action);
+    }
+
+    [TestMethod]
+    public void Handle_ShutdownTimer_UnknownPower_Fails()
+    {
+        using var shutdownTimer = new ShutdownTimer(new RecordingPowerService(), NullLogger<ShutdownTimer>.Instance);
+        var handler = CreateHandler(shutdownTimer: shutdownTimer);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = "shutdownTimer", Minutes = 5, Power = "restart" });
+
+        Assert.IsFalse(response.Success);
+        Assert.IsNull(shutdownTimer.DueAt);
+    }
+
+    [TestMethod]
+    public void Handle_DismissNotification_RemovesOnlyNumericIds()
+    {
+        var notifications = new RecordingPcNotifications();
+        var handler = CreateHandler(pcNotifications: notifications);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "dismissNotification", Id = "4711" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "dismissNotification", Id = "-1" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "dismissNotification", Id = "99999999999" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "dismissNotification" }).Success);
+
+        CollectionAssert.AreEqual(new uint[] { 4711 }, notifications.Dismissed);
+    }
+
+    [TestMethod]
+    public void Handle_DismissNotification_WithoutSupport_Fails()
+    {
+        var response = CreateHandler().Handle(new RemoteActionRequest { Type = "dismissNotification", Id = "1" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Notifications are not supported.", response.Error);
+    }
+
+    [TestMethod]
+    public void Handle_Brightness_SetsOnlyWholePercentOfKnownDisplays()
+    {
+        var brightness = new RecordingBrightnessService();
+        var handler = CreateHandler(brightness: brightness);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 40 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 101 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 12.5 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Value = 40 }).Success);
+        var unknown = handler.Handle(new RemoteActionRequest { Type = "brightness", Id = @"\\.\DISPLAY9", Value = 40 });
+
+        Assert.IsFalse(unknown.Success);
+        Assert.AreEqual("This display does not accept brightness changes.", unknown.Error);
+        CollectionAssert.AreEqual(new[] { ("internal", 40) }, brightness.Set);
+    }
+
+    [TestMethod]
+    public void Handle_Brightness_WithoutSupport_Fails()
+    {
+        var response = CreateHandler().Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 40 });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Brightness is not supported.", response.Error);
+    }
+
+    [TestMethod]
+    public void Handle_PowerMode_SetsOnlyKnownModes()
+    {
+        var power = new RecordingPowerService();
+        var handler = CreateHandler(powerService: power);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "powerMode", Mode = "Performance" }).Success);
+        Assert.AreEqual("performance", power.PowerMode);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "powerMode", Mode = "turbo" }).Success);
+        Assert.AreEqual("performance", power.PowerMode);
+    }
+
+    [TestMethod]
+    public void Handle_PowerMode_UnsupportedSystem_Fails()
+    {
+        var response = CreateHandler(powerService: new ThrowingPowerService())
+            .Handle(new RemoteActionRequest { Type = "powerMode", Mode = "balanced" });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Power mode is not supported on this system.", response.Error);
+    }
+
+    [TestMethod]
     public void Handle_FailingPowerAction_ReturnsFailure()
     {
         var handler = CreateHandler(powerService: new ThrowingPowerService());
@@ -794,7 +894,9 @@ public sealed class RemoteActionHandlerTests
         IMediaControl? mediaControl = null,
         IAppVolumeService? appVolumes = null,
         IAppLauncher? appLauncher = null,
-        IWindowService? windows = null)
+        IWindowService? windows = null,
+        IPcNotifications? pcNotifications = null,
+        IBrightnessService? brightness = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -807,7 +909,34 @@ public sealed class RemoteActionHandlerTests
             mediaControl: mediaControl,
             appVolumes: appVolumes,
             appLauncher: appLauncher,
-            windows: windows);
+            windows: windows,
+            pcNotifications: pcNotifications,
+            brightness: brightness);
+    }
+
+    private sealed class RecordingBrightnessService : IBrightnessService
+    {
+        public List<(string Id, int Percent)> Set { get; } = [];
+
+        public IReadOnlyList<MonitorBrightness> List() => [new("internal", 100)];
+
+        public bool TrySet(string id, int percent)
+        {
+            if (id != "internal")
+            {
+                return false;
+            }
+
+            Set.Add((id, percent));
+            return true;
+        }
+    }
+
+    private sealed class RecordingPcNotifications : IPcNotifications
+    {
+        public List<uint> Dismissed { get; } = [];
+
+        public void Dismiss(uint id) => Dismissed.Add(id);
     }
 
     private sealed class RecordingPowerService : IPowerService
@@ -837,6 +966,13 @@ public sealed class RemoteActionHandlerTests
         public void TurnOffDisplay()
         {
             LastAction = "displayOff";
+        }
+
+        public string? PowerMode { get; private set; }
+
+        public void SetPowerMode(string mode)
+        {
+            PowerMode = mode;
         }
     }
 

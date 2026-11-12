@@ -28,17 +28,41 @@ data class RemoteDevice(
  *  wo der PC diese CA ausliefert. */
 data class QrCode(val url: String, val pin: String?, val caSha256: String? = null, val httpPort: Int = RemoteDevices.DEFAULT_PORT)
 
-// Nur die Liste der Adressen: das Pairing-Token liegt im localStorage des WebViews, pro Origin,
-// genau wie im Browser - der Web-Client verwaltet es selbst.
-class RemoteDevices(context: Context) {
+// Die Liste der Adressen. Das Pairing-Token verwaltet der Web-Client im localStorage des WebViews,
+// pro Origin wie im Browser; RemoteWebActivity liest eine Kopie davon aus (setToken), damit Teilen und
+// das Medien-Widget ohne geoeffnete Oberflaeche zum Geraet sprechen koennen.
+class RemoteDevices(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("remote_devices", Context.MODE_PRIVATE)
+    private val tokens = context.getSharedPreferences("remote_tokens", Context.MODE_PRIVATE)
 
     fun load(): List<RemoteDevice> = parse(prefs.getString(KEY, null))
 
     fun add(device: RemoteDevice) = save(load().filterNot { it.url == device.url } + device)
 
-    fun remove(url: String) = save(load().filterNot { it.url == url })
+    fun remove(url: String) {
+        save(load().filterNot { it.url == url })
+        tokens.edit().remove(url).apply()
+        if (lastUrl == url) prefs.edit().remove(KEY_LAST).apply()
+        MediaWidget.refresh(context)
+    }
+
+    fun token(url: String): String? = tokens.getString(url, null)
+
+    /** null: im Web-Client nicht gemerkt oder entkoppelt - dann kann nur die Oberflaeche selbst koppeln. */
+    fun setToken(url: String, token: String?) {
+        if (token == null) tokens.edit().remove(url).apply() else tokens.edit().putString(url, token).apply()
+    }
+
+    /** Zuletzt geoeffnetes Geraet - das Ziel des Medien-Widgets. */
+    val lastUrl: String? get() = prefs.getString(KEY_LAST, null)
+
+    fun setLast(url: String) {
+        prefs.edit().putString(KEY_LAST, url).apply()
+        MediaWidget.refresh(context)
+    }
+
+    fun last(): RemoteDevice? = lastUrl?.let { url -> load().firstOrNull { it.url == url } }
 
     fun setMac(url: String, mac: String, wireless: Boolean) =
         save(load().map { if (it.url == url) it.copy(mac = mac, macWireless = wireless) else it })
@@ -56,10 +80,13 @@ class RemoteDevices(context: Context) {
 
     private fun save(devices: List<RemoteDevice>) {
         prefs.edit().putString(KEY, serialize(devices)).apply()
+        // Das Widget zeigt Namen und Ziel des zuletzt geoeffneten Geraets.
+        MediaWidget.refresh(context)
     }
 
     companion object {
         private const val KEY = "devices"
+        private const val KEY_LAST = "last"
         const val DEFAULT_PORT = 5050
 
         /** "192.168.0.5", "pc.local:5060" oder "http://..." -> "http://host:port", sonst null. */

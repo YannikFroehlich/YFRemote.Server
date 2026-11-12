@@ -30,6 +30,25 @@ public sealed class ShutdownTimerTests
     }
 
     [TestMethod]
+    public async Task Schedule_Sleep_SleepsInsteadOfShuttingDown()
+    {
+        var powerService = new CountingPowerService();
+        using var shutdownTimer = new ShutdownTimer(powerService, NullLogger<ShutdownTimer>.Instance);
+
+        shutdownTimer.Schedule(TimeSpan.FromMilliseconds(50), "Handy", TimerAction.Sleep);
+
+        Assert.AreEqual("sleep", shutdownTimer.Status.Action);
+        for (var i = 0; i < 100 && powerService.Sleeps == 0; i++)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.AreEqual(1, powerService.Sleeps);
+        Assert.AreEqual(0, powerService.Shutdowns);
+        Assert.IsNull(shutdownTimer.Status.Action);
+    }
+
+    [TestMethod]
     public async Task Reschedule_ReplacesEarlierTimer()
     {
         var powerService = new CountingPowerService();
@@ -61,13 +80,17 @@ public sealed class ShutdownTimerTests
     {
         private int shutdowns;
 
+        private int sleeps;
+
         public int Shutdowns => Volatile.Read(ref shutdowns);
+
+        public int Sleeps => Volatile.Read(ref sleeps);
 
         public void Shutdown() => Interlocked.Increment(ref shutdowns);
 
         public void Restart() { }
 
-        public void Sleep() { }
+        public void Sleep() => Interlocked.Increment(ref sleeps);
 
         public void Lock() { }
 

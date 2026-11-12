@@ -21,6 +21,17 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: "Teilen" schickt Dateien, Fotos, Links und Text aus jeder App an einen PC. Dateien landen im Empfangsordner des PCs, ein Link öffnet sich dort im Browser, anderer Text in der Zwischenablage. Mit mehreren Geräten fragt die App, wohin. Das geht mit jedem Gerät, das in der App mit "Gerät merken" gekoppelt und seitdem einmal geöffnet wurde.
+- Android-App: Medien-Widget für den Startbildschirm mit Leiser, Zurück, Abspielen/Pause, Weiter und Lauter für das zuletzt geöffnete Gerät, ohne die App zu öffnen. Ein Tipp auf den Namen öffnet das Gerät.
+- Timer: Statt Herunterfahren kann der Timer den PC auch in den Ruhemodus schicken oder den Bildschirm ausschalten. Der Timer-Button öffnet dafür einen Dialog mit Minuten und Aktion statt der bisherigen Eingabeaufforderung.
+- Benachrichtigungen: "Am PC entfernen" im Banner einer weitergeleiteten Windows-Benachrichtigung entfernt sie auch im Info-Center des PCs.
+- Tab "PC": Der Windows-Energiemodus (Beste Energieeffizienz, Ausbalanciert, Beste Leistung) lässt sich umschalten. Er erscheint, solange am PC der Energiesparplan "Ausbalanciert" aktiv ist, wie in den Windows-Einstellungen.
+- Tab "PC": Regler für die Helligkeit, für das eingebaute Laptop-Display und für externe Monitore, die DDC/CI können (in den Monitoreinstellungen meist abschaltbar). Bildschirme ohne beides bekommen keinen Regler.
+
+## [2.52.0] - 2026-11-12
+
 ### Changed
 
 - Tab "Bildschirm": Gedrehte Monitore (Hochformat) laufen jetzt auch als H.264-Video statt als JPEG, also flüssiger und mit weniger Datenverkehr. Kann der Grafiktreiber das Bild nicht drehen, bleibt es bei JPEG.

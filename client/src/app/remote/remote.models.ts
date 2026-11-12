@@ -62,10 +62,15 @@ export interface PowerAction {
   readonly type: 'shutdown' | 'restart' | 'sleep' | 'lock' | 'displayOff';
 }
 
-/** Faehrt den PC nach `minutes` Minuten herunter (max. 1440); 0 bricht einen Termin ab. */
+/** Was ein Timer bei Ablauf tut; ohne Angabe faehrt der PC herunter. */
+export type TimerPower = 'shutdown' | 'sleep' | 'displayOff';
+
+/** Faehrt den PC nach `minutes` Minuten herunter (max. 1440), oder schickt ihn mit `power` in den
+ *  Ruhemodus bzw. schaltet den Bildschirm aus; 0 bricht einen Termin ab. */
 export interface ShutdownTimerAction {
   readonly type: 'shutdownTimer';
   readonly minutes: number;
+  readonly power?: TimerPower;
 }
 
 /** Setzt die PC-Lautstaerke (0-100) und hebt die Stummschaltung auf. */
@@ -116,6 +121,8 @@ export interface AccessMessage {
 export interface ShutdownTimerMessage {
   readonly type: 'shutdownTimer';
   readonly remainingSeconds?: number;
+  /** Fehlt bei einem aelteren Server: dann Herunterfahren. */
+  readonly action?: TimerPower;
 }
 
 export interface GamepadRumbleMessage {
@@ -162,6 +169,35 @@ export interface SystemStatsMessage {
   readonly batteryLevel?: number;
   readonly batteryCharging?: boolean;
   readonly batteryTemperature?: number;
+  /** Windows-Energiemodus; fehlt, wenn der PC keinen umschaltbaren hat. */
+  readonly powerMode?: PowerMode;
+}
+
+export type PowerMode = 'efficiency' | 'balanced' | 'performance';
+
+/** Stellt den Windows-Energiemodus um (Tab "PC"). */
+export interface PowerModeAction {
+  readonly type: 'powerMode';
+  readonly mode: PowerMode;
+}
+
+/** Entfernt eine weitergeleitete Windows-Benachrichtigung auch im Info-Center des PCs. */
+export interface DismissNotificationAction {
+  readonly type: 'dismissNotification';
+  readonly id: string;
+}
+
+/** Ein Bildschirm aus `GET /brightness`; `id` ist `internal` fuer das eingebaute Display. */
+export interface MonitorBrightness {
+  readonly id: string;
+  readonly brightness: number;
+}
+
+/** Stellt die Helligkeit (0-100) eines Bildschirms aus `GET /brightness` (Tab "PC"). */
+export interface BrightnessAction {
+  readonly type: 'brightness';
+  readonly id: string;
+  readonly value: number;
 }
 
 /** Schaltet fuer diese Verbindung den Voicemeeter-Mixer ein oder aus; wie die Systemanzeige liest
@@ -322,7 +358,10 @@ export type RemoteAction =
   | AppVolumeAction
   | AudioOutputAction
   | LaunchAction
-  | FocusWindowAction;
+  | FocusWindowAction
+  | PowerModeAction
+  | DismissNotificationAction
+  | BrightnessAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

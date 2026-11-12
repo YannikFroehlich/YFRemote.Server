@@ -21,7 +21,9 @@ public sealed partial class RemoteActionHandler(
     PollingBroadcaster<AppVolumesMessage>? appVolumeStatus = null,
     IAppLauncher? appLauncher = null,
     IWindowService? windows = null,
-    PollingBroadcaster<PcNotificationMessage?>? notifications = null)
+    PollingBroadcaster<PcNotificationMessage?>? notifications = null,
+    IPcNotifications? pcNotifications = null,
+    IBrightnessService? brightness = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -89,6 +91,9 @@ public sealed partial class RemoteActionHandler(
                 "focuswindow" => HandleWindow(request, WindowCommand.Focus),
                 "minimizewindow" => HandleWindow(request, WindowCommand.Minimize),
                 "closewindow" => HandleWindow(request, WindowCommand.Close),
+                "dismissnotification" => HandleDismissNotification(request),
+                "powermode" => HandlePowerMode(request),
+                "brightness" => HandleBrightness(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -393,6 +398,18 @@ public sealed partial class RemoteActionHandler(
             return Fail($"Action 'shutdownTimer' requires minutes between 0 and {MaxShutdownTimerMinutes}.");
         }
 
+        TimerAction? action = request.Power?.Trim().ToLowerInvariant() switch
+        {
+            null or "" or "shutdown" => TimerAction.Shutdown,
+            "sleep" => TimerAction.Sleep,
+            "displayoff" => TimerAction.DisplayOff,
+            _ => null,
+        };
+        if (action is null)
+        {
+            return Fail("Action 'shutdownTimer' supports power 'shutdown', 'sleep' or 'displayOff'.");
+        }
+
         var deviceName = session?.DeviceName ?? "Unbekanntes Gerät";
         if (minutes == 0)
         {
@@ -400,9 +417,38 @@ public sealed partial class RemoteActionHandler(
         }
         else
         {
-            shutdownTimer.Schedule(TimeSpan.FromMinutes(minutes), deviceName);
+            shutdownTimer.Schedule(TimeSpan.FromMinutes(minutes), deviceName, action.Value);
         }
 
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleDismissNotification(RemoteActionRequest request)
+    {
+        if (pcNotifications is null)
+        {
+            return Fail("Notifications are not supported.");
+        }
+
+        // Nur Ziffern, wie bei den Fenster-Kennungen - nichts anderes erreicht die Windows-API.
+        if (request.Id is not { } id || !id.All(char.IsAsciiDigit) || !uint.TryParse(id, out var notificationId))
+        {
+            return Fail("Action 'dismissNotification' requires a numeric id.");
+        }
+
+        pcNotifications.Dismiss(notificationId);
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandlePowerMode(RemoteActionRequest request)
+    {
+        var mode = request.Mode?.Trim().ToLowerInvariant();
+        if (mode is not ("efficiency" or "balanced" or "performance"))
+        {
+            return Fail("Action 'powerMode' requires mode 'efficiency', 'balanced' or 'performance'.");
+        }
+
+        powerService.SetPowerMode(mode);
         return RemoteActionResponse.Ok();
     }
 
@@ -769,6 +815,28 @@ public sealed partial class RemoteActionHandler(
         }
 
         logger.LogInformation("Launched app {Name}.", name);
+        return RemoteActionResponse.Ok();
+    }
+
+    // id aus GET /brightness; ein unbekannter Bildschirm faellt in TrySet durch, nichts davon erreicht eine Shell.
+    private RemoteActionResponse HandleBrightness(RemoteActionRequest request)
+    {
+        if (brightness is null)
+        {
+            return Fail("Brightness is not supported.");
+        }
+
+        if (string.IsNullOrEmpty(request.Id) || request.Value is not { } value || value is < 0 or > 100 || value != Math.Floor(value))
+        {
+            return Fail("Action 'brightness' requires id and value 0-100.");
+        }
+
+        if (!brightness.TrySet(request.Id, (int)value))
+        {
+            return Fail("This display does not accept brightness changes.");
+        }
+
+        logger.LogDebug("Brightness of {Id} set to {Value} %.", request.Id, value);
         return RemoteActionResponse.Ok();
     }
 

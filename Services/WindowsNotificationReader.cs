@@ -7,7 +7,7 @@ namespace YFRemote.Server.Services;
 // Die neueste Windows-Benachrichtigung (Toast) fuer die Weiterleitung aufs Geraet. Das Ereignis
 // NotificationChanged gibt es nur fuer Apps mit Paket-Identitaet (bei YFRemote 0x80070490, gemessen
 // am 2026-11-10), daher fragt ein PollingBroadcaster jede Sekunde nach.
-public sealed class WindowsNotificationReader
+public sealed class WindowsNotificationReader : IPcNotifications
 {
     private const int MaxTextLength = 500;
     private PcNotificationMessage? newest;
@@ -35,6 +35,15 @@ public sealed class WindowsNotificationReader
         }
 
         return newest;
+    }
+
+    public void Dismiss(uint id)
+    {
+        var listener = UserNotificationListener.Current;
+        if (listener.GetAccessStatus() == UserNotificationListenerAccessStatus.Allowed)
+        {
+            listener.RemoveNotification(id);
+        }
     }
 
     private static PcNotificationMessage ToMessage(UserNotification toast)

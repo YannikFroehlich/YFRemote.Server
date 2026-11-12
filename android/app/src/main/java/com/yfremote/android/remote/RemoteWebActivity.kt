@@ -67,6 +67,7 @@ class RemoteWebActivity : Activity() {
     private var pageOrigin: String? = null
     // Sprache des Diktats, das auf die Mikrofon-Berechtigung wartet.
     private var pendingSpeechLang: String? = null
+    private var remoteOrigin: String? = null
     // Gepinnte CA eines HTTPS-PCs, null bei HTTP.
     @Volatile
     private var ca: X509Certificate? = null
@@ -97,6 +98,8 @@ class RemoteWebActivity : Activity() {
         val origin = originOf(url)
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
         media = RemoteMediaNotification(this, title?.toString(), ::sendMedia)
+        remoteOrigin = origin
+        RemoteDevices(this).setLast(origin)
 
         // Chromium friert eine unsichtbare Seite nach etwa einer Minute ein: Danach kamen keine
         // Medien-Meldungen mehr an, und die Benachrichtigung blieb auf dem alten Stand. Solange sie
@@ -116,6 +119,8 @@ class RemoteWebActivity : Activity() {
                     pageOrigin = originOf(url)
                     captureVolumeKeys = false
                 }
+
+                override fun onPageFinished(view: WebView, url: String) = copyToken()
 
                 // Der lokalen CA des PCs vertraut Android nicht. Durchgelassen wird nur das Zielgeraet,
                 // nur mit dem Fehler "unbekannte CA" und nur, wenn sein Zertifikat von der gepinnten CA
@@ -441,7 +446,22 @@ class RemoteWebActivity : Activity() {
 
     override fun onPause() {
         updateOrientationSensor(resumed = false)
+        // Koppeln und Entkoppeln passieren ohne Seitenwechsel - beim Verlassen ist der Stand aktuell.
+        copyToken()
         super.onPause()
+    }
+
+    // Kopie des Pairing-Tokens fuer Teilen und Medien-Widget (RemoteClient). Nur von der Oberflaeche des
+    // Zielgeraets selbst, und nur ein gemerktes: "Gerät merken" aus heisst auch hier nicht merken.
+    private fun copyToken() {
+        val origin = remoteOrigin ?: return
+        if (pageOrigin != origin) return
+        webView.evaluateJavascript("localStorage.getItem('$PAIRING_TOKEN_KEY')") { result ->
+            if (pageOrigin != origin) return@evaluateJavascript
+            val token = runCatching { org.json.JSONArray("[$result]").optString(0) }.getOrNull()
+                ?.takeIf { result != "null" && it.isNotEmpty() }
+            RemoteDevices(this).setToken(origin, token)
+        }
     }
 
     @Suppress("DEPRECATION") // systemUiVisibility: der Ersatz insetsController kam erst mit Android 11.
@@ -496,6 +516,8 @@ class RemoteWebActivity : Activity() {
         const val EXTRA_URL = "url"
         const val EXTRA_NAME = "name"
         const val EXTRA_CA = "ca"
+        // client/src/app/remote/pairing.ts, PAIRING_TOKEN_STORAGE_KEY
+        private const val PAIRING_TOKEN_KEY = "yfremote.pairingToken"
         private val OTHER_SSL_ERRORS = listOf(
             SslError.SSL_NOTYETVALID,
             SslError.SSL_EXPIRED,

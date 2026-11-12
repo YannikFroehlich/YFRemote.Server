@@ -187,6 +187,16 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   first sends a 0-pixel mouse move through `WindowsInputSender` (the PowerToys trick); minimized
   windows are restored. Listing and switching back and forth were checked on the dev PC on
   2026-10-24.
+- `GET /brightness` (`WindowEndpoints`, same gate and `no-store` as `GET /windows`) →
+  `{ monitors: [{id,brightness}] }` for the "PC" tab's sliders, `501` without an
+  `IBrightnessService` (Linux). `WindowsBrightnessService` reads the built-in laptop panel through
+  WMI (`WmiMonitorBrightness`, late-bound `WbemScripting`, no package) as `id` `internal`, and every
+  external monitor answering DDC/CI (`dxva2` `GetMonitorBrightness`) by its device name. The panel
+  is its own entry because the WMI instance cannot be tied to an `HMONITOR` reliably (under Parsec
+  the active display has no monitor device at all). `brightness` (`id`, `value` 0-100, whole
+  numbers) sets it; the Client sends only when the slider is let go, because DDC/CI takes tens of
+  milliseconds per value. On the dev PC on 2026-11-12 reading the panel took 227 ms and setting it to
+  its current value worked; DDC/CI with a real external monitor and an actual change are unverified.
 - `GET /screen/monitors` (`ScreenEndpoints`, same gate as `GET /screen`) → `{ monitors: [{id,width,height,primary}] }`,
   left to right, from `WindowsMonitors` (`EnumDisplayMonitors` in physical pixels; `id` is the device
   name, `\\.\DISPLAY1`). The "Bildschirm" tab shows a select with more than one monitor
@@ -351,14 +361,19 @@ while playing. That makes the push change every second during playback, which is
 `IsPlaybackPositionEnabled`; on Linux it is assumed whenever there is a length.
 
 **Shutdown timer.** `shutdownTimer` with `minutes` 1-1440 schedules a shutdown in the singleton
-`ShutdownTimer`, `minutes: 0` cancels it. It deliberately runs its own in-process timer instead of
+`ShutdownTimer`, `minutes: 0` cancels it. An optional `power` (`sleep`, `displayOff`; default
+`shutdown`, so an older Client still means shutdown) picks what happens instead (`TimerAction`);
+there is only ever one timer. It deliberately runs its own in-process timer instead of
 `shutdown.exe /s /t N`: any `/t` above 0 implies `/f` and would close apps with unsaved work
-without asking; when due it calls the normal `IPowerService.Shutdown`. The timer is lost when
-YFRemote exits. The tray shows a balloon naming the device and a "Herunterfahren um HH:mm Uhr
-abbrechen" entry while one is pending. The Client asks for the minutes with `prompt()`. Every
+without asking; when due it calls the normal `IPowerService.Shutdown` (or `Sleep`/`TurnOffDisplay`).
+The timer is lost when YFRemote exits. The tray shows a balloon naming the device and a
+"Herunterfahren/Ruhemodus/Bildschirm aus um HH:mm Uhr abbrechen" entry while one is pending. The
+Client's "Timer" button opens a native `<dialog>` (top layer, so `.remote-panel`'s `backdrop-filter`
+does not clip it) with minutes and that action; it leaves `power` out for a shutdown, so an older
+server still understands it. Every
 change (scheduled, cancelled, elapsed) is pushed to all connected devices as
-`{"type":"shutdownTimer","remainingSeconds"}` (`ShutdownTimer.Status`; no `remainingSeconds` = none
-pending), and again on connect while one is pending. Remaining seconds rather than a time of day,
+`{"type":"shutdownTimer","remainingSeconds","action"}` (`ShutdownTimer.Status`; no
+`remainingSeconds` = none pending), and again on connect while one is pending. Remaining seconds rather than a time of day,
 because the device clock may differ from the PC's. The Client shows a countdown with "Abbrechen"
 above the Remote buttons.
 
@@ -380,9 +395,18 @@ Client setting "Windows-Benachrichtigungen anzeigen", Windows server only, own b
 pushes `{"type":"notification","id","app","title","text"}` for the toast with the highest id seen so
 far, so dismissing the newest never resends an older one. The listener grants access to the
 unpackaged app, but its `NotificationChanged` event needs package identity (`0x80070490`, measured on
-the dev PC on 2026-11-10), hence the polling. The Client shows it for 8 s as a banner. A third broadcaster pushes
-`{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging"}`
-(battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC),
+the dev PC on 2026-11-10), hence the polling. The Client shows it for 8 s as a banner; its "Am PC
+entfernen" sends `dismissNotification` (`id`, digits only), which `IPcNotifications.Dismiss`
+(`UserNotificationListener.RemoveNotification`) turns into removing it from the PC's notification
+center too (not allowed for "Nur Medien"; unverified on a real toast). A third broadcaster pushes
+`{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging","powerMode"}`
+(battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC; `powerMode` is
+the Windows power mode `efficiency`/`balanced`/`performance` from `IPowerService.PowerMode`, added in
+`Program.ReadWithPowerMode`. `WindowsPowerService` reads it with the undocumented but exported
+`PowerGetEffectiveOverlayScheme` and only while the plan is "Ausbalanciert", because Windows ignores
+the overlay under any other plan; `powerMode` (`mode`) sets it with `PowerSetActiveOverlayScheme`.
+The "PC" tab shows a select for it, hidden for "Nur Medien". Reading was checked on the dev PC on
+2026-11-12, switching is unverified),
 subscribed only while the device has the Client's "PC" tab open (`{"type":"systemStats","enabled"}`,
 kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing otherwise.
 `WindowsSystemStatsReader` uses `GetSystemTimes`, `GlobalMemoryStatusEx`, the PDH counter

@@ -208,8 +208,12 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests
   overlap; it drops the duplication after 10 s without requests. A rotated monitor arrives in panel
   orientation and `CopyScaled` turns it upright (`UprightCorners`; checked by corner pixels on the dev
-  PC's panel on 2026-11-09 for all three rotations); H.264 answers `501` for it, so the Client uses
-  JPEG. A lost duplication (mode change, secure desktop) falls back to GDI `CopyFromScreen` (about 38 ms per copy at 1080p, which is why it is not the default). Parsec's virtual display never delivers a first frame
+  PC's panel on 2026-11-09 for all three rotations). For H.264 the `composed` texture stays in panel
+  orientation: the cursor is drawn with a GDI world transform (`PanelTransform`, `DrawIconEx`) and
+  `VideoProcessorSetStreamRotation` turns the frame upright (checked on the dev PC's Intel panel on
+  2026-11-11 for all three rotations: corner markers and cursor position and direction in the recorded
+  stream; not yet on a phone); a video processor without
+  `VideoProcessorFeatureCaps.Rotation` answers `501`, so the Client uses JPEG. A lost duplication (mode change, secure desktop) falls back to GDI `CopyFromScreen` (about 38 ms per copy at 1080p, which is why it is not the default). Parsec's virtual display never delivers a first frame
   (`DXGI_ERROR_WAIT_TIMEOUT`, cause unknown), so after that timeout `/screen` goes straight to GDI for 5 s
   (`NoFramesUntil`; measured 2026-11-09 at 2244x1080: ~93 ms per frame instead of ~650 ms). Both run in physical pixels (per-monitor DPI context,
   like `WindowsMouseService`), draw the cursor themselves and encode at quality 70. On the dev PC on

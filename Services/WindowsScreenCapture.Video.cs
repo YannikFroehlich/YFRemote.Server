@@ -8,6 +8,7 @@ using Vortice;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
 using Vortice.MediaFoundation;
+using VideoProcessorRotation = Vortice.Direct3D11.VideoProcessorRotation;
 
 namespace YFRemote.Server.Services;
 
@@ -203,13 +204,6 @@ public sealed partial class WindowsScreenCapture
             source = capture.Duplication ?? throw new NotSupportedException("Kein Bildschirm fuer die Aufnahme.");
         }
 
-        // ponytail: gedrehte Monitore nur per JPEG. Fuers Video muessten Videoprozessor und der per
-        // GDI gemalte Mauszeiger mitdrehen; der Client faellt bei 501 von selbst auf JPEG zurueck.
-        if (!source.Upright)
-        {
-            throw new NotSupportedException("Kein H.264 fuer gedrehte Monitore.");
-        }
-
         // Krumme Groessen laesst der Intel-Encoder erst beim ersten Bild scheitern (gemessen:
         // 710x398 und 1376x774 gehen nicht, 1360x764 und 704x396 schon). Die paar Pixel
         // Verzerrung sieht niemand.
@@ -237,6 +231,7 @@ public sealed partial class WindowsScreenCapture
         private readonly IMFTransform encoder;
         private readonly bool encoderProvidesSamples;
         private readonly int outputSize;
+        private readonly Xform? toPanel;
         private int next;
 
         private VideoPipeline(Duplication source, int width, int height, IMFDXGIDeviceManager deviceManager, IMFTransform encoder)
@@ -248,11 +243,13 @@ public sealed partial class WindowsScreenCapture
             encoderProvidesSamples = (streamInfo.Flags & (int)(OutputStreamInfoFlags.OutputStreamProvidesSamples | OutputStreamInfoFlags.OutputStreamCanProvideSamples)) != 0;
             outputSize = Math.Max(streamInfo.Size, width * height);
 
+            // composed liegt wie das Panel; erst der Videoprozessor dreht das Bild aufrecht.
+            toPanel = PanelTransform(source.Rotation, source.Width, source.Height);
             var device = source.Device;
             composed = device.CreateTexture2D(new Texture2DDescription
             {
-                Width = (uint)source.Width,
-                Height = (uint)source.Height,
+                Width = (uint)source.TextureWidth,
+                Height = (uint)source.TextureHeight,
                 MipLevels = 1,
                 ArraySize = 1,
                 Format = Format.B8G8R8A8_UNorm,
@@ -267,8 +264,8 @@ public sealed partial class WindowsScreenCapture
             var content = new VideoProcessorContentDescription
             {
                 InputFrameFormat = VideoFrameFormat.Progressive,
-                InputWidth = (uint)source.Width,
-                InputHeight = (uint)source.Height,
+                InputWidth = (uint)source.TextureWidth,
+                InputHeight = (uint)source.TextureHeight,
                 OutputWidth = (uint)width,
                 OutputHeight = (uint)height,
                 InputFrameRate = new Rational(60, 1),
@@ -276,7 +273,25 @@ public sealed partial class WindowsScreenCapture
                 Usage = VideoUsage.PlaybackNormal
             };
             videoDevice.CreateVideoProcessorEnumerator(ref content, out processorEnumerator).CheckError();
+            var rotation = source.Rotation switch
+            {
+                ModeRotation.Rotate90 => VideoProcessorRotation.Rotation90,
+                ModeRotation.Rotate180 => VideoProcessorRotation.Rotation180,
+                ModeRotation.Rotate270 => VideoProcessorRotation.Rotation270,
+                _ => VideoProcessorRotation.Identity,
+            };
+            if (rotation != VideoProcessorRotation.Identity && (processorEnumerator.VideoProcessorCaps.FeatureCaps & VideoProcessorFeatureCaps.Rotation) == 0)
+            {
+                // Der Client faellt bei 501 von selbst auf JPEG zurueck, das per GDI+ dreht.
+                throw new NotSupportedException("Videoprozessor kann nicht drehen.");
+            }
+
             videoDevice.CreateVideoProcessor(processorEnumerator, 0, out processor).CheckError();
+            if (rotation != VideoProcessorRotation.Identity)
+            {
+                // Gleiche Richtung wie UprightCorners beim JPEG: die Textur im Uhrzeigersinn drehen.
+                videoContext.VideoProcessorSetStreamRotation(processor, 0, true, rotation);
+            }
             videoContext.VideoProcessorSetStreamColorSpace1(processor, 0, ColorSpaceType.RgbFullG22NoneP709);
             videoContext.VideoProcessorSetOutputColorSpace1(processor, ColorSpaceType.YcbcrStudioG22LeftP709);
             videoContext.VideoProcessorSetStreamAutoProcessingMode(processor, 0, false);
@@ -360,14 +375,39 @@ public sealed partial class WindowsScreenCapture
 
         public void SetBitrate(int bitrate) => SetCodecValue(encoder, MeanBitRate, (uint)bitrate);
 
+        // Desktop- in Texturkoordinaten, Umkehrung von UprightCorners; null fuer aufrechte Monitore.
+        // width/height sind die Desktop-Lage.
+        private static Xform? PanelTransform(ModeRotation rotation, int width, int height) => rotation switch
+        {
+            ModeRotation.Rotate90 => new Xform(0, -1, 1, 0, 0, width),
+            ModeRotation.Rotate180 => new Xform(-1, 0, 0, -1, width, height),
+            ModeRotation.Rotate270 => new Xform(0, 1, -1, 0, height, 0),
+            _ => null,
+        };
+
         public void Encode(Duplication source, ScreenMonitor screen, long timestamp)
         {
             source.Context.CopyResource(composed, source.Latest);
             var hdc = composedSurface.GetDC(false);
             try
             {
-                using var graphics = Graphics.FromHdc(hdc);
-                DrawCursor(graphics, 1.0, screen);
+                if (toPanel is { } transform)
+                {
+                    // Zeigerposition ist in Desktop-Lage; GDI dreht sie samt Zeigerbild in die des Panels.
+                    SetGraphicsMode(hdc, GraphicsModeAdvanced);
+                    SetWorldTransform(hdc, transform);
+                    var info = ReadCursor(screen);
+                    if (info.Handle != IntPtr.Zero)
+                    {
+                        using var cursor = new System.Windows.Forms.Cursor(info.Handle);
+                        DrawIconEx(hdc, info.X - cursor.HotSpot.X, info.Y - cursor.HotSpot.Y, info.Handle, 0, 0, 0, IntPtr.Zero, DiNormal);
+                    }
+                }
+                else
+                {
+                    using var graphics = Graphics.FromHdc(hdc);
+                    DrawCursor(graphics, 1.0, screen);
+                }
             }
             finally
             {
@@ -522,6 +562,22 @@ public sealed partial class WindowsScreenCapture
             }
         }
     }
+
+    private const int GraphicsModeAdvanced = 2;
+    private const int DiNormal = 3;
+
+    // GDI-XFORM: x' = x * M11 + y * M21 + Dx, y' = x * M12 + y * M22 + Dy.
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct Xform(float M11, float M12, float M21, float M22, float Dx, float Dy);
+
+    [DllImport("gdi32.dll")]
+    private static extern int SetGraphicsMode(IntPtr hdc, int mode);
+
+    [DllImport("gdi32.dll")]
+    private static extern bool SetWorldTransform(IntPtr hdc, in Xform transform);
+
+    [DllImport("user32.dll")]
+    private static extern bool DrawIconEx(IntPtr hdc, int x, int y, IntPtr icon, int width, int height, int step, IntPtr brush, int flags);
 
     // ICodecAPI fehlt in Vortice; nur die Methoden bis SetValue, in vtable-Reihenfolge.
     [ComImport]

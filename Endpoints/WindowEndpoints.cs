@@ -25,5 +25,23 @@ internal static class WindowEndpoints
 
             await context.Response.WriteAsJsonAsync(new { windows = windows.ListWindows() }, context.RequestAborted);
         });
+
+        // Die Helligkeitsregler im Tab "PC", gesetzt per "brightness"; dasselbe Tor wie GET /windows.
+        app.MapGet("/brightness", async context =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is null)
+            {
+                return;
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            if (context.RequestServices.GetService<IBrightnessService>() is not { } brightness)
+            {
+                context.Response.StatusCode = StatusCodes.Status501NotImplemented;
+                return;
+            }
+
+            await context.Response.WriteAsJsonAsync(new { monitors = brightness.List() }, context.RequestAborted);
+        });
     }
 }

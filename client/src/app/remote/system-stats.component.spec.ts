@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { OpenWindow, ServerPlatform, SystemStatsMessage } from './remote.models';
+import { MonitorBrightness, OpenWindow, ServerPlatform, SystemStatsMessage } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SystemStatsComponent } from './system-stats.component';
 
@@ -11,6 +11,7 @@ describe('SystemStatsComponent', () => {
     windows: readonly OpenWindow[] | null,
     mediaOnly = false,
     stats: SystemStatsMessage | null = null,
+    brightness: readonly MonitorBrightness[] = [],
   ) {
     const remote = {
       systemStats: signal(stats),
@@ -18,6 +19,7 @@ describe('SystemStatsComponent', () => {
       mediaOnly: signal(mediaOnly),
       watchSystemStats: vi.fn(),
       readWindows: vi.fn(() => Promise.resolve(windows)),
+      readBrightness: vi.fn(() => Promise.resolve(brightness)),
       sendAction: vi.fn(() => true),
       setPowerMode: vi.fn(),
     };
@@ -102,6 +104,41 @@ describe('SystemStatsComponent', () => {
     TestBed.resetTestingModule();
     const mediaOnly = await setup('windows', [], true, stats);
     expect(mediaOnly.element.querySelector('.power-mode')).toBeNull();
+  });
+
+  it('sets the brightness of each display when the slider is let go', async () => {
+    const { remote, fixture, element } = await setup('windows', [], false, null, [
+      { id: 'internal', brightness: 80 },
+      { id: '\\\\.\\DISPLAY2', brightness: 30 },
+    ]);
+    const labels = () =>
+      [...element.querySelectorAll('.brightness span')].map((label) => label.textContent?.trim());
+    expect(labels()).toEqual(['Eingebautes Display · 80 %', 'Bildschirm 1 · 30 %']);
+
+    const slider = element.querySelectorAll<HTMLInputElement>('.brightness input')[1];
+    slider.value = '55';
+    slider.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(labels()[1]).toBe('Bildschirm 1 · 55 %');
+    expect(remote.sendAction).not.toHaveBeenCalled();
+
+    slider.dispatchEvent(new Event('change'));
+    expect(remote.sendAction).toHaveBeenCalledWith({
+      type: 'brightness',
+      id: '\\\\.\\DISPLAY2',
+      value: 55,
+    });
+
+    TestBed.resetTestingModule();
+    const single = await setup('windows', [], false, null, [{ id: 'internal', brightness: 80 }]);
+    expect(single.element.querySelector('.brightness span')?.textContent?.trim()).toBe(
+      'Helligkeit · 80 %',
+    );
+
+    TestBed.resetTestingModule();
+    const mediaOnly = await setup('windows', [], true, null, [{ id: 'internal', brightness: 80 }]);
+    expect(mediaOnly.element.querySelector('.brightness')).toBeNull();
+    expect(mediaOnly.remote.readBrightness).not.toHaveBeenCalled();
   });
 
   it('shows memory and battery instead of CPU and GPU on the Android server', async () => {

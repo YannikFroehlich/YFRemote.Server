@@ -187,6 +187,16 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   first sends a 0-pixel mouse move through `WindowsInputSender` (the PowerToys trick); minimized
   windows are restored. Listing and switching back and forth were checked on the dev PC on
   2026-10-24.
+- `GET /brightness` (`WindowEndpoints`, same gate and `no-store` as `GET /windows`) →
+  `{ monitors: [{id,brightness}] }` for the "PC" tab's sliders, `501` without an
+  `IBrightnessService` (Linux). `WindowsBrightnessService` reads the built-in laptop panel through
+  WMI (`WmiMonitorBrightness`, late-bound `WbemScripting`, no package) as `id` `internal`, and every
+  external monitor answering DDC/CI (`dxva2` `GetMonitorBrightness`) by its device name. The panel
+  is its own entry because the WMI instance cannot be tied to an `HMONITOR` reliably (under Parsec
+  the active display has no monitor device at all). `brightness` (`id`, `value` 0-100, whole
+  numbers) sets it; the Client sends only when the slider is let go, because DDC/CI takes tens of
+  milliseconds per value. On the dev PC on 2026-11-12 reading the panel took 227 ms and setting it to
+  its current value worked; DDC/CI with a real external monitor and an actual change are unverified.
 - `GET /screen/monitors` (`ScreenEndpoints`, same gate as `GET /screen`) → `{ monitors: [{id,width,height,primary}] }`,
   left to right, from `WindowsMonitors` (`EnumDisplayMonitors` in physical pixels; `id` is the device
   name, `\\.\DISPLAY1`). The "Bildschirm" tab shows a select with more than one monitor

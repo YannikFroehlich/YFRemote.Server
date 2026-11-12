@@ -28,6 +28,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Timer: Statt Herunterfahren kann der Timer den PC auch in den Ruhemodus schicken oder den Bildschirm ausschalten. Der Timer-Button öffnet dafür einen Dialog mit Minuten und Aktion statt der bisherigen Eingabeaufforderung.
 - Benachrichtigungen: "Am PC entfernen" im Banner einer weitergeleiteten Windows-Benachrichtigung entfernt sie auch im Info-Center des PCs.
 - Tab "PC": Der Windows-Energiemodus (Beste Energieeffizienz, Ausbalanciert, Beste Leistung) lässt sich umschalten. Er erscheint, solange am PC der Energiesparplan "Ausbalanciert" aktiv ist, wie in den Windows-Einstellungen.
+- Tab "PC": Regler für die Helligkeit, für das eingebaute Laptop-Display und für externe Monitore, die DDC/CI können (in den Monitoreinstellungen meist abschaltbar). Bildschirme ohne beides bekommen keinen Regler.
 
 ## [2.52.0] - 2026-11-12
 

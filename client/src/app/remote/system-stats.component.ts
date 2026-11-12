@@ -6,7 +6,7 @@ import {
   signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { OpenWindow, PowerMode } from './remote.models';
+import { MonitorBrightness, OpenWindow, PowerMode } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -86,12 +86,46 @@ export class SystemStatsComponent implements OnDestroy {
 
   /** undefined = laedt noch, null = der PC hat nicht geantwortet. */
   protected readonly windows = signal<readonly OpenWindow[] | null | undefined>(undefined);
+  // Leer, solange der PC keinen regelbaren Bildschirm meldet - dann gibt es keinen Regler.
+  protected readonly brightness = signal<readonly MonitorBrightness[]>([]);
 
   constructor() {
     this.remote.watchSystemStats(true);
     if (this.windowsSupported()) {
       void this.refreshWindows();
+      void this.remote.readBrightness().then((monitors) => this.brightness.set(monitors));
     }
+  }
+
+  // Bei einem Bildschirm reicht "Helligkeit"; sonst Laptop-Display und externe Monitore durchgezaehlt.
+  protected brightnessLabel(monitor: MonitorBrightness): string {
+    const monitors = this.brightness();
+    if (monitors.length === 1) {
+      return this.i18n.t('stats.brightness');
+    }
+    if (monitor.id === 'internal') {
+      return this.i18n.t('stats.brightness.internal');
+    }
+    const external = monitors.filter((other) => other.id !== 'internal');
+    return this.i18n.t('stats.brightness.monitor', { number: external.indexOf(monitor) + 1 });
+  }
+
+  // Waehrend des Ziehens nur die Anzeige; gesendet wird beim Loslassen, weil DDC/CI je Wert
+  // einige 10 ms braucht.
+  protected previewBrightness(monitor: MonitorBrightness, event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.brightness.update((current) =>
+      current.map((other) => (other.id === monitor.id ? { ...other, brightness: value } : other)),
+    );
+  }
+
+  protected setBrightness(monitor: MonitorBrightness, event: Event): void {
+    this.previewBrightness(monitor, event);
+    this.remote.sendAction({
+      type: 'brightness',
+      id: monitor.id,
+      value: Number((event.target as HTMLInputElement).value),
+    });
   }
 
   protected selectPowerMode(event: Event): void {

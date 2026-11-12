@@ -32,6 +32,22 @@
   </label>
 }
 
+@for (monitor of brightness(); track monitor.id) {
+  <label class="field brightness">
+    <span>{{ brightnessLabel(monitor) }} · {{ monitor.brightness }} %</span>
+    <input
+      type="range"
+      min="0"
+      max="100"
+      step="1"
+      [value]="monitor.brightness"
+      [attr.aria-valuetext]="monitor.brightness + ' %'"
+      (input)="previewBrightness(monitor, $event)"
+      (change)="setBrightness(monitor, $event)"
+    />
+  </label>
+}
+
 @if (windowsSupported()) {
   <section class="window-list" [attr.aria-label]="i18n.t('stats.windows')">
     <div class="window-list__head">

@@ -187,6 +187,19 @@ export interface DismissNotificationAction {
   readonly id: string;
 }
 
+/** Ein Bildschirm aus `GET /brightness`; `id` ist `internal` fuer das eingebaute Display. */
+export interface MonitorBrightness {
+  readonly id: string;
+  readonly brightness: number;
+}
+
+/** Stellt die Helligkeit (0-100) eines Bildschirms aus `GET /brightness` (Tab "PC"). */
+export interface BrightnessAction {
+  readonly type: 'brightness';
+  readonly id: string;
+  readonly value: number;
+}
+
 /** Schaltet fuer diese Verbindung den Voicemeeter-Mixer ein oder aus; wie die Systemanzeige liest
  *  der PC Voicemeeter nur, solange ein Geraet zusieht. */
 export interface VoicemeeterWatchAction {
@@ -347,7 +360,8 @@ export type RemoteAction =
   | LaunchAction
   | FocusWindowAction
   | PowerModeAction
-  | DismissNotificationAction;
+  | DismissNotificationAction
+  | BrightnessAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

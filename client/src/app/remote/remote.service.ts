@@ -7,6 +7,7 @@ import {
   GamepadRumbleMessage,
   MacroStep,
   MediaStatusMessage,
+  MonitorBrightness,
   OpenWindow,
   PcNotificationMessage,
   PowerMode,
@@ -539,6 +540,17 @@ export class RemoteService implements OnDestroy {
             typeof window.app === 'string',
         )
       : null;
+  }
+
+  /** Die Bildschirme mit regelbarer Helligkeit (nur Windows); leer bei einem Server ohne diese Liste. */
+  async readBrightness(): Promise<readonly MonitorBrightness[]> {
+    const monitors = (await this.readJson('/brightness'))?.['monitors'];
+    return Array.isArray(monitors)
+      ? monitors.filter(
+          (monitor): monitor is MonitorBrightness =>
+            typeof monitor?.id === 'string' && typeof monitor.brightness === 'number',
+        )
+      : [];
   }
 
   /** Die Monitore des PCs von links nach rechts; `null` bei einem Server ohne diese Liste. */

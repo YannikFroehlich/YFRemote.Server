@@ -15,4 +15,13 @@
         <item name="android:windowEnterAnimation">@anim/dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/dialog_exit</item>
     </style>
+
+    <!-- Tasten des Medien-Widgets (layout/widget_media.xml). -->
+    <style name="WidgetButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/widget_button</item>
+        <item name="android:scaleType">center</item>
+    </style>
 </resources>

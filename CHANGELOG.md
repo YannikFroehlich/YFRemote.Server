@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: "Teilen" schickt Dateien, Fotos, Links und Text aus jeder App an einen PC. Dateien landen im Empfangsordner des PCs, ein Link öffnet sich dort im Browser, anderer Text in der Zwischenablage. Mit mehreren Geräten fragt die App, wohin. Das geht mit jedem Gerät, das in der App mit "Gerät merken" gekoppelt und seitdem einmal geöffnet wurde.
+- Android-App: Medien-Widget für den Startbildschirm mit Leiser, Zurück, Abspielen/Pause, Weiter und Lauter für das zuletzt geöffnete Gerät, ohne die App zu öffnen. Ein Tipp auf den Namen öffnet das Gerät.
+
 ## [2.52.0] - 2026-11-12
 
 ### Changed

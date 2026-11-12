@@ -212,7 +212,7 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
   orientation: the cursor is drawn with a GDI world transform (`PanelTransform`, `DrawIconEx`) and
   `VideoProcessorSetStreamRotation` turns the frame upright (checked on the dev PC's Intel panel on
   2026-11-11 for all three rotations: corner markers and cursor position and direction in the recorded
-  stream; not yet on a phone); a video processor without
+  stream; on the phone the same day, upright with a matching tap); a video processor without
   `VideoProcessorFeatureCaps.Rotation` answers `501`, so the Client uses JPEG. A lost duplication (mode change, secure desktop) falls back to GDI `CopyFromScreen` (about 38 ms per copy at 1080p, which is why it is not the default). Parsec's virtual display never delivers a first frame
   (`DXGI_ERROR_WAIT_TIMEOUT`, cause unknown), so after that timeout `/screen` goes straight to GDI for 5 s
   (`NoFramesUntil`; measured 2026-11-09 at 2244x1080: ~93 ms per frame instead of ~650 ms). Both run in physical pixels (per-monitor DPI context,
@@ -241,8 +241,10 @@ checks. `/ws` (token in `?token=`, own warning logs, "Pairing required." body) a
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the
-  fallback: the Client switches when the first answer is not `video/mp4` (`501` without a hardware
-  encoder, an older server's SPA fallback), and MediaSource is missing in iPhone Safari.
+  fallback: the Client switches as soon as an answer is not `video/mp4` (`501` without a hardware
+  encoder, an older server's SPA fallback), also after video already played (server updated, monitor
+  switched), otherwise the last frame would freeze; only a request that gets no answer at all is
+  retried as video. MediaSource is missing in iPhone Safari.
   `WindowsScreenCapture.Video.cs` runs on the duplication's own D3D11 device: copy of `Latest` into a
   GDI-compatible texture, cursor via `DrawCursor`, `ID3D11VideoProcessor` (BGRA to NV12 and scaling),
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`

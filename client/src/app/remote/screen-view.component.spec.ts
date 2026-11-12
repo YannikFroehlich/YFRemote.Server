@@ -162,6 +162,33 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
+  it('falls back to JPEG when the server refuses video after it played', async () => {
+    const play = vi.fn(
+      async (
+        _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+        _video: HTMLVideoElement,
+        _codec: string,
+        _abort: AbortSignal,
+        onFrame: () => void,
+      ) => onFrame(),
+    );
+    const { fixture, readScreen, openScreenVideo, element } = await setup(
+      new Blob(['jpeg']),
+      null,
+      { player: { play }, stream: { body: new ReadableStream(), codec: 'avc1.4d002a' } },
+    );
+    await vi.waitFor(() => expect(play).toHaveBeenCalled());
+    // Der Strom ist abgerissen, der neue Server kann fuer diesen Monitor kein Video.
+    openScreenVideo.mockResolvedValue('unsupported' as never);
+
+    await vi.waitFor(() => expect(readScreen).toHaveBeenCalled(), { timeout: 3000 });
+    fixture.detectChanges();
+
+    expect(element.querySelector('video')?.hidden).toBe(true);
+    expect(element.querySelector('img')?.getAttribute('src')).toBe('blob:frame');
+    fixture.destroy();
+  });
+
   const twoMonitors: readonly ScreenMonitor[] = [
     { id: 'left', width: 1920, height: 1080, primary: false },
     { id: 'main', width: 2560, height: 1440, primary: true },

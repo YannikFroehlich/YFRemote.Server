@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.53.0] - 2026-11-12
+
 ### Added
 
 - Android-App: "Teilen" schickt Dateien, Fotos, Links und Text aus jeder App an einen PC. Dateien landen im Empfangsordner des PCs, ein Link öffnet sich dort im Browser, anderer Text in der Zwischenablage. Mit mehreren Geräten fragt die App, wohin. Das geht mit jedem Gerät, das in der App mit "Gerät merken" gekoppelt und seitdem einmal geöffnet wurde.

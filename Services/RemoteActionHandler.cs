@@ -22,7 +22,8 @@ public sealed partial class RemoteActionHandler(
     IAppLauncher? appLauncher = null,
     IWindowService? windows = null,
     PollingBroadcaster<PcNotificationMessage?>? notifications = null,
-    IPcNotifications? pcNotifications = null)
+    IPcNotifications? pcNotifications = null,
+    IBrightnessService? brightness = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -92,6 +93,7 @@ public sealed partial class RemoteActionHandler(
                 "closewindow" => HandleWindow(request, WindowCommand.Close),
                 "dismissnotification" => HandleDismissNotification(request),
                 "powermode" => HandlePowerMode(request),
+                "brightness" => HandleBrightness(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -813,6 +815,28 @@ public sealed partial class RemoteActionHandler(
         }
 
         logger.LogInformation("Launched app {Name}.", name);
+        return RemoteActionResponse.Ok();
+    }
+
+    // id aus GET /brightness; ein unbekannter Bildschirm faellt in TrySet durch, nichts davon erreicht eine Shell.
+    private RemoteActionResponse HandleBrightness(RemoteActionRequest request)
+    {
+        if (brightness is null)
+        {
+            return Fail("Brightness is not supported.");
+        }
+
+        if (string.IsNullOrEmpty(request.Id) || request.Value is not { } value || value is < 0 or > 100 || value != Math.Floor(value))
+        {
+            return Fail("Action 'brightness' requires id and value 0-100.");
+        }
+
+        if (!brightness.TrySet(request.Id, (int)value))
+        {
+            return Fail("This display does not accept brightness changes.");
+        }
+
+        logger.LogDebug("Brightness of {Id} set to {Value} %.", request.Id, value);
         return RemoteActionResponse.Ok();
     }
 

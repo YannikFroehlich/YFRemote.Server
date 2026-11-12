@@ -368,6 +368,7 @@ internal static class Program
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IAppLauncher, WindowsAppLauncher>();
         builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
+        builder.Services.AddSingleton<IBrightnessService, WindowsBrightnessService>();
         builder.Services.AddSingleton<IScreenCapture, WindowsScreenCapture>();
         builder.Services.AddSingleton<IAudioCapture, WindowsAudioCapture>();
         builder.Services.AddSingleton<IClipboardService, WindowsClipboardService>();

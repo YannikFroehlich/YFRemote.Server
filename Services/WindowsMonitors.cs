@@ -10,29 +10,32 @@ internal static class WindowsMonitors
     private const int MonitorInfoPrimary = 1;
     private static readonly IntPtr DpiAwarenessContextPerMonitorAwareV2 = -4;
 
-    public static IReadOnlyList<ScreenMonitor> List()
+    public static IReadOnlyList<ScreenMonitor> List() => [.. Enumerate().Select(entry => entry.Monitor)];
+
+    // Mit dem HMONITOR fuer DDC/CI (WindowsBrightnessService); gilt nur bis zur naechsten Aenderung der Anzeige.
+    public static IReadOnlyList<(IntPtr Handle, ScreenMonitor Monitor)> Enumerate()
     {
         var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
         try
         {
-            var monitors = new List<ScreenMonitor>();
+            var monitors = new List<(IntPtr Handle, ScreenMonitor Monitor)>();
             EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (handle, _, _, _) =>
             {
                 var info = new MonitorInfoEx { Size = Marshal.SizeOf<MonitorInfoEx>() };
                 if (GetMonitorInfo(handle, ref info))
                 {
-                    monitors.Add(new ScreenMonitor(
+                    monitors.Add((handle, new ScreenMonitor(
                         info.Device,
                         info.Left,
                         info.Top,
                         info.Right - info.Left,
                         info.Bottom - info.Top,
-                        (info.Flags & MonitorInfoPrimary) != 0));
+                        (info.Flags & MonitorInfoPrimary) != 0)));
                 }
 
                 return true;
             }, IntPtr.Zero);
-            return [.. monitors.OrderBy(monitor => monitor.Left).ThenBy(monitor => monitor.Top)];
+            return [.. monitors.OrderBy(entry => entry.Monitor.Left).ThenBy(entry => entry.Monitor.Top)];
         }
         finally
         {

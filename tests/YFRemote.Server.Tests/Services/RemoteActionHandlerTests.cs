@@ -689,6 +689,33 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_Brightness_SetsOnlyWholePercentOfKnownDisplays()
+    {
+        var brightness = new RecordingBrightnessService();
+        var handler = CreateHandler(brightness: brightness);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 40 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 101 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 12.5 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Id = "internal" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "brightness", Value = 40 }).Success);
+        var unknown = handler.Handle(new RemoteActionRequest { Type = "brightness", Id = @"\\.\DISPLAY9", Value = 40 });
+
+        Assert.IsFalse(unknown.Success);
+        Assert.AreEqual("This display does not accept brightness changes.", unknown.Error);
+        CollectionAssert.AreEqual(new[] { ("internal", 40) }, brightness.Set);
+    }
+
+    [TestMethod]
+    public void Handle_Brightness_WithoutSupport_Fails()
+    {
+        var response = CreateHandler().Handle(new RemoteActionRequest { Type = "brightness", Id = "internal", Value = 40 });
+
+        Assert.IsFalse(response.Success);
+        Assert.AreEqual("Brightness is not supported.", response.Error);
+    }
+
+    [TestMethod]
     public void Handle_PowerMode_SetsOnlyKnownModes()
     {
         var power = new RecordingPowerService();
@@ -868,7 +895,8 @@ public sealed class RemoteActionHandlerTests
         IAppVolumeService? appVolumes = null,
         IAppLauncher? appLauncher = null,
         IWindowService? windows = null,
-        IPcNotifications? pcNotifications = null)
+        IPcNotifications? pcNotifications = null,
+        IBrightnessService? brightness = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -882,7 +910,26 @@ public sealed class RemoteActionHandlerTests
             appVolumes: appVolumes,
             appLauncher: appLauncher,
             windows: windows,
-            pcNotifications: pcNotifications);
+            pcNotifications: pcNotifications,
+            brightness: brightness);
+    }
+
+    private sealed class RecordingBrightnessService : IBrightnessService
+    {
+        public List<(string Id, int Percent)> Set { get; } = [];
+
+        public IReadOnlyList<MonitorBrightness> List() => [new("internal", 100)];
+
+        public bool TrySet(string id, int percent)
+        {
+            if (id != "internal")
+            {
+                return false;
+            }
+
+            Set.Add((id, percent));
+            return true;
+        }
     }
 
     private sealed class RecordingPcNotifications : IPcNotifications

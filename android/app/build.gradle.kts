@@ -76,6 +76,9 @@ dependencies {
     // QR-Codes: anzeigen (Freigeben, per zxing-core) und scannen (Steuern, eigene Kamera-Activity
     // ohne Google Play-Dienste - die App wird auch per APK auf Geraete ohne GMS installiert).
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // Teilen an einen PC und das Medien-Widget sprechen ohne WebView mit ihm (POST /files, /ws) -
+    // dafuer ein HTTP- und WebSocket-Client, der die gepinnte CA eines HTTPS-PCs annimmt.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // PairingRepository braucht nur org.json + java.time/java.util - laeuft daher als reiner
     // JVM-Unit-Test ohne Instrumentierung/Emulator; org.json ist auf dem echten Geraet Teil des

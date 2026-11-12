@@ -317,6 +317,22 @@ pushes arrived and the notification stayed on the old state; a Web Lock did not 
 With both, pushes and the notification's buttons kept working with the app in the background and
 with the screen off for 150 s, and the lock screen shows the player. Not measured: hours with the
 screen off (Doze).
+Sharing to a PC and the home-screen media widget talk to the target without the WebView, through
+`remote/RemoteClient` (OkHttp: `POST /files`, `POST /clipboard/text`, one short `/ws` connection per
+action that waits for the response with its `requestId`; `Origin` set to the target's URL, the
+pinned CA for HTTPS). The token comes from the Client: `RemoteWebActivity.copyToken` reads
+`localStorage['yfremote.pairingToken']` on `onPageFinished` and `onPause`, only while the page is on
+the target's origin, and `RemoteDevices.setToken` keeps a copy per URL in app-private preferences.
+A device paired without "Gerät merken" has no stored token there, so it gets none here either, and
+removing a device drops it. `ShareActivity` takes `SEND`/`SEND_MULTIPLE`: files go to `POST /files`,
+a text that is only an http(s) link (`sharedUrl`, same limits as `HandleLaunch`) is opened with
+`launch`, any other text goes to the clipboard; with several targets (every device with a token,
+plus "Gekoppelten Geräten anbieten" for one file while the phone's own server runs) it asks first.
+`remote/MediaWidget` (4x1) sends `VOLUME_DOWN`, `MEDIA_PREVIOUS`, `MEDIA_PLAY_PAUSE`, `MEDIA_NEXT`,
+`VOLUME_UP` to the device opened last (`RemoteDevices.setLast`, set by `RemoteWebActivity`); its
+name opens that device. The buttons start `remote/MediaWidgetService`, a `dataSync` foreground
+service that ends with the response, because a broadcast receiver would run as a background process
+behind the firewall chain described above. None of this is verified on a phone yet.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as

@@ -10,6 +10,7 @@ import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 
 // HTTPS zu einem PC mit "HTTPS verwenden": Vertraut wird genau seiner lokalen CA (LocalCertificateAuthority),
 // deren SHA-256-Fingerabdruck der QR-Code vom PC-Bildschirm mitbringt - nie einer beliebigen.
@@ -31,13 +32,16 @@ object PinnedCa {
     }
 
     /** Normale TLS-Pruefung (Kette, Gueltigkeit, Hostname), aber mit dieser CA als einzigem Anker. */
-    fun sslContext(ca: X509Certificate): SSLContext {
+    fun sslContext(ca: X509Certificate): SSLContext =
+        SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager(ca)), null) }
+
+    fun trustManager(ca: X509Certificate): X509TrustManager {
         val store = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
             load(null, null)
             setCertificateEntry("yfremote-ca", ca)
         }
         val trust = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(store) }
-        return SSLContext.getInstance("TLS").apply { init(null, trust.trustManagers, null) }
+        return trust.trustManagers.filterIsInstance<X509TrustManager>().first()
     }
 
     /**

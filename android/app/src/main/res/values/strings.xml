@@ -8,4 +8,12 @@
     <string name="notification_stop">Stoppen</string>
     <string name="notification_regenerate_pin">PIN neu erzeugen</string>
     <string name="media_channel_name">Wiedergabe am gesteuerten Gerät</string>
+    <string name="widget_description">Wiedergabe und Lautstärke des zuletzt geöffneten Geräts</string>
+    <string name="widget_no_device">Zuerst ein Gerät in YFRemote öffnen</string>
+    <string name="widget_volume_down">Leiser</string>
+    <string name="widget_previous">Zurück</string>
+    <string name="widget_play_pause">Abspielen/Pause</string>
+    <string name="widget_next">Weiter</string>
+    <string name="widget_volume_up">Lauter</string>
+    <string name="widget_channel_name">Medien-Widget</string>
 </resources>

@@ -74,21 +74,35 @@
             android:screenOrientation="fullSensor"
             tools:replace="screenOrientation" />
 
-        <!-- Ziel von "Teilen": bietet eine Datei den gekoppelten Geraeten an. Ohne eigene
-             Oberflaeche, daher durchsichtig und ohne Eintrag in der Aufgabenliste. -->
+        <!-- Ziel von "Teilen": sendet Dateien, Links und Text an ein gesteuertes Geraet oder bietet
+             eine Datei den gekoppelten Geraeten an. Ohne eigene Oberflaeche, daher durchsichtig und
+             ohne Eintrag in der Aufgabenliste. -->
         <activity
             android:name=".ShareActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:label="An gekoppelte Geräte senden"
+            android:label="YFRemote"
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".remote.MediaWidget"
+            android:label="YFRemote Medien"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/media_widget_info" />
+        </receiver>
 
         <service
             android:name=".service.YFRemoteForegroundService"
@@ -99,6 +113,12 @@
         <service
             android:name=".remote.RemoteMediaService"
             android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+
+        <!-- Eine Taste des Medien-Widgets, nur bis zur Antwort des Geraets. -->
+        <service
+            android:name=".remote.MediaWidgetService"
+            android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <service

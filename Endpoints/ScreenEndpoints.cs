@@ -74,7 +74,7 @@ internal static class ScreenEndpoints
             var pairing = context.RequestServices.GetRequiredService<PairingService>();
             context.RequestServices.GetRequiredService<ScreenViewNotifier>().NotifyFrame(
                 deviceId,
-                () => pairing.GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät");
+                () => pairing.GetDeviceName(deviceId));
             context.Response.ContentType = "image/jpeg";
             await context.Response.Body.WriteAsync(jpeg, context.RequestAborted);
         });
@@ -114,7 +114,7 @@ internal static class ScreenEndpoints
                     {
                         notifier.NotifyFrame(
                             deviceId,
-                            () => pairing.GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät");
+                            () => pairing.GetDeviceName(deviceId));
                         await context.Response.Body.WriteAsync(fragment, aborted);
                         await context.Response.Body.FlushAsync(aborted);
                     },
@@ -145,7 +145,7 @@ internal static class ScreenEndpoints
         // ~1,5 MBit/s im LAN nicht stoeren. Format in den Kopfzeilen, gleiche Pruefung wie oben.
         app.MapGet("/screen/audio", async (HttpContext context) =>
         {
-            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is null)
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is not { } deviceId)
             {
                 return;
             }
@@ -157,6 +157,8 @@ internal static class ScreenEndpoints
                 return;
             }
 
+            var pairing = context.RequestServices.GetRequiredService<PairingService>();
+            var notifier = context.RequestServices.GetRequiredService<ScreenViewNotifier>();
             var aborted = context.RequestAborted;
             try
             {
@@ -169,6 +171,9 @@ internal static class ScreenEndpoints
                     },
                     async chunk =>
                     {
+                        notifier.NotifyAudio(
+                            deviceId,
+                            () => pairing.GetDeviceName(deviceId));
                         await context.Response.Body.WriteAsync(chunk, aborted);
                         await context.Response.Body.FlushAsync(aborted);
                     },

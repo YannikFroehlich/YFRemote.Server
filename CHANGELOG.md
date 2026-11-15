@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Security
+
+- Tab "Bildschirm": Holt ein Gerät den PC-Ton, ohne dass schon das Bild läuft, meldet der PC das jetzt im Infobereich ("PC-Ton wird übertragen"). Bisher gab es die Meldung nur für das Bild, der Ton ließ sich unbemerkt mithören.
+
+### Added
+
+- Controller-Modus unter Linux: Vibration. Lässt ein Spiel den virtuellen Controller vibrieren, vibriert das Handy wie bisher schon unter Windows. Noch nicht auf einem echten Linux-System geprüft.
+
 ## [2.53.0] - 2026-11-12
 
 ### Added

@@ -171,6 +171,10 @@ public sealed class PairingService
         }
     }
 
+    // Fuer Tray-Meldungen und Logs; ein inzwischen entferntes Geraet heisst wie ein namenloses.
+    public string GetDeviceName(Guid deviceId) =>
+        GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name ?? DefaultDeviceName;
+
     public IReadOnlyList<PairedDeviceInfo> GetPairedDevices()
     {
         lock (syncRoot)

@@ -80,6 +80,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         clipboardReadNotifier.SyncEnabled += OnClipboardSyncEnabled;
         clipboardReadNotifier.NotificationsEnabled += OnNotificationsEnabled;
         screenViewNotifier.Started += OnScreenViewStarted;
+        screenViewNotifier.AudioStarted += OnScreenAudioStarted;
         shutdownTimer.Changed += OnShutdownTimerChanged;
 
         var versionItem = new ToolStripMenuItem($"YFRemote v{updateService.CurrentVersion}")
@@ -250,6 +251,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             clipboardReadNotifier.SyncEnabled -= OnClipboardSyncEnabled;
             clipboardReadNotifier.NotificationsEnabled -= OnNotificationsEnabled;
             screenViewNotifier.Started -= OnScreenViewStarted;
+            screenViewNotifier.AudioStarted -= OnScreenAudioStarted;
             shutdownTimer.Changed -= OnShutdownTimerChanged;
             connectionRegistry.ConnectionsChanged -= OnConnectionsChanged;
             initialUpdateTimer.Dispose();
@@ -474,6 +476,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 4000,
                 "Bildschirm wird übertragen",
                 $"\"{deviceName}\" sieht deinen Bildschirm.",
+                ToolTipIcon.Info));
+
+    private void OnScreenAudioStarted(string deviceName) =>
+        uiDispatcher.BeginInvoke(() =>
+            notifyIcon.ShowBalloonTip(
+                4000,
+                "PC-Ton wird übertragen",
+                $"\"{deviceName}\" hört den Ton deines PCs.",
                 ToolTipIcon.Info));
 
     // Ein Geraet plant das Herunterfahren aus der Ferne - wer am PC sitzt, soll das sehen und

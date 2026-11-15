@@ -5,6 +5,7 @@ import { FileTransferService } from './file-transfer.service';
 import {
   FolderFile,
   MonitorBrightness,
+  ProcessInfo,
   OpenWindow,
   ServerPlatform,
   SystemStatsMessage,
@@ -20,6 +21,7 @@ describe('SystemStatsComponent', () => {
     stats: SystemStatsMessage | null = null,
     brightness: readonly MonitorBrightness[] = [],
     folder: readonly FolderFile[] | null = null,
+    processes: readonly ProcessInfo[] | null = null,
   ) {
     const remote = {
       systemStats: signal(stats),
@@ -33,6 +35,7 @@ describe('SystemStatsComponent', () => {
       setDisplayMode: vi.fn(),
       setMicMuted: vi.fn(),
       readFolder: vi.fn(() => Promise.resolve(folder)),
+      readProcesses: vi.fn(() => Promise.resolve(processes)),
     };
     const fileTransfer = { downloadFolderFile: vi.fn(() => Promise.resolve(true)) };
     TestBed.configureTestingModule({
@@ -72,6 +75,49 @@ describe('SystemStatsComponent', () => {
 
     expect(remote.sendAction).toHaveBeenCalledWith({ type: 'killWindow', id: '1' });
     expect(titles()).toEqual([]);
+    confirm.mockRestore();
+  });
+
+  it('shows drives and the network rate, and ends a process after the confirmation', async () => {
+    const { remote, fixture, element } = await setup(
+      'windows',
+      [],
+      false,
+      {
+        ...stats,
+        drives: [{ name: 'C:', freeMb: 25 * 1024, totalMb: 100 * 1024 }],
+        netDownKbps: 12_340,
+        netUpKbps: 850,
+      },
+      [],
+      null,
+      [{ id: 42, name: 'notepad', cpu: 3, memoryMb: 20 }],
+    );
+    const tiles = [...element.querySelectorAll('.stats-tile')].map((tile) =>
+      tile.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+
+    const drive = tiles.find((tile) => tile?.startsWith('C:'));
+    const network = tiles.find((tile) => tile?.startsWith('Netzwerk'));
+
+    expect(drive).toContain('75 %');
+    expect(drive).toContain('25.0 GB frei von 100.0 GB');
+    expect(network).toContain('↓ 12.3 Mbit/s');
+    expect(network).toContain('↑ 850 kbit/s');
+    expect(element.querySelector('.process-row')?.textContent).toContain('3 % · 20 MB');
+
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValueOnce(true);
+    element
+      .querySelector<HTMLButtonElement>('.window-list__action[aria-label="notepad beenden"]')!
+      .click();
+    fixture.detectChanges();
+
+    expect(remote.sendAction).toHaveBeenCalledWith({
+      type: 'killProcess',
+      id: '42',
+      name: 'notepad',
+    });
+    expect(element.querySelector('.process-row')).toBeNull();
     confirm.mockRestore();
   });
 

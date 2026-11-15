@@ -23,7 +23,8 @@ public sealed partial class RemoteActionHandler(
     IWindowService? windows = null,
     PollingBroadcaster<PcNotificationMessage?>? notifications = null,
     IPcNotifications? pcNotifications = null,
-    IBrightnessService? brightness = null)
+    IBrightnessService? brightness = null,
+    IProcessService? processes = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -92,6 +93,7 @@ public sealed partial class RemoteActionHandler(
                 "minimizewindow" => HandleWindow(request, WindowCommand.Minimize),
                 "closewindow" => HandleWindow(request, WindowCommand.Close),
                 "killwindow" => HandleWindow(request, WindowCommand.Kill),
+                "killprocess" => HandleKillProcess(request),
                 "micmute" => HandleMicMute(request),
                 "displaymode" => HandleDisplayMode(request),
                 "dismissnotification" => HandleDismissNotification(request),
@@ -440,6 +442,29 @@ public sealed partial class RemoteActionHandler(
         }
 
         pcNotifications.Dismiss(notificationId);
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleKillProcess(RemoteActionRequest request)
+    {
+        if (processes is null)
+        {
+            return Fail("Ending processes is not supported.");
+        }
+
+        var name = request.Name;
+        if (request.Id is not { } id || !ProcessIdPattern().IsMatch(id)
+            || name is null || name.Length is 0 or > MaxAppNameLength)
+        {
+            return Fail("Action 'killProcess' requires id and name.");
+        }
+
+        if (!processes.TryKill(int.Parse(id, System.Globalization.CultureInfo.InvariantCulture), name))
+        {
+            return Fail("This process is no longer running.");
+        }
+
+        logger.LogInformation("Ended process {Name}.", name);
         return RemoteActionResponse.Ok();
     }
 
@@ -895,6 +920,9 @@ public sealed partial class RemoteActionHandler(
 
     [GeneratedRegex(@"^\d{1,20}$")]
     private static partial Regex WindowIdPattern();
+
+    [GeneratedRegex(@"^\d{1,9}$")]
+    private static partial Regex ProcessIdPattern();
 
     // Prozessnummer bzw. Sink-Input-Nummer oder die Systemklaenge - nichts, was pactl als Option
     // lesen koennte.

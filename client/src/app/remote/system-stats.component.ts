@@ -7,13 +7,22 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { FileTransferService } from './file-transfer.service';
-import { DisplayMode, FolderFile, MonitorBrightness, OpenWindow, PowerMode } from './remote.models';
+import {
+  DisplayMode,
+  FolderFile,
+  MonitorBrightness,
+  OpenWindow,
+  PowerMode,
+  ProcessInfo,
+} from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
 interface StatsRow {
   readonly label: string;
   readonly load?: number;
+  /** Ersetzt die Prozentzahl im Kopf der Kachel (Netzwerk: Rate statt Auslastung). */
+  readonly value?: string;
   readonly detail: string;
 }
 
@@ -69,6 +78,26 @@ export class SystemStatsComponent implements OnDestroy {
               ].join(' · '),
             },
           ]),
+      ...(stats.drives ?? []).map((drive) => ({
+        label: drive.name,
+        load:
+          drive.totalMb > 0
+            ? Math.round(((drive.totalMb - drive.freeMb) / drive.totalMb) * 100)
+            : undefined,
+        detail: this.i18n.t('stats.drive.free', {
+          free: gb(drive.freeMb),
+          total: gb(drive.totalMb),
+        }),
+      })),
+      ...(stats.netDownKbps === undefined || stats.netUpKbps === undefined
+        ? []
+        : [
+            {
+              label: this.i18n.t('stats.network'),
+              value: `↓ ${rate(stats.netDownKbps)}`,
+              detail: `↑ ${rate(stats.netUpKbps)}`,
+            },
+          ]),
     ];
   });
   protected readonly waitingKey = computed(() =>
@@ -107,6 +136,9 @@ export class SystemStatsComponent implements OnDestroy {
   protected readonly folder = signal<readonly FolderFile[] | null>(null);
   protected readonly folderFailed = signal<string | null>(null);
 
+  /** null = der PC liefert keine Prozessliste (aelterer Server) - dann fehlt der Abschnitt. */
+  protected readonly processes = signal<readonly ProcessInfo[] | null>(null);
+
   /** undefined = laedt noch, null = der PC hat nicht geantwortet. */
   protected readonly windows = signal<readonly OpenWindow[] | null | undefined>(undefined);
   // Leer, solange der PC keinen regelbaren Bildschirm meldet - dann gibt es keinen Regler.
@@ -120,6 +152,23 @@ export class SystemStatsComponent implements OnDestroy {
     }
     if (this.folderSupported()) {
       void this.refreshFolder();
+      void this.refreshProcesses();
+    }
+  }
+
+  protected async refreshProcesses(): Promise<void> {
+    this.processes.set(await this.remote.readProcesses());
+  }
+
+  // Wie killWindow: sofort und ohne Rueckfrage der App, deshalb erst nach Bestaetigung.
+  protected killProcess(process: ProcessInfo): void {
+    if (
+      globalThis.confirm(this.i18n.t('stats.windows.kill.confirm', { app: process.name })) &&
+      this.remote.sendAction({ type: 'killProcess', id: String(process.id), name: process.name })
+    ) {
+      this.processes.update(
+        (current) => current?.filter((other) => other.id !== process.id) ?? null,
+      );
     }
   }
 
@@ -236,4 +285,9 @@ export class SystemStatsComponent implements OnDestroy {
         : 'stats.noTemperature',
     );
   }
+}
+
+/** Kilobit pro Sekunde als "850 kbit/s" bzw. ab 1000 als "12.3 Mbit/s". */
+function rate(kbps: number): string {
+  return kbps < 1000 ? `${kbps} kbit/s` : `${(kbps / 1000).toFixed(1)} Mbit/s`;
 }

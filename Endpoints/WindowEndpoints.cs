@@ -26,6 +26,21 @@ internal static class WindowEndpoints
             await context.Response.WriteAsJsonAsync(new { windows = windows.ListWindows() }, context.RequestAborted);
         });
 
+        // Die Prozesse mit der hoechsten Last fuer den Tab "PC"; "killProcess" beendet einen. Die
+        // Antwort dauert eine halbe Sekunde, weil die CPU-Last zwei Messungen braucht. Gleiches Tor.
+        app.MapGet("/processes", async context =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is null)
+            {
+                return;
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            var processes = await context.RequestServices.GetRequiredService<IProcessService>()
+                .ListAsync(context.RequestAborted);
+            await context.Response.WriteAsJsonAsync(new { processes }, context.RequestAborted);
+        });
+
         // Die Helligkeitsregler im Tab "PC", gesetzt per "brightness"; dasselbe Tor wie GET /windows.
         app.MapGet("/brightness", async context =>
         {

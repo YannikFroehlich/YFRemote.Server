@@ -11,6 +11,8 @@ import {
   OpenWindow,
   PcNotificationMessage,
   PowerMode,
+  DisplayMode,
+  FolderFile,
   ScreenMonitor,
   RemoteAction,
   RemoteResponse,
@@ -427,6 +429,21 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  /** Wie setPowerMode: Die Anzeige folgt sofort, die naechste Messung bestaetigt oder korrigiert. */
+  setDisplayMode(mode: DisplayMode): void {
+    const stats = this.systemStatsSignal();
+    if (this.sendAction({ type: 'displayMode', mode }) && stats !== null) {
+      this.systemStatsSignal.set({ ...stats, displayMode: mode });
+    }
+  }
+
+  setMicMuted(muted: boolean): void {
+    const stats = this.systemStatsSignal();
+    if (this.sendAction({ type: 'micMute', muted }) && stats !== null) {
+      this.systemStatsSignal.set({ ...stats, micMuted: muted });
+    }
+  }
+
   dismissPcNotification(): void {
     if (this.pcNotificationTimer !== null) {
       clearTimeout(this.pcNotificationTimer);
@@ -538,6 +555,18 @@ export class RemoteService implements OnDestroy {
             typeof window?.id === 'string' &&
             typeof window.title === 'string' &&
             typeof window.app === 'string',
+        )
+      : null;
+  }
+
+  /** Die Dateien im Empfangsordner des PCs, neueste zuerst; `null` bei einem Server ohne diese
+   *  Liste (aelter, Android-App) oder wenn er nicht antwortet. */
+  async readFolder(): Promise<readonly FolderFile[] | null> {
+    const files = (await this.readJson('/folder'))?.['files'];
+    return Array.isArray(files)
+      ? files.filter(
+          (file): file is FolderFile =>
+            typeof file?.name === 'string' && typeof file.size === 'number',
         )
       : null;
   }

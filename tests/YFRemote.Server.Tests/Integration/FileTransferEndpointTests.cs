@@ -158,6 +158,40 @@ public sealed class FileTransferEndpointTests
         Assert.AreEqual("angebot.txt", response.Content.Headers.ContentDisposition?.FileNameStar);
     }
 
+    [TestMethod]
+    public async Task Folder_ListsAndServesOnlyFilesDirectlyInTheTargetDirectory()
+    {
+        var token = await PairAndGetTokenAsync();
+        Directory.CreateDirectory(Path.Combine(filesDirectory, "unterordner"));
+        File.WriteAllText(Path.Combine(filesDirectory, "bericht.txt"), "Inhalt");
+        File.WriteAllText(Path.Combine(filesDirectory, "unterordner", "tief.txt"), "tief");
+        File.WriteAllText(Path.Combine(testDirectory, "ausserhalb.txt"), "geheim");
+
+        using var unauthorized = await httpClient.GetAsync("/folder");
+        using var list = await GetWithTokenAsync("/folder", token);
+        using var file = await GetWithTokenAsync("/folder/bericht.txt", token);
+        using var nested = await GetWithTokenAsync("/folder/unterordner%2Ftief.txt", token);
+        using var outside = await GetWithTokenAsync("/folder/..%2Fausserhalb.txt", token);
+        using var outsideBackslash = await GetWithTokenAsync("/folder/..%5Causserhalb.txt", token);
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(
+            """{"files":[{"name":"bericht.txt","size":6}]}""",
+            await list.Content.ReadAsStringAsync());
+        Assert.AreEqual("Inhalt", await file.Content.ReadAsStringAsync());
+        Assert.AreEqual("bericht.txt", file.Content.Headers.ContentDisposition?.FileNameStar);
+        Assert.AreEqual(HttpStatusCode.NotFound, nested.StatusCode);
+        Assert.AreEqual(HttpStatusCode.NotFound, outside.StatusCode);
+        Assert.AreEqual(HttpStatusCode.NotFound, outsideBackslash.StatusCode);
+    }
+
+    private Task<HttpResponseMessage> GetWithTokenAsync(string url, string token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return httpClient.SendAsync(request);
+    }
+
     private FileOfferMessage OfferFile(string fileName, string content)
     {
         var path = Path.Combine(testDirectory, fileName);

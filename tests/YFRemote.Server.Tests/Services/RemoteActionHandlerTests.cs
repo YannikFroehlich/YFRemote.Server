@@ -501,6 +501,7 @@ public sealed class RemoteActionHandlerTests
     [TestMethod]
     [DataRow("minimizeWindow", WindowCommand.Minimize)]
     [DataRow("closeWindow", WindowCommand.Close)]
+    [DataRow("killWindow", WindowCommand.Kill)]
     public void Handle_WindowCommands_ReachOnlyListedWindows(string type, WindowCommand command)
     {
         var windows = new RecordingWindowService();
@@ -728,6 +729,38 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_DisplayMode_SetsOnlyKnownModes()
+    {
+        var power = new RecordingPowerService();
+        var handler = CreateHandler(powerService: power);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "displayMode", Mode = "Extend" }).Success);
+        Assert.AreEqual("extend", power.DisplayMode);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "displayMode", Mode = "mirror" }).Success);
+        Assert.AreEqual("extend", power.DisplayMode);
+        Assert.AreEqual(
+            "Display mode is not supported on this system.",
+            CreateHandler(powerService: new ThrowingPowerService())
+                .Handle(new RemoteActionRequest { Type = "displayMode", Mode = "clone" }).Error);
+    }
+
+    [TestMethod]
+    public void Handle_MicMute_NeedsMutedAndAVolumeService()
+    {
+        var volume = new RecordingVolumeService();
+        var handler = CreateHandler(volumeService: volume);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "micMute" }).Success);
+        Assert.IsNull(volume.MicMuted);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "micMute", Muted = true }).Success);
+        Assert.AreEqual(true, volume.MicMuted);
+        Assert.IsFalse(CreateHandler().Handle(new RemoteActionRequest { Type = "micMute", Muted = true }).Success);
+        Assert.IsFalse(handler.Handle(
+            new RemoteActionRequest { Type = "micMute", Muted = false },
+            new RemoteActionSession { MediaOnly = true }).Success);
+    }
+
+    [TestMethod]
     public void Handle_PowerMode_UnsupportedSystem_Fails()
     {
         var response = CreateHandler(powerService: new ThrowingPowerService())
@@ -789,6 +822,13 @@ public sealed class RemoteActionHandlerTests
         {
             LastVolumeKey = key;
             return handlesMute;
+        }
+
+        public bool? MicMuted { get; private set; }
+
+        public void SetMicMuted(bool muted)
+        {
+            MicMuted = muted;
         }
     }
 
@@ -973,6 +1013,13 @@ public sealed class RemoteActionHandlerTests
         public void SetPowerMode(string mode)
         {
             PowerMode = mode;
+        }
+
+        public string? DisplayMode { get; private set; }
+
+        public void SetDisplayMode(string mode)
+        {
+            DisplayMode = mode;
         }
     }
 

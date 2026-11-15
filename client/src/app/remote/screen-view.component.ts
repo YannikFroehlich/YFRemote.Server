@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
+import { FILE_SAVER } from './file-transfer.service';
 import { keyLabel, liveTextActions } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ScreenMonitor } from './remote.models';
@@ -19,6 +20,10 @@ import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from 
 import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
 import { MAX_SCROLL_DELTA, SCROLL_SCALE } from './touchpad/touchpad.component';
+
+// Die Obergrenzen von GET /screen: so breit und so gut, wie der PC ein Standbild liefert.
+const SCREENSHOT_WIDTH = 3840;
+const SCREENSHOT_QUALITY = 95;
 
 // Nur fuer den JPEG-Rueckweg (Server ohne Hardware-Encoder, Browser ohne MediaSource):
 // zwei Abrufe gleichzeitig, jeder hoechstens alle 33 ms: waehrend ein Bild uebers WLAN kommt,
@@ -72,12 +77,26 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 })
 export class ScreenViewComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  private readonly saveFile = inject(FILE_SAVER);
   protected readonly i18n = inject(TranslationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly document = inject(DOCUMENT);
   private readonly createAudioContext = inject(SCREEN_AUDIO_CONTEXT_FACTORY);
   private readonly videoPlayer = inject(SCREEN_VIDEO_PLAYER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
+
+  // Ein eigenes Standbild in voller Breite und hoher Qualitaet, unabhaengig vom laufenden Strom.
+  protected async saveScreenshot(): Promise<void> {
+    const image = await this.remote.readScreen(
+      SCREENSHOT_WIDTH,
+      SCREENSHOT_QUALITY,
+      this.remote.screenMonitor(),
+    );
+    if (image instanceof Blob) {
+      const stamp = new Date().toISOString().slice(0, 19).replace('T', '_').replaceAll(':', '-');
+      await this.saveFile(image, `YFRemote_${stamp}.jpg`);
+    }
+  }
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
@@ -235,10 +254,7 @@ export class ScreenViewComponent implements OnDestroy {
         this.videoShown.set(false);
       }
 
-      if (
-        !abort.signal.aborted &&
-        (stream === 'unsupported' || (stream === null && !played))
-      ) {
+      if (!abort.signal.aborted && (stream === 'unsupported' || (stream === null && !played))) {
         this.videoShown.set(false);
         return false;
       }

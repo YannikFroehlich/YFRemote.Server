@@ -194,6 +194,18 @@ describe('FileTransferService', () => {
     expect(fileTransfer.downloading()).toBe(false);
   });
 
+  it('downloads a file from the PC folder by its encoded name', async () => {
+    const { fileTransfer, fakeFetch, saved } = setupFileTransferService({ storedToken: 'tok-123' });
+    fakeFetch.queueJson('Vom PC');
+
+    const downloaded = await fileTransfer.downloadFolderFile('Bericht 1/2.pdf');
+
+    expect(downloaded).toBe(true);
+    expect(fakeFetch.calls[0].url).toBe('http://192.168.1.44:5050/folder/Bericht%201%2F2.pdf');
+    expect(fakeFetch.calls[0].init?.headers).toEqual({ Authorization: 'Bearer tok-123' });
+    expect(saved[0].fileName).toBe('Bericht 1/2.pdf');
+  });
+
   it('reports a failed download without saving anything', async () => {
     const { fileTransfer, fakeFetch, saved } = setupFileTransferService({ storedToken: 'tok-123' });
     fakeFetch.queueJson(null, 404);

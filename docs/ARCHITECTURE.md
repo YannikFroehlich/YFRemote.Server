@@ -34,6 +34,14 @@ feature.
   an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
   again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
   "Datei gesendet" balloon.
+- `GET /folder` → `{ files: [{name,size}] }`, the files directly inside
+  `FileTransfer:TargetDirectory` (newest first, at most 200; no subfolders, no hidden or system
+  files, no reparse points), so a device can fetch a file without someone offering it at the PC.
+  `GET /folder/{name}` downloads one: `FileTransferService.TryGetPath` looks the name up in that
+  list instead of building a path from it, so `..\` cannot leave the folder. Same gate as
+  `GET /files/{id}` (not for "Nur Medien"), `no-store`, and the same "Datei gesendet" balloon per
+  download. The "PC" tab lists them under "Dateien vom PC" (not on the Android server, which has
+  no such endpoint; an older server answers with `index.html`, the section is then hidden).
 - `POST /clipboard/text` (JSON, `Clipboard:MaxTextLength` 200 000) and `POST /clipboard/image`
   (multipart, `Clipboard:MaxImageSizeBytes` 20 MB) → write the PC clipboard via
   `IClipboardService`.
@@ -67,6 +75,8 @@ feature.
   (`id`, digits only, must be in the current list) brings one to the front, `minimizeWindow` and
   `closeWindow` (same check, `IWindowService.TryApply`) minimize it or post `WM_CLOSE` like its X
   button, so the app can still ask about unsaved work; an elevated window refuses the message.
+  `killWindow` (same check) ends the window's whole process with `Process.Kill` for a program that
+  hangs; unsaved work is lost, so the Client asks first. Unverified in the real app.
   `WindowsWindowService` follows the Alt+Tab rules (visible, unowned, not cloaked, no
   `WS_EX_TOOLWINDOW`, `WS_EX_NOACTIVATE` only with `WS_EX_APPWINDOW`, own process excluded), front
   window first. `SetForegroundWindow` only works for the process that sent the last input, so it
@@ -279,7 +289,14 @@ the Windows power mode `efficiency`/`balanced`/`performance` from `IPowerService
 `PowerGetEffectiveOverlayScheme` and only while the plan is "Ausbalanciert", because Windows ignores
 the overlay under any other plan; `powerMode` (`mode`) sets it with `PowerSetActiveOverlayScheme`.
 The "PC" tab shows a select for it, hidden for "Nur Medien". Reading was checked on the dev PC on
-2026-11-12, switching is unverified),
+2026-11-12, switching is unverified; the same push carries `displayMode`
+(`internal`/`clone`/`extend`/`external`, like Win+P: `QueryDisplayConfig(QDC_DATABASE_CURRENT)`
+reports the topology, the `displayMode` action applies one with
+`SetDisplayConfig(SDC_APPLY | SDC_TOPOLOGY_*)`; reading was checked on the dev PC on 2026-11-15,
+switching is unverified, and it is reported with a single monitor too, where Windows refuses to
+switch) and `micMuted` (mute of the default capture device through the same
+`IAudioEndpointVolume` path as the volume, `null` without a microphone; the `micMute` action with
+`muted` sets it; Windows only, unverified in the real app). Both are hidden for "Nur Medien"),
 subscribed only while the device has the Client's "PC" tab open (`{"type":"systemStats","enabled"}`,
 kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing otherwise.
 `WindowsSystemStatsReader` uses `GetSystemTimes`, `GlobalMemoryStatusEx`, the PDH counter

@@ -28,6 +28,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Controller-Modus unter Linux: Vibration. Lässt ein Spiel den virtuellen Controller vibrieren, vibriert das Handy wie bisher schon unter Windows. Noch nicht auf einem echten Linux-System geprüft.
+- Tab "PC": Schalter für das Mikrofon des PCs (stumm oder an), mit Anzeige des aktuellen Stands. Nur Windows.
+- Tab "PC": Anzeigemodus umschalten wie mit Win+P (Nur PC-Bildschirm, Duplizieren, Erweitern, Nur zweiter Bildschirm). Nur Windows.
+- Tab "PC": In der Fensterliste lässt sich der Prozess eines Fensters sofort beenden, für Programme, die hängen. Ungespeicherte Änderungen gehen dabei verloren, deshalb fragt der Client vorher nach.
+- Tab "PC": "Dateien vom PC" zeigt die Dateien im Empfangsordner des PCs und lädt sie aufs Gerät, ohne dass sie jemand am PC anbieten muss. Jeder Abruf meldet sich am PC im Infobereich.
+- Tab "Bildschirm": "Foto" speichert ein Bildschirmfoto des PCs in voller Auflösung auf dem Gerät.
 
 ## [2.53.0] - 2026-11-12
 

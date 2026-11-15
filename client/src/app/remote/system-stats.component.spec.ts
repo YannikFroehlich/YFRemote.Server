@@ -1,7 +1,14 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { MonitorBrightness, OpenWindow, ServerPlatform, SystemStatsMessage } from './remote.models';
+import { FileTransferService } from './file-transfer.service';
+import {
+  FolderFile,
+  MonitorBrightness,
+  OpenWindow,
+  ServerPlatform,
+  SystemStatsMessage,
+} from './remote.models';
 import { RemoteService } from './remote.service';
 import { SystemStatsComponent } from './system-stats.component';
 
@@ -12,6 +19,7 @@ describe('SystemStatsComponent', () => {
     mediaOnly = false,
     stats: SystemStatsMessage | null = null,
     brightness: readonly MonitorBrightness[] = [],
+    folder: readonly FolderFile[] | null = null,
   ) {
     const remote = {
       systemStats: signal(stats),
@@ -22,8 +30,17 @@ describe('SystemStatsComponent', () => {
       readBrightness: vi.fn(() => Promise.resolve(brightness)),
       sendAction: vi.fn(() => true),
       setPowerMode: vi.fn(),
+      setDisplayMode: vi.fn(),
+      setMicMuted: vi.fn(),
+      readFolder: vi.fn(() => Promise.resolve(folder)),
     };
-    TestBed.configureTestingModule({ providers: [{ provide: RemoteService, useValue: remote }] });
+    const fileTransfer = { downloadFolderFile: vi.fn(() => Promise.resolve(true)) };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: RemoteService, useValue: remote },
+        { provide: FileTransferService, useValue: fileTransfer },
+      ],
+    });
     const fixture = TestBed.createComponent(SystemStatsComponent);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -32,8 +49,84 @@ describe('SystemStatsComponent', () => {
       [...element.querySelectorAll('.window-list__title')].map((title) =>
         title.textContent?.trim(),
       );
-    return { remote, fixture, element, titles };
+    return { remote, fileTransfer, fixture, element, titles };
   }
+
+  const stats: SystemStatsMessage = { type: 'systemStats', memoryUsedMb: 1, memoryTotalMb: 2 };
+
+  it('ends the process of a window only after the confirmation', async () => {
+    const { remote, fixture, element, titles } = await setup('windows', [
+      { id: '1', title: 'Dokument - Editor', app: 'Editor' },
+    ]);
+    const kill = element.querySelector<HTMLButtonElement>(
+      '.window-list__action[aria-label="Prozess von Dokument - Editor beenden"]',
+    )!;
+    const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValueOnce(false);
+
+    kill.click();
+    expect(remote.sendAction).not.toHaveBeenCalled();
+
+    confirm.mockReturnValueOnce(true);
+    kill.click();
+    fixture.detectChanges();
+
+    expect(remote.sendAction).toHaveBeenCalledWith({ type: 'killWindow', id: '1' });
+    expect(titles()).toEqual([]);
+    confirm.mockRestore();
+  });
+
+  it('switches display mode and microphone when the PC reports them', async () => {
+    const { remote, element } = await setup('windows', [], false, {
+      ...stats,
+      displayMode: 'extend',
+      micMuted: false,
+    });
+    const select = element.querySelectorAll<HTMLSelectElement>('.power-mode select')[0];
+    const mic = element.querySelector<HTMLButtonElement>('.mic-switch')!;
+
+    expect(select.value).toBe('extend');
+    select.value = 'clone';
+    select.dispatchEvent(new Event('change'));
+    expect(mic.getAttribute('aria-checked')).toBe('true');
+    mic.click();
+
+    expect(remote.setDisplayMode).toHaveBeenCalledWith('clone');
+    expect(remote.setMicMuted).toHaveBeenCalledWith(true);
+
+    TestBed.resetTestingModule();
+    const mediaOnly = await setup('windows', [], true, {
+      ...stats,
+      displayMode: 'extend',
+      micMuted: false,
+    });
+    expect(mediaOnly.element.querySelector('.mic-switch, .power-mode')).toBeNull();
+  });
+
+  it('lists the files of the PC folder and downloads one', async () => {
+    const { remote, fileTransfer, element } = await setup(
+      'linux',
+      null,
+      false,
+      null,
+      [],
+      [{ name: 'bericht.pdf', size: 2 * 1024 * 1024 }],
+    );
+    const file = element.querySelector<HTMLButtonElement>('.folder-file')!;
+
+    expect(file.textContent).toContain('bericht.pdf');
+    expect(file.textContent).toContain('2.0 MB');
+    file.click();
+
+    expect(remote.readFolder).toHaveBeenCalled();
+    expect(fileTransfer.downloadFolderFile).toHaveBeenCalledWith('bericht.pdf');
+
+    TestBed.resetTestingModule();
+    const android = await setup('android', null, false, null, [], [{ name: 'x', size: 1 }]);
+    expect(android.element.querySelector('.folder-file')).toBeNull();
+    TestBed.resetTestingModule();
+    const oldServer = await setup('windows', [], false, null, [], null);
+    expect(oldServer.element.querySelector('.folder-file')).toBeNull();
+  });
 
   it('lists the windows of a Windows PC and brings one to the front', async () => {
     const { remote, fixture, element, titles } = await setup('windows', [

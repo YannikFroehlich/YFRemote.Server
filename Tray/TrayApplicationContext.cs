@@ -234,11 +234,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             periodicUpdateTimer.Start();
         }
 
-        notifyIcon.ShowBalloonTip(
-            5000,
-            "YFRemote läuft",
-            $"Der Server ist unter {deviceAddress} erreichbar.",
-            ToolTipIcon.Info);
+        Notify("YFRemote läuft", $"Der Server ist unter {deviceAddress} erreichbar.");
     }
 
     protected override void Dispose(bool disposing)
@@ -345,11 +341,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
                 if (showResult)
                 {
-                    notifyIcon.ShowBalloonTip(
-                        4000,
-                        "YFRemote ist aktuell",
-                        $"Installierte Version: v{updateService.CurrentVersion}",
-                        ToolTipIcon.Info);
+                    Notify("YFRemote ist aktuell", $"Installierte Version: v{updateService.CurrentVersion}");
                 }
 
                 return;
@@ -359,11 +351,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             updateItem.Text = $"Neue Version v{version} verfügbar - installieren";
             updateItem.Enabled = true;
 
-            notifyIcon.ShowBalloonTip(
-                6000,
-                "YFRemote-Update verfügbar",
-                $"Version v{version} kann über das Tray-Menü installiert werden.",
-                ToolTipIcon.Info);
+            Notify("YFRemote-Update verfügbar", $"Version v{version} kann über das Tray-Menü installiert werden.");
         }
         catch (Exception exception)
         {
@@ -406,16 +394,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     // uiDispatcher.BeginInvoke statt notifyIcon direkt anzufassen.
     private void OnFileReceived(string fileName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(3000, "Datei empfangen", fileName, ToolTipIcon.Info));
+            Notify("Datei empfangen", fileName));
 
     // Wie OnFileReceived vom HTTP-Request-Thread aufgerufen, daher ueber den uiDispatcher.
     private void OnOfferedFileDownloaded(string fileName, string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(
-                3000,
-                "Datei gesendet",
-                $"\"{fileName}\" wurde an \"{deviceName}\" gesendet.",
-                ToolTipIcon.Info));
+            Notify("Datei gesendet", $"\"{fileName}\" wurde an \"{deviceName}\" gesendet."));
 
     private void OfferFile()
     {
@@ -428,11 +412,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             var offer = fileOfferService.Offer(dialog.FileName);
-            notifyIcon.ShowBalloonTip(
-                3000,
+            Notify(
                 "Datei bereitgestellt",
-                $"\"{offer.Name}\" kann jetzt 10 Minuten lang auf den gekoppelten Geräten geladen werden.",
-                ToolTipIcon.Info);
+                $"\"{offer.Name}\" kann jetzt 10 Minuten lang auf den gekoppelten Geräten geladen werden.");
         }
         catch (Exception exception)
         {
@@ -448,43 +430,25 @@ internal sealed class TrayApplicationContext : ApplicationContext
     // Wie OnFileReceived vom HTTP-Request-Thread aufgerufen, daher ueber den uiDispatcher.
     private void OnClipboardRead(string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(
-                3000,
-                "Zwischenablage gesendet",
-                $"Die Zwischenablage wurde an \"{deviceName}\" gesendet.",
-                ToolTipIcon.Info));
+            Notify("Zwischenablage gesendet", $"Die Zwischenablage wurde an \"{deviceName}\" gesendet."));
 
     private void OnClipboardSyncEnabled(string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(
-                4000,
-                "Zwischenablage-Abgleich",
-                $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst.",
-                ToolTipIcon.Info));
+            Notify("Zwischenablage-Abgleich", $"\"{deviceName}\" bekommt ab jetzt alles, was du kopierst."));
 
     private void OnNotificationsEnabled(string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(
-                4000,
+            Notify(
                 "Benachrichtigungen weitergeleitet",
-                $"\"{deviceName}\" bekommt ab jetzt die Windows-Benachrichtigungen dieses PCs.",
-                ToolTipIcon.Info));
+                $"\"{deviceName}\" bekommt ab jetzt die Windows-Benachrichtigungen dieses PCs."));
 
     private void OnScreenViewStarted(string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(
-                4000,
-                "Bildschirm wird übertragen",
-                $"\"{deviceName}\" sieht deinen Bildschirm.",
-                ToolTipIcon.Info));
+            Notify("Bildschirm wird übertragen", $"\"{deviceName}\" sieht deinen Bildschirm."));
 
     private void OnScreenAudioStarted(string deviceName) =>
         uiDispatcher.BeginInvoke(() =>
-            notifyIcon.ShowBalloonTip(
-                4000,
-                "PC-Ton wird übertragen",
-                $"\"{deviceName}\" hört den Ton deines PCs.",
-                ToolTipIcon.Info));
+            Notify("PC-Ton wird übertragen", $"\"{deviceName}\" hört den Ton deines PCs."));
 
     // Ein Geraet plant das Herunterfahren aus der Ferne - wer am PC sitzt, soll das sehen und
     // ueber das Tray-Menue abbrechen koennen, bevor ungespeicherte Arbeit im Weg steht.
@@ -500,19 +464,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var (noun, announcement) = TimerTexts(shutdownTimer.Action);
             if (shutdownTimer.DueAt is { } dueAt)
             {
-                notifyIcon.ShowBalloonTip(
-                    5000,
+                Notify(
                     $"{noun} geplant",
-                    $"\"{deviceName}\" {string.Format(announcement, dueAt)}. Abbrechen über das Tray-Menü.",
-                    ToolTipIcon.Warning);
+                    $"\"{deviceName}\" {string.Format(announcement, dueAt)}. Abbrechen über das Tray-Menü.", ToolTipIcon.Warning);
             }
             else
             {
-                notifyIcon.ShowBalloonTip(
-                    3000,
-                    $"{noun} abgebrochen",
-                    $"\"{deviceName}\" hat den Termin abgebrochen.",
-                    ToolTipIcon.Info);
+                Notify($"{noun} abgebrochen", $"\"{deviceName}\" hat den Termin abgebrochen.");
             }
         });
 
@@ -561,11 +519,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         try
         {
             Clipboard.SetText(deviceAddress);
-            notifyIcon.ShowBalloonTip(
-                3000,
-                "Adresse kopiert",
-                deviceAddress,
-                ToolTipIcon.Info);
+            Notify("Adresse kopiert", deviceAddress);
         }
         catch (Exception exception)
         {
@@ -745,11 +699,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        notifyIcon.ShowBalloonTip(
-            3000,
-            mediaOnly ? "Nur Medien" : "Vollzugriff",
-            string.Join(", ", devices.Select(device => device.Name)),
-            ToolTipIcon.Info);
+        Notify(mediaOnly ? "Nur Medien" : "Vollzugriff", string.Join(", ", devices.Select(device => device.Name)));
     }
 
     private void UnpairDevices(IReadOnlyList<PairedDeviceInfo> devices)
@@ -771,11 +721,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         if (removed.Count > 0)
         {
-            notifyIcon.ShowBalloonTip(
-                3000,
+            Notify(
                 removed.Count == 1 ? "Gerät entkoppelt" : $"{removed.Count} Geräte entkoppelt",
-                string.Join(", ", removed),
-                ToolTipIcon.Info);
+                string.Join(", ", removed));
         }
 
         if (failed.Count > 0)
@@ -794,7 +742,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             var (pin, _) = pairingService.GetCurrentPin();
             Clipboard.SetText(pin);
-            notifyIcon.ShowBalloonTip(3000, "PIN kopiert", pin, ToolTipIcon.Info);
+            Notify("PIN kopiert", pin);
         }
         catch (Exception exception)
         {
@@ -811,8 +759,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         var pin = pairingService.RegeneratePin();
         pinItem.Text = FormatPinText(pin);
-        notifyIcon.ShowBalloonTip(4000, "Neue PIN erzeugt", pin.Pin, ToolTipIcon.Info);
+        Notify("Neue PIN erzeugt", pin.Pin);
     }
+
+    // Eine Dauer fuer alle: Windows richtet sich seit Vista ohnehin nach den Systemeinstellungen.
+    private void Notify(string title, string text, ToolTipIcon icon = ToolTipIcon.Info) =>
+        notifyIcon.ShowBalloonTip(4000, title, text, icon);
 
     private static string FormatPinText((string Pin, DateTimeOffset ExpiresAtUtc) pin) =>
         $"PIN: {pin.Pin} (gültig bis {pin.ExpiresAtUtc.ToLocalTime():HH:mm})";

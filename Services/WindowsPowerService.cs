@@ -83,6 +83,65 @@ public sealed class WindowsPowerService : IPowerService
         }
     }
 
+    // Die Werte sind die Bits von SDC_TOPOLOGY_* und zugleich die Topologie-Kennung, die
+    // QueryDisplayConfig meldet.
+    private static readonly (string Mode, uint Topology)[] DisplayModes =
+    [
+        ("internal", 1),
+        ("clone", 2),
+        ("extend", 4),
+        ("external", 8),
+    ];
+
+    private const uint QdcDatabaseCurrent = 4;
+    private const uint SdcApply = 0x80;
+    private const int DisplayConfigPathInfoSize = 72;
+    private const int DisplayConfigModeInfoSize = 64;
+
+    // ponytail: wird auch mit nur einem angeschlossenen Bildschirm gemeldet, das Umschalten lehnt
+    // Windows dann ab. Angeschlossene Bildschirme zaehlen, falls die Auswahl dort stoert.
+    public string? DisplayMode
+    {
+        get
+        {
+            if (GetDisplayConfigBufferSizes(QdcDatabaseCurrent, out var paths, out var modes) != 0)
+            {
+                return null;
+            }
+
+            var pathBuffer = new byte[Math.Max(1, paths) * DisplayConfigPathInfoSize];
+            var modeBuffer = new byte[Math.Max(1, modes) * DisplayConfigModeInfoSize];
+            return QueryDisplayConfig(QdcDatabaseCurrent, ref paths, pathBuffer, ref modes, modeBuffer, out var topology) == 0
+                ? DisplayModes.FirstOrDefault(entry => entry.Topology == topology).Mode
+                : null;
+        }
+    }
+
+    // Dieselbe Umschaltung wie Win+P bzw. DisplaySwitch.exe, ohne eigene Pfad- und Modusliste.
+    public void SetDisplayMode(string mode)
+    {
+        var result = SetDisplayConfig(0, 0, 0, 0, SdcApply | DisplayModes.First(entry => entry.Mode == mode).Topology);
+        if (result != 0)
+        {
+            throw new Win32Exception(result, "Switching the display mode failed.");
+        }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern int GetDisplayConfigBufferSizes(uint flags, out uint pathCount, out uint modeCount);
+
+    [DllImport("user32.dll")]
+    private static extern int QueryDisplayConfig(
+        uint flags,
+        ref uint pathCount,
+        [Out] byte[] paths,
+        ref uint modeCount,
+        [Out] byte[] modes,
+        out uint topology);
+
+    [DllImport("user32.dll")]
+    private static extern int SetDisplayConfig(uint pathCount, nint paths, uint modeCount, nint modes, uint flags);
+
     public void SetPowerMode(string mode)
     {
         if (PowerMode is null)

@@ -171,6 +171,56 @@ export interface SystemStatsMessage {
   readonly batteryTemperature?: number;
   /** Windows-Energiemodus; fehlt, wenn der PC keinen umschaltbaren hat. */
   readonly powerMode?: PowerMode;
+  /** Anzeigemodus wie bei Win+P; fehlt, wenn der PC ihn nicht meldet. */
+  readonly displayMode?: DisplayMode;
+  /** Mikrofon stummgeschaltet; fehlt ohne Mikrofon. */
+  readonly micMuted?: boolean;
+  /** Fest eingebaute Laufwerke; fehlt bei aelteren Servern und der Android-App. */
+  readonly drives?: readonly DriveStats[];
+  /** Durchsatz aller Netzwerkadapter in Kilobit pro Sekunde; fehlt bei der ersten Messung. */
+  readonly netDownKbps?: number;
+  readonly netUpKbps?: number;
+}
+
+export interface DriveStats {
+  readonly name: string;
+  readonly freeMb: number;
+  readonly totalMb: number;
+}
+
+/** Ein Prozess aus `GET /processes`; `cpu` in Prozent aller Kerne zusammen. */
+export interface ProcessInfo {
+  readonly id: number;
+  readonly name: string;
+  readonly cpu: number;
+  readonly memoryMb: number;
+}
+
+/** Beendet einen Prozess aus `GET /processes`; der Name sichert gegen eine neu vergebene Nummer. */
+export interface KillProcessAction {
+  readonly type: 'killProcess';
+  readonly id: string;
+  readonly name: string;
+}
+
+export type DisplayMode = 'internal' | 'clone' | 'extend' | 'external';
+
+/** Stellt den Anzeigemodus um (Tab "PC"). */
+export interface DisplayModeAction {
+  readonly type: 'displayMode';
+  readonly mode: DisplayMode;
+}
+
+/** Schaltet das Standard-Mikrofon des PCs stumm oder wieder ein (Tab "PC"). */
+export interface MicMuteAction {
+  readonly type: 'micMute';
+  readonly muted: boolean;
+}
+
+/** Eine Datei im Empfangsordner des PCs (`GET /folder`). */
+export interface FolderFile {
+  readonly name: string;
+  readonly size: number;
 }
 
 export type PowerMode = 'efficiency' | 'balanced' | 'performance';
@@ -262,9 +312,10 @@ export interface OpenWindow {
   readonly app: string;
 }
 
-/** Holt ein Fenster aus `GET /windows` in den Vordergrund, minimiert oder schliesst es. */
+/** Holt ein Fenster aus `GET /windows` in den Vordergrund, minimiert oder schliesst es;
+ *  `killWindow` beendet seinen Prozess ohne Rueckfrage der App. */
 export interface FocusWindowAction {
-  readonly type: 'focusWindow' | 'minimizeWindow' | 'closeWindow';
+  readonly type: 'focusWindow' | 'minimizeWindow' | 'closeWindow' | 'killWindow';
   readonly id: string;
 }
 
@@ -360,6 +411,9 @@ export type RemoteAction =
   | LaunchAction
   | FocusWindowAction
   | PowerModeAction
+  | DisplayModeAction
+  | KillProcessAction
+  | MicMuteAction
   | DismissNotificationAction
   | BrightnessAction;
 

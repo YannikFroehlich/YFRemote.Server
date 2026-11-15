@@ -355,6 +355,8 @@ internal static class Program
         builder.Services.AddSingleton(httpsOptions);
         builder.Services.AddSingleton(fileTransferOptions);
         builder.Services.AddSingleton<FileTransferService>();
+        builder.Services.AddSingleton<IProcessService, ProcessService>();
+        builder.Services.AddSingleton<SystemExtrasReader>();
         builder.Services.AddSingleton<FileOfferService>();
         builder.Services.AddSingleton(clipboardOptions);
         builder.Services.AddSingleton(inputOptions);
@@ -396,7 +398,11 @@ internal static class Program
             services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
         builder.Services.AddSingleton<WindowsSystemStatsReader>();
         builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
-            ReadWithPowerMode(services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync, services.GetRequiredService<IPowerService>()),
+            ReadWithPowerMode(
+                services.GetRequiredService<SystemExtrasReader>().Wrap(
+                    services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync),
+                services.GetRequiredService<IPowerService>(),
+                services.GetRequiredService<IVolumeService>()),
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));
@@ -429,7 +435,8 @@ internal static class Program
             services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
         builder.Services.AddSingleton<LinuxSystemStatsReader>();
         builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
-            services.GetRequiredService<LinuxSystemStatsReader>().ReadAsync,
+            services.GetRequiredService<SystemExtrasReader>().Wrap(
+                services.GetRequiredService<LinuxSystemStatsReader>().ReadAsync),
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));
@@ -528,11 +535,18 @@ internal static class Program
     }
 
 #if WINDOWS
-    // Der Energiemodus kommt mit den Systemwerten, so zeigt der Tab "PC" ihn ohne eigene Abfrage.
+    // Energiemodus, Anzeigemodus und Mikrofon kommen mit den Systemwerten, so zeigt der Tab "PC"
+    // sie ohne eigene Abfrage.
     private static Func<Task<SystemStatsMessage>> ReadWithPowerMode(
         Func<Task<SystemStatsMessage>> read,
-        IPowerService powerService) =>
-        async () => await read() with { PowerMode = powerService.PowerMode };
+        IPowerService powerService,
+        IVolumeService volumeService) =>
+        async () => await read() with
+        {
+            PowerMode = powerService.PowerMode,
+            DisplayMode = powerService.DisplayMode,
+            MicMuted = volumeService.MicMuted,
+        };
 
     private static void StopAndDisposeApplication(WebApplication app)
     {

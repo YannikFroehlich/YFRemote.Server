@@ -15,6 +15,7 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
     // Spotify & Co. liefern Cover um 300x300 Pixel (einige 10 KB); groessere schickt YFRemote nicht.
     private const int MaxCoverBytes = 2 * 1024 * 1024;
     private const int ERender = 0;
+    private const int ECapture = 1;
     private const int EConsole = 0;
     private const int ClsCtxAll = 0x17;
     private const int StgmRead = 0;
@@ -128,6 +129,47 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
             return true;
         });
 
+    // ponytail: nur das Standard-Aufnahmegeraet. Ist ein anderes als Standard-Kommunikationsgeraet
+    // gesetzt, bleibt das offen - dann zusaetzlich eCommunications stummschalten.
+    public bool? MicMuted
+    {
+        get
+        {
+            try
+            {
+                return WithDefaultDevice<IAudioEndpointVolume, bool?>(
+                    (volume, _) =>
+                    {
+                        Marshal.ThrowExceptionForHR(volume.GetMute(out var muted));
+                        return muted;
+                    },
+                    ECapture);
+            }
+            catch (COMException)
+            {
+                // Geraet gerade abgezogen: die Systemanzeige soll deshalb nicht ausfallen.
+                return null;
+            }
+        }
+    }
+
+    public void SetMicMuted(bool muted)
+    {
+        var applied = WithDefaultDevice<IAudioEndpointVolume, bool>(
+            (volume, _) =>
+            {
+                var context = Guid.Empty;
+                Marshal.ThrowExceptionForHR(volume.SetMute(muted, ref context));
+                return true;
+            },
+            ECapture);
+
+        if (!applied)
+        {
+            throw new NotSupportedException("No microphone.");
+        }
+    }
+
     private (int? Volume, bool Muted) ReadVolume() =>
         WithEndpointVolume<(int?, bool)>((volume, deviceName) =>
         {
@@ -146,10 +188,11 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
     private static T? WithEndpointVolume<T>(Func<IAudioEndpointVolume, string?, T> use) =>
         WithDefaultDevice(use);
 
-    // Aktiviert TService (IAudioEndpointVolume, IAudioSessionManager2) am Standard-Wiedergabegeraet.
+    // Aktiviert TService (IAudioEndpointVolume, IAudioSessionManager2) am Standard-Wiedergabegeraet
+    // bzw. mit ECapture am Standard-Aufnahmegeraet.
     // Liefert default, wenn es keins gibt (z.B. Kopfhoerer abgezogen, keins mehr uebrig) - das ist
     // kein Fehler.
-    private static T? WithDefaultDevice<TService, T>(Func<TService, string?, T> use)
+    private static T? WithDefaultDevice<TService, T>(Func<TService, string?, T> use, int dataFlow = ERender)
         where TService : class
     {
         var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
@@ -158,7 +201,7 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
 
         try
         {
-            if (enumerator.GetDefaultAudioEndpoint(ERender, EConsole, out device) != 0)
+            if (enumerator.GetDefaultAudioEndpoint(dataFlow, EConsole, out device) != 0)
             {
                 return default;
             }

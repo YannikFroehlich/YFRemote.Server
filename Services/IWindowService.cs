@@ -14,6 +14,7 @@ public enum WindowCommand
     Focus,
     Minimize,
     Close,
+    Kill,
 }
 
 // Id ist das Fensterhandle als Dezimalzahl, App der Name des Programms.

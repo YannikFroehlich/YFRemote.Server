@@ -92,14 +92,49 @@ internal static class FileEndpoints
             }
 
             var fileName = Path.GetFileName(path);
-            var deviceName = context.RequestServices.GetRequiredService<PairingService>()
-                .GetPairedDevices()
-                .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
+            var deviceName = context.RequestServices.GetRequiredService<PairingService>().GetDeviceName(deviceId);
             app.Logger.LogInformation("Offered file {FileName} sent to paired device {DeviceName}.", fileName, deviceName);
             fileOfferService.NotifyDownloaded(fileName, deviceName);
 
             context.Response.Headers.CacheControl = "no-store";
             return Results.File(path, "application/octet-stream", fileName);
+        });
+
+        // Der Empfangsordner (FileTransfer:TargetDirectory) zum Durchblaettern am Geraet, damit
+        // eine Datei vom PC nicht erst am PC angeboten werden muss. Gleiche Pruefung wie
+        // GET /files/{id}; "Nur Medien" bleibt draussen.
+        app.MapGet("/folder", async context =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is null)
+            {
+                return;
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            var files = context.RequestServices.GetRequiredService<FileTransferService>().ListFiles();
+            await context.Response.WriteAsJsonAsync(new { files }, context.RequestAborted);
+        });
+
+        // Eine Datei daraus. Jeder Abruf meldet sich wie eine angebotene Datei im Infobereich.
+        app.MapGet("/folder/{name}", async (HttpContext context, string name) =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context, originOptional: true) is not { } deviceId)
+            {
+                return Results.Empty;
+            }
+
+            var path = context.RequestServices.GetRequiredService<FileTransferService>().TryGetPath(name);
+            if (path is null)
+            {
+                return Results.NotFound();
+            }
+
+            var deviceName = context.RequestServices.GetRequiredService<PairingService>().GetDeviceName(deviceId);
+            app.Logger.LogInformation("File {FileName} from the folder sent to paired device {DeviceName}.", name, deviceName);
+            context.RequestServices.GetRequiredService<FileOfferService>().NotifyDownloaded(name, deviceName);
+
+            context.Response.Headers.CacheControl = "no-store";
+            return Results.File(path, "application/octet-stream", name);
         });
     }
 }

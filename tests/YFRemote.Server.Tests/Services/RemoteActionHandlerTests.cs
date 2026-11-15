@@ -501,6 +501,7 @@ public sealed class RemoteActionHandlerTests
     [TestMethod]
     [DataRow("minimizeWindow", WindowCommand.Minimize)]
     [DataRow("closeWindow", WindowCommand.Close)]
+    [DataRow("killWindow", WindowCommand.Kill)]
     public void Handle_WindowCommands_ReachOnlyListedWindows(string type, WindowCommand command)
     {
         var windows = new RecordingWindowService();
@@ -728,6 +729,57 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_DisplayMode_SetsOnlyKnownModes()
+    {
+        var power = new RecordingPowerService();
+        var handler = CreateHandler(powerService: power);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "displayMode", Mode = "Extend" }).Success);
+        Assert.AreEqual("extend", power.DisplayMode);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "displayMode", Mode = "mirror" }).Success);
+        Assert.AreEqual("extend", power.DisplayMode);
+        Assert.AreEqual(
+            "Display mode is not supported on this system.",
+            CreateHandler(powerService: new ThrowingPowerService())
+                .Handle(new RemoteActionRequest { Type = "displayMode", Mode = "clone" }).Error);
+    }
+
+    [TestMethod]
+    public void Handle_KillProcess_NeedsNumericIdAndMatchingName()
+    {
+        var processes = new RecordingProcessService();
+        var handler = CreateHandler(processes: processes);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "42" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "4x", Name = "notepad" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "other" }).Success);
+        Assert.IsNull(processes.Killed);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "notepad" }).Success);
+        Assert.AreEqual(42, processes.Killed);
+        Assert.IsFalse(handler.Handle(
+            new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "notepad" },
+            new RemoteActionSession { MediaOnly = true }).Success);
+        Assert.IsFalse(CreateHandler().Handle(
+            new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "notepad" }).Success);
+    }
+
+    [TestMethod]
+    public void Handle_MicMute_NeedsMutedAndAVolumeService()
+    {
+        var volume = new RecordingVolumeService();
+        var handler = CreateHandler(volumeService: volume);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "micMute" }).Success);
+        Assert.IsNull(volume.MicMuted);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "micMute", Muted = true }).Success);
+        Assert.AreEqual(true, volume.MicMuted);
+        Assert.IsFalse(CreateHandler().Handle(new RemoteActionRequest { Type = "micMute", Muted = true }).Success);
+        Assert.IsFalse(handler.Handle(
+            new RemoteActionRequest { Type = "micMute", Muted = false },
+            new RemoteActionSession { MediaOnly = true }).Success);
+    }
+
+    [TestMethod]
     public void Handle_PowerMode_UnsupportedSystem_Fails()
     {
         var response = CreateHandler(powerService: new ThrowingPowerService())
@@ -789,6 +841,13 @@ public sealed class RemoteActionHandlerTests
         {
             LastVolumeKey = key;
             return handlesMute;
+        }
+
+        public bool? MicMuted { get; private set; }
+
+        public void SetMicMuted(bool muted)
+        {
+            MicMuted = muted;
         }
     }
 
@@ -896,7 +955,8 @@ public sealed class RemoteActionHandlerTests
         IAppLauncher? appLauncher = null,
         IWindowService? windows = null,
         IPcNotifications? pcNotifications = null,
-        IBrightnessService? brightness = null)
+        IBrightnessService? brightness = null,
+        IProcessService? processes = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -911,7 +971,27 @@ public sealed class RemoteActionHandlerTests
             appLauncher: appLauncher,
             windows: windows,
             pcNotifications: pcNotifications,
-            brightness: brightness);
+            brightness: brightness,
+            processes: processes);
+    }
+
+    private sealed class RecordingProcessService : IProcessService
+    {
+        public int? Killed { get; private set; }
+
+        public Task<IReadOnlyList<ProcessInfo>> ListAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ProcessInfo>>([new ProcessInfo(42, "notepad", 3, 20)]);
+
+        public bool TryKill(int id, string name)
+        {
+            if (id != 42 || name != "notepad")
+            {
+                return false;
+            }
+
+            Killed = id;
+            return true;
+        }
     }
 
     private sealed class RecordingBrightnessService : IBrightnessService
@@ -973,6 +1053,13 @@ public sealed class RemoteActionHandlerTests
         public void SetPowerMode(string mode)
         {
             PowerMode = mode;
+        }
+
+        public string? DisplayMode { get; private set; }
+
+        public void SetDisplayMode(string mode)
+        {
+            DisplayMode = mode;
         }
     }
 

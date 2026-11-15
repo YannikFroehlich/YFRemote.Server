@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -63,6 +65,21 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
             case WindowCommand.Close when !PostMessage(handle, WmClose, 0, 0):
                 throw new InvalidOperationException("Windows refused to close this window.");
             case WindowCommand.Close:
+                break;
+            // Fuer haengende Programme: beendet den ganzen Prozess sofort, ohne dass die App noch
+            // nach ungespeicherten Aenderungen fragen kann. Prozesse mit Adminrechten lehnen ab.
+            case WindowCommand.Kill:
+                GetWindowThreadProcessId(handle, out var processId);
+                try
+                {
+                    using var process = Process.GetProcessById((int)processId);
+                    process.Kill();
+                }
+                catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or ArgumentException)
+                {
+                    throw new InvalidOperationException("Windows refused to end this process.", exception);
+                }
+
                 break;
             default:
                 Focus(handle);

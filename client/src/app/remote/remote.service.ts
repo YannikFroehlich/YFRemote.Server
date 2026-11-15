@@ -11,6 +11,9 @@ import {
   OpenWindow,
   PcNotificationMessage,
   PowerMode,
+  DisplayMode,
+  FolderFile,
+  ProcessInfo,
   ScreenMonitor,
   RemoteAction,
   RemoteResponse,
@@ -427,6 +430,21 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  /** Wie setPowerMode: Die Anzeige folgt sofort, die naechste Messung bestaetigt oder korrigiert. */
+  setDisplayMode(mode: DisplayMode): void {
+    const stats = this.systemStatsSignal();
+    if (this.sendAction({ type: 'displayMode', mode }) && stats !== null) {
+      this.systemStatsSignal.set({ ...stats, displayMode: mode });
+    }
+  }
+
+  setMicMuted(muted: boolean): void {
+    const stats = this.systemStatsSignal();
+    if (this.sendAction({ type: 'micMute', muted }) && stats !== null) {
+      this.systemStatsSignal.set({ ...stats, micMuted: muted });
+    }
+  }
+
   dismissPcNotification(): void {
     if (this.pcNotificationTimer !== null) {
       clearTimeout(this.pcNotificationTimer);
@@ -538,6 +556,33 @@ export class RemoteService implements OnDestroy {
             typeof window?.id === 'string' &&
             typeof window.title === 'string' &&
             typeof window.app === 'string',
+        )
+      : null;
+  }
+
+  /** Die Prozesse mit der hoechsten Last; `null` bei einem Server ohne diese Liste. Die Antwort
+   *  dauert eine halbe Sekunde, weil der PC dafuer zweimal misst. */
+  async readProcesses(): Promise<readonly ProcessInfo[] | null> {
+    const processes = (await this.readJson('/processes'))?.['processes'];
+    return Array.isArray(processes)
+      ? processes.filter(
+          (process): process is ProcessInfo =>
+            typeof process?.id === 'number' &&
+            typeof process.name === 'string' &&
+            typeof process.cpu === 'number' &&
+            typeof process.memoryMb === 'number',
+        )
+      : null;
+  }
+
+  /** Die Dateien im Empfangsordner des PCs, neueste zuerst; `null` bei einem Server ohne diese
+   *  Liste (aelter, Android-App) oder wenn er nicht antwortet. */
+  async readFolder(): Promise<readonly FolderFile[] | null> {
+    const files = (await this.readJson('/folder'))?.['files'];
+    return Array.isArray(files)
+      ? files.filter(
+          (file): file is FolderFile =>
+            typeof file?.name === 'string' && typeof file.size === 'number',
         )
       : null;
   }
@@ -1360,7 +1405,10 @@ function isSystemStatsMessage(value: unknown): value is SystemStatsMessage {
     typeof message.memoryTotalMb === 'number' &&
     optionalNumber(message.batteryLevel) &&
     (message.batteryCharging === undefined || typeof message.batteryCharging === 'boolean') &&
-    optionalNumber(message.batteryTemperature)
+    optionalNumber(message.batteryTemperature) &&
+    optionalNumber(message.netDownKbps) &&
+    optionalNumber(message.netUpKbps) &&
+    (message.drives === undefined || Array.isArray(message.drives))
   );
 }
 

@@ -5,8 +5,8 @@ namespace YFRemote.Server.Services;
 // Linux braucht dafuer keinen Treiber: uinput legt jeden Controller als eigenes Eingabegeraet an.
 // Es meldet sich mit der USB-ID und den Tasten-/Achsencodes eines kabelgebundenen Xbox-360-Controllers
 // unter dem Kerneltreiber xpad, damit SDL, Steam und Proton es ohne eigenes Mapping erkennen.
-// ponytail: keine Vibration - dafuer muesste der Dienst die Force-Feedback-Uploads
-// (UI_BEGIN_FF_UPLOAD) vom Geraet lesen; nachruesten, wenn sie jemand vermisst.
+// Vibration: Das Geraet meldet FF_RUMBLE an, ein Lese-Thread je Controller beantwortet die
+// Force-Feedback-Uploads des Spiels (UI_BEGIN_FF_UPLOAD) und meldet Start und Stopp der Effekte.
 public sealed class LinuxGamepadService(ILogger<LinuxGamepadService> logger) : IGamepadService
 {
     private const ushort AbsX = 0x00;
@@ -64,9 +64,10 @@ public sealed class LinuxGamepadService(ILogger<LinuxGamepadService> logger) : I
             "Microsoft X-Box 360 pad",
             keyCodes: Buttons.Select(button => button.Code).ToArray(),
             absAxes: Axes,
-            id: Xbox360Id);
+            id: Xbox360Id,
+            rumble: true);
         logger.LogInformation("Virtual Xbox controller connected.");
-        return new VirtualGamepad(device, logger);
+        return new VirtualGamepad(device, onRumble, logger);
     }
 
     internal static IEnumerable<(ushort Type, ushort Code, int Value)> ToEvents(GamepadState state)
@@ -90,9 +91,87 @@ public sealed class LinuxGamepadService(ILogger<LinuxGamepadService> logger) : I
 
     private static int Pressed(GamepadState state, ushort mask) => (state.Buttons & mask) != 0 ? 1 : 0;
 
-    private sealed class VirtualGamepad(LinuxInputSender.UinputDevice device, ILogger logger) : IVirtualGamepad
+    // Was das Spiel gerade vibrieren laesst. Liefert nur dann einen Wert, wenn sich die Vibration
+    // aendert - wie die Entprellung in WindowsGamepadService.
+    // ponytail: nur ein Effekt zugleich, der zuletzt gestartete gewinnt (Spiele ueber SDL nutzen
+    // genau einen); mehrere ueberlagern, falls ein Spiel das braucht.
+    internal sealed class RumbleEffects
     {
-        private bool disposed;
+        private readonly Dictionary<int, FfEffect> effects = [];
+        private int playing = -1;
+        private long stopAt;
+        private GamepadRumble last = new(0, 0);
+
+        public GamepadRumble? Upload(FfEffect effect)
+        {
+            effects[effect.Id] = effect;
+            return effect.Id == playing ? Changed(ToRumble(effect)) : null;
+        }
+
+        public GamepadRumble? Erase(int id)
+        {
+            effects.Remove(id);
+            return id == playing ? Stop() : null;
+        }
+
+        public GamepadRumble? Play(int id, int value, long nowMilliseconds)
+        {
+            if (value <= 0 || !effects.TryGetValue(id, out var effect))
+            {
+                return id == playing ? Stop() : null;
+            }
+
+            playing = id;
+            stopAt = effect.LengthMilliseconds == 0 ? long.MaxValue : nowMilliseconds + effect.LengthMilliseconds;
+            return Changed(ToRumble(effect));
+        }
+
+        // Ein echter Controller beendet einen Effekt nach replay.length selbst, uinput nicht.
+        public GamepadRumble? Tick(long nowMilliseconds) =>
+            playing >= 0 && nowMilliseconds >= stopAt ? Stop() : null;
+
+        private GamepadRumble? Stop()
+        {
+            playing = -1;
+            return Changed(new GamepadRumble(0, 0));
+        }
+
+        private GamepadRumble? Changed(GamepadRumble rumble)
+        {
+            if (rumble == last)
+            {
+                return null;
+            }
+
+            last = rumble;
+            return rumble;
+        }
+
+        // Starker Motor = grosser Motor wie bei xpad; evdev zaehlt bis 65535, XInput bis 255.
+        private static GamepadRumble ToRumble(FfEffect effect) => effect.IsRumble
+            ? new GamepadRumble((byte)(effect.Strong >> 8), (byte)(effect.Weak >> 8))
+            : new GamepadRumble(0, 0);
+    }
+
+    private sealed class VirtualGamepad : IVirtualGamepad
+    {
+        private const int ReadTimeoutMilliseconds = 50;
+
+        private readonly LinuxInputSender.UinputDevice device;
+        private readonly Action<GamepadRumble> onRumble;
+        private readonly ILogger logger;
+        private readonly RumbleEffects rumbleEffects = new();
+        private readonly Thread reader;
+        private volatile bool disposed;
+
+        public VirtualGamepad(LinuxInputSender.UinputDevice device, Action<GamepadRumble> onRumble, ILogger logger)
+        {
+            this.device = device;
+            this.onRumble = onRumble;
+            this.logger = logger;
+            reader = new Thread(ReadRumble) { IsBackground = true, Name = "YFRemote gamepad rumble" };
+            reader.Start();
+        }
 
         // Unveraenderte Werte verwirft der Kernel selbst, deshalb geht jedes Mal der volle Stand raus.
         public void Update(GamepadState state)
@@ -116,8 +195,47 @@ public sealed class LinuxGamepadService(ILogger<LinuxGamepadService> logger) : I
             }
 
             disposed = true;
+            reader.Join();
             device.Dispose();
             logger.LogInformation("Virtual Xbox controller disconnected.");
+        }
+
+        private void ReadRumble()
+        {
+            try
+            {
+                while (!disposed)
+                {
+                    var now = Environment.TickCount64;
+                    if (device.TryReadEvent(ReadTimeoutMilliseconds, out var inputEvent))
+                    {
+                        Report(inputEvent switch
+                        {
+                            (LinuxInputSender.EvUinput, LinuxInputSender.UiFfUpload, var request) =>
+                                rumbleEffects.Upload(device.AcknowledgeFfUpload(request)),
+                            (LinuxInputSender.EvUinput, LinuxInputSender.UiFfErase, var request) =>
+                                rumbleEffects.Erase(device.AcknowledgeFfErase(request)),
+                            (LinuxInputSender.EvFf, var id, var value) => rumbleEffects.Play(id, value, now),
+                            _ => null,
+                        });
+                    }
+
+                    Report(rumbleEffects.Tick(now));
+                }
+            }
+            catch (Exception exception)
+            {
+                // Der Controller selbst laeuft ohne Vibration weiter.
+                logger.LogWarning(exception, "Reading controller rumble failed.");
+            }
+        }
+
+        private void Report(GamepadRumble? rumble)
+        {
+            if (rumble is not null)
+            {
+                onRumble(rumble);
+            }
         }
     }
 }

@@ -200,9 +200,7 @@ internal static class ClipboardEndpoints
 
     private static void NotifyRead(HttpContext context, ILogger logger, Guid deviceId, string kind)
     {
-        var deviceName = context.RequestServices.GetRequiredService<PairingService>()
-            .GetPairedDevices()
-            .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
+        var deviceName = context.RequestServices.GetRequiredService<PairingService>().GetDeviceName(deviceId);
         logger.LogInformation("Clipboard {Kind} sent to paired device {DeviceName}.", kind, deviceName);
         context.RequestServices.GetRequiredService<ClipboardReadNotifier>().NotifyRead(deviceName);
     }

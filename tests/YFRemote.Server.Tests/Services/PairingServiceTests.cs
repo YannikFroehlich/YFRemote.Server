@@ -387,19 +387,4 @@ public sealed class PairingServiceTests
             },
             clientIp);
     }
-
-    private sealed class ManualTimeProvider(DateTimeOffset initialTime) : TimeProvider
-    {
-        private DateTimeOffset utcNow = initialTime;
-
-        public override DateTimeOffset GetUtcNow()
-        {
-            return utcNow;
-        }
-
-        public void Advance(TimeSpan duration)
-        {
-            utcNow = utcNow.Add(duration);
-        }
-    }
 }

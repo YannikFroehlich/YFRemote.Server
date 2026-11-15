@@ -5,7 +5,7 @@
         <div class="stats-tile__head">
           <span>{{ row.label }}</span>
           <span class="stats-tile__value">{{
-            row.load === undefined ? '–' : row.load + ' %'
+            row.value ?? (row.load === undefined ? '–' : row.load + ' %')
           }}</span>
         </div>
         <div class="stats-bar" aria-hidden="true">
@@ -30,6 +30,31 @@
       }
     </select>
   </label>
+}
+
+@if (displayMode(); as mode) {
+  <label class="field power-mode">
+    <span>{{ i18n.t('stats.displayMode') }}</span>
+    <select (change)="selectDisplayMode($event)">
+      @for (option of displayModes; track option) {
+        <option [value]="option" [selected]="option === mode">
+          {{ i18n.t('stats.displayMode.' + option) }}
+        </option>
+      }
+    </select>
+  </label>
+}
+
+@if (micMuted() !== undefined) {
+  <button
+    type="button"
+    class="secondary-button mic-switch"
+    role="switch"
+    [attr.aria-checked]="!micMuted()"
+    (click)="toggleMic()"
+  >
+    {{ i18n.t(micMuted() ? 'stats.mic.muted' : 'stats.mic.on') }}
+  </button>
 }
 
 @for (monitor of brightness(); track monitor.id) {
@@ -79,12 +104,76 @@
           >
             ×
           </button>
+          <button
+            type="button"
+            class="window-list__item window-list__action"
+            [attr.aria-label]="i18n.t('stats.windows.kill', { title: window.title })"
+            (click)="killWindow(window)"
+          >
+            ☠
+          </button>
         </div>
       } @empty {
         <p class="stats-waiting">{{ i18n.t('stats.windows.empty') }}</p>
       }
     } @else if (windows() === null) {
       <p class="stats-waiting">{{ i18n.t('stats.windows.unavailable') }}</p>
+    }
+  </section>
+}
+
+@if (folderSupported() && processes(); as list) {
+  <section class="window-list" [attr.aria-label]="i18n.t('stats.processes')">
+    <div class="window-list__head">
+      <span>{{ i18n.t('stats.processes') }}</span>
+      <button type="button" class="secondary-button" (click)="refreshProcesses()">
+        {{ i18n.t('stats.windows.refresh') }}
+      </button>
+    </div>
+    @for (process of list; track process.id) {
+      <div class="window-list__row">
+        <div class="window-list__item process-row">
+          <span class="window-list__title">{{ process.name }}</span>
+          <span class="window-list__app">{{ process.cpu }} % · {{ process.memoryMb }} MB</span>
+        </div>
+        <button
+          type="button"
+          class="window-list__item window-list__action"
+          [attr.aria-label]="i18n.t('stats.processes.kill', { name: process.name })"
+          (click)="killProcess(process)"
+        >
+          ☠
+        </button>
+      </div>
+    }
+  </section>
+}
+
+@if (folderSupported() && folder(); as files) {
+  <section class="window-list" [attr.aria-label]="i18n.t('stats.folder')">
+    <div class="window-list__head">
+      <span>{{ i18n.t('stats.folder') }}</span>
+      <button type="button" class="secondary-button" (click)="refreshFolder()">
+        {{ i18n.t('stats.windows.refresh') }}
+      </button>
+    </div>
+    @for (file of files; track file.name) {
+      <div class="window-list__row">
+        <button
+          type="button"
+          class="window-list__item folder-file"
+          [attr.aria-label]="i18n.t('stats.folder.download', { name: file.name })"
+          (click)="downloadFolderFile(file)"
+        >
+          <span class="window-list__title">{{ file.name }}</span>
+          <span class="window-list__app">{{ fileSize(file.size) }}</span>
+        </button>
+      </div>
+    } @empty {
+      <p class="stats-waiting">{{ i18n.t('stats.folder.empty') }}</p>
+    }
+    @if (folderFailed(); as name) {
+      <p class="stats-waiting" role="alert">{{ i18n.t('stats.folder.failed', { name }) }}</p>
     }
   </section>
 }

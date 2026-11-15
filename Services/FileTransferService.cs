@@ -6,7 +6,30 @@ public sealed class FileTransferService(FileTransferOptions options, ILogger<Fil
 {
     private const int BufferSize = 81920;
 
+    private const int MaxListedFiles = 200;
+
+    private static readonly EnumerationOptions VisibleFiles = new()
+    {
+        AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint
+    };
+
     public event Action<string>? FileReceived;
+
+    // Die Dateien direkt im Empfangsordner, die neuesten zuerst. Keine Unterordner und keine
+    // Verknuepfungen, damit ein Geraet nur liest, was in genau diesem Ordner liegt.
+    public IReadOnlyList<FolderFile> ListFiles() =>
+        Directory.Exists(options.TargetDirectory)
+            ? new DirectoryInfo(options.TargetDirectory)
+                .EnumerateFiles("*", VisibleFiles)
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .Take(MaxListedFiles)
+                .Select(file => new FolderFile(file.Name, file.Length))
+                .ToList()
+            : [];
+
+    // Sucht den Namen in der Liste, statt aus ihm einen Pfad zu bauen - so kommt kein "..\" durch.
+    public string? TryGetPath(string name) =>
+        ListFiles().Any(file => file.Name == name) ? Path.Combine(options.TargetDirectory, name) : null;
 
     public async Task<string> SaveFileAsync(
         string requestedFileName,
@@ -107,3 +130,5 @@ public sealed class FileTransferService(FileTransferOptions options, ILogger<Fil
         }
     }
 }
+
+public sealed record FolderFile(string Name, long Size);

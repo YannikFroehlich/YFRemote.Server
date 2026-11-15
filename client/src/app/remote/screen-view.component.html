@@ -52,6 +52,18 @@
       </svg>
       <span>{{ i18n.t('screen.keyboard') }}</span>
     </button>
+    <button
+      class="snap-switch"
+      type="button"
+      [attr.title]="i18n.t('screen.screenshotTitle')"
+      [attr.aria-label]="i18n.t('screen.screenshot')"
+      (click)="saveScreenshot()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths.download"></path>
+      </svg>
+      <span>{{ i18n.t('screen.screenshot') }}</span>
+    </button>
     <select
       class="screen-view__quality"
       [attr.aria-label]="i18n.t('screen.quality')"

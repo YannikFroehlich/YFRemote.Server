@@ -6,7 +6,8 @@ import {
   signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { MonitorBrightness, OpenWindow, PowerMode } from './remote.models';
+import { FileTransferService } from './file-transfer.service';
+import { DisplayMode, FolderFile, MonitorBrightness, OpenWindow, PowerMode } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
@@ -25,6 +26,7 @@ interface StatsRow {
 })
 export class SystemStatsComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  private readonly fileTransfer = inject(FileTransferService);
   protected readonly i18n = inject(TranslationService);
 
   protected readonly rows = computed<readonly StatsRow[] | null>(() => {
@@ -84,6 +86,27 @@ export class SystemStatsComponent implements OnDestroy {
   );
   protected readonly powerModes: readonly PowerMode[] = ['efficiency', 'balanced', 'performance'];
 
+  // Wie der Energiemodus: nur wenn der PC ihn meldet, nie fuer "Nur Medien".
+  protected readonly displayMode = computed(() =>
+    this.remote.mediaOnly() ? undefined : this.remote.systemStats()?.displayMode,
+  );
+  protected readonly displayModes: readonly DisplayMode[] = [
+    'internal',
+    'clone',
+    'extend',
+    'external',
+  ];
+  protected readonly micMuted = computed(() =>
+    this.remote.mediaOnly() ? undefined : this.remote.systemStats()?.micMuted,
+  );
+  // Den Empfangsordner hat nur der PC-Server; die Android-App legt Dateien in "Downloads" ab.
+  protected readonly folderSupported = computed(
+    () => this.remote.serverPlatform() !== 'android' && !this.remote.mediaOnly(),
+  );
+  /** null = der PC liefert keine Liste (aelterer Server) - dann fehlt der Abschnitt. */
+  protected readonly folder = signal<readonly FolderFile[] | null>(null);
+  protected readonly folderFailed = signal<string | null>(null);
+
   /** undefined = laedt noch, null = der PC hat nicht geantwortet. */
   protected readonly windows = signal<readonly OpenWindow[] | null | undefined>(undefined);
   // Leer, solange der PC keinen regelbaren Bildschirm meldet - dann gibt es keinen Regler.
@@ -95,6 +118,34 @@ export class SystemStatsComponent implements OnDestroy {
       void this.refreshWindows();
       void this.remote.readBrightness().then((monitors) => this.brightness.set(monitors));
     }
+    if (this.folderSupported()) {
+      void this.refreshFolder();
+    }
+  }
+
+  protected selectDisplayMode(event: Event): void {
+    this.remote.setDisplayMode((event.target as HTMLSelectElement).value as DisplayMode);
+  }
+
+  protected toggleMic(): void {
+    this.remote.setMicMuted(!this.micMuted());
+  }
+
+  protected async refreshFolder(): Promise<void> {
+    this.folder.set(await this.remote.readFolder());
+  }
+
+  protected async downloadFolderFile(file: FolderFile): Promise<void> {
+    this.folderFailed.set(null);
+    if (!(await this.fileTransfer.downloadFolderFile(file.name))) {
+      this.folderFailed.set(file.name);
+    }
+  }
+
+  protected fileSize(bytes: number): string {
+    return bytes < 1024 * 1024
+      ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+      : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   }
 
   // Bei einem Bildschirm reicht "Helligkeit"; sonst Laptop-Display und externe Monitore durchgezaehlt.
@@ -154,6 +205,17 @@ export class SystemStatsComponent implements OnDestroy {
   // steht nach "Aktualisieren" wieder da.
   protected closeWindow(window: OpenWindow): void {
     if (this.remote.sendAction({ type: 'closeWindow', id: window.id })) {
+      this.windows.update((current) => current?.filter((other) => other.id !== window.id));
+    }
+  }
+
+  // Fuer ein haengendes Programm: beendet den ganzen Prozess, ungespeicherte Aenderungen sind weg.
+  // Deshalb erst nach Rueckfrage.
+  protected killWindow(window: OpenWindow): void {
+    if (
+      globalThis.confirm(this.i18n.t('stats.windows.kill.confirm', { app: window.app })) &&
+      this.remote.sendAction({ type: 'killWindow', id: window.id })
+    ) {
       this.windows.update((current) => current?.filter((other) => other.id !== window.id));
     }
   }

@@ -71,15 +71,24 @@ export class FileTransferService {
 
   /** Laedt die vom PC angebotene Datei. Per fetch statt Link, weil das Token nicht in die URL
    *  (und damit in Verlauf und Server-Logs) gehoert. */
-  async downloadFile(offer: FileOfferMessage): Promise<boolean> {
+  downloadFile(offer: FileOfferMessage): Promise<boolean> {
+    return this.download(`/files/${encodeURIComponent(offer.id)}`, offer.name);
+  }
+
+  /** Laedt eine Datei aus dem Empfangsordner des PCs (`GET /folder`). */
+  downloadFolderFile(name: string): Promise<boolean> {
+    return this.download(`/folder/${encodeURIComponent(name)}`, name);
+  }
+
+  private async download(path: string, name: string): Promise<boolean> {
     const token = this.pairing.token();
     if (token === null) {
       return false;
     }
 
-    const url = `${getServerHttpBaseUrl(this.serverLocation)}/files/${encodeURIComponent(offer.id)}`;
+    const url = `${getServerHttpBaseUrl(this.serverLocation)}${path}`;
     if (this.downloadBridge !== null) {
-      return this.downloadBridge.download(url, token, offer.name);
+      return this.downloadBridge.download(url, token, name);
     }
 
     this.downloadingSignal.set(true);
@@ -91,7 +100,7 @@ export class FileTransferService {
         return false;
       }
 
-      return await this.saveFile(await response.blob(), offer.name);
+      return await this.saveFile(await response.blob(), name);
     } catch {
       return false;
     } finally {

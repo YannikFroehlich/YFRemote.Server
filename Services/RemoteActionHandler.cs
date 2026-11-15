@@ -91,6 +91,9 @@ public sealed partial class RemoteActionHandler(
                 "focuswindow" => HandleWindow(request, WindowCommand.Focus),
                 "minimizewindow" => HandleWindow(request, WindowCommand.Minimize),
                 "closewindow" => HandleWindow(request, WindowCommand.Close),
+                "killwindow" => HandleWindow(request, WindowCommand.Kill),
+                "micmute" => HandleMicMute(request),
+                "displaymode" => HandleDisplayMode(request),
                 "dismissnotification" => HandleDismissNotification(request),
                 "powermode" => HandlePowerMode(request),
                 "brightness" => HandleBrightness(request),
@@ -437,6 +440,34 @@ public sealed partial class RemoteActionHandler(
         }
 
         pcNotifications.Dismiss(notificationId);
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleMicMute(RemoteActionRequest request)
+    {
+        if (volumeService is null)
+        {
+            return Fail("Muting the microphone is not supported.");
+        }
+
+        if (request.Muted is not { } muted)
+        {
+            return Fail("Action 'micMute' requires muted.");
+        }
+
+        volumeService.SetMicMuted(muted);
+        return RemoteActionResponse.Ok();
+    }
+
+    private RemoteActionResponse HandleDisplayMode(RemoteActionRequest request)
+    {
+        var mode = request.Mode?.Trim().ToLowerInvariant();
+        if (mode is not ("internal" or "clone" or "extend" or "external"))
+        {
+            return Fail("Action 'displayMode' requires mode 'internal', 'clone', 'extend' or 'external'.");
+        }
+
+        powerService.SetDisplayMode(mode);
         return RemoteActionResponse.Ok();
     }
 

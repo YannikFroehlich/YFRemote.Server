@@ -171,6 +171,30 @@ export interface SystemStatsMessage {
   readonly batteryTemperature?: number;
   /** Windows-Energiemodus; fehlt, wenn der PC keinen umschaltbaren hat. */
   readonly powerMode?: PowerMode;
+  /** Anzeigemodus wie bei Win+P; fehlt, wenn der PC ihn nicht meldet. */
+  readonly displayMode?: DisplayMode;
+  /** Mikrofon stummgeschaltet; fehlt ohne Mikrofon. */
+  readonly micMuted?: boolean;
+}
+
+export type DisplayMode = 'internal' | 'clone' | 'extend' | 'external';
+
+/** Stellt den Anzeigemodus um (Tab "PC"). */
+export interface DisplayModeAction {
+  readonly type: 'displayMode';
+  readonly mode: DisplayMode;
+}
+
+/** Schaltet das Standard-Mikrofon des PCs stumm oder wieder ein (Tab "PC"). */
+export interface MicMuteAction {
+  readonly type: 'micMute';
+  readonly muted: boolean;
+}
+
+/** Eine Datei im Empfangsordner des PCs (`GET /folder`). */
+export interface FolderFile {
+  readonly name: string;
+  readonly size: number;
 }
 
 export type PowerMode = 'efficiency' | 'balanced' | 'performance';
@@ -262,9 +286,10 @@ export interface OpenWindow {
   readonly app: string;
 }
 
-/** Holt ein Fenster aus `GET /windows` in den Vordergrund, minimiert oder schliesst es. */
+/** Holt ein Fenster aus `GET /windows` in den Vordergrund, minimiert oder schliesst es;
+ *  `killWindow` beendet seinen Prozess ohne Rueckfrage der App. */
 export interface FocusWindowAction {
-  readonly type: 'focusWindow' | 'minimizeWindow' | 'closeWindow';
+  readonly type: 'focusWindow' | 'minimizeWindow' | 'closeWindow' | 'killWindow';
   readonly id: string;
 }
 
@@ -360,6 +385,8 @@ export type RemoteAction =
   | LaunchAction
   | FocusWindowAction
   | PowerModeAction
+  | DisplayModeAction
+  | MicMuteAction
   | DismissNotificationAction
   | BrightnessAction;
 

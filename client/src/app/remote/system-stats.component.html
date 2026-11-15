@@ -32,6 +32,31 @@
   </label>
 }
 
+@if (displayMode(); as mode) {
+  <label class="field power-mode">
+    <span>{{ i18n.t('stats.displayMode') }}</span>
+    <select (change)="selectDisplayMode($event)">
+      @for (option of displayModes; track option) {
+        <option [value]="option" [selected]="option === mode">
+          {{ i18n.t('stats.displayMode.' + option) }}
+        </option>
+      }
+    </select>
+  </label>
+}
+
+@if (micMuted() !== undefined) {
+  <button
+    type="button"
+    class="secondary-button mic-switch"
+    role="switch"
+    [attr.aria-checked]="!micMuted()"
+    (click)="toggleMic()"
+  >
+    {{ i18n.t(micMuted() ? 'stats.mic.muted' : 'stats.mic.on') }}
+  </button>
+}
+
 @for (monitor of brightness(); track monitor.id) {
   <label class="field brightness">
     <span>{{ brightnessLabel(monitor) }} · {{ monitor.brightness }} %</span>
@@ -79,12 +104,49 @@
           >
             ×
           </button>
+          <button
+            type="button"
+            class="window-list__item window-list__action"
+            [attr.aria-label]="i18n.t('stats.windows.kill', { title: window.title })"
+            (click)="killWindow(window)"
+          >
+            ☠
+          </button>
         </div>
       } @empty {
         <p class="stats-waiting">{{ i18n.t('stats.windows.empty') }}</p>
       }
     } @else if (windows() === null) {
       <p class="stats-waiting">{{ i18n.t('stats.windows.unavailable') }}</p>
+    }
+  </section>
+}
+
+@if (folderSupported() && folder(); as files) {
+  <section class="window-list" [attr.aria-label]="i18n.t('stats.folder')">
+    <div class="window-list__head">
+      <span>{{ i18n.t('stats.folder') }}</span>
+      <button type="button" class="secondary-button" (click)="refreshFolder()">
+        {{ i18n.t('stats.windows.refresh') }}
+      </button>
+    </div>
+    @for (file of files; track file.name) {
+      <div class="window-list__row">
+        <button
+          type="button"
+          class="window-list__item folder-file"
+          [attr.aria-label]="i18n.t('stats.folder.download', { name: file.name })"
+          (click)="downloadFolderFile(file)"
+        >
+          <span class="window-list__title">{{ file.name }}</span>
+          <span class="window-list__app">{{ fileSize(file.size) }}</span>
+        </button>
+      </div>
+    } @empty {
+      <p class="stats-waiting">{{ i18n.t('stats.folder.empty') }}</p>
+    }
+    @if (folderFailed(); as name) {
+      <p class="stats-waiting" role="alert">{{ i18n.t('stats.folder.failed', { name }) }}</p>
     }
   </section>
 }

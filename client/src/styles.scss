@@ -935,7 +935,8 @@ h2 {
 
 // Energiemodus im Tab "PC", zwischen den Messwerten und der Fensterliste.
 .power-mode,
-.brightness {
+.brightness,
+.mic-switch {
   margin-top: 14px;
 }
 
@@ -1197,7 +1198,7 @@ h2 {
 
 .window-list__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 6px;
 }
 

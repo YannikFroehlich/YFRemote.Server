@@ -52,7 +52,7 @@ flowchart LR
   layouts; every button and stick can be moved, resized or hidden.
   Windows needs the free [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
   driver once; the tray menu links to it while it is missing. Linux needs no
-  driver, only the same `/dev/uinput` access as keyboard and mouse (no rumble yet).
+  driver, only the same `/dev/uinput` access as keyboard and mouse (rumble included, not yet verified on a real kernel).
 - **Wake-on-LAN (Android app)** — the YFRemote Android app remembers each PC's
   network adapter and can wake it from sleep with "Aufwecken" while it is
   offline. The PC must allow it once: in Device Manager, on the network

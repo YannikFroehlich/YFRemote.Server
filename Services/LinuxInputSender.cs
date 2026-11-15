@@ -22,6 +22,11 @@ public sealed class LinuxInputSender : IDisposable
     internal const ushort EvKey = 0x01;
     private const ushort EvRel = 0x02;
     internal const ushort EvAbs = 0x03;
+    internal const ushort EvFf = 0x15;
+    // Kein Hardware-Ereignis: so reicht uinput die Force-Feedback-Anfragen eines Spiels durch.
+    internal const ushort EvUinput = 0x0101;
+    internal const ushort UiFfUpload = 1;
+    internal const ushort UiFfErase = 2;
     private const ushort SynReport = 0x00;
     private const ushort RelX = 0x00;
     private const ushort RelY = 0x01;
@@ -96,6 +101,7 @@ public sealed class LinuxInputSender : IDisposable
     internal sealed class UinputDevice : IDisposable
     {
         private const int OWronly = 0x0001;
+        private const int ORdwr = 0x0002;
         private const int ONonblock = 0x0800;
 
         private const uint UiDevCreate = 0x5501;
@@ -104,12 +110,24 @@ public sealed class LinuxInputSender : IDisposable
         private const uint UiSetKeyBit = 0x40045565;
         private const uint UiSetRelBit = 0x40045566;
         private const uint UiSetAbsBit = 0x40045567;
+        private const uint UiSetFfBit = 0x4004556B;
+        // _IOWR/_IOW('U', 200..203) ueber struct uinput_ff_upload (104 Byte) und uinput_ff_erase (12).
+        private const uint UiBeginFfUpload = 0xC06855C8;
+        private const uint UiEndFfUpload = 0x406855C9;
+        private const uint UiBeginFfErase = 0xC00C55CA;
+        private const uint UiEndFfErase = 0x400C55CB;
+        private const int FfUploadSize = 104;
+        private const int FfEraseSize = 12;
+        private const ushort FfRumble = 0x50;
+        private const int FfEffectsMax = 16;
+        private const short PollIn = 0x0001;
 
         private const int UinputMaxNameSize = 80;
         private const int AbsCnt = 64;
         // name[80], struct input_id (4 x u16), u32 ff_effects_max, dann je int[64] absmax,
         // absmin, absfuzz, absflat.
-        private const int AbsMaxOffset = UinputMaxNameSize + 8 + 4;
+        private const int FfEffectsMaxOffset = UinputMaxNameSize + 8;
+        private const int AbsMaxOffset = FfEffectsMaxOffset + 4;
         private const int AbsArraySize = AbsCnt * 4;
         private const int UinputUserDevSize = AbsMaxOffset + (4 * AbsArraySize);
         private const ushort BusUsb = 0x03;
@@ -134,9 +152,11 @@ public sealed class LinuxInputSender : IDisposable
             IReadOnlyCollection<ushort> keyCodes,
             IReadOnlyCollection<ushort>? relCodes = null,
             IReadOnlyCollection<UinputAbsAxis>? absAxes = null,
-            UinputId id = default)
+            UinputId id = default,
+            bool rumble = false)
         {
-            var fd = open("/dev/uinput", OWronly | ONonblock);
+            // Vibration kommt als Ereignis vom Kernel zurueck, dafuer muss das Geraet lesbar sein.
+            var fd = open("/dev/uinput", (rumble ? ORdwr : OWronly) | ONonblock);
             if (fd < 0)
             {
                 throw new InvalidOperationException(
@@ -172,7 +192,13 @@ public sealed class LinuxInputSender : IDisposable
                     }
                 }
 
-                device.WriteDeviceDescriptor(name, id, absAxes ?? []);
+                if (rumble)
+                {
+                    device.SetEvBit(EvFf);
+                    device.CheckedIoctl(UiSetFfBit, FfRumble);
+                }
+
+                device.WriteDeviceDescriptor(name, id, absAxes ?? [], rumble ? FfEffectsMax : 0);
                 device.CheckedIoctl(UiDevCreate, 0, "Geraet konnte nicht angelegt werden");
                 // X11/libinput oeffnen ein neues Geraet erst einen Moment nach UI_DEV_CREATE;
                 // Events, die sofort danach kommen, gehen verloren (auf einer Mint-VM fehlte der
@@ -200,6 +226,60 @@ public sealed class LinuxInputSender : IDisposable
 
         public void Sync() => WriteEvent(EvSyn, SynReport, 0);
 
+        // Wartet hoechstens timeoutMilliseconds auf ein Ereignis, das der Kernel an das Geraet schickt.
+        public bool TryReadEvent(int timeoutMilliseconds, out (ushort Type, ushort Code, int Value) inputEvent)
+        {
+            inputEvent = default;
+            var pollFd = new PollFd { Fd = fd, Events = PollIn };
+            if (poll(ref pollFd, 1, timeoutMilliseconds) <= 0)
+            {
+                return false;
+            }
+
+            var buffer = new byte[InputEventSize];
+            if (read(fd, buffer, (nuint)buffer.Length) != buffer.Length)
+            {
+                return false;
+            }
+
+            inputEvent = (
+                BitConverter.ToUInt16(buffer, 16),
+                BitConverter.ToUInt16(buffer, 18),
+                BitConverter.ToInt32(buffer, 20));
+            return true;
+        }
+
+        // Das Spiel haengt in seinem ioctl, bis beide Schritte durch sind (der Kernel wartet 30 s).
+        public FfEffect AcknowledgeFfUpload(int requestId)
+        {
+            var buffer = new byte[FfUploadSize];
+            BitConverter.TryWriteBytes(buffer.AsSpan(0, 4), requestId);
+            CheckedIoctl(UiBeginFfUpload, buffer);
+            var effect = ParseFfUpload(buffer);
+            // retval (Byte 4..7) bleibt 0: Effekt angenommen.
+            CheckedIoctl(UiEndFfUpload, buffer);
+            return effect;
+        }
+
+        public int AcknowledgeFfErase(int requestId)
+        {
+            var buffer = new byte[FfEraseSize];
+            BitConverter.TryWriteBytes(buffer.AsSpan(0, 4), requestId);
+            CheckedIoctl(UiBeginFfErase, buffer);
+            CheckedIoctl(UiEndFfErase, buffer);
+            return BitConverter.ToInt32(buffer, 8);
+        }
+
+        // struct uinput_ff_upload: u32 request_id, s32 retval, dann struct ff_effect ab Byte 8
+        // (u16 type, s16 id, u16 direction, ff_trigger, ff_replay{u16 length, u16 delay}, 2 Byte
+        // Padding, Union ab Byte 16 mit ff_rumble_effect{u16 strong, u16 weak}).
+        internal static FfEffect ParseFfUpload(ReadOnlySpan<byte> buffer) => new(
+            Id: BitConverter.ToInt16(buffer[10..]),
+            IsRumble: BitConverter.ToUInt16(buffer[8..]) == FfRumble,
+            LengthMilliseconds: BitConverter.ToUInt16(buffer[18..]),
+            Strong: BitConverter.ToUInt16(buffer[24..]),
+            Weak: BitConverter.ToUInt16(buffer[26..]));
+
         public void Dispose()
         {
             ioctl(fd, UiDevDestroy, 0);
@@ -219,7 +299,20 @@ public sealed class LinuxInputSender : IDisposable
             }
         }
 
-        private void WriteDeviceDescriptor(string name, UinputId id, IReadOnlyCollection<UinputAbsAxis> absAxes)
+        private void CheckedIoctl(uint request, byte[] buffer)
+        {
+            if (ioctl(fd, request, buffer) < 0)
+            {
+                throw new InvalidOperationException(
+                    $"uinput-ioctl 0x{request:X} fehlgeschlagen (errno {Marshal.GetLastPInvokeError()}).");
+            }
+        }
+
+        private void WriteDeviceDescriptor(
+            string name,
+            UinputId id,
+            IReadOnlyCollection<UinputAbsAxis> absAxes,
+            int ffEffectsMax)
         {
             var buffer = new byte[UinputUserDevSize];
             var nameBytes = Encoding.ASCII.GetBytes(name);
@@ -233,6 +326,8 @@ public sealed class LinuxInputSender : IDisposable
             BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize + 2, 2), id.Vendor);
             BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize + 4, 2), id.Product);
             BitConverter.TryWriteBytes(buffer.AsSpan(UinputMaxNameSize + 6, 2), id.Version);
+
+            BitConverter.TryWriteBytes(buffer.AsSpan(FfEffectsMaxOffset, 4), ffEffectsMax);
 
             foreach (var axis in absAxes)
             {
@@ -268,6 +363,23 @@ public sealed class LinuxInputSender : IDisposable
 
         [DllImport("libc", EntryPoint = "ioctl", SetLastError = true)]
         private static extern int ioctl(int fd, nuint request, int arg);
+
+        [DllImport("libc", EntryPoint = "ioctl", SetLastError = true)]
+        private static extern int ioctl(int fd, nuint request, byte[] arg);
+
+        [DllImport("libc", EntryPoint = "read", SetLastError = true)]
+        private static extern nint read(int fd, byte[] buffer, nuint count);
+
+        [DllImport("libc", EntryPoint = "poll", SetLastError = true)]
+        private static extern int poll(ref PollFd fds, nuint nfds, int timeout);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PollFd
+        {
+            public int Fd;
+            public short Events;
+            public short Revents;
+        }
     }
 }
 
@@ -275,3 +387,6 @@ public sealed class LinuxInputSender : IDisposable
 internal readonly record struct UinputAbsAxis(ushort Code, int Min, int Max, int Fuzz = 0, int Flat = 0);
 
 internal readonly record struct UinputId(ushort Vendor, ushort Product, ushort Version);
+
+// Hochgeladener Force-Feedback-Effekt eines Spiels; LengthMilliseconds 0 heisst ohne Ende.
+internal readonly record struct FfEffect(short Id, bool IsRumble, ushort LengthMilliseconds, ushort Strong, ushort Weak);

@@ -92,9 +92,7 @@ internal static class FileEndpoints
             }
 
             var fileName = Path.GetFileName(path);
-            var deviceName = context.RequestServices.GetRequiredService<PairingService>()
-                .GetPairedDevices()
-                .FirstOrDefault(device => device.Id == deviceId)?.Name ?? "Unbekanntes Gerät";
+            var deviceName = context.RequestServices.GetRequiredService<PairingService>().GetDeviceName(deviceId);
             app.Logger.LogInformation("Offered file {FileName} sent to paired device {DeviceName}.", fileName, deviceName);
             fileOfferService.NotifyDownloaded(fileName, deviceName);
 

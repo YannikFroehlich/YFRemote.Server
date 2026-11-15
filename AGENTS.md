@@ -117,9 +117,13 @@ button/axis codes and ranges the kernel's `xpad` driver uses — `BTN_X`/`BTN_Y`
 mirrored with `~`, D-pad as `ABS_HAT0X`/`ABS_HAT0Y` — so SDL's controller database, Steam, and
 Proton treat it like the real thing. No driver and no slot cap; it needs the same `/dev/uinput`
 access as keyboard and mouse, and `IsAvailable` only checks that `/dev/uinput` exists (a missing
-group membership fails at connect with the same hint). No rumble: that would need reading
-`UI_BEGIN_FF_UPLOAD` requests back from the device. **Unverified on a real Linux kernel** — only the
-XInput-to-evdev mapping is unit-tested (`LinuxGamepadServiceTests`).
+group membership fails at connect with the same hint). Rumble: the device announces `FF_RUMBLE`
+(opened `O_RDWR`, `ff_effects_max` 16), and one reader thread per controller answers the game's
+effect uploads and erases (`UI_BEGIN/END_FF_UPLOAD`, `UI_BEGIN/END_FF_ERASE`) and turns `EV_FF`
+play/stop events into the same `rumble` message as on Windows (`RumbleEffects`: strong motor =
+large motor, only changes are sent, an effect ends by itself after its `replay.length`, one effect
+at a time). **Unverified on a real Linux kernel** — only the XInput-to-evdev mapping, the
+`uinput_ff_upload` offsets and the effect bookkeeping are unit-tested (`LinuxGamepadServiceTests`).
 
 **Linux media status (`Services/LinuxMediaStatusReader.cs`).** Volume and mute from `pactl`
 (`get-sink-volume`/`get-sink-mute @DEFAULT_SINK@`, so PulseAudio and PipeWire via

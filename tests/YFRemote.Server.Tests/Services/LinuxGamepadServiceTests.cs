@@ -12,6 +12,44 @@ public sealed class LinuxGamepadServiceTests
     private const ushort EvAbs = 0x03;
 
     [TestMethod]
+    public void ParseFfUpload_ReadsRumbleEffectAtKernelOffsets()
+    {
+        var buffer = new byte[104];
+        BitConverter.TryWriteBytes(buffer.AsSpan(8, 2), (ushort)0x50); // FF_RUMBLE
+        BitConverter.TryWriteBytes(buffer.AsSpan(10, 2), (short)3);
+        BitConverter.TryWriteBytes(buffer.AsSpan(18, 2), (ushort)250);
+        BitConverter.TryWriteBytes(buffer.AsSpan(24, 2), (ushort)0xFFFF);
+        BitConverter.TryWriteBytes(buffer.AsSpan(26, 2), (ushort)0x8000);
+
+        Assert.AreEqual(
+            new FfEffect(Id: 3, IsRumble: true, LengthMilliseconds: 250, Strong: 0xFFFF, Weak: 0x8000),
+            LinuxInputSender.UinputDevice.ParseFfUpload(buffer));
+    }
+
+    [TestMethod]
+    public void RumbleEffects_ReportOnlyChangesAndStopAfterTheEffectLength()
+    {
+        var effects = new LinuxGamepadService.RumbleEffects();
+
+        // Hochladen allein vibriert noch nicht.
+        Assert.IsNull(effects.Upload(new FfEffect(0, true, 200, 0xFFFF, 0x8000)));
+        Assert.AreEqual(new GamepadRumble(255, 128), effects.Play(0, 1, nowMilliseconds: 1000));
+        Assert.IsNull(effects.Play(0, 1, nowMilliseconds: 1010));
+        // Neue Staerke fuer den laufenden Effekt wirkt sofort.
+        Assert.AreEqual(new GamepadRumble(64, 0), effects.Upload(new FfEffect(0, true, 200, 0x4000, 0)));
+        Assert.IsNull(effects.Tick(1100));
+        Assert.AreEqual(new GamepadRumble(0, 0), effects.Tick(1210));
+        Assert.IsNull(effects.Tick(1300));
+
+        // Ohne Laenge laeuft der Effekt, bis das Spiel ihn stoppt oder loescht.
+        effects.Upload(new FfEffect(1, true, 0, 0x4000, 0));
+        Assert.AreEqual(new GamepadRumble(64, 0), effects.Play(1, 1, nowMilliseconds: 2000));
+        Assert.IsNull(effects.Tick(long.MaxValue - 1));
+        Assert.AreEqual(new GamepadRumble(0, 0), effects.Erase(1));
+        Assert.IsNull(effects.Play(1, 1, nowMilliseconds: 3000));
+    }
+
+    [TestMethod]
     public void ToEvents_MapsButtonsLikeXpad()
     {
         // A, Y, Start

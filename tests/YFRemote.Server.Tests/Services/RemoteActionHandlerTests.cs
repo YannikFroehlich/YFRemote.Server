@@ -745,6 +745,25 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    public void Handle_KillProcess_NeedsNumericIdAndMatchingName()
+    {
+        var processes = new RecordingProcessService();
+        var handler = CreateHandler(processes: processes);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "42" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "4x", Name = "notepad" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "other" }).Success);
+        Assert.IsNull(processes.Killed);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "notepad" }).Success);
+        Assert.AreEqual(42, processes.Killed);
+        Assert.IsFalse(handler.Handle(
+            new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "notepad" },
+            new RemoteActionSession { MediaOnly = true }).Success);
+        Assert.IsFalse(CreateHandler().Handle(
+            new RemoteActionRequest { Type = "killProcess", Id = "42", Name = "notepad" }).Success);
+    }
+
+    [TestMethod]
     public void Handle_MicMute_NeedsMutedAndAVolumeService()
     {
         var volume = new RecordingVolumeService();
@@ -936,7 +955,8 @@ public sealed class RemoteActionHandlerTests
         IAppLauncher? appLauncher = null,
         IWindowService? windows = null,
         IPcNotifications? pcNotifications = null,
-        IBrightnessService? brightness = null)
+        IBrightnessService? brightness = null,
+        IProcessService? processes = null)
     {
         return new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -951,7 +971,27 @@ public sealed class RemoteActionHandlerTests
             appLauncher: appLauncher,
             windows: windows,
             pcNotifications: pcNotifications,
-            brightness: brightness);
+            brightness: brightness,
+            processes: processes);
+    }
+
+    private sealed class RecordingProcessService : IProcessService
+    {
+        public int? Killed { get; private set; }
+
+        public Task<IReadOnlyList<ProcessInfo>> ListAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ProcessInfo>>([new ProcessInfo(42, "notepad", 3, 20)]);
+
+        public bool TryKill(int id, string name)
+        {
+            if (id != 42 || name != "notepad")
+            {
+                return false;
+            }
+
+            Killed = id;
+            return true;
+        }
     }
 
     private sealed class RecordingBrightnessService : IBrightnessService

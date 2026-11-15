@@ -5,7 +5,7 @@
         <div class="stats-tile__head">
           <span>{{ row.label }}</span>
           <span class="stats-tile__value">{{
-            row.load === undefined ? '–' : row.load + ' %'
+            row.value ?? (row.load === undefined ? '–' : row.load + ' %')
           }}</span>
         </div>
         <div class="stats-bar" aria-hidden="true">
@@ -118,6 +118,33 @@
       }
     } @else if (windows() === null) {
       <p class="stats-waiting">{{ i18n.t('stats.windows.unavailable') }}</p>
+    }
+  </section>
+}
+
+@if (folderSupported() && processes(); as list) {
+  <section class="window-list" [attr.aria-label]="i18n.t('stats.processes')">
+    <div class="window-list__head">
+      <span>{{ i18n.t('stats.processes') }}</span>
+      <button type="button" class="secondary-button" (click)="refreshProcesses()">
+        {{ i18n.t('stats.windows.refresh') }}
+      </button>
+    </div>
+    @for (process of list; track process.id) {
+      <div class="window-list__row">
+        <div class="window-list__item process-row">
+          <span class="window-list__title">{{ process.name }}</span>
+          <span class="window-list__app">{{ process.cpu }} % · {{ process.memoryMb }} MB</span>
+        </div>
+        <button
+          type="button"
+          class="window-list__item window-list__action"
+          [attr.aria-label]="i18n.t('stats.processes.kill', { name: process.name })"
+          (click)="killProcess(process)"
+        >
+          ☠
+        </button>
+      </div>
     }
   </section>
 }

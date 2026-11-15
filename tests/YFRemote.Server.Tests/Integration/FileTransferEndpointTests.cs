@@ -185,6 +185,22 @@ public sealed class FileTransferEndpointTests
         Assert.AreEqual(HttpStatusCode.NotFound, outsideBackslash.StatusCode);
     }
 
+    [TestMethod]
+    public async Task Processes_AreListedForPairedDeviceOnly()
+    {
+        var token = await PairAndGetTokenAsync();
+
+        using var unauthorized = await httpClient.GetAsync("/processes");
+        using var list = await GetWithTokenAsync("/processes", token);
+        using var json = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
+
+        Assert.AreEqual(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.AreEqual(HttpStatusCode.OK, list.StatusCode);
+        var first = json.RootElement.GetProperty("processes")[0];
+        Assert.IsTrue(first.GetProperty("id").GetInt32() > 0);
+        Assert.IsTrue(first.GetProperty("name").GetString()!.Length > 0);
+    }
+
     private Task<HttpResponseMessage> GetWithTokenAsync(string url, string token)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);

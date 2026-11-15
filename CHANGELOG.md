@@ -32,6 +32,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Tab "PC": Anzeigemodus umschalten wie mit Win+P (Nur PC-Bildschirm, Duplizieren, Erweitern, Nur zweiter Bildschirm). Nur Windows.
 - Tab "PC": In der Fensterliste lässt sich der Prozess eines Fensters sofort beenden, für Programme, die hängen. Ungespeicherte Änderungen gehen dabei verloren, deshalb fragt der Client vorher nach.
 - Tab "PC": "Dateien vom PC" zeigt die Dateien im Empfangsordner des PCs und lädt sie aufs Gerät, ohne dass sie jemand am PC anbieten muss. Jeder Abruf meldet sich am PC im Infobereich.
+- Tab "PC": Prozessliste mit den Programmen, die gerade am meisten CPU und Arbeitsspeicher brauchen, auch ohne eigenes Fenster. Jeder Prozess lässt sich nach Rückfrage beenden. Windows und Linux.
+- Tab "PC": Freier Speicher je Laufwerk und der aktuelle Netzwerkdurchsatz (Download und Upload). Windows und Linux.
 - Tab "Bildschirm": "Foto" speichert ein Bildschirmfoto des PCs in voller Auflösung auf dem Gerät.
 
 ## [2.53.0] - 2026-11-12

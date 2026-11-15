@@ -34,6 +34,15 @@ feature.
   an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
   again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
   "Datei gesendet" balloon.
+- `GET /processes` (`WindowEndpoints`) → `{ processes: [{id,name,cpu,memoryMb}] }`, the 15
+  processes with the highest CPU load (ties by memory), for the "PC" tab; same gate as
+  `GET /windows`. `ProcessService` (BCL only, Windows and Linux) samples `TotalProcessorTime`
+  twice 500 ms apart on request instead of polling, so the answer takes half a second; `cpu` is
+  the share of all cores like Task Manager. Processes whose values the system withholds (system
+  processes, elevated ones) and the server itself are left out. `killProcess` (`id` digits, `name`)
+  ends one; the name must still match, because the system may have reused the id since the list
+  was read. Not for "Nur Medien". Listing was checked by test on the dev PC, ending a real process
+  is unverified.
 - `GET /folder` → `{ files: [{name,size}] }`, the files directly inside
   `FileTransfer:TargetDirectory` (newest first, at most 200; no subfolders, no hidden or system
   files, no reparse points), so a device can fetch a file without someone offering it at the PC.
@@ -296,7 +305,11 @@ reports the topology, the `displayMode` action applies one with
 switching is unverified, and it is reported with a single monitor too, where Windows refuses to
 switch) and `micMuted` (mute of the default capture device through the same
 `IAudioEndpointVolume` path as the volume, `null` without a microphone; the `micMute` action with
-`muted` sets it; Windows only, unverified in the real app). Both are hidden for "Nur Medien"),
+`muted` sets it; Windows only, unverified in the real app). Both are hidden for "Nur Medien".
+`SystemExtrasReader.Wrap` adds, on both platforms, `drives` (`[{name,freeMb,totalMb}]`: fixed
+drives of at least 1 GB via `DriveInfo`, which leaves out network and USB drives) and
+`netDownKbps`/`netUpKbps` (kilobit per second summed over all active adapters except loopback and
+tunnels, `null` on the first reading; virtual adapters may count the same traffic twice)),
 subscribed only while the device has the Client's "PC" tab open (`{"type":"systemStats","enabled"}`,
 kept in `RemoteActionSession` like clipboard sync), so the PC measures nothing otherwise.
 `WindowsSystemStatsReader` uses `GetSystemTimes`, `GlobalMemoryStatusEx`, the PDH counter

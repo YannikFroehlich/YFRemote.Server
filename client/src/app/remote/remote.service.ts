@@ -13,6 +13,7 @@ import {
   PowerMode,
   DisplayMode,
   FolderFile,
+  ProcessInfo,
   ScreenMonitor,
   RemoteAction,
   RemoteResponse,
@@ -555,6 +556,21 @@ export class RemoteService implements OnDestroy {
             typeof window?.id === 'string' &&
             typeof window.title === 'string' &&
             typeof window.app === 'string',
+        )
+      : null;
+  }
+
+  /** Die Prozesse mit der hoechsten Last; `null` bei einem Server ohne diese Liste. Die Antwort
+   *  dauert eine halbe Sekunde, weil der PC dafuer zweimal misst. */
+  async readProcesses(): Promise<readonly ProcessInfo[] | null> {
+    const processes = (await this.readJson('/processes'))?.['processes'];
+    return Array.isArray(processes)
+      ? processes.filter(
+          (process): process is ProcessInfo =>
+            typeof process?.id === 'number' &&
+            typeof process.name === 'string' &&
+            typeof process.cpu === 'number' &&
+            typeof process.memoryMb === 'number',
         )
       : null;
   }
@@ -1389,7 +1405,10 @@ function isSystemStatsMessage(value: unknown): value is SystemStatsMessage {
     typeof message.memoryTotalMb === 'number' &&
     optionalNumber(message.batteryLevel) &&
     (message.batteryCharging === undefined || typeof message.batteryCharging === 'boolean') &&
-    optionalNumber(message.batteryTemperature)
+    optionalNumber(message.batteryTemperature) &&
+    optionalNumber(message.netDownKbps) &&
+    optionalNumber(message.netUpKbps) &&
+    (message.drives === undefined || Array.isArray(message.drives))
   );
 }
 

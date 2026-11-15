@@ -355,6 +355,8 @@ internal static class Program
         builder.Services.AddSingleton(httpsOptions);
         builder.Services.AddSingleton(fileTransferOptions);
         builder.Services.AddSingleton<FileTransferService>();
+        builder.Services.AddSingleton<IProcessService, ProcessService>();
+        builder.Services.AddSingleton<SystemExtrasReader>();
         builder.Services.AddSingleton<FileOfferService>();
         builder.Services.AddSingleton(clipboardOptions);
         builder.Services.AddSingleton(inputOptions);
@@ -397,7 +399,8 @@ internal static class Program
         builder.Services.AddSingleton<WindowsSystemStatsReader>();
         builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
             ReadWithPowerMode(
-                services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync,
+                services.GetRequiredService<SystemExtrasReader>().Wrap(
+                    services.GetRequiredService<WindowsSystemStatsReader>().ReadAsync),
                 services.GetRequiredService<IPowerService>(),
                 services.GetRequiredService<IVolumeService>()),
             BroadcastPollInterval,
@@ -432,7 +435,8 @@ internal static class Program
             services.GetRequiredService<ILogger<PollingBroadcaster<MediaStatusMessage>>>()));
         builder.Services.AddSingleton<LinuxSystemStatsReader>();
         builder.Services.AddSingleton(services => new PollingBroadcaster<SystemStatsMessage>(
-            services.GetRequiredService<LinuxSystemStatsReader>().ReadAsync,
+            services.GetRequiredService<SystemExtrasReader>().Wrap(
+                services.GetRequiredService<LinuxSystemStatsReader>().ReadAsync),
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<SystemStatsMessage>>>()));

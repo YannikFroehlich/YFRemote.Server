@@ -469,6 +469,13 @@ export const TRANSLATIONS = {
   'stats.displayMode.external': { de: 'Nur zweiter Bildschirm', en: 'Second screen only' },
   'stats.mic.on': { de: 'Mikrofon ist an', en: 'Microphone is on' },
   'stats.mic.muted': { de: 'Mikrofon ist stumm', en: 'Microphone is muted' },
+  'stats.drive.free': {
+    de: '{{free}} GB frei von {{total}} GB',
+    en: '{{free}} GB free of {{total}} GB',
+  },
+  'stats.network': { de: 'Netzwerk', en: 'Network' },
+  'stats.processes': { de: 'Prozesse', en: 'Processes' },
+  'stats.processes.kill': { de: '{{name}} beenden', en: 'End {{name}}' },
   'stats.folder': { de: 'Dateien vom PC', en: 'Files from the PC' },
   'stats.folder.empty': { de: 'Der Empfangsordner ist leer', en: 'The folder is empty' },
   'stats.folder.download': { de: '{{name}} herunterladen', en: 'Download {{name}}' },

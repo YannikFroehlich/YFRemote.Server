@@ -20,7 +20,10 @@ public sealed class WindowsVoicemeeter(VoicemeeterOptions options) : IVoicemeete
     private static readonly string[] VirtualInputNames = ["Voicemeeter VAIO", "Voicemeeter AUX", "Voicemeeter VAIO3"];
     private static readonly string[] RouteCandidates = ["A1", "A2", "A3", "A4", "A5", "B1", "B2", "B3"];
 
-    private readonly Lock gate = new();
+    // Fuer den ganzen Prozess, nicht je Instanz: Die DLL haelt ihren Zustand prozessweit. Die Tests
+    // bauen mehrere Anwendungen in einem Prozess, deren An- und Abmelden sich sonst ueberschneidet
+    // (Zugriffsverletzung in der DLL).
+    private static readonly Lock gate = new();
     private readonly string libraryPath = Path.Combine(InstallDirectory(), "VoicemeeterRemote64.dll");
     private Api? api;
     private bool loaded;

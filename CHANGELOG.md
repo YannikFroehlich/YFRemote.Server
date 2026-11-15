@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.54.0] - 2026-11-15
+
 ### Security
 
 - Tab "Bildschirm": Holt ein Gerät den PC-Ton, ohne dass schon das Bild läuft, meldet der PC das jetzt im Infobereich ("PC-Ton wird übertragen"). Bisher gab es die Meldung nur für das Bild, der Ton ließ sich unbemerkt mithören.

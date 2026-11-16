@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.57.0] - 2026-11-16
+
 ### Added
 
 - iPhone: Die Einstellungen führen über `http://` Schritt für Schritt zu HTTPS: Profil laden, installieren, Vertrauen einschalten, zur `https://`-Adresse wechseln. Der Server liefert das Zertifikat dafür zusätzlich als iOS-Konfigurationsprofil (`/ca.mobileconfig`), und `/health` meldet den HTTPS-Port.

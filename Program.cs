@@ -46,6 +46,7 @@ internal static class Program
                 try
                 {
                     WindowsStartupService.SetEnabled(false);
+                    WindowsExplorerSendMenu.Unregister();
                 }
                 catch
                 {
@@ -61,8 +62,14 @@ internal static class Program
             isFirstInstance = WaitForPreviousInstance(singleInstanceMutex);
         }
 
+        var offerPath = WindowsExplorerSendMenu.GetOfferPath(args);
         if (!isFirstInstance)
         {
+            if (offerPath is not null && WindowsExplorerSendMenu.TrySendToRunningInstance(offerPath))
+            {
+                return;
+            }
+
             MessageBox.Show(
                 "YFRemote läuft bereits im Infobereich der Taskleiste.",
                 "YFRemote",
@@ -77,13 +84,28 @@ internal static class Program
 
         try
         {
-            app = BuildApplication([.. args.Where(argument => argument != RestartWaitArgument)]);
+            app = BuildApplication([.. WindowsExplorerSendMenu.WithoutOfferArgument(args).Where(argument => argument != RestartWaitArgument)]);
             app.StartAsync().GetAwaiter().GetResult();
             app.Logger.LogInformation(
                 "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
                 DiagnosticPaths.LogDirectory);
 
+            try
+            {
+                WindowsExplorerSendMenu.Register();
+            }
+            catch (Exception exception)
+            {
+                // Ohne Explorer-Eintrag laeuft alles andere weiter.
+                app.Logger.LogWarning(exception, "Failed to register the Explorer send menu.");
+            }
+
             using var trayContext = new TrayApplicationContext(app);
+            if (offerPath is not null)
+            {
+                trayContext.OfferPath(offerPath);
+            }
+
             Application.Run(trayContext);
         }
         catch (Exception exception)

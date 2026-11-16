@@ -24,6 +24,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Tab "Bildschirm": Mit dem Schalter "Touch" kommen die Finger als echte Touch-Eingabe am PC an statt als Maus. Windows erkennt damit seine eigenen Gesten: Zoomen mit zwei Fingern, Wischen, Wischen vom Rand, langes Drücken. Bis zu 10 Finger, nur mit einem Windows-PC.
+- Android-App: Eigene Buttons der Fernbedienung gibt es jetzt als Widget ("YFRemote Button") und als Schnellkachel ("YFRemote 1" bis "3") – z. B. "PC sperren" oder ein Makro, ohne die App zu öffnen. Welcher Button, wählt man beim Ablegen des Widgets bzw. beim ersten Tippen auf die Kachel (ändern: lange drücken). Die Buttons übernimmt die App, sobald man die Fernbedienung des Geräts einmal verlässt.
+- Explorer: Rechtsklick auf eine Datei → "An YFRemote-Geräte senden" bietet sie allen gekoppelten Geräten an, wie "Datei an Geräte senden..." im Tray. Unter Windows 11 steht der Eintrag unter "Weitere Optionen anzeigen". Läuft YFRemote nicht, startet es dafür. Nur in der installierten Version.
+
+### Fixed
+
+- Tab "Bildschirm": Das H.264-Bild läuft flüssiger. Die Aufnahme wartete zwischen zwei Bildern mit dem groben 15,6-ms-Takt von Windows und verpasste dadurch an einem 60-Hz-Monitor immer wieder ein Bild (bisher gemessen 36-46 statt 60 Bilder/s). Sie wartet jetzt mit einem genauen Zeitgeber auf einen festen 60-Hz-Takt. Auflösung und Bitrate bleiben gleich.
 
 ## [2.54.0] - 2026-11-15
 

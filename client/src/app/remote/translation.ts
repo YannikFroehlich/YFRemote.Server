@@ -610,6 +610,11 @@ export const TRANSLATIONS = {
     de: 'z. B. VLC media player, PowerPoint',
     en: 'e.g. VLC media player, PowerPoint',
   },
+  'settings.profiles.view.label': {
+    de: 'Dazu diesen Tab öffnen',
+    en: 'Also open this tab',
+  },
+  'settings.profiles.view.keep': { de: 'Tab nicht wechseln', en: "Don't switch tabs" },
   'settings.profiles.apps.current': { de: 'Vorne am PC: {{app}}', en: 'In front on the PC: {{app}}' },
   'settings.profiles.apps.add': { de: 'Hinzufügen', en: 'Add' },
   'settings.profiles.apps.hint': {

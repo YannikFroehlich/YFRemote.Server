@@ -23,7 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
-- Einstellungen, "Profile und Sicherung": Der neue Schalter "Profil passend zum Programm am PC wechseln" ist standardmäßig aus und nur mit einem Windows-PC verfügbar. Ist er an, ordnet man jedem Layout-Profil Programme zu, z. B. "VLC media player", oder übernimmt das Programm, das gerade vorne ist. Kommt eines davon am PC nach vorne, wechselt der Remote-Tab auf dieses Profil. Ist keines mehr vorne, kehrt das vorige Profil zurück. Ein Profil, das man von Hand wählt, bleibt stehen, bis ein anderes Programm nach vorne kommt. Während man Buttons bearbeitet, wechselt das Profil nicht.
+- Einstellungen, "Profile und Sicherung": Der neue Schalter "Profil passend zum Programm am PC wechseln" ist standardmäßig aus und nur mit einem Windows-PC verfügbar. Ist er an, ordnet man jedem Layout-Profil Programme zu, z. B. "VLC media player", oder übernimmt das Programm, das gerade vorne ist. Kommt eines davon am PC nach vorne, wechselt der Remote-Tab auf dieses Profil. Unter "Dazu diesen Tab öffnen" kann ein Profil zusätzlich einen Tab öffnen, z. B. für ein Spiel den Controller oder für PowerPoint die Folien. Ist keines mehr vorne, kehren das vorige Profil und der vorige Tab zurück. Ein Profil, das man von Hand wählt, bleibt stehen, bis ein anderes Programm nach vorne kommt. Während man Buttons bearbeitet, wechselt das Profil nicht.
 
 ## [2.54.0] - 2026-11-15
 

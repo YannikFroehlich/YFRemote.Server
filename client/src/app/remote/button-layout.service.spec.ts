@@ -115,12 +115,13 @@ describe('ButtonLayoutService', () => {
     const { service } = setupService(storage);
     service.createProfile('Medien');
     service.setProfileApps('profile:test1', [' VLC media player ', 'vlc MEDIA player', '']);
+    service.setProfileView('profile:test1', 'gamepad');
     service.switchProfile('profile:standard');
 
-    service.applyForegroundApp('VLC Media Player');
+    expect(service.applyForegroundApp('VLC Media Player')?.view).toBe('gamepad');
     expect(service.activeProfileId()).toBe('profile:test1');
 
-    service.applyForegroundApp('Explorer');
+    expect(service.applyForegroundApp('Explorer')).toBeUndefined();
     expect(service.activeProfileId()).toBe('profile:standard');
 
     // Von Hand gewaehlt: ohne zugeordnetes Programm vorne bleibt es dabei.
@@ -131,9 +132,9 @@ describe('ButtonLayoutService', () => {
 
     TestBed.resetTestingModule();
     const reloaded = setupService(storage).service;
-    expect(reloaded.profiles().find((profile) => profile.id === 'profile:test1')?.apps).toEqual([
-      'VLC media player',
-    ]);
+    const stored = reloaded.profiles().find((profile) => profile.id === 'profile:test1');
+    expect(stored?.apps).toEqual(['VLC media player']);
+    expect(stored?.view).toBe('gamepad');
   });
 
   it('moves a placement and persists integer coordinates when snap is on', () => {

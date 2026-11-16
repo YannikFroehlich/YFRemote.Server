@@ -22,7 +22,10 @@ import {
 import {
   ANDROID_PROFILE_ID,
   BUTTON_LAYOUT_PROFILES_STORAGE_KEY,
+  ButtonLayoutProfile,
   LayoutProfileState,
+  ProfileView,
+  withProfileExtras,
   MAX_LAYOUT_PROFILES,
   findProfileForApp,
   importProfileState,
@@ -180,10 +183,11 @@ export class ButtonLayoutService {
   }
 
   /** Wechselt zum Profil, dem `app` zugeordnet ist, und ohne Treffer zurueck zum Profil von vor dem
-   *  ersten Wechsel. Im Android-Profil passiert nichts. */
-  applyForegroundApp(app: string | null): void {
+   *  ersten Wechsel. Gibt das passende Profil zurueck (fuer dessen Tab). Im Android-Profil passiert
+   *  nichts. */
+  applyForegroundApp(app: string | null): ButtonLayoutProfile | undefined {
     if (this.activeProfileIdSignal() === ANDROID_PROFILE_ID) {
-      return;
+      return undefined;
     }
 
     const target = findProfileForApp(this.profilesSignal(), app);
@@ -193,7 +197,7 @@ export class ButtonLayoutService {
         this.switchProfile(target.id);
         this.profileBeforeAuto = before;
       }
-      return;
+      return target;
     }
 
     const before = this.profileBeforeAuto;
@@ -203,18 +207,24 @@ export class ButtonLayoutService {
         this.switchProfile(before);
       }
     }
+    return undefined;
   }
 
   setProfileApps(id: string, apps: readonly string[]): void {
     const normalized = normalizeProfileApps(apps);
+    this.updateProfile(id, (profile) => withProfileExtras(profile, normalized, profile.view));
+  }
+
+  setProfileView(id: string, view: ProfileView | null): void {
+    this.updateProfile(id, (profile) => withProfileExtras(profile, profile.apps, view));
+  }
+
+  private updateProfile(
+    id: string,
+    change: (profile: ButtonLayoutProfile) => ButtonLayoutProfile,
+  ): void {
     this.profilesSignal.update((profiles) =>
-      profiles.map((profile) => {
-        if (profile.id !== id) {
-          return profile;
-        }
-        const base = { id: profile.id, name: profile.name, layout: profile.layout };
-        return normalized.length > 0 ? { ...base, apps: normalized } : base;
-      }),
+      profiles.map((profile) => (profile.id === id ? change(profile) : profile)),
     );
     this.persistProfileState();
   }

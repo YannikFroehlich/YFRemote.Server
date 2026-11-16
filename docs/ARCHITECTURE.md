@@ -297,7 +297,9 @@ the same file description as in the Mixer and the window list (`WindowsWindowSer
 `null` without a foreground window or for YFRemote itself). The Client subscribes only while its
 setting "Profil passend zum Programm am PC wechseln" (`yfremote.autoProfile`, off by default) is on,
 and `ButtonLayoutService.applyForegroundApp` switches to the layout profile whose `apps` list holds
-that name (case-insensitive), then back to the previous profile once none matches. A third broadcaster pushes
+that name (case-insensitive), then back to the previous profile once none matches. A profile's
+optional `view` makes `RemoteControlComponent` open that tab too (skipped where the device lacks it)
+and return to the previous tab the same way; picking a tab by hand ends that. A third broadcaster pushes
 `{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging","powerMode"}`
 (battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC; `powerMode` is
 the Windows power mode `efficiency`/`balanced`/`performance` from `IPowerService.PowerMode`, added in

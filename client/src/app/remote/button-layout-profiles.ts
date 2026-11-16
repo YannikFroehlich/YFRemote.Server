@@ -23,6 +23,45 @@ export interface ButtonLayoutProfile {
   readonly layout: ButtonLayout;
   /** Programme (Name wie im Mixer), bei denen der automatische Profilwechsel dieses Profil nimmt. */
   readonly apps?: readonly string[];
+  /** Tab, auf den der automatische Wechsel dazu geht; ohne bleibt der Tab, wie er ist. */
+  readonly view?: ProfileView;
+}
+
+/** Tabs, die ein Profil beim automatischen Wechsel oeffnen kann (Werte wie `RemoteView`). */
+export const PROFILE_VIEWS = [
+  'remote',
+  'touchpad',
+  'screen',
+  'keyboard',
+  'presentation',
+  'gamepad',
+  'system',
+  'mixer',
+] as const;
+export type ProfileView = (typeof PROFILE_VIEWS)[number];
+
+export function normalizeProfileView(candidate: unknown): ProfileView | null {
+  return PROFILE_VIEWS.find((view) => view === candidate) ?? null;
+}
+
+/** Ein Profil mit neuen Programmen und neuem Tab; leere Werte fallen ganz weg. */
+export function withProfileExtras(
+  profile: ButtonLayoutProfile,
+  apps: readonly string[] | undefined,
+  view: ProfileView | null | undefined,
+): ButtonLayoutProfile {
+  const base: { -readonly [K in keyof ButtonLayoutProfile]: ButtonLayoutProfile[K] } = {
+    id: profile.id,
+    name: profile.name,
+    layout: profile.layout,
+  };
+  if (apps !== undefined && apps.length > 0) {
+    base.apps = apps;
+  }
+  if (view != null) {
+    base.view = view;
+  }
+  return base;
 }
 
 /** Bereinigt die Programmliste eines Profils: getrimmt, ohne Doppelte, begrenzt. */
@@ -195,6 +234,9 @@ function normalizeProfile(candidate: unknown): ButtonLayoutProfile | null {
     return null;
   }
 
-  const apps = normalizeProfileApps(value.apps);
-  return apps.length > 0 ? { id: value.id, name, layout, apps } : { id: value.id, name, layout };
+  return withProfileExtras(
+    { id: value.id, name, layout },
+    normalizeProfileApps(value.apps),
+    normalizeProfileView(value.view),
+  );
 }

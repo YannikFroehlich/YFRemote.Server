@@ -356,6 +356,15 @@
                 (change)="saveProfileApps($event)"
               />
             </label>
+            <label class="field" for="profile-view">
+              <span>{{ i18n.t('settings.profiles.view.label') }}</span>
+              <select id="profile-view" [value]="activeProfileView()" (change)="saveProfileView($event)">
+                <option value="">{{ i18n.t('settings.profiles.view.keep') }}</option>
+                @for (view of profileViews; track view.value) {
+                  <option [value]="view.value">{{ i18n.t(view.label) }}</option>
+                }
+              </select>
+            </label>
             @if (foregroundApp(); as app) {
               <div class="profile-actions">
                 <span class="settings-hint">{{ i18n.t('settings.profiles.apps.current', { app }) }}</span>

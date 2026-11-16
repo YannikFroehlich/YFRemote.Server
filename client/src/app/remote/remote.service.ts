@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
+﻿import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   AccessMessage,
   ClipboardPushMessage,
@@ -38,6 +38,7 @@ import {
   parseScreenQuality,
   SCREEN_MONITOR_STORAGE_KEY,
   SCREEN_QUALITY_STORAGE_KEY,
+  SCREEN_TOUCH_STORAGE_KEY,
   ScreenQuality,
   INVERT_SCROLL_STORAGE_KEY,
   LIVE_TYPING_STORAGE_KEY,
@@ -190,6 +191,10 @@ export class RemoteService implements OnDestroy {
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly screenAvailableSignal = signal(false);
   private readonly audioAvailableSignal = signal(false);
+  private readonly touchAvailableSignal = signal(false);
+  private readonly screenTouchSignal = signal(
+    parseStoredFlag(this.readStorage(SCREEN_TOUCH_STORAGE_KEY), false),
+  );
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private readonly recordedStepsSignal = signal<readonly MacroStep[] | null>(null);
   private lastRecordedAt = 0;
@@ -272,6 +277,10 @@ export class RemoteService implements OnDestroy {
   readonly screenAvailable = this.screenAvailableSignal.asReadonly();
   /** `GET /screen/audio` (PC-Ton im Tab "Bildschirm"), ebenfalls laut /health. */
   readonly audioAvailable = this.audioAvailableSignal.asReadonly();
+  /** Aktion `touch` (echte Touch-Eingabe im Tab "Bildschirm"), laut /health. */
+  readonly touchAvailable = this.touchAvailableSignal.asReadonly();
+  /** Schalter "Touch" im Tab "Bildschirm": Finger statt Maus. */
+  readonly screenTouch = this.screenTouchSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
@@ -387,6 +396,11 @@ export class RemoteService implements OnDestroy {
   saveScreenQuality(quality: ScreenQuality): void {
     this.screenQualitySignal.set(quality);
     this.storage?.setItem(SCREEN_QUALITY_STORAGE_KEY, quality);
+  }
+
+  saveScreenTouch(enabled: boolean): void {
+    this.screenTouchSignal.set(enabled);
+    this.storage?.setItem(SCREEN_TOUCH_STORAGE_KEY, String(enabled));
   }
 
   saveHaptics(enabled: boolean): void {
@@ -1078,6 +1092,7 @@ export class RemoteService implements OnDestroy {
         readonly voicemeeter?: unknown;
         readonly screen?: unknown;
         readonly audio?: unknown;
+        readonly touch?: unknown;
       };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
@@ -1088,12 +1103,14 @@ export class RemoteService implements OnDestroy {
       this.voicemeeterAvailableSignal.set(body.voicemeeter === true);
       this.screenAvailableSignal.set(body.screen === true);
       this.audioAvailableSignal.set(body.audio === true);
+      this.touchAvailableSignal.set(body.touch === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
       this.screenAvailableSignal.set(false);
       this.audioAvailableSignal.set(false);
+      this.touchAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,

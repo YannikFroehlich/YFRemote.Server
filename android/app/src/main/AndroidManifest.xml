@@ -106,6 +106,63 @@
                 android:resource="@xml/media_widget_info" />
         </receiver>
 
+        <!-- Eigener Button als Widget; ButtonPickerActivity fragt beim Ablegen, welcher. -->
+        <receiver
+            android:name=".remote.ButtonWidget"
+            android:label="YFRemote Button"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/button_widget_info" />
+        </receiver>
+
+        <!-- Exportiert fuer den Launcher (APPWIDGET_CONFIGURE) und langes Druecken auf eine Kachel. -->
+        <activity
+            android:name=".remote.ButtonPickerActivity"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".remote.ButtonTile1"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="YFRemote 1"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".remote.ButtonTile2"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="YFRemote 2"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".remote.ButtonTile3"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="YFRemote 3"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".service.YFRemoteForegroundService"
             android:foregroundServiceType="dataSync"

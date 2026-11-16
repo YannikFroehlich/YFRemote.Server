@@ -46,6 +46,7 @@ internal static class Program
                 try
                 {
                     WindowsStartupService.SetEnabled(false);
+                    WindowsExplorerSendMenu.Unregister();
                 }
                 catch
                 {
@@ -61,8 +62,14 @@ internal static class Program
             isFirstInstance = WaitForPreviousInstance(singleInstanceMutex);
         }
 
+        var offerPath = WindowsExplorerSendMenu.GetOfferPath(args);
         if (!isFirstInstance)
         {
+            if (offerPath is not null && WindowsExplorerSendMenu.TrySendToRunningInstance(offerPath))
+            {
+                return;
+            }
+
             MessageBox.Show(
                 "YFRemote läuft bereits im Infobereich der Taskleiste.",
                 "YFRemote",
@@ -77,13 +84,28 @@ internal static class Program
 
         try
         {
-            app = BuildApplication([.. args.Where(argument => argument != RestartWaitArgument)]);
+            app = BuildApplication([.. WindowsExplorerSendMenu.WithoutOfferArgument(args).Where(argument => argument != RestartWaitArgument)]);
             app.StartAsync().GetAwaiter().GetResult();
             app.Logger.LogInformation(
                 "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
                 DiagnosticPaths.LogDirectory);
 
+            try
+            {
+                WindowsExplorerSendMenu.Register();
+            }
+            catch (Exception exception)
+            {
+                // Ohne Explorer-Eintrag laeuft alles andere weiter.
+                app.Logger.LogWarning(exception, "Failed to register the Explorer send menu.");
+            }
+
             using var trayContext = new TrayApplicationContext(app);
+            if (offerPath is not null)
+            {
+                trayContext.OfferPath(offerPath);
+            }
+
             Application.Run(trayContext);
         }
         catch (Exception exception)
@@ -367,6 +389,7 @@ internal static class Program
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
+        builder.Services.AddSingleton<ITouchService, WindowsTouchService>();
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IAppLauncher, WindowsAppLauncher>();
         builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
@@ -487,6 +510,7 @@ internal static class Program
         var voicemeeterService = app.Services.GetService<IVoicemeeterService>();
         var screenSupported = app.Services.GetService<IScreenCapture>() is not null;
         var audioSupported = app.Services.GetService<IAudioCapture>() is not null;
+        var touchSupported = app.Services.GetService<ITouchService>() is not null;
         app.MapGet("/health", () =>
         {
             var adapter = NetworkAddressService.GetDeviceAdapter();
@@ -500,7 +524,8 @@ internal static class Program
                 voicemeeterService?.IsInstalled ?? false,
                 Environment.MachineName,
                 screenSupported,
-                audioSupported);
+                audioSupported,
+                touchSupported);
         });
 
         if (httpsOptions.Enabled)

@@ -478,6 +478,13 @@ class RemoteWebActivity : Activity() {
                 ?.takeIf { result != "null" && it.isNotEmpty() }
             RemoteDevices(this).setToken(origin, token)
         }
+        // Eigene Buttons fuer Widget und Schnellkacheln (ButtonWidget, ButtonTileService).
+        webView.evaluateJavascript("localStorage.getItem('$BUTTON_LAYOUT_KEY')") { result ->
+            if (pageOrigin != origin) return@evaluateJavascript
+            val layout = runCatching { org.json.JSONArray("[$result]").optString(0) }.getOrNull()
+                ?.takeIf { result != "null" }
+            RemoteDevices(this).setButtons(origin, layout)
+        }
     }
 
     @Suppress("DEPRECATION") // systemUiVisibility: der Ersatz insetsController kam erst mit Android 11.
@@ -536,6 +543,8 @@ class RemoteWebActivity : Activity() {
         const val EXTRA_CA = "ca"
         // client/src/app/remote/pairing.ts, PAIRING_TOKEN_STORAGE_KEY
         private const val PAIRING_TOKEN_KEY = "yfremote.pairingToken"
+        // client/src/app/remote/button-layout.ts, BUTTON_LAYOUT_STORAGE_KEY
+        private const val BUTTON_LAYOUT_KEY = "yfremote.buttonLayout"
         private val OTHER_SSL_ERRORS = listOf(
             SslError.SSL_NOTYETVALID,
             SslError.SSL_EXPIRED,

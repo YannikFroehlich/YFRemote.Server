@@ -5,6 +5,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -56,40 +57,60 @@ internal class RemoteClient(private val device: RemoteDevice, private val token:
      * Eine Aktion ueber /ws, wie ein Button im Web-Client. Wartet auf die Antwort mit derselben
      * requestId; die Meldungen, die der Server ungefragt schickt (access, media, ...), tragen keine.
      */
-    fun send(action: JSONObject): Result {
-        val requestId = UUID.randomUUID().toString()
-        val done = CountDownLatch(1)
-        var result: Result = Result.Failed(null)
+    fun send(action: JSONObject): Result = sendSteps(listOf(RemoteButton.Step(action, 0)))
+
+    /**
+     * Makro eines eigenen Buttons ueber eine Verbindung, wie runSteps im Web-Client: jeder Schritt
+     * erst nach der Bestaetigung des vorigen, Abbruch beim ersten abgelehnten.
+     */
+    fun sendSteps(steps: List<RemoteButton.Step>): Result {
+        val opened = CountDownLatch(1)
+        val answers = LinkedBlockingQueue<Pair<String?, Result>>()
         val wsUrl = device.url.replaceFirst("http", "ws") + "/ws?token=" + java.net.URLEncoder.encode(token, "UTF-8")
         val request = Request.Builder().url(wsUrl).header("Origin", device.url).build()
         val socket = http.newWebSocket(
             request,
             object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    webSocket.send(JSONObject(action.toString()).put("requestId", requestId).toString())
-                }
+                override fun onOpen(webSocket: WebSocket, response: Response) = opened.countDown()
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     val message = runCatching { JSONObject(text) }.getOrNull() ?: return
-                    if (message.optString("requestId") != requestId) return
+                    val requestId = message.optString("requestId").ifEmpty { return }
                     val error = message.optString("error").ifEmpty { null }
-                    result = when {
-                        message.optBoolean("success") -> Result.Ok
-                        error == MEDIA_ONLY_ERROR -> Result.MediaOnly
-                        else -> Result.Failed(error)
-                    }
-                    done.countDown()
+                    answers.put(
+                        requestId to when {
+                            message.optBoolean("success") -> Result.Ok
+                            error == MEDIA_ONLY_ERROR -> Result.MediaOnly
+                            else -> Result.Failed(error)
+                        },
+                    )
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    result = response?.let { failure(it.code, null) } ?: Result.Unreachable
-                    done.countDown()
+                    answers.put(null to (response?.let { failure(it.code, null) } ?: Result.Unreachable))
+                    opened.countDown()
                 }
             },
         )
-        if (!done.await(6, TimeUnit.SECONDS)) result = Result.Unreachable
-        socket.close(1000, null)
-        return result
+        try {
+            if (!opened.await(6, TimeUnit.SECONDS)) return Result.Unreachable
+            for (step in steps) {
+                if (step.delayMs > 0) Thread.sleep(step.delayMs)
+                val requestId = UUID.randomUUID().toString()
+                socket.send(JSONObject(step.action.toString()).put("requestId", requestId).toString())
+                while (true) {
+                    val (id, result) = answers.poll(6, TimeUnit.SECONDS) ?: return Result.Unreachable
+                    // id == null: Verbindung weg; eine fremde id kann nicht vorkommen, nur ueberspringen.
+                    if (id == null || id == requestId) {
+                        if (result != Result.Ok) return result
+                        break
+                    }
+                }
+            }
+            return Result.Ok
+        } finally {
+            socket.close(1000, null)
+        }
     }
 
     /**

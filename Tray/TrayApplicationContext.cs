@@ -38,6 +38,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly System.Windows.Forms.Timer initialUpdateTimer;
     private readonly System.Windows.Forms.Timer periodicUpdateTimer;
     private readonly Control uiDispatcher = new();
+    private readonly CancellationTokenSource offerPipeStop = new();
     private readonly string localAddress;
     private readonly string deviceAddress;
     private readonly string? certificateUrl;
@@ -239,12 +240,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         Notify("YFRemote läuft", $"Der Server ist unter {deviceAddress} erreichbar.");
+        _ = WindowsExplorerSendMenu.ListenAsync(
+            path => uiDispatcher.BeginInvoke(() => OfferPath(path)),
+            offerPipeStop.Token);
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            offerPipeStop.Cancel();
+            offerPipeStop.Dispose();
             fileTransferService.FileReceived -= OnFileReceived;
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.Read -= OnClipboardRead;
@@ -408,14 +414,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OfferFile()
     {
         using var dialog = new OpenFileDialog { Title = "Datei an Geräte senden" };
-        if (dialog.ShowDialog() != DialogResult.OK)
+        if (dialog.ShowDialog() == DialogResult.OK)
         {
-            return;
+            OfferPath(dialog.FileName);
         }
+    }
 
+    // Auch fuer "An YFRemote-Geräte senden" im Explorer, siehe WindowsExplorerSendMenu.
+    public void OfferPath(string path)
+    {
         try
         {
-            var offer = fileOfferService.Offer(dialog.FileName);
+            var offer = fileOfferService.Offer(path);
             Notify(
                 "Datei bereitgestellt",
                 $"\"{offer.Name}\" kann jetzt 10 Minuten lang auf den gekoppelten Geräten geladen werden.");

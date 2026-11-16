@@ -20,6 +20,7 @@ export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
 export const PC_NOTIFICATIONS_STORAGE_KEY = 'yfremote.pcNotifications';
 export const SCREEN_QUALITY_STORAGE_KEY = 'yfremote.screenQuality';
 export const SCREEN_MONITOR_STORAGE_KEY = 'yfremote.screenMonitor';
+export const SCREEN_TOUCH_STORAGE_KEY = 'yfremote.screenTouch';
 export type ScreenQuality = 'performance' | 'balanced' | 'quality';
 export const SCREEN_QUALITIES: readonly ScreenQuality[] = ['performance', 'balanced', 'quality'];
 

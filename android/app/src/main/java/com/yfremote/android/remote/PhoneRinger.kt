@@ -51,7 +51,9 @@ internal object PhoneRinger {
         val app = init(caller)
         if (player != null) return@post
         val audio = app.getSystemService(AudioManager::class.java)
-        previousVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+        // Ist der Ton beim ersten Versuch nicht angelaufen, steht die Lautstaerke schon auf Maximum -
+        // dann bleibt die vom ersten Mal die, die "Stopp" zurueckholt.
+        previousVolume = previousVolume ?: audio.getStreamVolume(AudioManager.STREAM_ALARM)
         runCatching { audio.setStreamVolume(AudioManager.STREAM_ALARM, audio.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) }
         val uri = RingtoneManager.getActualDefaultRingtoneUri(app, RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getActualDefaultRingtoneUri(app, RingtoneManager.TYPE_RINGTONE)

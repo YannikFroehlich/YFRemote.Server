@@ -442,6 +442,11 @@ export const TRANSLATIONS = {
     de: 'Auf diesem Gerät nicht unterstützt: der Browser (z. B. Safari) gibt die Zwischenablage nur auf Tippen frei. Kopieren geht über den Zwischenablage-Knopf im Touchpad.',
     en: 'Not supported on this device: the browser (e.g. Safari) only shares the clipboard on a tap. Use the clipboard button on the touchpad instead.',
   },
+  'connection.stuck.title': { de: 'Verbindung hängt', en: 'Connection is stuck' },
+  'connection.stuck.text': {
+    de: 'Der PC antwortet beim Verbinden gar nicht. Auf dem iPhone hilft dann meist nur Neuladen.',
+    en: 'The PC does not answer at all while connecting. On an iPhone, only reloading usually helps.',
+  },
   'homeScreen.title': { de: 'Tipp: YFRemote als App', en: 'Tip: YFRemote as an app' },
   'homeScreen.text': {
     de: 'Teilen → "Zum Home-Bildschirm". Safari vergisst die Kopplung sonst nach 7 Tagen ohne Besuch. In der App einmal neu koppeln.',

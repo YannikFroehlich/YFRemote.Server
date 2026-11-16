@@ -282,7 +282,19 @@
       }
     }
 
-    @if (homeScreenHint() && activeView() !== 'gamepad' && !fileOffer() && !pcNotification()) {
+    @if (connectionStuck() && activeView() !== 'gamepad') {
+      <div class="update-banner file-offer" role="alert">
+        <span class="file-offer__title">{{ i18n.t('connection.stuck.title') }}</span>
+        <span class="pc-notification__text">{{ i18n.t('connection.stuck.text') }}</span>
+        <div class="file-offer__actions">
+          <button class="primary-button" type="button" (click)="reloadPage()">
+            {{ i18n.t('app.reload') }}
+          </button>
+        </div>
+      </div>
+    } @else if (
+      homeScreenHint() && activeView() !== 'gamepad' && !fileOffer() && !pcNotification()
+    ) {
       <div class="update-banner file-offer" role="status">
         <span class="file-offer__title">{{ i18n.t('homeScreen.title') }}</span>
         <span class="pc-notification__text">{{ i18n.t('homeScreen.text') }}</span>

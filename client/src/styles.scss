@@ -11,6 +11,8 @@
   --surface-raised: #1a2539;
   --surface-soft: #0f1828;
   --surface-hover: #1e2b42;
+  /* Hinter der weissen iOS-Statusleiste der Homescreen-App, in jedem Modus gleich dunkel. */
+  --status-bar-scrim: rgba(0, 0, 0, 0.55);
   --line: rgba(var(--line-rgb), 0.09);
   --line-strong: rgba(56, 189, 248, 0.28);
   --text: #e8eef8;
@@ -436,6 +438,22 @@ textarea {
   select,
   textarea {
     font-size: max(16px, 1rem) !important;
+  }
+
+  // Homescreen-App: "black-translucent" (index.html) zeichnet Uhr und Akku weiss ueber die Seite,
+  // im hellen Modus waeren sie unlesbar. Ein dunkler Streifen darunter haelt sie lesbar.
+  @media (display-mode: standalone) {
+    body::after {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 1000;
+      height: env(safe-area-inset-top);
+      background: var(--status-bar-scrim);
+      content: '';
+      pointer-events: none;
+    }
   }
 }
 

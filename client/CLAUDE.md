@@ -313,7 +313,12 @@ keyboard covers: Safari shrinks neither the layout nor `dvh` for it and ignores
 a new full-height or bottom-fixed element must do the same. `RemoteControlComponent` shows a
 one-time "Zum Home-Bildschirm" banner in Safari tabs (`yfremote.homeScreenHint`), and the settings
 show an HTTPS guide over `http://` (links to `/ca.mobileconfig` and to `https://` on the
-`/health` `httpsPort`, `RemoteService.httpsPort`).
+`/health` `httpsPort`, `RemoteService.httpsPort`). On iOS `App` also runs `preventEdgeSwipe`: a
+`touchstart` near the left/right edge of `.touchpad-surface` or `.gamepad` is cancelled so Safari
+does not navigate back/forward (not the screen view, which relies on `click`). Two connection
+attempts in a row that time out without any event set `RemoteService.connectionStuck`, and
+`RemoteControlComponent` offers "Neu laden" (`PAGE_RELOAD`, now in `device.ts`). In the home-screen
+app on iOS a `--status-bar-scrim` strip sits under the white `black-translucent` status bar.
 
 **Update hint.** The production build runs Angular's service worker (`provideServiceWorker` in
 `app.config.ts`), which keeps serving the cached version and only downloads a new one in the

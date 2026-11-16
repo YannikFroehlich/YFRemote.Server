@@ -114,6 +114,7 @@ const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
 // iOS laesst einen neuen WebSocket zur LAN-IP nach der Rueckkehr aus dem Hintergrund manchmal
 // ohne jedes Ereignis haengen (WebKit-Bug 308073); ohne Frist bliebe es bei "Verbinde...".
 const CONNECT_TIMEOUT_MS = 8000;
+const STUCK_AFTER_TIMEOUTS = 2;
 const ERROR_VISIBLE_MS = 4200;
 const PC_NOTIFICATION_VISIBLE_MS = 8000;
 const CLIPBOARD_HISTORY_SIZE = 10;
@@ -230,6 +231,10 @@ export class RemoteService implements OnDestroy {
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
   private connectTimer: ReturnType<typeof setTimeout> | null = null;
+  // Nur Aufbauten ohne jedes Ereignis zaehlen. Ein ausgeschalteter PC antwortet mit close und ist
+  // kein Fall fuers Neuladen.
+  private connectTimeouts = 0;
+  private readonly connectionStuckSignal = signal(false);
   private readonly document = inject(DOCUMENT);
   // Zurueck in der App: nicht erst die laufende Wartezeit abwarten. iOS hat den Socket im
   // Hintergrund ohnehin geschlossen.
@@ -334,6 +339,9 @@ export class RemoteService implements OnDestroy {
   readonly recordedSteps = this.recordedStepsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
+  /** Mehrere Verbindungsaufbauten nacheinander blieben ohne jede Antwort haengen (iOS nach dem
+   *  Hintergrund, WebKit-Bug 308073); dann hilft laut Bugbericht nur Neuladen der Seite. */
+  readonly connectionStuck = this.connectionStuckSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
 
   constructor() {
@@ -351,6 +359,8 @@ export class RemoteService implements OnDestroy {
   }
 
   disconnect(): void {
+    this.connectTimeouts = 0;
+    this.connectionStuckSignal.set(false);
     this.manualDisconnectSignal.set(true);
     this.clearReconnectTimer();
     this.closeActiveSocket();
@@ -945,6 +955,8 @@ export class RemoteService implements OnDestroy {
         if (this.socket === socket && this.statusSignal() === 'connecting') {
           this.closeActiveSocket();
           this.statusSignal.set('disconnected');
+          this.connectTimeouts += 1;
+          this.connectionStuckSignal.set(this.connectTimeouts >= STUCK_AFTER_TIMEOUTS);
           this.scheduleReconnect();
         }
       }, CONNECT_TIMEOUT_MS);
@@ -965,6 +977,8 @@ export class RemoteService implements OnDestroy {
 
       this.clearConnectTimer();
       this.reconnectAttempt = 0;
+      this.connectTimeouts = 0;
+      this.connectionStuckSignal.set(false);
       this.statusSignal.set('connected');
       this.clearError();
       void this.detectServerPlatform();
@@ -992,6 +1006,9 @@ export class RemoteService implements OnDestroy {
       }
 
       this.socket = null;
+      // Eine Antwort, wenn auch eine Absage: der Aufbau haengt nicht.
+      this.connectTimeouts = 0;
+      this.connectionStuckSignal.set(false);
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
       this.mediaStatusSignal.set(null);

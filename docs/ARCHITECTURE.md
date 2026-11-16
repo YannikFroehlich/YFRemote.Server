@@ -33,7 +33,14 @@ feature.
   `FileOfferService`: one offer at a time, 10-minute lifetime). The offer itself reaches devices as
   an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
   again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
-  "Datei gesendet" balloon.
+  "Datei gesendet" balloon. The Explorer's context menu offers the same ("An YFRemote-Geräte
+  senden", `WindowsExplorerSendMenu`): an installed build writes
+  `HKCU\Software\Classes\*\shell\YFRemote.SendToDevices` on every start (removed by the uninstall
+  hook), whose command starts the launcher with `--offer-file "%1"`. A second instance hands the path
+  to the running one over a per-session named pipe (`PipeOptions.CurrentUserOnly`) instead of the
+  "läuft bereits" box; without a running one it starts normally and offers the file. Windows 11
+  shows the entry only under "Weitere Optionen anzeigen", because the new menu needs package
+  identity. With several files selected, the last one wins (one offer at a time).
 - `GET /processes` (`WindowEndpoints`) → `{ processes: [{id,name,cpu,memoryMb}] }`, the 15
   processes with the highest CPU load (ties by memory), for the "PC" tab; same gate as
   `GET /windows`. `ProcessService` (BCL only, Windows and Linux) samples `TotalProcessorTime`
@@ -165,7 +172,7 @@ feature.
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`
   is declared by hand for the 120-frame GOP). Encoded sizes are rounded to width % 16 and height % 4,
   because Intel's encoder fails on the first frame otherwise (710x398, 1376x774 measured). A frame is
-  encoded on a desktop or cursor change, at least once per second, at most 60/s; a full send buffer
+  encoded on a desktop or cursor change, at least once per second, at most 60/s on a fixed schedule (high-resolution waitable timer: `Thread.Sleep` rounds to 15.6 ms, which made a 60 Hz monitor deliver only every second frame, and Windows 11 ignores `timeBeginPeriod` for the windowless tray process); a full send buffer
   throttles capture instead of queueing. `Fmp4Writer` (one `moof`+`mdat` per frame) gives every frame
   1/60 s of media time regardless of when it arrived, because a gap in the timeline would stall the
   browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player

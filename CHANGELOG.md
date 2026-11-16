@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Explorer: Rechtsklick auf eine Datei → "An YFRemote-Geräte senden" bietet sie allen gekoppelten Geräten an, wie "Datei an Geräte senden..." im Tray. Unter Windows 11 steht der Eintrag unter "Weitere Optionen anzeigen". Läuft YFRemote nicht, startet es dafür. Nur in der installierten Version.
+
 ## [2.54.0] - 2026-11-15
 
 ### Security

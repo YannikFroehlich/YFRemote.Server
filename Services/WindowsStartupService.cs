@@ -50,7 +50,7 @@ internal static class WindowsStartupService
             RegistryValueKind.String);
     }
 
-    private static string? GetLauncherPath()
+    internal static string? GetLauncherPath()
     {
         var appDirectoryPath = AppContext.BaseDirectory.TrimEnd(
             Path.DirectorySeparatorChar,

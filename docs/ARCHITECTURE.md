@@ -33,7 +33,14 @@ feature.
   `FileOfferService`: one offer at a time, 10-minute lifetime). The offer itself reaches devices as
   an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
   again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
-  "Datei gesendet" balloon.
+  "Datei gesendet" balloon. The Explorer's context menu offers the same ("An YFRemote-Geräte
+  senden", `WindowsExplorerSendMenu`): an installed build writes
+  `HKCU\Software\Classes\*\shell\YFRemote.SendToDevices` on every start (removed by the uninstall
+  hook), whose command starts the launcher with `--offer-file "%1"`. A second instance hands the path
+  to the running one over a per-session named pipe (`PipeOptions.CurrentUserOnly`) instead of the
+  "läuft bereits" box; without a running one it starts normally and offers the file. Windows 11
+  shows the entry only under "Weitere Optionen anzeigen", because the new menu needs package
+  identity. With several files selected, the last one wins (one offer at a time).
 - `GET /processes` (`WindowEndpoints`) → `{ processes: [{id,name,cpu,memoryMb}] }`, the 15
   processes with the highest CPU load (ties by memory), for the "PC" tab; same gate as
   `GET /windows`. `ProcessService` (BCL only, Windows and Linux) samples `TotalProcessorTime`

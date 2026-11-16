@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Android-App: Eigene Buttons der Fernbedienung gibt es jetzt als Widget ("YFRemote Button") und als Schnellkachel ("YFRemote 1" bis "3") – z. B. "PC sperren" oder ein Makro, ohne die App zu öffnen. Welcher Button, wählt man beim Ablegen des Widgets bzw. beim ersten Tippen auf die Kachel (ändern: lange drücken). Die Buttons übernimmt die App, sobald man die Fernbedienung des Geräts einmal verlässt.
+
 ## [2.54.0] - 2026-11-15
 
 ### Security

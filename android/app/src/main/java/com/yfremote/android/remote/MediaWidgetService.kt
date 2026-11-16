@@ -24,6 +24,7 @@ class MediaWidgetService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startInForeground()
+        intent?.getStringExtra(EXTRA_TARGET)?.let { return runButton(it, startId) }
         val key = intent?.getStringExtra(MediaWidget.EXTRA_KEY)?.takeIf { it in MediaWidget.KEYS }
         val devices = RemoteDevices(this)
         val device = devices.last()
@@ -36,6 +37,23 @@ class MediaWidgetService : Service() {
 
         thread {
             RemoteClient(device, token).send(JSONObject().put("type", "key").put("key", key)).message(device.name)?.let(::toast)
+            stopSelf(startId)
+        }
+        return START_NOT_STICKY
+    }
+
+    // Eigener Button aus einem ButtonWidget oder einer Schnellkachel (ButtonTargets-Schluessel).
+    private fun runButton(targetKey: String, startId: Int): Int {
+        val resolved = ButtonTargets(this).resolve(targetKey)
+        val token = resolved?.token
+        if (resolved == null || token == null) {
+            toast(getString(if (resolved == null) R.string.button_target_missing else R.string.widget_no_device))
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
+        thread {
+            RemoteClient(resolved.device, token).sendSteps(resolved.button.steps).message(resolved.device.name)?.let(::toast)
             stopSelf(startId)
         }
         return START_NOT_STICKY
@@ -62,8 +80,9 @@ class MediaWidgetService : Service() {
     private fun toast(message: String) =
         Handler(mainLooper).post { Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show() }
 
-    private companion object {
-        const val CHANNEL_ID = "yfremote_widget"
-        const val NOTIFICATION_ID = 3
+    internal companion object {
+        const val EXTRA_TARGET = "target"
+        private const val CHANNEL_ID = "yfremote_widget"
+        private const val NOTIFICATION_ID = 3
     }
 }

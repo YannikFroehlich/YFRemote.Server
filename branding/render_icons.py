@@ -1,4 +1,4 @@
-"""Erzeugt alle Logo-Dateien aus dem Motiv unten (Mauszeiger mit Funkwellen).
+"""Erzeugt alle Logo-Dateien und die Installer-Grafiken aus dem Motiv unten (Mauszeiger mit Funkwellen).
 
 Rendert per Edge headless (SVG -> PNG), skaliert mit Pillow und schreibt die ICO.
 Aufruf aus dem Repo-Root: python branding/render_icons.py
@@ -46,18 +46,43 @@ VARIANTS = {
 }
 
 
+def glyph_at(x: float, y: float, scale: float) -> str:
+    cx, cy = GLYPH_CENTER
+    return f'<g transform="translate({x} {y}) scale({scale}) translate({-cx} {-cy})">{GLYPH}</g>'
+
+
+TEXT = 'font-family="Segoe UI, sans-serif" text-anchor="middle"'
+
+# Installer-Grafiken in Zielpixeln. Die MSI-Dialoge schreiben schwarzen Text auf das Bild, deshalb
+# bleibt dort alles ausser dem Markenfeld weiss; nur das Setup.exe-Fenster ist ganz dunkel.
+INSTALLER = {
+    # Kopfzeile der MSI-Seiten: Titeltext links, Markenfeld rechts.
+    "msi-banner.bmp": (493, 58, f'''<rect width="493" height="58" fill="#FFFFFF"/>
+<path d="M424 0 H493 V58 H404 Z" fill="url(#bg)"/>{glyph_at(455, 29, 0.105)}'''),
+    # Willkommens- und Abschlussseite: Markenfeld in den linken 164 px, Text rechts davon.
+    "msi-dialog.bmp": (493, 312, f'''<rect width="493" height="312" fill="#FFFFFF"/>
+<rect width="164" height="312" fill="url(#bg)"/><rect x="161" width="3" height="312" fill="url(#accent)"/>
+{glyph_at(80, 118, 0.24)}<text x="80" y="206" {TEXT} font-size="21" font-weight="600" fill="#E8EEF8">YFRemote</text>'''),
+    "splash.png": (480, 270, f'''<rect width="480" height="270" fill="url(#bg)"/>
+{glyph_at(240, 100, 0.27)}<text x="240" y="196" {TEXT} font-size="30" font-weight="600" fill="#E8EEF8">YFRemote</text>
+<text x="240" y="222" {TEXT} font-size="14" fill="#9AACC6">wird installiert</text>'''),
+}
+INSTALLER_SCALE = 4
+
+
 def svg(body: str, size: int | None = None) -> str:
     dims = f' width="{size}" height="{size}"' if size else ""
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"{dims}>{DEFS}{body}</svg>\n'
 
 
-def render(body: str, tmp: Path, name: str) -> Image.Image:
+def render(body: str, tmp: Path, name: str, width: int = MASTER, height: int = MASTER) -> Image.Image:
     src, out = tmp / f"{name}.svg", tmp / f"{name}.png"
-    src.write_text(svg(body, MASTER), encoding="utf-8")
+    square = (width, height) == (MASTER, MASTER)
+    src.write_text(svg(body, MASTER) if square else body, encoding="utf-8")
     subprocess.run(
         # Eigenes Profil, sonst uebergibt Edge an eine laufende Instanz und schreibt nichts.
         [EDGE, "--headless", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={tmp / 'edge'}",
-         "--default-background-color=00000000", f"--window-size={MASTER},{MASTER}",
+         "--default-background-color=00000000", f"--window-size={width},{height}",
          f"--screenshot={out}", src.as_uri()],
         check=True, capture_output=True,
     )
@@ -68,7 +93,7 @@ def render(body: str, tmp: Path, name: str) -> Image.Image:
         time.sleep(0.1)
     time.sleep(0.5)
     image = Image.open(out).convert("RGBA")
-    assert image.size == (MASTER, MASTER), image.size
+    assert image.size == (width, height), image.size
     return image
 
 
@@ -80,6 +105,17 @@ def main() -> None:
     (ROOT / "branding" / "logo.svg").write_text(svg(VARIANTS["tile"]), encoding="utf-8")
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         img = {name: render(body, Path(tmp), name) for name, body in VARIANTS.items()}
+
+        installer = {}
+        for name, (width, height, body) in INSTALLER.items():
+            w, h = width * INSTALLER_SCALE, height * INSTALLER_SCALE
+            doc = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{w}" height="{h}">{DEFS}{body}</svg>'
+            installer[name] = render(doc, Path(tmp), name.split(".")[0], w, h).resize((width, height), Image.LANCZOS)
+
+    (ROOT / "branding" / "installer").mkdir(exist_ok=True)
+    for name, image in installer.items():
+        # BMP kennt hier keine Transparenz, alle drei Bilder sind ohnehin deckend.
+        image.convert("RGB").save(ROOT / "branding" / "installer" / name)
 
     tile = img["tile"]
     save(tile, "client/public/brand-mark.png", 1024)

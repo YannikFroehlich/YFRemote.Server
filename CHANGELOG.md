@@ -26,6 +26,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - iPhone: Die Einstellungen führen über `http://` Schritt für Schritt zu HTTPS: Profil laden, installieren, Vertrauen einschalten, zur `https://`-Adresse wechseln. Der Server liefert das Zertifikat dafür zusätzlich als iOS-Konfigurationsprofil (`/ca.mobileconfig`), und `/health` meldet den HTTPS-Port.
 - iPhone: Ein einmaliger Hinweis empfiehlt im Safari-Tab "Zum Home-Bildschirm", weil Safari die Kopplung sonst nach 7 Tagen ohne Besuch vergisst.
 
+### Changed
+
+- Windows-Installer im Aussehen von YFRemote: Der Assistent (`.msi`, mit Wahl von Installationsart und Zielordner) zeigt Logo und Farben der App und begrüßt und verabschiedet mit eigenen Texten. Das Fenster von `Setup.exe` zeigt beim Installieren das Logo statt eines leeren Fortschrittsbalkens.
+
 ### Fixed
 
 - iPhone: Die Bildschirmtastatur verdeckt keine Felder und Knöpfe mehr. Die App und Dialoge enden über der Tastatur, weil Safari dafür weder das Layout noch `dvh` verkleinert.

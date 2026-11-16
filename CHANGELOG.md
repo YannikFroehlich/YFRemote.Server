@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.56.0] - 2026-11-16
+
 ### Added
 
 - Einstellungen, "Darstellung": Der neue Schalter "Animationen" (standardmäßig an) schaltet alle Bewegungen der Oberfläche ab. Tabs, Dialoge und Tasten erscheinen dann sofort. "Bewegung reduzieren" des Geräts gilt wie bisher in jedem Fall.

@@ -25,7 +25,8 @@ public sealed partial class RemoteActionHandler(
     IPcNotifications? pcNotifications = null,
     IBrightnessService? brightness = null,
     IProcessService? processes = null,
-    ITouchService? touch = null)
+    ITouchService? touch = null,
+    PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -88,6 +89,7 @@ public sealed partial class RemoteActionHandler(
                 "voicemeeter" => HandleVoicemeeterWatch(request, session),
                 "voicemeeterparameter" => HandleVoicemeeterParameter(request),
                 "apps" => HandleAppsWatch(request, session),
+                "foregroundapp" => HandleForegroundAppWatch(request, session),
                 "appvolume" => HandleAppVolume(request),
                 "audiooutput" => HandleAudioOutput(request),
                 "launch" => HandleLaunch(request),
@@ -137,7 +139,7 @@ public sealed partial class RemoteActionHandler(
         {
             "key" => keys.Count == 1 && (keys[0].StartsWith("MEDIA_") || keys[0].StartsWith("VOLUME_")),
             "volume" or "mediaseek" or "appvolume" or "audiooutput" or "voicemeeter" or "voicemeeterparameter"
-                or "apps" or "systemstats" or "gamepaddisconnect" => true,
+                or "apps" or "systemstats" or "foregroundapp" or "gamepaddisconnect" => true,
             "clipboardsync" or "notifications" => request.Enabled == false,
             _ => false
         };
@@ -781,6 +783,32 @@ public sealed partial class RemoteActionHandler(
         else
         {
             session.AppsSubscription ??= appVolumeStatus.Subscribe(session.PushApps);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Fuer den automatischen Profilwechsel im Client; ohne ihn liest der PC den Vordergrund gar nicht.
+    private RemoteActionResponse HandleForegroundAppWatch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (foregroundApp is null || session is null)
+        {
+            return Fail("Foreground app is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'foregroundApp' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.ForegroundAppSubscription?.Dispose();
+            session.ForegroundAppSubscription = null;
+        }
+        else
+        {
+            session.ForegroundAppSubscription ??= foregroundApp.Subscribe(session.PushForegroundApp);
         }
 
         return RemoteActionResponse.Ok();

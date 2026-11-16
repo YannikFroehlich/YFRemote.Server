@@ -331,6 +331,51 @@
             </select>
           </label>
 
+          <button
+            class="snap-switch"
+            type="button"
+            role="switch"
+            [attr.aria-checked]="autoProfile()"
+            [disabled]="!autoProfileSupported()"
+            (click)="toggleAutoProfile()"
+          >
+            <span class="switch-indicator" aria-hidden="true"></span>
+            <span>{{ i18n.t('settings.profiles.auto') }}</span>
+          </button>
+          @if (!autoProfileSupported()) {
+            <p class="settings-hint">{{ i18n.t('settings.profiles.auto.unsupported') }}</p>
+          } @else if (autoProfile()) {
+            <label class="field" for="profile-apps">
+              <span>{{ i18n.t('settings.profiles.apps.label') }}</span>
+              <input
+                id="profile-apps"
+                type="text"
+                autocomplete="off"
+                [placeholder]="i18n.t('settings.profiles.apps.placeholder')"
+                [value]="activeProfileApps()"
+                (change)="saveProfileApps($event)"
+              />
+            </label>
+            <label class="field" for="profile-view">
+              <span>{{ i18n.t('settings.profiles.view.label') }}</span>
+              <select id="profile-view" [value]="activeProfileView()" (change)="saveProfileView($event)">
+                <option value="">{{ i18n.t('settings.profiles.view.keep') }}</option>
+                @for (view of profileViews; track view.value) {
+                  <option [value]="view.value">{{ i18n.t(view.label) }}</option>
+                }
+              </select>
+            </label>
+            @if (foregroundApp(); as app) {
+              <div class="profile-actions">
+                <span class="settings-hint">{{ i18n.t('settings.profiles.apps.current', { app }) }}</span>
+                <button class="secondary-button" type="button" (click)="addForegroundApp(app)">
+                  {{ i18n.t('settings.profiles.apps.add') }}
+                </button>
+              </div>
+            }
+            <p class="settings-hint">{{ i18n.t('settings.profiles.apps.hint') }}</p>
+          }
+
           <div class="profile-create-row">
             <label class="field" for="profile-name">
               <span>{{ i18n.t('settings.profiles.new.label') }}</span>

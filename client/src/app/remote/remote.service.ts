@@ -24,10 +24,12 @@ import {
   SystemStatsMessage,
   VoicemeeterMessage,
   AppVolumesMessage,
+  ForegroundAppMessage,
 } from './remote.models';
 import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
+  AUTO_PROFILE_STORAGE_KEY,
   CLIPBOARD_SYNC_STORAGE_KEY,
   PC_NOTIFICATIONS_STORAGE_KEY,
   getServerConfigFromLocation,
@@ -184,6 +186,10 @@ export class RemoteService implements OnDestroy {
   private readonly pcNotificationsSignal = signal(
     parseStoredFlag(this.readStorage(PC_NOTIFICATIONS_STORAGE_KEY), false),
   );
+  private readonly autoProfileSignal = signal(
+    parseStoredFlag(this.readStorage(AUTO_PROFILE_STORAGE_KEY), false),
+  );
+  private readonly foregroundAppSignal = signal<string | null>(null);
   private readonly pcNotificationSignal = signal<PcNotificationMessage | null>(null);
   private pcNotificationTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
@@ -259,6 +265,12 @@ export class RemoteService implements OnDestroy {
   /** Gewuenschte Weiterleitung der Windows-Benachrichtigungen; nur der Windows-Server kann sie. */
   readonly pcNotifications = this.pcNotificationsSignal.asReadonly();
   readonly pcNotificationsSupported = computed(() => this.serverPlatformSignal() === 'windows');
+  /** Layout-Profil passend zum Programm vorne am PC wechseln; standardmaessig aus, nur Windows. */
+  readonly autoProfile = this.autoProfileSignal.asReadonly();
+  readonly autoProfileSupported = computed(() => this.serverPlatformSignal() === 'windows');
+  /** Programm im Vordergrund, solange `autoProfile` an ist. Bleibt beim Trennen stehen, damit das
+   *  Profil waehrend eines Neuverbindens nicht hin- und herspringt. */
+  readonly foregroundApp = this.foregroundAppSignal.asReadonly();
   /** Die zuletzt weitergeleitete Benachrichtigung, fuer ein paar Sekunden. */
   readonly pcNotification = this.pcNotificationSignal.asReadonly();
   /** Den Abgleich koennen nur der Windows- und der Linux-Server, nicht die Android-App. */
@@ -429,6 +441,15 @@ export class RemoteService implements OnDestroy {
     this.pcNotificationsSignal.set(enabled);
     this.storage?.setItem(PC_NOTIFICATIONS_STORAGE_KEY, String(enabled));
     this.sendPcNotifications();
+  }
+
+  saveAutoProfile(enabled: boolean): void {
+    this.autoProfileSignal.set(enabled);
+    this.storage?.setItem(AUTO_PROFILE_STORAGE_KEY, String(enabled));
+    if (!enabled) {
+      this.foregroundAppSignal.set(null);
+    }
+    this.sendForegroundAppWatch();
   }
 
   /** Entfernt die angezeigte Benachrichtigung auch am PC (Info-Center) und blendet sie aus. */
@@ -980,6 +1001,13 @@ export class RemoteService implements OnDestroy {
       return;
     }
 
+    if (isForegroundAppMessage(message)) {
+      if (this.autoProfileSignal()) {
+        this.foregroundAppSignal.set(message.name);
+      }
+      return;
+    }
+
     if (isPcNotificationMessage(message)) {
       this.dismissPcNotification();
       this.pcNotificationSignal.set(message);
@@ -1129,6 +1157,15 @@ export class RemoteService implements OnDestroy {
     }
     if (this.appsWatched) {
       this.sendAppsWatch();
+    }
+    if (this.autoProfileSignal()) {
+      this.sendForegroundAppWatch();
+    }
+  }
+
+  private sendForegroundAppWatch(): void {
+    if (this.autoProfileSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'foregroundApp', enabled: this.autoProfileSignal() });
     }
   }
 
@@ -1409,6 +1446,14 @@ function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
 function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
   const message = value as Partial<ClipboardPushMessage> | null;
   return message?.type === 'clipboard' && typeof message.text === 'string';
+}
+
+function isForegroundAppMessage(value: unknown): value is ForegroundAppMessage {
+  const message = value as Partial<ForegroundAppMessage> | null;
+  return (
+    message?.type === 'foregroundApp' &&
+    (message.name === null || typeof message.name === 'string')
+  );
 }
 
 function isPcNotificationMessage(value: unknown): value is PcNotificationMessage {

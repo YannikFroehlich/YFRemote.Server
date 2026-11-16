@@ -317,7 +317,16 @@ unpackaged app, but its `NotificationChanged` event needs package identity (`0x8
 the dev PC on 2026-11-10), hence the polling. The Client shows it for 8 s as a banner; its "Am PC
 entfernen" sends `dismissNotification` (`id`, digits only), which `IPcNotifications.Dismiss`
 (`UserNotificationListener.RemoveNotification`) turns into removing it from the PC's notification
-center too (not allowed for "Nur Medien"; unverified on a real toast). A third broadcaster pushes
+center too (not allowed for "Nur Medien"; unverified on a real toast). The app in front works the
+same way on Windows only: after `{"type":"foregroundApp","enabled":true}` (also allowed for "Nur
+Medien") the broadcaster pushes `{"type":"foregroundApp","name"}` on every change, where `name` is
+the same file description as in the Mixer and the window list (`WindowsWindowService.ForegroundApp`,
+`null` without a foreground window or for YFRemote itself). The Client subscribes only while its
+setting "Profil passend zum Programm am PC wechseln" (`yfremote.autoProfile`, off by default) is on,
+and `ButtonLayoutService.applyForegroundApp` switches to the layout profile whose `apps` list holds
+that name (case-insensitive), then back to the previous profile once none matches. A profile's
+optional `view` makes `RemoteControlComponent` open that tab too (skipped where the device lacks it)
+and return to the previous tab the same way; picking a tab by hand ends that. A third broadcaster pushes
 `{"type":"systemStats","cpuLoad","cpuTemperature","gpuLoad","gpuTemperature","memoryUsedMb","memoryTotalMb","batteryLevel","batteryCharging","powerMode"}`
 (battery only on a laptop: `GetSystemPowerStatus` on Windows, "charging" = on AC; `powerMode` is
 the Windows power mode `efficiency`/`balanced`/`performance` from `IPowerService.PowerMode`, added in

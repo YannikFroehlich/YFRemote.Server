@@ -110,6 +110,33 @@ describe('ButtonLayoutService', () => {
     expect(service.visibleButtons()).toHaveLength(androidButtons);
   });
 
+  it('switches to the profile of the app in front and back, and keeps the apps after a reload', () => {
+    const storage = new MemoryStorage();
+    const { service } = setupService(storage);
+    service.createProfile('Medien');
+    service.setProfileApps('profile:test1', [' VLC media player ', 'vlc MEDIA player', '']);
+    service.setProfileView('profile:test1', 'gamepad');
+    service.switchProfile('profile:standard');
+
+    expect(service.applyForegroundApp('VLC Media Player')?.view).toBe('gamepad');
+    expect(service.activeProfileId()).toBe('profile:test1');
+
+    expect(service.applyForegroundApp('Explorer')).toBeUndefined();
+    expect(service.activeProfileId()).toBe('profile:standard');
+
+    // Von Hand gewaehlt: ohne zugeordnetes Programm vorne bleibt es dabei.
+    service.applyForegroundApp('VLC media player');
+    service.switchProfile('profile:test1');
+    service.applyForegroundApp(null);
+    expect(service.activeProfileId()).toBe('profile:test1');
+
+    TestBed.resetTestingModule();
+    const reloaded = setupService(storage).service;
+    const stored = reloaded.profiles().find((profile) => profile.id === 'profile:test1');
+    expect(stored?.apps).toEqual(['VLC media player']);
+    expect(stored?.view).toBe('gamepad');
+  });
+
   it('moves a placement and persists integer coordinates when snap is on', () => {
     const { service, storage } = setupService();
 

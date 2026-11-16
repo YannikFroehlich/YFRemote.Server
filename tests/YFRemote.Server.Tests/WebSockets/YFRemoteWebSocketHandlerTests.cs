@@ -341,6 +341,39 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_ForegroundAppEnabled_PushesChangesUntilDisabled()
+    {
+        var name = "VLC media player";
+        var foregroundApp = new PollingBroadcaster<ForegroundAppMessage>(
+            () => Task.FromResult(new ForegroundAppMessage(name)),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: true,
+            NullLogger.Instance);
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(foregroundApp: foregroundApp)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None, mediaOnly: true);
+
+        // Auch "Nur Medien" darf es: der Remote-Tab mit den Medientasten wechselt mit.
+        await SendTextAsync(pair.Client, """{"type":"foregroundApp","enabled":true}""");
+        Assert.IsTrue((await ReceiveResponseAsync(pair.Client)).Success);
+        await foregroundApp.PollAsync();
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("foregroundApp", pushed.GetProperty("type").GetString());
+        Assert.AreEqual("VLC media player", pushed.GetProperty("name").GetString());
+
+        await SendTextAsync(pair.Client, """{"type":"foregroundApp","enabled":false,"requestId":"off"}""");
+        Assert.AreEqual("off", (await ReceiveResponseAsync(pair.Client)).RequestId);
+        name = "PowerPoint";
+        await foregroundApp.PollAsync();
+
+        await SendTextAsync(pair.Client, """{"type":"volume","value":50,"requestId":"next"}""");
+        Assert.AreEqual("next", (await ReceiveResponseAsync(pair.Client)).RequestId);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_InvalidJson_SendsFailureResponse()
     {
         await using var pair = await WebSocketPair.CreateAsync();
@@ -483,6 +516,7 @@ public sealed class YFRemoteWebSocketHandlerTests
         PollingBroadcaster<SystemStatsMessage>? systemStats = null,
         ShutdownTimer? shutdownTimer = null,
         PollingBroadcaster<PcNotificationMessage?>? notifications = null,
+        PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null,
         WebSocketConnectionRegistry? connectionRegistry = null)
     {
         var actionHandler = new RemoteActionHandler(
@@ -494,7 +528,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             clipboardSync,
             shutdownTimer: shutdownTimer,
             systemStats: systemStats,
-            notifications: notifications);
+            notifications: notifications,
+            foregroundApp: foregroundApp);
 
         return new YFRemoteWebSocketHandler(
             actionHandler,

@@ -601,6 +601,33 @@ export const TRANSLATIONS = {
   'settings.style.import': { de: 'Stile importieren', en: 'Import styles' },
   'settings.profiles.title': { de: 'Profile und Sicherung', en: 'Profiles and backup' },
   'settings.profiles.active.label': { de: 'Aktives Profil', en: 'Active profile' },
+  'settings.profiles.auto': {
+    de: 'Profil passend zum Programm am PC wechseln',
+    en: 'Switch profile to match the app on the PC',
+  },
+  'settings.profiles.auto.unsupported': {
+    de: 'Nur mit einem Windows-PC.',
+    en: 'Only with a Windows PC.',
+  },
+  'settings.profiles.apps.label': {
+    de: 'Programme für dieses Profil',
+    en: 'Apps for this profile',
+  },
+  'settings.profiles.apps.placeholder': {
+    de: 'z. B. VLC media player, PowerPoint',
+    en: 'e.g. VLC media player, PowerPoint',
+  },
+  'settings.profiles.view.label': {
+    de: 'Dazu diesen Tab öffnen',
+    en: 'Also open this tab',
+  },
+  'settings.profiles.view.keep': { de: 'Tab nicht wechseln', en: "Don't switch tabs" },
+  'settings.profiles.apps.current': { de: 'Vorne am PC: {{app}}', en: 'In front on the PC: {{app}}' },
+  'settings.profiles.apps.add': { de: 'Hinzufügen', en: 'Add' },
+  'settings.profiles.apps.hint': {
+    de: 'Mehrere mit Komma trennen. Ist keines davon vorne, kommt das vorige Profil zurück.',
+    en: 'Separate several with commas. When none of them is in front, the previous profile returns.',
+  },
   'settings.profiles.new.label': { de: 'Neues Profil', en: 'New profile' },
   'settings.profiles.new.placeholder': { de: 'z. B. Präsentation', en: 'e.g. Presentation' },
   'settings.profiles.new.error': {

@@ -4,11 +4,13 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
+import { ProfileView } from './button-layout-profiles';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import { MediaBridgeService } from './media-bridge.service';
 import { FileTransferService } from './file-transfer.service';
@@ -28,8 +30,7 @@ import { PresentationComponent } from './presentation.component';
 import { ScreenViewComponent } from './screen-view.component';
 import { RING_PLAYER } from './ring-player';
 
-type RemoteView =
-  'remote' | 'touchpad' | 'screen' | 'keyboard' | 'presentation' | 'gamepad' | 'system' | 'mixer';
+type RemoteView = ProfileView;
 // "Nur Medien": Eingaben ausser Medientasten und den Bildschirm lehnt der PC ab.
 const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set([
   'touchpad',
@@ -156,6 +157,16 @@ export class RemoteControlComponent {
     }
   });
   protected readonly editMode = signal(false);
+  // Nur bei neuem Programm vorne, nicht bei jedem Profilwechsel (untracked): ein Wechsel von Hand
+  // bleibt so stehen, bis ein anderes Programm nach vorne kommt. Beim Bearbeiten springt nichts.
+  private readonly autoProfileEffect = effect(() => {
+    const app = this.remote.foregroundApp();
+    if (this.remote.autoProfile() && !this.editMode()) {
+      untracked(() => this.applyProfileView(this.layout.applyForegroundApp(app)?.view));
+    }
+  });
+  /** Tab von vor dem ersten automatischen Tabwechsel; ein Tabwechsel von Hand loescht ihn. */
+  private viewBeforeAuto: RemoteView | null = null;
   protected readonly editorOpen = signal(false);
   protected readonly editorTargetId = signal<string | null>(null);
   protected readonly editorInitialSteps = signal<readonly MacroStep[]>([]);
@@ -235,6 +246,34 @@ export class RemoteControlComponent {
   protected selectView(view: RemoteView): void {
     this.editMode.set(false);
     this.activeView.set(view);
+    this.viewBeforeAuto = null;
+  }
+
+  // Wie beim Profil: Tab des passenden Profils, ohne einen zurueck zum Tab von vorher. Einen Tab, den
+  // dieses Geraet gerade nicht hat (kein Controller-Treiber, "Nur Medien"), laesst es aus.
+  private applyProfileView(view: RemoteView | undefined): void {
+    if (view !== undefined && this.viewAvailable(view)) {
+      if (view !== this.activeView()) {
+        this.viewBeforeAuto ??= this.activeView();
+        this.activeView.set(view);
+      }
+      return;
+    }
+
+    if (this.viewBeforeAuto !== null) {
+      this.activeView.set(this.viewBeforeAuto);
+      this.viewBeforeAuto = null;
+    }
+  }
+
+  private viewAvailable(view: RemoteView): boolean {
+    return !(
+      (this.mediaOnly() && INPUT_VIEWS.has(view)) ||
+      (view === 'gamepad' && !this.gamepadAvailable()) ||
+      (view === 'system' && !this.systemStatsSupported()) ||
+      (view === 'mixer' && !this.mixerSupported()) ||
+      (view === 'screen' && !this.screenSupported())
+    );
   }
 
   protected toggleEditMode(): void {

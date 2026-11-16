@@ -294,6 +294,19 @@ export interface AppsWatchAction {
   readonly enabled: boolean;
 }
 
+/** Schaltet fuer diese Verbindung die Meldung des Programms im Vordergrund ein oder aus
+ *  (automatischer Profilwechsel, nur Windows). */
+export interface ForegroundAppWatchAction {
+  readonly type: 'foregroundApp';
+  readonly enabled: boolean;
+}
+
+/** Programm im Vordergrund am PC, Name wie im Mixer; `null` ohne Fenster im Vordergrund. */
+export interface ForegroundAppMessage {
+  readonly type: 'foregroundApp';
+  readonly name: string | null;
+}
+
 /** Setzt Lautstaerke (0-100) und/oder Stummschaltung einer App: per `id` aus dem Mixer oder per
  *  `name` aus einem eigenen Button (trifft alle Apps des Namens; ohne beides wird umgeschaltet). */
 export interface AppVolumeAction {
@@ -414,6 +427,7 @@ export type RemoteAction =
   | VoicemeeterWatchAction
   | VoicemeeterParameterAction
   | AppsWatchAction
+  | ForegroundAppWatchAction
   | AppVolumeAction
   | AudioOutputAction
   | LaunchAction

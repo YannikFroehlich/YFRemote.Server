@@ -7,6 +7,7 @@ import {
   REMOTE_AUTO_CONNECT,
   REMOTE_STORAGE,
   REMOTE_WEBSOCKET_FACTORY,
+  RemoteService,
   RemoteSocket,
 } from './remote/remote.service';
 import { DEVICE_NAME_BRIDGE } from './remote/pairing-gate.component';
@@ -14,6 +15,7 @@ import { PAIRING_FETCH } from './remote/pairing.service';
 import { PAIRING_HISTORY, PAIRING_TOKEN_STORAGE_KEY, PairingHistory } from './remote/pairing';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
 import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './remote/button-layout-profiles';
+import { ButtonLayoutService } from './remote/button-layout.service';
 import {
   MOUSE_SENSITIVITY_STORAGE_KEY,
   SERVER_LOCATION,
@@ -322,6 +324,33 @@ describe('App', () => {
     ).map((option) => option.textContent?.trim());
     expect(profileNames).toEqual(['Standard', 'Präsentation']);
     expect(storage.getItem(BUTTON_LAYOUT_PROFILES_STORAGE_KEY)).toContain('Präsentation');
+  });
+
+  it('opens the tab of the matching profile for the app in front and goes back without one', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+    const layout = TestBed.inject(ButtonLayoutService);
+    layout.createProfile('Folien');
+    const slides = layout.activeProfileId();
+    layout.setProfileApps(slides, ['PowerPoint']);
+    layout.setProfileView(slides, 'presentation');
+    layout.switchProfile('profile:standard');
+    TestBed.inject(RemoteService).saveAutoProfile(true);
+    sockets[0].open();
+    const activeTab = (): string | undefined =>
+      compiled.querySelector('.view-tab--active')?.textContent?.trim();
+
+    sockets[0].receive('{"type":"foregroundApp","name":"PowerPoint"}');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(activeTab()).toBe('Folien');
+    expect(layout.activeProfileId()).toBe(slides);
+
+    sockets[0].receive('{"type":"foregroundApp","name":"Explorer"}');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(activeTab()).toBe('Remote');
+    expect(layout.activeProfileId()).toBe('profile:standard');
   });
 
   it('revokes and clears the current device from the settings dialog', async () => {

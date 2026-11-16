@@ -112,21 +112,20 @@
         }
       </select>
     }
-    @if (fullscreenSupported) {
-      <button
-        class="snap-switch"
-        type="button"
-        role="switch"
-        [attr.aria-label]="i18n.t('screen.fullscreen')"
-        [attr.aria-checked]="fullscreen()"
-        (click)="toggleFullscreen()"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path [attr.d]="iconPaths.fullscreen"></path>
-        </svg>
-        <span>{{ i18n.t('screen.fullscreen') }}</span>
-      </button>
-    }
+    <button
+      class="snap-switch"
+      type="button"
+      role="switch"
+      [class.snap-switch--unsupported]="!fullscreenSupported"
+      [attr.aria-label]="i18n.t('screen.fullscreen')"
+      [attr.aria-checked]="fullscreen()"
+      (click)="toggleFullscreen()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path [attr.d]="iconPaths.fullscreen"></path>
+      </svg>
+      <span>{{ i18n.t('screen.fullscreen') }}</span>
+    </button>
   </div>
   @if (keyboardOpen()) {
     <!-- mousedown abgefangen: sonst verliert das Tastaturfeld den Fokus und die Tastatur geht zu. -->
@@ -206,6 +205,9 @@
     <p class="stats-waiting" role="status">{{ i18n.t('screen.stalled') }}</p>
   } @else if (frame() === null && !videoShown()) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
+  }
+  @if (fullscreenUnsupportedShown()) {
+    <p class="stats-waiting" role="status">{{ i18n.t('screen.fullscreenUnsupported') }}</p>
   }
   @if (soundFailed()) {
     <p class="stats-waiting">{{ i18n.t('screen.soundFailed') }}</p>

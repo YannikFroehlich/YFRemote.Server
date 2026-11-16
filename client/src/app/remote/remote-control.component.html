@@ -282,6 +282,18 @@
       }
     }
 
+    @if (homeScreenHint() && activeView() !== 'gamepad' && !fileOffer() && !pcNotification()) {
+      <div class="update-banner file-offer" role="status">
+        <span class="file-offer__title">{{ i18n.t('homeScreen.title') }}</span>
+        <span class="pc-notification__text">{{ i18n.t('homeScreen.text') }}</span>
+        <div class="file-offer__actions">
+          <button class="secondary-button" type="button" (click)="dismissHomeScreenHint()">
+            {{ i18n.t('homeScreen.dismiss') }}
+          </button>
+        </div>
+      </div>
+    }
+
     @if (pcNotification(); as notification) {
       @if (activeView() !== 'gamepad' && !fileOffer()) {
         <div class="update-banner file-offer" role="status">

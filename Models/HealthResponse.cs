@@ -10,7 +10,8 @@ namespace YFRemote.Server.Models;
 // zeigt - im LAN ohnehin sichtbar (NetBIOS/mDNS). Screen: GET /screen gibt es, der Client zeigt
 // dann den Tab "Bildschirm" - aeltere Server antworteten dort mit der Startseite. Audio: GET
 // /screen/audio gibt es, der Tab zeigt dann den Schalter "Ton". Touch: die Aktion "touch" gibt es,
-// der Tab zeigt den Schalter "Touch".
+// der Tab zeigt den Schalter "Touch". HttpsPort: HTTPS ist eingeschaltet, der Client fuehrt ein
+// iPhone ueber HTTP damit zur Zertifikatsinstallation und zur https-Adresse; null bei nur HTTP.
 public sealed record HealthResponse(
     string Status,
     string Service,
@@ -22,4 +23,5 @@ public sealed record HealthResponse(
     string? Name = null,
     bool Screen = false,
     bool Audio = false,
-    bool Touch = false);
+    bool Touch = false,
+    int? HttpsPort = null);

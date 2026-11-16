@@ -193,7 +193,10 @@ export class TouchpadComponent implements OnDestroy {
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   // Nur einmalig geprueft: Instanziieren allein fragt noch keine Mikrofon-Berechtigung an
   // (das passiert erst bei start()), daher ist ein Wegwerf-Objekt zum Testen unbedenklich.
-  protected readonly dictationSupported = this.createRecognizer() !== null;
+  // Safari ab 26 blendet die Spracherkennung ueber http://<LAN-IP> ganz aus. Der Knopf bleibt dort,
+  // damit startDictation den HTTPS-Hinweis zeigt, statt dass Diktieren spurlos fehlt.
+  protected readonly dictationSupported =
+    this.createRecognizer() !== null || !isTrustworthyOrigin(this.location);
   protected readonly dictating = signal(false);
   protected readonly fileSending = this.fileTransfer.sending;
   // Datei-, Zwischenablage- und Diktiermeldungen teilen sich eine Zeile - die neueste gewinnt.

@@ -21,13 +21,25 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- iPhone: Die Einstellungen führen über `http://` Schritt für Schritt zu HTTPS: Profil laden, installieren, Vertrauen einschalten, zur `https://`-Adresse wechseln. Der Server liefert das Zertifikat dafür zusätzlich als iOS-Konfigurationsprofil (`/ca.mobileconfig`), und `/health` meldet den HTTPS-Port.
+- iPhone: Ein einmaliger Hinweis empfiehlt im Safari-Tab "Zum Home-Bildschirm", weil Safari die Kopplung sonst nach 7 Tagen ohne Besuch vergisst.
+
 ### Changed
 
 - Windows-Installer im Aussehen von YFRemote: Der Assistent (`.msi`, mit Wahl von Installationsart und Zielordner) zeigt Logo und Farben der App und begrüßt und verabschiedet mit eigenen Texten. Das Fenster von `Setup.exe` zeigt beim Installieren das Logo statt eines leeren Fortschrittsbalkens.
 
 ### Fixed
 
+- iPhone: Die Bildschirmtastatur verdeckt keine Felder und Knöpfe mehr. Die App und Dialoge enden über der Tastatur, weil Safari dafür weder das Layout noch `dvh` verkleinert.
+
 - Bildschirm-Ansicht: Der Schalter "Touch" in der Leiste hat jetzt ein Symbol wie die anderen Schalter. Im Vollbild war er bisher eine leere Taste.
+- iPhone: Safari vergrößert die Seite nicht mehr beim Antippen eines Eingabe- oder Auswahlfelds. Auswahlfelder nutzen überall die Schrift der App statt einer Serifenschrift.
+- iPhone: Was das Gerät nicht kann, steht jetzt sichtbar da statt still zu fehlen: "Vibration bei Tastendruck" und der automatische Zwischenablage-Abgleich sind ausgegraut mit "Auf diesem Gerät nicht unterstützt", der Vollbild-Knopf der Bildschirm-Ansicht erklärt das beim Antippen, und der Controller meldet fehlendes Vollbild und fehlende Vibration (Rumble) in seiner Statuszeile.
+- iPhone: Der Mikrofon-Knopf im Touchpad erscheint über `http://` wieder und zeigt den HTTPS-Hinweis. Safari 26 blendet die Spracherkennung dort ganz aus, der Knopf fehlte deshalb ohne Erklärung.
+- iPhone: "Gerät klingeln lassen" ist hörbar, sobald die Seite einmal angetippt wurde. Der PC-Ton der Bildschirm-Ansicht spielt auch bei eingeschaltetem Stummschalter.
+- Verbindung: Ein Verbindungsaufbau ohne Antwort bricht nach 8 Sekunden ab und versucht es neu. Nach der Rückkehr in die App wird sofort neu verbunden. iOS ließ den Aufbau nach dem Hintergrund bisher endlos bei "Verbinde..." hängen.
 
 ## [2.56.0] - 2026-11-16
 

@@ -141,6 +141,9 @@ export class RemoteControlComponent {
   protected readonly mediaOnly = this.remote.mediaOnly;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
+  /** Klein unter der Statusanzeige: Adresse, Neu verbinden, Trennen - frueher eine eigene Zeile. */
+  protected readonly connectionMenuOpen = signal(false);
+  protected readonly serverName = this.remote.serverName;
   protected readonly activeView = signal<RemoteView>('remote');
   // Den Mixer gibt es nur auf PC-Servern, die Systemanzeige nur mit bekanntem Server. Fallen sie weg
   // (Android-Server, /health fehlgeschlagen) oder sperrt der PC Eingaben, verschwinden Tabs - ohne
@@ -209,6 +212,12 @@ export class RemoteControlComponent {
     this.remote.sendAction({ type: 'shutdownTimer', minutes: 0 });
   }
 
+  protected sendMediaKey(
+    key: 'MEDIA_PREVIOUS' | 'MEDIA_PLAY_PAUSE' | 'MEDIA_NEXT' | 'VOLUME_MUTE',
+  ): void {
+    this.remote.sendAction({ type: 'key', keys: [key] });
+  }
+
   protected setVolume(event: Event): void {
     const volume = (event.target as HTMLInputElement).valueAsNumber;
     this.remote.sendAction({ type: 'volume', volume });
@@ -236,11 +245,21 @@ export class RemoteControlComponent {
   }
 
   protected reconnect(): void {
+    this.connectionMenuOpen.set(false);
     this.remote.reconnect();
   }
 
   protected disconnect(): void {
+    this.connectionMenuOpen.set(false);
     this.remote.disconnect();
+  }
+
+  protected toggleConnectionMenu(): void {
+    this.connectionMenuOpen.update((open) => !open);
+  }
+
+  protected closeConnectionMenu(): void {
+    this.connectionMenuOpen.set(false);
   }
 
   protected selectView(view: RemoteView): void {

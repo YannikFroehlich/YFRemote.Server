@@ -59,4 +59,20 @@ public sealed class WindowsAudioCaptureTests
         Assert.HasCount(3, gains);
         Assert.AreEqual((Half, Half), gains[2]);
     }
+
+    // Zwei [ComImport]-Klassen mit derselben CLSID brechen sich gegenseitig, sobald beide
+    // denselben Enumerator gleichzeitig halten (Ton des Bildschirms + Lautstaerketaste).
+    [TestMethod]
+    public void ComImportClasses_HaveDistinctClsids()
+    {
+        var duplicates = typeof(WindowsAudioCapture).Assembly
+            .GetTypes()
+            .Where(type => type.IsClass && type.IsImport)
+            .GroupBy(type => type.GUID)
+            .Where(group => group.Count() > 1)
+            .Select(group => string.Join(", ", group.Select(type => type.FullName)))
+            .ToArray();
+
+        Assert.IsEmpty(duplicates, string.Join("; ", duplicates));
+    }
 }

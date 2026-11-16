@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Windows-Installer im Aussehen von YFRemote: Der Assistent (`.msi`, mit Wahl von Installationsart und Zielordner) zeigt Logo und Farben der App und begrüßt und verabschiedet mit eigenen Texten. Das Fenster von `Setup.exe` zeigt beim Installieren das Logo statt eines leeren Fortschrittsbalkens.
+
 ### Fixed
 
 - Bildschirm-Ansicht: Der Schalter "Touch" in der Leiste hat jetzt ein Symbol wie die anderen Schalter. Im Vollbild war er bisher eine leere Taste.

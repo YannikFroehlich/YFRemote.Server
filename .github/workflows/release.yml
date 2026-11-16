@@ -159,6 +159,12 @@ jobs:
           --noPortable
           --instLocation Either
           --shortcuts StartMenuRoot
+          --splashImage branding/installer/splash.png
+          --splashProgressColor "#38BDF8"
+          --msiTopBanner branding/installer/msi-banner.bmp
+          --msiDialogBackground branding/installer/msi-dialog.bmp
+          --instWelcome branding/installer/welcome.txt
+          --instConclusion branding/installer/conclusion.txt
 
       - name: GitHub Release veroeffentlichen
         shell: pwsh

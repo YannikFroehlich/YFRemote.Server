@@ -129,6 +129,8 @@ interface RemoteServiceSetup {
   readonly health?: object;
   /** Ersetzt PAIRING_FETCH ganz, z. B. fuer `GET /media/cover`. */
   readonly fetch?: typeof fetch;
+  /** Speicher einer frueheren Sitzung, fuer "Seite neu geladen". */
+  readonly storage?: MemoryStorage;
 }
 
 /** `RemoteService`-Tests testen kein Pairing-HTTP-Verhalten; falls ein gespeichertes
@@ -432,6 +434,24 @@ describe('RemoteService', () => {
     sockets[0].receive(JSON.stringify({ ...offer, id: 'o2' }));
 
     expect(remote.fileOffer()?.id).toBe('o2');
+  });
+
+  it('keeps a handled file offer hidden after the page is reloaded', () => {
+    const first = setupRemoteService();
+    const offer = { type: 'fileOffer', id: 'o1', name: 'bild.png', size: 2048 };
+    first.remote.connect();
+    first.sockets[0].open();
+    first.sockets[0].receive(JSON.stringify(offer));
+    first.remote.dismissFileOffer();
+    TestBed.resetTestingModule();
+
+    // Die Android-App baut die Seite bei jedem Oeffnen neu auf; das Angebot gilt am PC noch.
+    const reloaded = setupRemoteService({ storage: first.storage });
+    reloaded.remote.connect();
+    reloaded.sockets[0].open();
+    reloaded.sockets[0].receive(JSON.stringify(offer));
+
+    expect(reloaded.remote.fileOffer()).toBeNull();
   });
 
   it('rings on the PC request until stopped, also across a lost connection', () => {
@@ -1001,7 +1021,7 @@ function setupRemoteService(options: RemoteServiceSetup = {}): RemoteServiceHarn
   vi.useFakeTimers();
 
   const sockets: MockRemoteSocket[] = [];
-  const storage = new MemoryStorage();
+  const storage = options.storage ?? new MemoryStorage();
   const serverLocation = new FakeServerLocation(options.serverUrl);
   const vibrations: number[] = [];
 

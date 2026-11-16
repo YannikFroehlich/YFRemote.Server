@@ -30,6 +30,7 @@ import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
   AUTO_PROFILE_STORAGE_KEY,
+  DISMISSED_FILE_OFFER_STORAGE_KEY,
   CLIPBOARD_SYNC_STORAGE_KEY,
   PC_NOTIFICATIONS_STORAGE_KEY,
   getServerConfigFromLocation,
@@ -208,9 +209,10 @@ export class RemoteService implements OnDestroy {
   private voicemeeterWatched = false;
   private readonly appsSignal = signal<AppVolumesMessage | null>(null);
   private appsWatched = false;
-  // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
-  // wieder auftauchen.
-  private dismissedFileOfferId: string | null = null;
+  // Der Server schickt das Angebot bei jedem Verbinden erneut - ein angenommenes oder verworfenes
+  // soll dann nicht wieder auftauchen, auch nicht nach einem Neuladen der Seite (die Android-App
+  // baut sie bei jedem Oeffnen neu auf), solange es noch gilt.
+  private dismissedFileOfferId: string | null = this.readStorage(DISMISSED_FILE_OFFER_STORAGE_KEY);
 
   private socket: RemoteSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -765,7 +767,11 @@ export class RemoteService implements OnDestroy {
   }
 
   dismissFileOffer(): void {
-    this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
+    const id = this.fileOfferSignal()?.id;
+    if (id !== undefined) {
+      this.dismissedFileOfferId = id;
+      this.storage?.setItem(DISMISSED_FILE_OFFER_STORAGE_KEY, id);
+    }
     this.fileOfferSignal.set(null);
   }
 

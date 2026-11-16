@@ -9,7 +9,8 @@
         </div>
       </div>
 
-      <div class="top-controls">
+      <!-- Escape hier statt am Menue: nach dem Antippen liegt der Fokus noch auf der Statusanzeige. -->
+      <div class="top-controls" (keydown.escape)="closeConnectionMenu()">
         <span class="visually-hidden" role="status" aria-live="polite">
           {{ statusLabel(status()) }}
         </span>
@@ -47,7 +48,7 @@
 
         @if (connectionMenuOpen()) {
           <div class="connection-menu__backdrop" (click)="closeConnectionMenu()"></div>
-          <div class="connection-menu" role="menu" (keydown.escape)="closeConnectionMenu()">
+          <div class="connection-menu" role="menu">
             <div class="connection-menu__identity">
               <span>{{ statusLabel(status()) }}</span>
               <strong>{{ config().host }}:{{ config().port }}</strong>

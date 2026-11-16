@@ -29,6 +29,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
   - Medienleiste: Sie hat jetzt eigene Tasten für "Vorheriger", "Play/Pause" und "Nächster". Ein Tippen auf das Lautsprecher-Symbol schaltet stumm. Auf dem Handy steht der Titel in einer eigenen Zeile.
   - Remote-Tab: Play, Leiser, Lauter, Stumm, Vorheriger und Nächster sind aus dem Standardlayout verschwunden, weil die Medienleiste sie schon hat. Ruhemodus, Neustart, Herunterfahren, Sperren, Bildschirm aus und Timer stecken jetzt hinter einer Taste "Energie", die sie in einem Dialog anbietet, mit derselben Rückfrage wie bisher. Wer das Standardlayout nie verändert hat, bekommt das neue automatisch. Ein angepasstes Layout bleibt, wie es ist, und erhält nur die Taste "Energie" dazu. "Zurücksetzen" im Bearbeiten-Modus führt zum neuen Standard. Die ausgeblendeten Tasten lassen sich dort einzeln wieder einblenden.
 
+### Fixed
+
+- Dateiangebot: Ein angenommenes oder abgelehntes Angebot tauchte wieder auf, sobald die Seite neu geladen wurde, solange es am PC noch galt (10 Minuten). In der Android-App passierte das bei jedem Öffnen der Fernbedienung. Das Gerät merkt sich jetzt, welches Angebot erledigt ist.
+- Android-App, "Gerät klingeln lassen": Lief der Weckerton beim ersten Mal nicht an und kam das Klingeln ein zweites Mal, blieb die Wecker-Lautstärke nach "Stopp" auf Maximum. Jetzt kommt die ursprüngliche Lautstärke zurück.
+- Das Verbindungsmenü unter der Statusanzeige schließt jetzt auch mit Escape, wenn der Fokus noch auf der Statusanzeige liegt.
+
 ## [2.55.0] - 2026-11-16
 
 ### Added

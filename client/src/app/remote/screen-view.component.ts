@@ -107,10 +107,9 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
-  // Auf dem iPhone gibt es kein Vollbild. Der Knopf bleibt trotzdem, damit ein Tipp erklaert,
-  // warum, statt dass die Funktion einfach fehlt.
+  // Auf dem iPhone gibt es kein Element-Vollbild; dort fuellt die Ansicht per CSS den sichtbaren
+  // Bereich (.screen-view--fullscreen), und fullscreen() steht fuer beides.
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
-  protected readonly fullscreenUnsupportedShown = signal(false);
   protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
@@ -922,7 +921,10 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected async toggleFullscreen(): Promise<void> {
     if (!this.fullscreenSupported) {
-      this.fullscreenUnsupportedShown.update((shown) => !shown);
+      this.fullscreen.update((on) => !on);
+      this.menuOpen.set(false);
+      // Wie beim echten Vollbild: das Video in der neuen Breite holen.
+      this.videoAbort?.abort();
       return;
     }
 

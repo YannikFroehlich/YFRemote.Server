@@ -596,10 +596,6 @@ export const TRANSLATIONS = {
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
   'screen.keys': { de: 'Sondertasten', en: 'Special keys' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
-  'screen.fullscreenUnsupported': {
-    de: 'Vollbild wird auf diesem Gerät nicht unterstützt. Für mehr Platz das Handy quer halten.',
-    en: 'Fullscreen is not supported on this device. Turn your phone sideways for more room.',
-  },
   'screen.menu': { de: 'Optionen', en: 'Options' },
   'screen.monitor': { de: 'Monitor', en: 'Monitor' },
   'screen.monitor.primary': {

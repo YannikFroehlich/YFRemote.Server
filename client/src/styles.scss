@@ -1138,7 +1138,7 @@ h2 {
 
 // Im Vollbild fuellt das Bild den Rest; object-fit haelt das Seitenverhaeltnis, den Klick
 // rechnet die Komponente auf das eigentliche Bild um.
-.screen-view:fullscreen {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) {
   // Das Logo bleibt ganz sichtbar, auch wenn es an den Rand gezogen oder das Geraet gedreht wird.
   --handle-left: clamp(30px, calc(var(--handle-x) * 100%), calc(100% - 30px));
   --handle-top: clamp(30px, calc(var(--handle-y) * 100%), calc(100% - 30px));
@@ -1147,11 +1147,27 @@ h2 {
   background: var(--app-bg);
 }
 
+// Ersatz-Vollbild fuer das iPhone, das kein Element-Vollbild kennt: die Ansicht fuellt den
+// sichtbaren Bereich ueber der App. Ohne Tastatur und Notch-Raender, die dort bleiben muessen.
+.screen-view--fullscreen {
+  position: fixed;
+  inset: 0 0 var(--keyboard-inset, 0px);
+  z-index: 45;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+// backdrop-filter macht das Panel zum Bezugsrahmen fuer position: fixed - die Ansicht bliebe
+// sonst im Panel gefangen.
+.remote-panel:has(.screen-view--fullscreen) {
+  backdrop-filter: none;
+}
+
 .screen-view__handle {
   display: none;
 }
 
-.screen-view:fullscreen .screen-view__handle {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__handle {
   position: absolute;
   top: var(--handle-top);
   left: var(--handle-left);
@@ -1178,7 +1194,7 @@ h2 {
   pointer-events: none;
 }
 
-.screen-view:fullscreen .screen-view__stage {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__stage {
   flex: 1 1 0;
   min-height: 0;
   border: 0;
@@ -1186,14 +1202,14 @@ h2 {
   background: transparent;
 }
 
-.screen-view:fullscreen .screen-view__image {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__image {
   height: 100%;
   object-fit: contain;
 }
 
 // Im Vollbild schweben Schalter, Tastaturfeld und Hinweise ueber dem Bild, statt ihm Hoehe
 // wegzunehmen; die Schalter dann nur als Symbol.
-.screen-view:fullscreen .screen-view__toolbar {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar {
   position: absolute;
   top: calc(var(--handle-top) + 28px);
   right: calc(100% - var(--handle-left) - 22px);
@@ -1202,23 +1218,23 @@ h2 {
   max-width: calc(var(--handle-left) + 12px);
 }
 
-.screen-view:fullscreen .screen-view__toolbar--closed {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar--closed {
   display: none;
 }
 
-.screen-view:fullscreen .screen-view__toolbar--left {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar--left {
   right: auto;
   left: calc(var(--handle-left) - 22px);
   justify-content: flex-start;
   max-width: calc(100% - var(--handle-left) + 12px);
 }
 
-.screen-view:fullscreen .screen-view__toolbar--up {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar--up {
   top: auto;
   bottom: calc(100% - var(--handle-top) + 28px);
 }
 
-.screen-view:fullscreen .screen-view__toolbar .snap-switch {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch {
   min-width: 42px;
   min-height: 42px;
   justify-content: center;
@@ -1227,20 +1243,20 @@ h2 {
   backdrop-filter: blur(6px);
 }
 
-.screen-view:fullscreen .screen-view__quality {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__quality {
   min-height: 42px;
   background: rgba(var(--overlay-rgb), 0.72);
 }
 
-.screen-view:fullscreen .screen-view__toolbar .snap-switch span {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch span {
   display: none;
 }
 
-.screen-view:fullscreen .screen-view__toolbar .snap-switch[aria-checked='true'] {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch[aria-checked='true'] {
   background: rgba(var(--accent-rgb), 0.3);
 }
 
-.screen-view:fullscreen .stats-waiting {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .stats-waiting {
   position: absolute;
   top: 10px;
   left: 10px;
@@ -2481,11 +2497,6 @@ a.secondary-button {
   background: var(--accent-soft);
   color: var(--accent);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.07);
-}
-
-// Bleibt antippbar, erklaert dann aber nur, dass das Geraet die Funktion nicht kann.
-.snap-switch--unsupported {
-  opacity: 0.48;
 }
 
 .key-chip:disabled {

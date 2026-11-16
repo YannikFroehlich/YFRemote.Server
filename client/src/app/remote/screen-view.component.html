@@ -1,4 +1,10 @@
-<div #view class="screen-view" [style.--handle-x]="handle().x" [style.--handle-y]="handle().y">
+<div
+  #view
+  class="screen-view"
+  [class.screen-view--fullscreen]="fullscreen() && !fullscreenSupported"
+  [style.--handle-x]="handle().x"
+  [style.--handle-y]="handle().y"
+>
   <!-- Im Vollbild bleibt nur das Logo uebers Bild: Tippen klappt die Optionen auf, Ziehen verschiebt es. -->
   @if (fullscreen()) {
     <button
@@ -116,7 +122,6 @@
       class="snap-switch"
       type="button"
       role="switch"
-      [class.snap-switch--unsupported]="!fullscreenSupported"
       [attr.aria-label]="i18n.t('screen.fullscreen')"
       [attr.aria-checked]="fullscreen()"
       (click)="toggleFullscreen()"
@@ -205,9 +210,6 @@
     <p class="stats-waiting" role="status">{{ i18n.t('screen.stalled') }}</p>
   } @else if (frame() === null && !videoShown()) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
-  }
-  @if (fullscreenUnsupportedShown()) {
-    <p class="stats-waiting" role="status">{{ i18n.t('screen.fullscreenUnsupported') }}</p>
   }
   @if (soundFailed()) {
     <p class="stats-waiting">{{ i18n.t('screen.soundFailed') }}</p>

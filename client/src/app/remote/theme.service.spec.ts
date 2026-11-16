@@ -20,6 +20,7 @@ function setup(initial: Record<string, string> = {}) {
   const root = document.documentElement;
   delete root.dataset['mode'];
   delete root.dataset['style'];
+  delete root.dataset['motion'];
   root.removeAttribute('style');
   return { theme: TestBed.inject(ThemeService), values, root };
 }
@@ -41,6 +42,24 @@ describe('ThemeService', () => {
       props: {},
       themeColor: null,
     });
+  });
+
+  it('turns animations off and on again and restores the choice after a reload', () => {
+    const { theme, values, root } = setup();
+    expect(theme.animations()).toBe(true);
+    expect(root.dataset['motion']).toBeUndefined();
+
+    theme.saveAnimations(false);
+    expect(values.get('yfremote.animations')).toBe('false');
+    expect(root.dataset['motion']).toBe('off');
+
+    TestBed.resetTestingModule();
+    const reloaded = setup({ 'yfremote.animations': 'false' });
+    expect(reloaded.theme.animations()).toBe(false);
+    expect(reloaded.root.dataset['motion']).toBe('off');
+
+    reloaded.theme.saveAnimations(true);
+    expect(reloaded.root.dataset['motion']).toBeUndefined();
   });
 
   it('saves, activates and deletes custom themes', () => {

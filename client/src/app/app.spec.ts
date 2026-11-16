@@ -182,6 +182,23 @@ describe('App', () => {
     expect(pill?.getAttribute('aria-expanded')).toBe('true');
   });
 
+  it('slides a new tab in from the side its tab is on', async () => {
+    const { fixture } = await setupApp();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const panel = compiled.querySelector('.remote-panel--app') as HTMLElement;
+
+    // Beim Start noch keine Richtung: dann laufen die Tasten als Welle ein.
+    expect(panel.hasAttribute('data-enter')).toBe(false);
+
+    queryButtonByText(compiled, 'Touchpad').click();
+    fixture.detectChanges();
+    expect(panel.getAttribute('data-enter')).toBe('forward');
+
+    queryButtonByText(compiled, 'Remote').click();
+    fixture.detectChanges();
+    expect(panel.getAttribute('data-enter')).toBe('back');
+  });
+
   it('reconnects from the connection menu and closes it', async () => {
     const { fixture, sockets } = await setupApp({ autoConnect: true });
     const compiled = fixture.nativeElement as HTMLElement;

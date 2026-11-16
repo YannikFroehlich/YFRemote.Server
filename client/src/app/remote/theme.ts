@@ -10,6 +10,8 @@ export const CUSTOM_THEMES_STORAGE_KEY = 'yfremote.customThemes';
 export const ACTIVE_CUSTOM_THEME_STORAGE_KEY = 'yfremote.activeCustomTheme';
 /** Fertig berechnetes Theme für das Inline-Skript in index.html (siehe AppliedTheme). */
 export const APPLIED_THEME_STORAGE_KEY = 'yfremote.appliedTheme';
+/** "false" schaltet die Animationen aus; index.html liest denselben Schluessel. */
+export const ANIMATIONS_STORAGE_KEY = 'yfremote.animations';
 export const MAX_CUSTOM_THEMES = 20;
 export const MAX_CUSTOM_THEME_NAME_LENGTH = 30;
 

@@ -18,9 +18,11 @@
     // falsche Stil auf. ThemeService speichert es fertig berechnet (AppliedTheme in theme.ts).
     (function () {
       try {
+        var root = document.documentElement;
+        // Schalter "Animationen" (ThemeService): aus, bevor die Eingangsanimation beginnt.
+        if (localStorage.getItem('yfremote.animations') === 'false') root.dataset.motion = 'off';
         var theme = JSON.parse(localStorage.getItem('yfremote.appliedTheme'));
         if (!theme) return;
-        var root = document.documentElement;
         if (theme.mode) root.dataset.mode = theme.mode;
         if (theme.style) root.dataset.style = theme.style;
         Object.keys(theme.props || {}).forEach(function (name) {

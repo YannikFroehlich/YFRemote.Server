@@ -239,6 +239,18 @@
           }
         </label>
 
+        <button
+          class="snap-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="form.controls.animations.value"
+          (click)="toggleSetting('animations')"
+        >
+          <span class="switch-indicator" aria-hidden="true"></span>
+          <span>{{ i18n.t('settings.animations') }}</span>
+        </button>
+        <p class="settings-hint">{{ i18n.t('settings.animations.hint') }}</p>
+
         <fieldset class="field style-picker">
           <legend>{{ i18n.t('settings.style.legend') }}</legend>
           <div class="style-picker__options">
@@ -358,7 +370,11 @@
             </label>
             <label class="field" for="profile-view">
               <span>{{ i18n.t('settings.profiles.view.label') }}</span>
-              <select id="profile-view" [value]="activeProfileView()" (change)="saveProfileView($event)">
+              <select
+                id="profile-view"
+                [value]="activeProfileView()"
+                (change)="saveProfileView($event)"
+              >
                 <option value="">{{ i18n.t('settings.profiles.view.keep') }}</option>
                 @for (view of profileViews; track view.value) {
                   <option [value]="view.value">{{ i18n.t(view.label) }}</option>
@@ -367,7 +383,9 @@
             </label>
             @if (foregroundApp(); as app) {
               <div class="profile-actions">
-                <span class="settings-hint">{{ i18n.t('settings.profiles.apps.current', { app }) }}</span>
+                <span class="settings-hint">{{
+                  i18n.t('settings.profiles.apps.current', { app })
+                }}</span>
                 <button class="secondary-button" type="button" (click)="addForegroundApp(app)">
                   {{ i18n.t('settings.profiles.apps.add') }}
                 </button>

@@ -21,7 +21,18 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Einstellungen, "Darstellung": Der neue Schalter "Animationen" (standardmäßig an) schaltet alle Bewegungen der Oberfläche ab. Tabs, Dialoge und Tasten erscheinen dann sofort. "Bewegung reduzieren" des Geräts gilt wie bisher in jedem Fall.
+
 ### Changed
+
+- Animationen folgen jetzt der Bedienung:
+  - Beim Tabwechsel kommt der neue Inhalt von der Seite, auf der sein Tab liegt, wie beim Wischen. Bisher kam jeder Tab von unten.
+  - Die Remote-Tasten laufen nur noch beim Start als Welle ein, nicht mehr bei jeder Rückkehr in den Tab.
+  - Der Name des offenen Tabs klappt weich auf, statt zu springen.
+  - Das Verbindungsmenü klappt aus der Statusanzeige auf und dorthin wieder zu.
+  - Mit "Bewegung reduzieren" des Geräts waren die Remote-Tasten beim Start kurz unsichtbar, weil ihre Verzögerung blieb. Jetzt erscheinen sie sofort.
 
 - Fernbedienung aufgeräumt, damit auf dem Handy mehr Platz für die Tasten bleibt:
   - Kopf: Die eigene Zeile mit der aktiven Adresse ist weg. Die Statusanzeige zeigt verbunden den Namen des Rechners, z. B. "YUNNIK-LAPTOP". Ein Tippen darauf öffnet ein kleines Menü mit der Adresse, "Neu verbinden" und "Verbindung trennen". Auf dem Handy steht im Kopf nur noch das Logo.

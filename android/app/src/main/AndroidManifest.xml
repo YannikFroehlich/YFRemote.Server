@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- "Im Hintergrund erreichbar" (RingListenerService) nach einem Neustart wieder einschalten. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Haptik des Web-Clients (navigator.vibrate) im WebView von RemoteWebActivity. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Selbst-Update aus dem GitHub-Release (update/AppUpdate.kt). -->
@@ -114,6 +116,20 @@
             android:name=".remote.RemoteMediaService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
+
+        <!-- Nur mit "Im Hintergrund erreichbar": wartet auf "Gerät klingeln lassen" der PCs. -->
+        <service
+            android:name=".remote.RingListenerService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <receiver
+            android:name=".remote.RingListenerService$BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Eine Taste des Medien-Widgets, nur bis zur Antwort des Geraets. -->
         <service

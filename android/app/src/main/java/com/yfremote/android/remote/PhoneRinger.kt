@@ -1,6 +1,5 @@
 package com.yfremote.android.remote
 
-import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,45 +13,48 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.yfremote.android.R
 
 // "Gerät klingeln lassen" im Tray des PCs: Der Web-Client ruft YFRemoteRing.start() auf
-// (client/src/app/remote/ring-player.ts). Gespielt wird ueber den Wecker-Kanal mit voller Lautstaerke,
-// damit das Handy auch lautlos oder im Vibrationsmodus zu hoeren ist; die vorige Wecker-Lautstaerke
-// kommt beim Stoppen zurueck. "Stopp" in der Benachrichtigung meldet sich mit onStopped zurueck.
-internal class PhoneRinger(
-    private val activity: Activity,
-    private val onStopped: () -> Unit,
-) {
-    private val notifications = activity.getSystemService(NotificationManager::class.java)
-    private val audio = activity.getSystemService(AudioManager::class.java)
+// (client/src/app/remote/ring-player.ts), bei geschlossener App RingListenerService. Einmal pro
+// Prozess, damit beide zusammen nur einen Ton spielen. Gespielt wird ueber den Wecker-Kanal mit
+// voller Lautstaerke, damit das Handy auch lautlos oder im Vibrationsmodus zu hoeren ist; die vorige
+// Wecker-Lautstaerke kommt beim Stoppen zurueck. "Stopp" in der Benachrichtigung meldet sich bei den
+// Zuhoerern zurueck (der Web-Client blendet dann sein Vollbild aus).
+internal object PhoneRinger {
+    private const val CHANNEL_ID = "yfremote_ring"
+    private const val NOTIFICATION_ID = 4
+    private const val ACTION_STOP = "com.yfremote.android.RING_STOP"
+
+    private val main = Handler(Looper.getMainLooper())
+    private var context: Context? = null
     private var player: MediaPlayer? = null
     private var previousVolume: Int? = null
+    private val stopListeners = mutableSetOf<() -> Unit>()
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             stop()
-            onStopped()
+            stopListeners.toList().forEach { it() }
         }
     }
 
-    init {
-        ContextCompat.registerReceiver(activity, receiver, IntentFilter(ACTION_STOP), ContextCompat.RECEIVER_NOT_EXPORTED)
-        if (notifications.getNotificationChannel(CHANNEL_ID) == null) {
-            notifications.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, activity.getString(R.string.ring_channel_name), NotificationManager.IMPORTANCE_HIGH),
-            )
-        }
-    }
+    fun addStopListener(listener: () -> Unit) = main.post { stopListeners += listener }
 
-    fun start() {
-        if (player != null) return
+    fun removeStopListener(listener: () -> Unit) = main.post { stopListeners -= listener }
+
+    fun start(caller: Context) = main.post {
+        val app = init(caller)
+        if (player != null) return@post
+        val audio = app.getSystemService(AudioManager::class.java)
         previousVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
         runCatching { audio.setStreamVolume(AudioManager.STREAM_ALARM, audio.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) }
-        val uri = RingtoneManager.getActualDefaultRingtoneUri(activity, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getActualDefaultRingtoneUri(activity, RingtoneManager.TYPE_RINGTONE)
+        val uri = RingtoneManager.getActualDefaultRingtoneUri(app, RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getActualDefaultRingtoneUri(app, RingtoneManager.TYPE_RINGTONE)
             ?: Settings.System.DEFAULT_NOTIFICATION_URI
         player = runCatching {
             MediaPlayer().apply {
@@ -62,59 +64,60 @@ internal class PhoneRinger(
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build(),
                 )
-                setDataSource(activity, uri)
+                setDataSource(app, uri)
                 isLooping = true
                 prepare()
                 start()
             }
         }.getOrNull()
-        showNotification()
+        showNotification(app)
     }
 
-    fun stop() {
+    fun stop() = main.post {
+        val app = context ?: return@post
         player?.run {
             runCatching { stop() }
             release()
         }
         player = null
-        previousVolume?.let { runCatching { audio.setStreamVolume(AudioManager.STREAM_ALARM, it, 0) } }
+        previousVolume?.let { volume ->
+            runCatching { app.getSystemService(AudioManager::class.java).setStreamVolume(AudioManager.STREAM_ALARM, volume, 0) }
+        }
         previousVolume = null
-        notifications.cancel(NOTIFICATION_ID)
+        app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
 
-    fun release() {
-        stop()
-        activity.unregisterReceiver(receiver)
+    private fun init(caller: Context): Context = context ?: caller.applicationContext.also { app ->
+        context = app
+        ContextCompat.registerReceiver(app, receiver, IntentFilter(ACTION_STOP), ContextCompat.RECEIVER_NOT_EXPORTED)
+        val notifications = app.getSystemService(NotificationManager::class.java)
+        if (notifications.getNotificationChannel(CHANNEL_ID) == null) {
+            notifications.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, app.getString(R.string.ring_channel_name), NotificationManager.IMPORTANCE_HIGH),
+            )
+        }
     }
 
-    private fun showNotification() {
-        val open = PendingIntent.getActivity(
-            activity,
-            0,
-            Intent(activity, RemoteWebActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
+    private fun showNotification(app: Context) {
+        // Oeffnet die App; ein gesteuertes Geraet laesst sich ohne dessen Adresse nicht direkt oeffnen.
+        val open = app.packageManager.getLaunchIntentForPackage(app.packageName)?.let {
+            PendingIntent.getActivity(app, 0, it, PendingIntent.FLAG_IMMUTABLE)
+        }
         val stop = PendingIntent.getBroadcast(
-            activity,
+            app,
             0,
-            Intent(ACTION_STOP).setPackage(activity.packageName),
+            Intent(ACTION_STOP).setPackage(app.packageName),
             PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = Notification.Builder(activity, CHANNEL_ID)
+        val notification = Notification.Builder(app, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(activity.getString(R.string.ring_title))
-            .setContentIntent(open)
+            .setContentTitle(app.getString(R.string.ring_title))
+            .setContentIntent(open ?: stop)
             .setDeleteIntent(stop)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setCategory(Notification.CATEGORY_ALARM)
-            .addAction(Notification.Action.Builder(Icon.createWithResource(activity, R.drawable.ic_notification), activity.getString(R.string.ring_stop), stop).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(app, R.drawable.ic_notification), app.getString(R.string.ring_stop), stop).build())
             .build()
-        runCatching { notifications.notify(NOTIFICATION_ID, notification) }
-    }
-
-    private companion object {
-        const val CHANNEL_ID = "yfremote_ring"
-        const val NOTIFICATION_ID = 4
-        const val ACTION_STOP = "com.yfremote.android.RING_STOP"
+        runCatching { app.getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification) }
     }
 }

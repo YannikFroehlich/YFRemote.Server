@@ -11,6 +11,8 @@
     <string name="ring_channel_name">Gerät suchen</string>
     <string name="ring_title">Der PC sucht dieses Gerät</string>
     <string name="ring_stop">Stopp</string>
+    <string name="listener_channel_name">Im Hintergrund erreichbar</string>
+    <string name="listener_title">Erreichbar für „Gerät klingeln lassen“</string>
     <string name="widget_description">Wiedergabe und Lautstärke des zuletzt geöffneten Geräts</string>
     <string name="widget_no_device">Zuerst ein Gerät in YFRemote öffnen</string>
     <string name="widget_volume_down">Leiser</string>

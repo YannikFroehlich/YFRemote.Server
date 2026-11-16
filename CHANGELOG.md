@@ -24,6 +24,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Tray: "Gerät klingeln lassen" lässt ein verbundenes Gerät klingeln, bis man dort "Klingeln beenden" tippt. In der Android-App klingelt es mit dem Weckerton und voller Lautstärke, auch wenn das Handy lautlos ist, und lässt sich in der Benachrichtigung stoppen. Im Browser piept die offene Seite und vibriert. Das Gerät muss dafür verbunden sein, also die Fernbedienung offen haben.
+- Android-App, Tab "Steuern": Mit "Im Hintergrund erreichbar" klingelt "Gerät klingeln lassen" auch, wenn die App geschlossen ist. Der Schalter ist standardmäßig aus und bleibt nach einem Neustart des Handys an. Die App hält dafür eine Verbindung zu jedem gekoppelten PC offen, was etwas Akku kostet, und zeigt eine dauerhafte, stille Benachrichtigung. Über diese Verbindung schickt der PC nur das Klingeln, keine Medienmeldungen.
 
 ## [2.54.0] - 2026-11-15
 

@@ -134,6 +134,49 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_Background_GetsTheRingButNoMediaOfferOrTimer()
+    {
+        var offeredFile = Path.GetTempFileName();
+        try
+        {
+            var registry = new WebSocketConnectionRegistry();
+            var deviceId = Guid.NewGuid();
+            var fileOfferService = new FileOfferService(TimeProvider.System);
+            fileOfferService.Offer(offeredFile);
+            using var shutdownTimer = new ShutdownTimer(new NoOpPowerService(), NullLogger<ShutdownTimer>.Instance);
+            shutdownTimer.Schedule(TimeSpan.FromMinutes(10), "Handy");
+            var mediaStatus = new PollingBroadcaster<MediaStatusMessage>(
+                () => Task.FromResult(new MediaStatusMessage(40, false, "Song", "Band", true)),
+                Timeout.InfiniteTimeSpan,
+                announceCurrent: true,
+                NullLogger.Instance);
+            await using var pair = await WebSocketPair.CreateAsync();
+            var handleTask = CreateHandler(
+                    fileOfferService: fileOfferService,
+                    mediaStatus: mediaStatus,
+                    shutdownTimer: shutdownTimer,
+                    connectionRegistry: registry)
+                .HandleAsync(pair.Server, "test-client", CancellationToken.None, deviceId: deviceId, background: true);
+            await ReceiveAnyJsonAsync(pair.Client);
+
+            await mediaStatus.PollAsync();
+            fileOfferService.Offer(offeredFile);
+            registry.Ring(deviceId);
+
+            // Medien, Angebot oder Termin kaemen vor dem Ring an.
+            var pushed = await ReceiveJsonAsync(pair.Client);
+            Assert.AreEqual("ring", pushed.GetProperty("type").GetString());
+
+            await CloseClientAsync(pair.Client);
+            await AwaitHandlerAsync(handleTask);
+        }
+        finally
+        {
+            File.Delete(offeredFile);
+        }
+    }
+
+    [TestMethod]
     public async Task HandleAsync_ShutdownTimer_IsPushedOnConnectAndWhenCancelled()
     {
         using var shutdownTimer = new ShutdownTimer(new NoOpPowerService(), NullLogger<ShutdownTimer>.Instance);

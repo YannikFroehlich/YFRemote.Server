@@ -59,7 +59,9 @@ class RemoteWebActivity : Activity() {
     private var orientationWanted = false
     private var speech: SpeechRecognizer? = null
     private lateinit var media: RemoteMediaNotification
-    private lateinit var ringer: PhoneRinger
+    private val ringStopped: () -> Unit = {
+        webView.evaluateJavascript("dispatchEvent(new Event('yfremote-ring-stop'))", null)
+    }
     // Nur auf Wunsch des Web-Clients: eine aeltere Oberflaeche ohne Gegenstelle bekaeme die Tasten nie.
     @Volatile
     private var captureVolumeKeys = false
@@ -99,9 +101,7 @@ class RemoteWebActivity : Activity() {
         val origin = originOf(url)
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
         media = RemoteMediaNotification(this, title?.toString(), ::sendMedia)
-        ringer = PhoneRinger(this) {
-            webView.evaluateJavascript("dispatchEvent(new Event('yfremote-ring-stop'))", null)
-        }
+        PhoneRinger.addStopListener(ringStopped)
         remoteOrigin = origin
         RemoteDevices(this).setLast(origin)
 
@@ -340,10 +340,12 @@ class RemoteWebActivity : Activity() {
     // "Gerät klingeln lassen" (PhoneRinger), nur fuer die Oberflaeche des Zielgeraets.
     private inner class RingBridge(private val origin: String) {
         @JavascriptInterface
-        fun start() = runOnUiThread { if (pageOrigin == origin) ringer.start() }
+        fun start() = runOnUiThread { if (pageOrigin == origin) PhoneRinger.start(this@RemoteWebActivity) }
 
         @JavascriptInterface
-        fun stop() = runOnUiThread { ringer.stop() }
+        fun stop() {
+            PhoneRinger.stop()
+        }
     }
 
     private fun sendMedia(detail: JSONObject) {
@@ -522,7 +524,8 @@ class RemoteWebActivity : Activity() {
     override fun onDestroy() {
         speech?.destroy()
         if (::media.isInitialized) media.release()
-        if (::ringer.isInitialized) ringer.release()
+        // Klingeln laeuft weiter (Stopp in der Benachrichtigung), es kann auch vom Hintergrunddienst kommen.
+        PhoneRinger.removeStopListener(ringStopped)
         webView.destroy()
         super.onDestroy()
     }

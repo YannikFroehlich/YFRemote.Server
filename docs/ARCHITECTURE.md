@@ -274,7 +274,9 @@ devices and calls `WebSocketConnectionRegistry.Ring(deviceId)`; every open conne
 (`HandleAsync` gets its `deviceId`) pushes `{"type":"ring"}`. The Client shows a full-screen
 `.ring-alert` with "Klingeln beenden" and plays a tone through `RING_PLAYER` (Web Audio beeps plus
 vibration in a browser, `YFRemoteRing` in the Android app, see docs/ANDROID.md). `ringing` stays on
-across a lost connection until it is stopped on the device. Next to `fileOffer` and `rumble`, the socket carries
+across a lost connection until it is stopped on the device. A `/ws?background=1` connection (the
+Android app's background socket) gets the ring but no `media`, `fileOffer` or `shutdownTimer`
+pushes, so it never keeps the media poll running; it still counts as connected in the tray. Next to `fileOffer` and `rumble`, the socket carries
 `{"type":"media","volume","muted","title","artist","playing","position","duration","canSeek","coverId"}`
 (`WindowsMediaStatusReader` reads
 Core Audio over COM and the WinRT media session manager; for a Voicemeeter device see below;

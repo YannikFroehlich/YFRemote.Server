@@ -1,4 +1,35 @@
-import { watchKeyboardInset } from './device';
+import { preventEdgeSwipe, watchKeyboardInset } from './device';
+
+describe('preventEdgeSwipe', () => {
+  function touchStart(target: Element, clientX: number): Event {
+    const event = new Event('touchstart', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'changedTouches', { value: [{ clientX }] });
+    target.dispatchEvent(event);
+    return event;
+  }
+
+  it('stops Safari swiping back from the edge of the touchpad, but nowhere else', () => {
+    const surface = document.createElement('div');
+    surface.className = 'touchpad-surface';
+    const other = document.createElement('div');
+    document.body.append(surface, other);
+    const stop = preventEdgeSwipe(document);
+    const width = window.innerWidth;
+
+    try {
+      expect(touchStart(surface, 5).defaultPrevented).toBe(true);
+      expect(touchStart(surface, width - 5).defaultPrevented).toBe(true);
+      expect(touchStart(surface, width / 2).defaultPrevented).toBe(false);
+      expect(touchStart(other, 5).defaultPrevented).toBe(false);
+    } finally {
+      stop();
+      surface.remove();
+      other.remove();
+    }
+
+    expect(touchStart(document.body, 5).defaultPrevented).toBe(false);
+  });
+});
 
 class FakeViewport extends EventTarget {
   height = 800;

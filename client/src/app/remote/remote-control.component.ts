@@ -21,7 +21,7 @@ import { MAX_MACRO_STEPS } from './button-layout';
 import { formatDuration } from './duration';
 import { ConnectionStatus, FileOfferMessage, MacroStep } from './remote.models';
 import { REMOTE_STORAGE, RemoteService } from './remote.service';
-import { IS_IOS, IS_STANDALONE } from './device';
+import { IS_IOS, IS_STANDALONE, PAGE_RELOAD } from './device';
 import { HOME_SCREEN_HINT_STORAGE_KEY } from './server-config';
 import { SettingsDialogComponent } from './settings-dialog.component';
 import { SystemStatsComponent } from './system-stats.component';
@@ -90,6 +90,8 @@ export class RemoteControlComponent {
     onCleanup(() => this.ringPlayer.stop());
   });
   protected readonly pcNotification = this.remote.pcNotification;
+  protected readonly connectionStuck = this.remote.connectionStuck;
+  protected readonly reloadPage = inject(PAGE_RELOAD);
   private readonly storage = inject(REMOTE_STORAGE);
   // Safari loescht die Kopplung nach 7 Tagen ohne Besuch, die Home-Bildschirm-App nicht. iOS fragt
   // nie von selbst nach der Installation, deshalb einmal ein Hinweis, bis er weggeklickt wird.

@@ -2,7 +2,8 @@ import { Provider } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { SwUpdate, VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
-import { App, PAGE_RELOAD } from './app';
+import { App } from './app';
+import { PAGE_RELOAD } from './remote/device';
 import {
   REMOTE_AUTO_CONNECT,
   REMOTE_STORAGE,

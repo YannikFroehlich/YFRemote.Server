@@ -581,11 +581,35 @@ describe('RemoteService', () => {
       expect(remote.status()).toBe('disconnected');
       expect(sockets[0].closed).toBe(true);
 
+      expect(remote.connectionStuck()).toBe(false);
+
       vi.advanceTimersByTime(2000);
       expect(sockets.length).toBe(2);
-      sockets[1].open();
+      vi.advanceTimersByTime(8000);
+      expect(remote.connectionStuck()).toBe(true);
+
+      vi.advanceTimersByTime(4000);
+      sockets[2].open();
       vi.advanceTimersByTime(10000);
       expect(remote.status()).toBe('connected');
+      expect(remote.connectionStuck()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not call a PC that refuses the connection stuck', () => {
+    vi.useFakeTimers();
+    try {
+      const { remote, sockets } = setupRemoteService();
+      remote.connect();
+      vi.advanceTimersByTime(8000);
+      vi.advanceTimersByTime(2000);
+      sockets[1].closeFromServer();
+      vi.advanceTimersByTime(4000);
+      vi.advanceTimersByTime(8000);
+
+      expect(remote.connectionStuck()).toBe(false);
     } finally {
       vi.useRealTimers();
     }

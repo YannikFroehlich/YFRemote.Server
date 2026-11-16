@@ -15,7 +15,7 @@ internal static class WindowsExplorerSendMenu
 
     // Pro Windows-Sitzung eine Pipe, wie das Einzelinstanz-Mutex; CurrentUserOnly laesst nur
     // Prozesse desselben Benutzers verbinden.
-    private static string PipeName => $"YFRemote.Server.OfferFile.{Process.GetCurrentProcess().SessionId}";
+    private static string DefaultPipeName => $"YFRemote.Server.OfferFile.{Process.GetCurrentProcess().SessionId}";
 
     // Nur fuer die installierte Version: ein Eintrag auf eine dotnet-run-Ausgabe zeigte nach dem
     // naechsten Build ins Leere. Bei jedem Start neu geschrieben, damit der Pfad stimmt.
@@ -49,11 +49,12 @@ internal static class WindowsExplorerSendMenu
         return index < 0 ? args : [.. args[..index], .. args[Math.Min(index + 2, args.Length)..]];
     }
 
-    public static bool TrySendToRunningInstance(string path)
+    // pipeName nur fuer Tests: mit dem echten Namen landete der Pfad beim laufenden YFRemote.
+    public static bool TrySendToRunningInstance(string path, string? pipeName = null)
     {
         try
         {
-            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out, PipeOptions.CurrentUserOnly);
+            using var client = new NamedPipeClientStream(".", pipeName ?? DefaultPipeName, PipeDirection.Out, PipeOptions.CurrentUserOnly);
             client.Connect(TimeSpan.FromSeconds(3));
             using var writer = new StreamWriter(client);
             writer.Write(path);
@@ -65,7 +66,10 @@ internal static class WindowsExplorerSendMenu
         }
     }
 
-    public static async Task ListenAsync(Action<string> onPath, CancellationToken cancellationToken)
+    public static async Task ListenAsync(
+        Action<string> onPath,
+        CancellationToken cancellationToken,
+        string? pipeName = null)
     {
         var buffer = new char[MaxPathLength + 1];
         while (!cancellationToken.IsCancellationRequested)
@@ -73,7 +77,7 @@ internal static class WindowsExplorerSendMenu
             try
             {
                 await using var server = new NamedPipeServerStream(
-                    PipeName,
+                    pipeName ?? DefaultPipeName,
                     PipeDirection.In,
                     1,
                     PipeTransmissionMode.Byte,
@@ -92,7 +96,16 @@ internal static class WindowsExplorerSendMenu
             }
             catch (IOException)
             {
-                // Abgebrochene Verbindung: einfach auf die naechste warten.
+                // Abgebrochene Verbindung oder belegte Pipe. Ohne Pause kreist die Schleife bei einer
+                // belegten Pipe ohne ein einziges await und haelt den Aufrufer fuer immer fest.
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
             }
         }
     }

@@ -11,12 +11,17 @@ internal static class DiagnosticLogging
 
     public static void Configure(WebApplicationBuilder builder)
     {
-        DiagnosticPaths.EnsureLogDirectory();
+        // Ueberschreibbar, damit die Tests nicht in die echten Logs schreiben: bei 14 behaltenen
+        // Dateien verdraengten sie sonst die Logs des laufenden Servers.
+        var logDirectory = builder.Configuration["Diagnostics:LogDirectory"];
+        var logFilePath = string.IsNullOrWhiteSpace(logDirectory)
+            ? DiagnosticPaths.RollingLogFilePath
+            : Path.Combine(logDirectory, Path.GetFileName(DiagnosticPaths.RollingLogFilePath));
 
         builder.Logging.ClearProviders();
         builder.Logging.AddDebug();
         builder.Services.AddSerilog((_, loggerConfiguration) =>
-            ConfigureFileLogger(loggerConfiguration, DiagnosticPaths.RollingLogFilePath));
+            ConfigureFileLogger(loggerConfiguration, logFilePath));
     }
 
     internal static LoggerConfiguration ConfigureFileLogger(

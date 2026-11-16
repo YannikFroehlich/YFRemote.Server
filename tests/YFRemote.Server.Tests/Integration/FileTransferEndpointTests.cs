@@ -40,6 +40,7 @@ public sealed class FileTransferEndpointTests
             "Server:Host=127.0.0.1",
             $"Server:Port={port}",
             $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}",
+            $"Diagnostics:LogDirectory={Path.Combine(testDirectory, "Logs")}",
             $"FileTransfer:TargetDirectory={filesDirectory}",
             "FileTransfer:MaxFileSizeBytes=1024"
         ]);

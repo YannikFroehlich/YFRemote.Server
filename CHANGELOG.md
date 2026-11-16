@@ -26,6 +26,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.
 - Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
 - Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".
+- Tests: Die Server-Tests schreiben ihre Logs in ihren eigenen Temp-Ordner (neuer Schlüssel `Diagnostics:LogDirectory`) statt nach `%LOCALAPPDATA%\YFRemote\Logs`, wo sie bei 14 behaltenen Dateien die Logs des installierten Servers verdrängt haben.
 
 ## [2.57.0] - 2026-11-16
 

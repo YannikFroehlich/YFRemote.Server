@@ -430,6 +430,10 @@ export const TRANSLATIONS = {
     de: 'Nur über HTTPS möglich (im Infobereich "HTTPS verwenden").',
     en: 'Only available over HTTPS ("HTTPS verwenden" in the tray menu).',
   },
+  'settings.clipboardSync.browserUnsupported': {
+    de: 'Dieser Browser (z. B. Safari) gibt die Zwischenablage nur auf Tippen frei. Kopieren geht über den Zwischenablage-Knopf im Touchpad.',
+    en: 'This browser (e.g. Safari) only shares the clipboard on a tap. Use the clipboard button on the touchpad instead.',
+  },
   'settings.pcNotifications': {
     de: 'Windows-Benachrichtigungen anzeigen',
     en: 'Show Windows notifications',

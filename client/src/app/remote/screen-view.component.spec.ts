@@ -35,6 +35,8 @@ describe('ScreenViewComponent', () => {
     const sendAction = vi.fn();
     const openScreenAudio = vi.fn(async () => audioResponse);
     const screenQuality = signal<'performance' | 'balanced' | 'quality'>('balanced');
+    const touchAvailable = signal(false);
+    const screenTouch = signal(false);
     const context = {
       currentTime: 0,
       destination: {},
@@ -65,6 +67,9 @@ describe('ScreenViewComponent', () => {
             invertScroll: signal(false),
             saveScreenQuality: (quality: 'performance' | 'balanced' | 'quality') =>
               screenQuality.set(quality),
+            touchAvailable,
+            screenTouch,
+            saveScreenTouch: (enabled: boolean) => screenTouch.set(enabled),
           },
         },
         { provide: SCREEN_AUDIO_CONTEXT_FACTORY, useValue: () => context },
@@ -85,6 +90,8 @@ describe('ScreenViewComponent', () => {
       sendAction,
       openScreenAudio,
       context,
+      touchAvailable,
+      screenTouch,
       element: fixture.nativeElement as HTMLElement,
     };
   }
@@ -317,6 +324,33 @@ describe('ScreenViewComponent', () => {
       [{ type: 'mouseDown', button: 'left' }],
       [{ type: 'screenMove', x: 0.5, y: 0.5 }],
       [{ type: 'mouseUp', button: 'left' }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('sends every finger as real touch with the switch on, and lifts them in the background', async () => {
+    const { fixture, sendAction, stage, element, touchAvailable } = await setupGestures();
+    touchAvailable.set(true);
+    fixture.detectChanges();
+    const touchSwitch = [...element.querySelectorAll<HTMLButtonElement>('.snap-switch')].find(
+      (button) => button.textContent?.includes('Touch'),
+    )!;
+    touchSwitch.click();
+    fixture.detectChanges();
+    expect(touchSwitch.getAttribute('aria-checked')).toBe('true');
+
+    pointer(stage, 'pointerdown', 7, 100, 100);
+    pointer(stage, 'pointerdown', 8, 300, 50);
+    pointer(stage, 'pointerup', 7, 100, 100);
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'touch', points: [{ id: 0, x: 0.25, y: 0.5 }] }],
+      [{ type: 'touch', points: [{ id: 0, x: 0.25, y: 0.5 }, { id: 1, x: 0.75, y: 0.25 }] }],
+      [{ type: 'touch', points: [{ id: 1, x: 0.75, y: 0.25 }] }],
+      [{ type: 'touch', points: [] }],
     ]);
     fixture.destroy();
   });

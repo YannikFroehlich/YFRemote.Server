@@ -160,6 +160,19 @@ feature.
   `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
   `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
+  The tab's "Touch" switch (`/health` `touch`, shown only then; `RemoteService.screenTouch`,
+  `yfremote.screenTouch`, default off) replaces all of these gestures with real touch input: every
+  finger on the picture gets an id 0-9 while it lies, and each `pointerdown`/`pointerup` (moves at
+  most per frame and every 16 ms) sends the whole state as `{"type":"touch","points":[{id,x,y}],"monitor"}`,
+  like the controller, so a lost message cannot leave a finger down. `WindowsTouchService` diffs it
+  against the previous state into `InjectTouchInput` frames (new id `DOWN`, known `UPDATE`, missing
+  `UP`; physical pixels like the capture, max 10 contacts, works without a touchscreen) and re-sends
+  held contacts every 100 ms, because Windows cancels a contact that gets no frames. Windows then
+  recognizes its own gestures (pinch, swipe, edge swipes, press-and-hold). The connection's
+  `RemoteActionSession` lifts the fingers when it ends, a hidden page sends an empty list, and "Nur
+  Medien" devices are refused. Checked on the dev PC on 2026-11-16 with a temporary test window: a
+  held contact arrived as `WM_POINTERDOWN`, three keep-alive `WM_POINTERUPDATE`s and `WM_POINTERUP`,
+  promoted to a left click. Gestures in real apps and the phone side are unverified.
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the

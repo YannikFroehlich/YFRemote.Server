@@ -50,6 +50,8 @@ const DRAG_THRESHOLD_PX = 8;
 const ZOOM_STEP = 1.15;
 // Ein 120-Hz-Display soll beim Ziehen nicht an die 120 Nachrichten/s des Servers stossen.
 const DRAG_MOVE_INTERVAL_MS = 16;
+// So viele Finger nimmt InjectTouchInput am PC (WindowsTouchService.MaxContacts).
+const MAX_TOUCH_POINTS = 10;
 
 // Auch ein stehender Bildschirm liefert mindestens ein Bild pro Sekunde. Kommt laenger nichts,
 // haengt die Verbindung und das sichtbare Bild ist alt.
@@ -122,6 +124,12 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly image = viewChild<ElementRef<HTMLImageElement>>('image');
   private readonly stage = viewChild.required<ElementRef<HTMLElement>>('stage');
   private readonly pointers = new Map<number, Point>();
+  protected readonly touchSupported = this.remote.touchAvailable;
+  protected readonly touchMode = computed(() => this.remote.touchAvailable() && this.remote.screenTouch());
+  // pointerId -> Id des Fingers am PC, nur mit "Touch".
+  private readonly touchSlots = new Map<number, number>();
+  private touchFrame: number | null = null;
+  private lastTouchAt = 0;
   // Abstand der zwei Finger beim Aufsetzen, null ohne zwei Finger.
   private pinchStart: number | null = null;
   private pinchCenter: Point = { x: 0, y: 0 };
@@ -174,6 +182,7 @@ export class ScreenViewComponent implements OnDestroy {
     this.videoAbort?.abort();
     this.jpegAbort.abort();
     this.endDrag();
+    this.liftAllTouches();
     if (this.scrollFrame !== null) {
       cancelAnimationFrame(this.scrollFrame);
     }
@@ -412,6 +421,11 @@ export class ScreenViewComponent implements OnDestroy {
       // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
     }
 
+    if (this.touchMode()) {
+      this.touchDown(event);
+      return;
+    }
+
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (this.pointers.size === 1) {
       this.swallowClick = false;
@@ -435,6 +449,11 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.touchSlots.size > 0) {
+      this.scheduleTouch();
+      return;
+    }
+
     if (this.pinchStart !== null) {
       if (this.pointers.size === 2) {
         const fingers = this.fingersDistance();
@@ -494,6 +513,11 @@ export class ScreenViewComponent implements OnDestroy {
       return;
     }
 
+    if (this.touchSlots.delete(event.pointerId)) {
+      this.sendTouch();
+      return;
+    }
+
     if (this.pointers.size === 0) {
       this.endDrag();
       this.dragOrigin = null;
@@ -506,7 +530,8 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onClick(event: MouseEvent): void {
     event.preventDefault();
-    if (this.swallowClick) {
+    // Mit "Touch" tippt der Finger selbst; der Klick des Browsers waere ein zweiter.
+    if (this.swallowClick || this.touchMode()) {
       this.swallowClick = false;
       return;
     }
@@ -517,7 +542,8 @@ export class ScreenViewComponent implements OnDestroy {
   // Langes Druecken klickt rechts; danach wird aus demselben Finger kein Ziehen mehr.
   protected onContextMenu(event: MouseEvent): void {
     event.preventDefault();
-    if (this.dragging || this.pointers.size > 1 || this.swallowClick) {
+    // Mit "Touch" erkennt Windows langes Druecken selbst.
+    if (this.dragging || this.pointers.size > 1 || this.swallowClick || this.touchMode()) {
       return;
     }
 
@@ -536,6 +562,65 @@ export class ScreenViewComponent implements OnDestroy {
         ...(monitor === null ? {} : { monitor }),
       });
     }
+  }
+
+  // "Touch": jeder Finger bekommt eine feste Id 0-9, solange er liegt; der PC bekommt immer alle
+  // liegenden Finger auf einmal, sodass eine verlorene Meldung keinen Finger haengen laesst.
+  private touchDown(event: PointerEvent): void {
+    const used = new Set(this.touchSlots.values());
+    const slot = Array.from({ length: MAX_TOUCH_POINTS }, (_, index) => index).find((index) => !used.has(index));
+    if (slot === undefined || this.toScreenPosition(event.clientX, event.clientY) === null) {
+      return;
+    }
+
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    this.touchSlots.set(event.pointerId, slot);
+    this.sendTouch();
+  }
+
+  private scheduleTouch(): void {
+    if (this.touchFrame !== null) {
+      return;
+    }
+
+    this.touchFrame = requestAnimationFrame(() => {
+      this.touchFrame = null;
+      if (performance.now() - this.lastTouchAt < DRAG_MOVE_INTERVAL_MS) {
+        this.scheduleTouch();
+      } else {
+        this.sendTouch();
+      }
+    });
+  }
+
+  private sendTouch(): void {
+    if (this.touchFrame !== null) {
+      cancelAnimationFrame(this.touchFrame);
+      this.touchFrame = null;
+    }
+
+    const points = [...this.touchSlots].flatMap(([pointerId, id]) => {
+      const finger = this.pointers.get(pointerId);
+      const position = finger && this.toScreenPosition(finger.x, finger.y, true);
+      return position ? [{ id, ...position }] : [];
+    });
+    const monitor = this.remote.screenMonitor();
+    this.lastTouchAt = performance.now();
+    this.remote.sendAction({ type: 'touch', points, ...(monitor === null ? {} : { monitor }) });
+  }
+
+  private liftAllTouches(): void {
+    if (this.touchSlots.size === 0) {
+      return;
+    }
+
+    this.touchSlots.clear();
+    this.sendTouch();
+  }
+
+  protected toggleTouch(): void {
+    this.liftAllTouches();
+    this.remote.saveScreenTouch(!this.remote.screenTouch());
   }
 
   private sendMove(position: { x: number; y: number }): void {
@@ -854,6 +939,7 @@ export class ScreenViewComponent implements OnDestroy {
       this.videoAbort?.abort();
       // Im Hintergrund kommt kein pointerup mehr; die Maustaste am PC darf nicht haengen bleiben.
       this.endDrag();
+      this.liftAllTouches();
       this.pointers.clear();
       this.dragOrigin = null;
       this.pinchStart = null;

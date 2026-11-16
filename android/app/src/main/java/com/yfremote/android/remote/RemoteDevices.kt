@@ -55,13 +55,16 @@ class RemoteDevices(private val context: Context) {
         buttons.edit().remove(url).apply()
         if (lastUrl == url) prefs.edit().remove(KEY_LAST).apply()
         MediaWidget.refresh(context)
+        RingListenerService.refresh(context)
     }
 
     fun token(url: String): String? = tokens.getString(url, null)
 
     /** null: im Web-Client nicht gemerkt oder entkoppelt - dann kann nur die Oberflaeche selbst koppeln. */
     fun setToken(url: String, token: String?) {
+        if (token == token(url)) return
         if (token == null) tokens.edit().remove(url).apply() else tokens.edit().putString(url, token).apply()
+        RingListenerService.refresh(context)
     }
 
     /** Zuletzt geoeffnetes Geraet - das Ziel des Medien-Widgets. */

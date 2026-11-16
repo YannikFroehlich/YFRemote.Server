@@ -59,6 +59,9 @@ class RemoteWebActivity : Activity() {
     private var orientationWanted = false
     private var speech: SpeechRecognizer? = null
     private lateinit var media: RemoteMediaNotification
+    private val ringStopped: () -> Unit = {
+        webView.evaluateJavascript("dispatchEvent(new Event('yfremote-ring-stop'))", null)
+    }
     // Nur auf Wunsch des Web-Clients: eine aeltere Oberflaeche ohne Gegenstelle bekaeme die Tasten nie.
     @Volatile
     private var captureVolumeKeys = false
@@ -98,6 +101,7 @@ class RemoteWebActivity : Activity() {
         val origin = originOf(url)
         ca = intent.getStringExtra(EXTRA_CA)?.let { runCatching { PinnedCa.parse(Base64.decode(it, Base64.DEFAULT)) }.getOrNull() }
         media = RemoteMediaNotification(this, title?.toString(), ::sendMedia)
+        PhoneRinger.addStopListener(ringStopped)
         remoteOrigin = origin
         RemoteDevices(this).setLast(origin)
 
@@ -141,6 +145,7 @@ class RemoteWebActivity : Activity() {
             addJavascriptInterface(DeviceBridge(), "YFRemoteDevice")
             addJavascriptInterface(SpeechBridge(), "YFRemoteSpeech")
             addJavascriptInterface(MediaBridge(origin), "YFRemoteMedia")
+            addJavascriptInterface(RingBridge(origin), "YFRemoteRing")
             // Ohne onShowFileChooser tut ein <input type="file"> im WebView nichts ("Datei senden"),
             // ohne onShowCustomView lehnt das WebView requestFullscreen() ab ("Fullscreen is not
             // supported") - der Controller bliebe dann hochkant mit Browser-Rand.
@@ -332,6 +337,17 @@ class RemoteWebActivity : Activity() {
         }
     }
 
+    // "Gerät klingeln lassen" (PhoneRinger), nur fuer die Oberflaeche des Zielgeraets.
+    private inner class RingBridge(private val origin: String) {
+        @JavascriptInterface
+        fun start() = runOnUiThread { if (pageOrigin == origin) PhoneRinger.start(this@RemoteWebActivity) }
+
+        @JavascriptInterface
+        fun stop() {
+            PhoneRinger.stop()
+        }
+    }
+
     private fun sendMedia(detail: JSONObject) {
         webView.evaluateJavascript("dispatchEvent(new CustomEvent('yfremote-media',{detail:$detail}))", null)
     }
@@ -515,6 +531,8 @@ class RemoteWebActivity : Activity() {
     override fun onDestroy() {
         speech?.destroy()
         if (::media.isInitialized) media.release()
+        // Klingeln laeuft weiter (Stopp in der Benachrichtigung), es kann auch vom Hintergrunddienst kommen.
+        PhoneRinger.removeStopListener(ringStopped)
         webView.destroy()
         super.onDestroy()
     }

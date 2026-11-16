@@ -26,6 +26,7 @@ import { TranslationService } from './translation.service';
 import { MixerComponent } from './mixer.component';
 import { PresentationComponent } from './presentation.component';
 import { ScreenViewComponent } from './screen-view.component';
+import { RING_PLAYER } from './ring-player';
 
 type RemoteView =
   'remote' | 'touchpad' | 'screen' | 'keyboard' | 'presentation' | 'gamepad' | 'system' | 'mixer';
@@ -74,6 +75,17 @@ export class RemoteControlComponent {
   protected readonly lastError = this.remote.lastError;
   private readonly fileTransfer = inject(FileTransferService);
   protected readonly fileOffer = this.remote.fileOffer;
+  protected readonly ringing = this.remote.ringing;
+  private readonly ringPlayer = inject(RING_PLAYER);
+  private readonly ringStopped = this.ringPlayer.onStopped(() => this.remote.stopRinging());
+  private readonly ringEffect = effect((onCleanup) => {
+    if (!this.remote.ringing()) {
+      return;
+    }
+
+    this.ringPlayer.start();
+    onCleanup(() => this.ringPlayer.stop());
+  });
   protected readonly pcNotification = this.remote.pcNotification;
   protected readonly mediaStatus = this.remote.mediaStatus;
   protected readonly mediaCover = this.remote.mediaCover;
@@ -165,6 +177,10 @@ export class RemoteControlComponent {
 
   protected removePcNotification(): void {
     this.remote.removePcNotification();
+  }
+
+  protected stopRinging(): void {
+    this.remote.stopRinging();
   }
 
   protected dismissFileOffer(): void {

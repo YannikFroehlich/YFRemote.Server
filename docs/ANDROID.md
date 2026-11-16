@@ -62,7 +62,19 @@ have no URL for `DownloadManager`, so the Client's `FILE_SAVER` hands them to
 `YFRemoteDownloads.save(fileName, mimeType, base64)`, which writes them through
 `MediaStore.Downloads` into `Downloads/YFRemote` - only while the loaded page is still on the
 target's origin. An older app without `save` makes `FILE_SAVER` report failure instead of
-clicking a dead `blob:` link. A third bridge, `window.YFRemoteMedia`, mirrors the target's `media`
+clicking a dead `blob:` link. `window.YFRemoteRing` (`start()`/`stop()`, target origin only) is
+the native side of the tray's "Gerät klingeln lassen": the Client's `RING_PLAYER` calls it on a
+`ring` push, and `remote/PhoneRinger` loops the default alarm tone through a `MediaPlayer` with
+`USAGE_ALARM`, the alarm stream at full volume (restored on stop), so a silent phone rings too, plus
+a high-importance notification (`yfremote_ring`, id 4) whose "Stopp" action or swipe answers with a
+`yfremote-ring-stop` event that clears the Client's overlay. `PhoneRinger` is one object per
+process, so the WebView and the background socket never play two tones. That socket is
+`remote/RingListenerService` ("Im Hintergrund erreichbar" in the "Steuern" tab, off by default,
+`ring_listener` prefs): a `dataSync` foreground service (silent notification `yfremote_listener`,
+id 5) holding one OkHttp WebSocket per device with a stored token, `/ws?background=1` with a 30 s
+ping, reconnecting after 2 s / 5 s doubling to 1 min, and stopping on 401. It restarts on boot
+(`BootReceiver`), on app start, and whenever `RemoteDevices.setToken`/`remove` change the list.
+Without it, a ring only reaches the phone while `RemoteWebActivity` is connected. A third bridge, `window.YFRemoteMedia`, mirrors the target's `media`
 push into a media notification: the Client's `MediaBridgeService` (`MEDIA_BRIDGE`) calls
 `update(json)` with title/artist/playing/position/duration/canSeek, `cover(dataUrl)` per new cover
 and `clear()` without a title, and `remote/RemoteMediaNotification` turns that into a

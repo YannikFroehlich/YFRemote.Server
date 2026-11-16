@@ -31,6 +31,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem statusItem;
     private readonly ToolStripMenuItem pinItem;
     private readonly ToolStripMenuItem pairedDevicesItem;
+    private readonly ToolStripMenuItem ringItem;
     private readonly ToolStripMenuItem gamepadDriverItem;
     private readonly ToolStripMenuItem shutdownTimerItem;
     private readonly ShutdownTimer shutdownTimer;
@@ -143,6 +144,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         pairedDevicesItem = new ToolStripMenuItem("Gekoppelte Geräte");
         pairedDevicesItem.Click += (_, _) => ShowPairedDevicesDialog();
 
+        ringItem = new ToolStripMenuItem("Gerät klingeln lassen");
+
         updateItem = new ToolStripMenuItem(
             updateService.CanUpdate
                 ? "Nach Updates suchen..."
@@ -183,6 +186,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             copyPinItem,
             regeneratePinItem,
             pairedDevicesItem,
+            ringItem,
             new ToolStripSeparator(),
             updateItem,
             new ToolStripSeparator(),
@@ -651,6 +655,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? $"Gekoppelte Geräte ({pairedDevices.Count})..."
             : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)...";
         pairedDevicesItem.Enabled = pairedDevices.Count > 0;
+
+        // Nur verbundene Geraete koennen klingeln; die Android-App haelt die Verbindung auch im
+        // Hintergrund, ein Browser nur, solange die Seite offen ist.
+        ringItem.DropDownItems.Clear();
+        foreach (var device in pairedDevices.Where(device => connectionRegistry.IsConnected(device.Id)))
+        {
+            var deviceItem = new ToolStripMenuItem(device.Name);
+            deviceItem.Click += (_, _) =>
+            {
+                connectionRegistry.Ring(device.Id);
+                Notify("Gerät klingelt", $"\"{device.Name}\" klingelt, bis es dort gestoppt wird.");
+            };
+            ringItem.DropDownItems.Add(deviceItem);
+        }
+
+        ringItem.Enabled = ringItem.DropDownItems.Count > 0;
     }
 
     private void ShowPairedDevicesDialog()

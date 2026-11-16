@@ -113,6 +113,16 @@ internal class RemoteClient(private val device: RemoteDevice, private val token:
         }
     }
 
+    /**
+     * Dauerverbindung fuer RingListenerService: background=1, damit der PC keine Medien und Angebote
+     * schickt. Der Ping alle 30 s merkt eine tote Verbindung (WLAN weg), die sonst nie onFailure meldet.
+     */
+    fun listen(listener: WebSocketListener): WebSocket {
+        val wsUrl = device.url.replaceFirst("http", "ws") + "/ws?background=1&token=" + java.net.URLEncoder.encode(token, "UTF-8")
+        val request = Request.Builder().url(wsUrl).header("Origin", device.url).build()
+        return http.newBuilder().pingInterval(30, TimeUnit.SECONDS).build().newWebSocket(request, listener)
+    }
+
     private fun post(path: String, body: RequestBody): Result {
         val request = Request.Builder()
             .url(device.url + path)

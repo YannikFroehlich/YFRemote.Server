@@ -165,7 +165,7 @@ feature.
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`
   is declared by hand for the 120-frame GOP). Encoded sizes are rounded to width % 16 and height % 4,
   because Intel's encoder fails on the first frame otherwise (710x398, 1376x774 measured). A frame is
-  encoded on a desktop or cursor change, at least once per second, at most 60/s; a full send buffer
+  encoded on a desktop or cursor change, at least once per second, at most 60/s on a fixed schedule (high-resolution waitable timer: `Thread.Sleep` rounds to 15.6 ms, which made a 60 Hz monitor deliver only every second frame, and Windows 11 ignores `timeBeginPeriod` for the windowless tray process); a full send buffer
   throttles capture instead of queueing. `Fmp4Writer` (one `moof`+`mdat` per frame) gives every frame
   1/60 s of media time regardless of when it arrived, because a gap in the timeline would stall the
   browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player

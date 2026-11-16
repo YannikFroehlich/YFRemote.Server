@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tab "Bildschirm": Das H.264-Bild läuft flüssiger. Die Aufnahme wartete zwischen zwei Bildern mit dem groben 15,6-ms-Takt von Windows und verpasste dadurch an einem 60-Hz-Monitor immer wieder ein Bild (bisher gemessen 36-46 statt 60 Bilder/s). Sie wartet jetzt mit einem genauen Zeitgeber auf einen festen 60-Hz-Takt. Auflösung und Bitrate bleiben gleich.
+
 ## [2.54.0] - 2026-11-15
 
 ### Security

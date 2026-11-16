@@ -103,6 +103,10 @@ public sealed partial class WindowsScreenCapture
         var screen = WindowsMonitors.Find(monitor);
         var capture = CaptureFor(screen);
         var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
+        // Thread.Sleep rundet auf 15,6 ms; danach wartet die Aufnahme noch auf das naechste Bild des
+        // Monitors, und aus 60 Bildern/s werden gut 30. timeBeginPeriod hilft nicht: Windows 11
+        // ignoriert es fuer Prozesse ohne sichtbares Fenster, und der Tray hat keins.
+        using var timer = new HighResolutionTimer();
         try
         {
             var encoderKbps = bitrate.Kbps;
@@ -114,6 +118,7 @@ public sealed partial class WindowsScreenCapture
             var lastFrame = -1L;
             var lastCursor = (X: int.MinValue, Y: int.MinValue, Handle: IntPtr.Zero);
             var lastInput = -KeepAlive;
+            var nextDue = TimeSpan.Zero;
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -121,11 +126,13 @@ public sealed partial class WindowsScreenCapture
                 switch ((MediaEventTypes)mediaEvent.EventType)
                 {
                     case MediaEventTypes.TransformNeedInput:
-                        // Hoechstens 60 Bilder/s, auch an einem 144-Hz-Monitor.
-                        var wait = lastInput + TimeSpan.FromTicks(FrameTicks) - clock.Elapsed;
+                        // Hoechstens 60 Bilder/s, auch an einem 144-Hz-Monitor. Fester Takt statt
+                        // "16,7 ms nach dem letzten Bild": sonst addiert sich jede Verspaetung, bis
+                        // an einem 60-Hz-Monitor regelmaessig ein Bild ausfaellt.
+                        var wait = nextDue - clock.Elapsed;
                         if (wait > TimeSpan.Zero)
                         {
-                            Thread.Sleep(wait);
+                            timer.Sleep(wait);
                         }
 
                         while (!cancellationToken.IsCancellationRequested)
@@ -148,6 +155,12 @@ public sealed partial class WindowsScreenCapture
                                 lastFrame = source.Frame;
                                 lastCursor = cursor;
                                 lastInput = clock.Elapsed;
+                                nextDue += TimeSpan.FromTicks(FrameTicks);
+                                if (nextDue < lastInput)
+                                {
+                                    nextDue = lastInput;
+                                }
+
                                 if (bitrate.Kbps != encoderKbps)
                                 {
                                     encoderKbps = bitrate.Kbps;
@@ -569,6 +582,40 @@ public sealed partial class WindowsScreenCapture
     // GDI-XFORM: x' = x * M11 + y * M21 + Dx, y' = x * M12 + y * M22 + Dy.
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct Xform(float M11, float M12, float M21, float M22, float Dx, float Dy);
+
+    // Wartbarer Zeitgeber mit CREATE_WAITABLE_TIMER_HIGH_RESOLUTION (ab Windows 10 1803): genau auf
+    // unter 1 ms, ohne die Zeitgeberaufloesung des ganzen Systems zu aendern.
+    private sealed class HighResolutionTimer : IDisposable
+    {
+        private const uint HighResolution = 2;
+        private const uint TimerAllAccess = 0x1F0003;
+        private readonly Microsoft.Win32.SafeHandles.SafeWaitHandle handle =
+            CreateWaitableTimerExW(IntPtr.Zero, null, HighResolution, TimerAllAccess);
+
+        public void Sleep(TimeSpan duration)
+        {
+            // Negativ = relativ, in 100 ns.
+            var due = -duration.Ticks;
+            if (handle.IsInvalid || !SetWaitableTimer(handle, ref due, 0, IntPtr.Zero, IntPtr.Zero, false))
+            {
+                Thread.Sleep(duration);
+                return;
+            }
+
+            WaitForSingleObject(handle, uint.MaxValue);
+        }
+
+        public void Dispose() => handle.Dispose();
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern Microsoft.Win32.SafeHandles.SafeWaitHandle CreateWaitableTimerExW(IntPtr attributes, string? name, uint flags, uint access);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetWaitableTimer(Microsoft.Win32.SafeHandles.SafeWaitHandle timer, ref long dueTime, int period, IntPtr completion, IntPtr argument, bool resume);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForSingleObject(Microsoft.Win32.SafeHandles.SafeWaitHandle handle, uint milliseconds);
 
     [DllImport("gdi32.dll")]
     private static extern int SetGraphicsMode(IntPtr hdc, int mode);

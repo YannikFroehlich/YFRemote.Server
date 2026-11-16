@@ -251,6 +251,8 @@
         {{ errorMessage }}
       } @else if (gyroHint(); as hintKey) {
         {{ i18n.t(hintKey) }}
+      } @else if (deviceHint(); as hintKey) {
+        {{ i18n.t(hintKey) }}
       }
     </p>
 

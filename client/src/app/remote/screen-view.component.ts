@@ -107,7 +107,10 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
+  // Auf dem iPhone gibt es kein Vollbild. Der Knopf bleibt trotzdem, damit ein Tipp erklaert,
+  // warum, statt dass die Funktion einfach fehlt.
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
+  protected readonly fullscreenUnsupportedShown = signal(false);
   protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
@@ -918,6 +921,11 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected async toggleFullscreen(): Promise<void> {
+    if (!this.fullscreenSupported) {
+      this.fullscreenUnsupportedShown.update((shown) => !shown);
+      return;
+    }
+
     if (this.fullscreen()) {
       await this.document.exitFullscreen?.().catch(() => undefined);
       return;

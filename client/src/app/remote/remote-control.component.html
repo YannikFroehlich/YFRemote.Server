@@ -10,17 +10,72 @@
       </div>
 
       <div class="top-controls">
-        <span
-          class="status-pill"
+        <span class="visually-hidden" role="status" aria-live="polite">
+          {{ statusLabel(status()) }}
+        </span>
+        <!-- Adresse, Neu verbinden und Trennen hatten frueher eine eigene Zeile; jetzt ein Menue
+             unter der Statusanzeige, die verbunden den Rechnernamen zeigt. -->
+        <button
+          class="status-pill status-pill--button"
           [class.status-pill--connected]="status() === 'connected'"
           [class.status-pill--connecting]="status() === 'connecting'"
           [class.status-pill--disconnected]="status() === 'disconnected'"
-          role="status"
-          aria-live="polite"
+          type="button"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="connectionMenuOpen()"
+          [attr.aria-label]="
+            i18n.t('shell.connectionMenu', {
+              status: statusLabel(status()),
+              address: serverName() ?? config().host + ':' + config().port,
+            })
+          "
+          (click)="toggleConnectionMenu()"
         >
           <span class="status-dot" aria-hidden="true"></span>
-          {{ statusLabel(status()) }}
-        </span>
+          <span class="status-pill__text">
+            {{ status() === 'connected' && serverName() ? serverName() : statusLabel(status()) }}
+          </span>
+          <svg
+            class="status-pill__chevron"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="m7 10 5 5 5-5H7Z"></path>
+          </svg>
+        </button>
+
+        @if (connectionMenuOpen()) {
+          <div class="connection-menu__backdrop" (click)="closeConnectionMenu()"></div>
+          <div class="connection-menu" role="menu" (keydown.escape)="closeConnectionMenu()">
+            <div class="connection-menu__identity">
+              <span>{{ statusLabel(status()) }}</span>
+              <strong>{{ config().host }}:{{ config().port }}</strong>
+            </div>
+            <button
+              class="connection-menu__item"
+              type="button"
+              role="menuitem"
+              (click)="reconnect()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths.refresh"></path>
+              </svg>
+              {{ i18n.t('shell.reconnect') }}
+            </button>
+            <button
+              class="connection-menu__item"
+              type="button"
+              role="menuitem"
+              (click)="disconnect()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths.disconnect"></path>
+              </svg>
+              {{ i18n.t('shell.disconnect') }}
+            </button>
+          </div>
+        }
 
         @if (activeView() === 'remote') {
           <button
@@ -52,41 +107,11 @@
     </header>
 
     <div class="remote-context">
-      <div class="server-strip">
-        <div class="server-strip__identity">
-          <span class="server-strip__label">
-            <span class="server-strip__label-long">{{ i18n.t('shell.activeComputer') }}</span>
-            <span class="server-strip__label-short">{{ i18n.t('shell.activeShort') }}</span>
-          </span>
-          <strong>{{ config().host }}:{{ config().port }}</strong>
-        </div>
-        <div class="server-strip__actions">
-          <button
-            class="round-button round-button--small"
-            type="button"
-            [attr.aria-label]="i18n.t('shell.reconnect')"
-            [attr.title]="i18n.t('shell.reconnect')"
-            (click)="reconnect()"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path [attr.d]="iconPaths.refresh"></path>
-            </svg>
-          </button>
-          <button
-            class="round-button round-button--small"
-            type="button"
-            [attr.aria-label]="i18n.t('shell.disconnect')"
-            [attr.title]="i18n.t('shell.disconnect')"
-            (click)="disconnect()"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path [attr.d]="iconPaths.disconnect"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="view-tabs" role="tablist" [attr.aria-label]="i18n.t('shell.viewTabsAriaLabel')">
+      <div
+        class="view-tabs view-tabs--main"
+        role="tablist"
+        [attr.aria-label]="i18n.t('shell.viewTabsAriaLabel')"
+      >
         <button
           class="view-tab"
           [class.view-tab--active]="activeView() === 'remote'"
@@ -340,11 +365,52 @@
               </span>
             }
           </span>
+          <!-- Ersetzen die frueheren Medientasten im Raster (Play, Vorheriger, Naechster). -->
+          <span class="media-strip__controls">
+            <button
+              class="media-strip__button"
+              type="button"
+              [attr.aria-label]="i18n.t('button.previous-track.ariaLabel')"
+              (click)="sendMediaKey('MEDIA_PREVIOUS')"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths['track-previous']"></path>
+              </svg>
+            </button>
+            <button
+              class="media-strip__button"
+              type="button"
+              [attr.aria-label]="i18n.t('button.play-pause.ariaLabel')"
+              (click)="sendMediaKey('MEDIA_PLAY_PAUSE')"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths['play-pause']"></path>
+              </svg>
+            </button>
+            <button
+              class="media-strip__button"
+              type="button"
+              [attr.aria-label]="i18n.t('button.next-track.ariaLabel')"
+              (click)="sendMediaKey('MEDIA_NEXT')"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="iconPaths['track-next']"></path>
+              </svg>
+            </button>
+          </span>
           @if (media.volume !== undefined) {
             <span class="media-strip__volume" [class.media-strip__volume--muted]="media.muted">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path [attr.d]="iconPaths[media.muted ? 'volume-mute' : 'volume-plus']"></path>
-              </svg>
+              <button
+                class="media-strip__button"
+                type="button"
+                [attr.aria-label]="i18n.t('button.mute.ariaLabel')"
+                [attr.aria-pressed]="media.muted === true"
+                (click)="sendMediaKey('VOLUME_MUTE')"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path [attr.d]="iconPaths[media.muted ? 'volume-mute' : 'volume-plus']"></path>
+                </svg>
+              </button>
               <!-- (change) statt (input): erst beim Loslassen senden, sonst setzt der
                    sekuendliche Status den Regler mitten im Ziehen zurueck. -->
               <input

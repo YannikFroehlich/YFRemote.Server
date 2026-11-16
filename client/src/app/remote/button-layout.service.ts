@@ -10,6 +10,7 @@ import {
   MAX_CUSTOM_BUTTONS,
   PlacedButton,
   customButtonToConfig,
+  defaultSpanFor,
   findFreeSlot,
   isCustomButtonId,
   normalizeButtonColor,
@@ -38,6 +39,7 @@ import {
   ANDROID_BUILT_IN_BUTTONS,
   ANDROID_DEFAULT_PLACEMENTS,
   BUILT_IN_BUTTONS,
+  DEFAULT_HIDDEN_BUILT_IN_IDS,
   DEFAULT_PLACEMENTS,
 } from './remote-actions';
 import { MacroStep, RemoteButtonConfig, RemoteIcon, ServerPlatform } from './remote.models';
@@ -86,10 +88,14 @@ export class ButtonLayoutService {
   // Verbindung: sonst wuerfe der naechste commit() im Android-Profil ohne Verbindung dessen
   // Home-/Uebersicht-Buttons als "unbekannte Id" weg.
   private readonly builtIns = computed<readonly RemoteButtonConfig[]>(() =>
-    this.activeProfileIdSignal() === ANDROID_PROFILE_ID ? ANDROID_BUILT_IN_BUTTONS : BUILT_IN_BUTTONS,
+    this.activeProfileIdSignal() === ANDROID_PROFILE_ID
+      ? ANDROID_BUILT_IN_BUTTONS
+      : BUILT_IN_BUTTONS,
   );
   private readonly defaultPlacements = computed<readonly ButtonPlacement[]>(() =>
-    this.activeProfileIdSignal() === ANDROID_PROFILE_ID ? ANDROID_DEFAULT_PLACEMENTS : DEFAULT_PLACEMENTS,
+    this.activeProfileIdSignal() === ANDROID_PROFILE_ID
+      ? ANDROID_DEFAULT_PLACEMENTS
+      : DEFAULT_PLACEMENTS,
   );
 
   /** Profil, das vor dem Wechsel ins Android-Profil aktiv war - nur fuer diese Sitzung. */
@@ -402,7 +408,7 @@ export class ButtonLayoutService {
       return;
     }
 
-    const defaultSpan = this.defaultPlacements().find((placement) => placement.id === id);
+    const defaultSpan = defaultSpanFor(id, this.defaultPlacements());
     const colSpan = defaultSpan?.colSpan ?? DEFAULT_CUSTOM_SPAN.colSpan;
     const rowSpan = defaultSpan?.rowSpan ?? DEFAULT_CUSTOM_SPAN.rowSpan;
     const slot = findFreeSlot(current.placements, colSpan, rowSpan);
@@ -516,7 +522,8 @@ export class ButtonLayoutService {
       snapToGrid: current.snapToGrid,
       placements,
       customButtons: current.customButtons,
-      hiddenBuiltInIds: [],
+      hiddenBuiltInIds:
+        this.activeProfileIdSignal() === ANDROID_PROFILE_ID ? [] : DEFAULT_HIDDEN_BUILT_IN_IDS,
     });
   }
 

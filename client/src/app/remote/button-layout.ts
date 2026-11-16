@@ -1,4 +1,10 @@
-import { ANDROID_DEFAULT_PLACEMENTS, BUILT_IN_BUTTONS, DEFAULT_PLACEMENTS } from './remote-actions';
+import {
+  ANDROID_DEFAULT_PLACEMENTS,
+  BUILT_IN_BUTTONS,
+  DEFAULT_HIDDEN_BUILT_IN_IDS,
+  DEFAULT_PLACEMENTS,
+  LEGACY_DEFAULT_PLACEMENTS,
+} from './remote-actions';
 import { REMOTE_ICONS } from './remote-icons';
 import { keysToAction } from './keyboard-keys';
 import { MacroStep, RemoteAction, RemoteButtonConfig, RemoteIcon } from './remote.models';
@@ -77,7 +83,7 @@ export const DEFAULT_BUTTON_LAYOUT: ButtonLayout = {
   snapToGrid: true,
   placements: DEFAULT_PLACEMENTS,
   customButtons: [],
-  hiddenBuiltInIds: [],
+  hiddenBuiltInIds: DEFAULT_HIDDEN_BUILT_IN_IDS,
 };
 
 /** Startlayout des Android-Profils - siehe ANDROID_BUILT_IN_BUTTONS fuer die Auswahl. */
@@ -139,7 +145,14 @@ export function clampPlacement(
   const col = clampNumber(placement.col, 0, columns - colSpan);
   const row = clampNumber(placement.row, 0, LAYOUT_MAX_ROWS - rowSpan);
 
-  return { id: placement.id, col, row, colSpan, rowSpan, color: normalizeButtonColor(placement.color) ?? undefined };
+  return {
+    id: placement.id,
+    col,
+    row,
+    colSpan,
+    rowSpan,
+    color: normalizeButtonColor(placement.color) ?? undefined,
+  };
 }
 
 export function snapPlacement(placement: ButtonPlacement): ButtonPlacement {
@@ -298,7 +311,10 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
     }
 
     case 'voicemeeterParameter': {
-      const { parameter, value } = candidate as { readonly parameter?: unknown; readonly value?: unknown };
+      const { parameter, value } = candidate as {
+        readonly parameter?: unknown;
+        readonly value?: unknown;
+      };
       if (typeof parameter !== 'string' || !VOICEMEETER_PARAMETER_PATTERN.test(parameter)) {
         return null;
       }
@@ -327,7 +343,10 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
         return null;
       }
       if (volume !== undefined) {
-        return typeof volume === 'number' && Number.isInteger(volume) && volume >= 0 && volume <= 100
+        return typeof volume === 'number' &&
+          Number.isInteger(volume) &&
+          volume >= 0 &&
+          volume <= 100
           ? { type: 'appVolume', name: trimmed, volume }
           : null;
       }
@@ -360,10 +379,14 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
  * automatisch platziert (außer sie stehen bereits in hiddenBuiltInIds).
  */
 export function resolveButtonLayout(
-  stored: ButtonLayout,
+  storedLayout: ButtonLayout,
   builtIns: readonly RemoteButtonConfig[] = BUILT_IN_BUTTONS,
   defaultPlacements: readonly ButtonPlacement[] = DEFAULT_PLACEMENTS,
 ): ButtonLayout {
+  const stored =
+    defaultPlacements === DEFAULT_PLACEMENTS
+      ? migrateUntouchedLegacyDefault(storedLayout)
+      : storedLayout;
   const customButtons = stored.customButtons
     .map((candidate) => normalizeCustomButtonDefinition(candidate))
     .filter((definition): definition is CustomButtonDefinition => definition !== null)
@@ -374,8 +397,9 @@ export function resolveButtonLayout(
     ...customButtons.map((definition) => definition.id),
   ]);
 
+  // Spaetere Eintraege gewinnen: die aktuellen Standardgroessen vor denen des alten Layouts.
   const defaultSpanById = new Map(
-    defaultPlacements.map((placement) => [placement.id, placement] as const),
+    defaultSpanSource(defaultPlacements).map((placement) => [placement.id, placement] as const),
   );
 
   const placements: ButtonPlacement[] = [];
@@ -439,6 +463,68 @@ export function resolveButtonLayout(
     placements,
     customButtons,
     hiddenBuiltInIds,
+  };
+}
+
+// Im Standardlayout ausgeblendete Tasten (Medien, Energie) haben dort keine Platzierung mehr; ihre
+// Groesse beim Wiedereinblenden kommt aus dem alten Layout.
+function defaultSpanSource(
+  defaultPlacements: readonly ButtonPlacement[],
+): readonly ButtonPlacement[] {
+  return defaultPlacements === DEFAULT_PLACEMENTS
+    ? [...LEGACY_DEFAULT_PLACEMENTS, ...DEFAULT_PLACEMENTS]
+    : defaultPlacements;
+}
+
+/** Standardgroesse einer eingebauten Taste, `undefined` fuer eine unbekannte. */
+export function defaultSpanFor(
+  id: string,
+  defaultPlacements: readonly ButtonPlacement[] = DEFAULT_PLACEMENTS,
+): ButtonPlacement | undefined {
+  return (
+    defaultPlacements.find((placement) => placement.id === id) ??
+    defaultSpanSource(defaultPlacements).find((placement) => placement.id === id)
+  );
+}
+
+/**
+ * Das alte Standardlayout (bis v2.55) mit allen Medien- und Energietasten im Raster wird zum neuen,
+ * aber nur, wenn keine eingebaute Taste verschoben, umgefaerbt oder ausgeblendet wurde - eigene
+ * Tasten bleiben dabei stehen. Ein angepasstes Layout gehoert dem Nutzer und bleibt unveraendert.
+ */
+function migrateUntouchedLegacyDefault(stored: ButtonLayout): ButtonLayout {
+  if (stored.hiddenBuiltInIds.length > 0 || !Array.isArray(stored.placements)) {
+    return stored;
+  }
+
+  const builtInPlacements = stored.placements.filter(
+    (placement) => typeof placement?.id === 'string' && !isCustomButtonId(placement.id),
+  );
+  const untouched =
+    builtInPlacements.length === LEGACY_DEFAULT_PLACEMENTS.length &&
+    LEGACY_DEFAULT_PLACEMENTS.every((legacy) =>
+      builtInPlacements.some(
+        (placement) =>
+          placement.id === legacy.id &&
+          placement.col === legacy.col &&
+          placement.row === legacy.row &&
+          placement.colSpan === legacy.colSpan &&
+          placement.rowSpan === legacy.rowSpan &&
+          (placement.color ?? null) === null,
+      ),
+    );
+
+  if (!untouched) {
+    return stored;
+  }
+
+  return {
+    ...stored,
+    placements: [
+      ...DEFAULT_PLACEMENTS,
+      ...stored.placements.filter((placement) => isCustomButtonId(placement.id)),
+    ],
+    hiddenBuiltInIds: DEFAULT_HIDDEN_BUILT_IN_IDS,
   };
 }
 

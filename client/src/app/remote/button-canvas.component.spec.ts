@@ -72,6 +72,8 @@ interface CanvasHarness {
   readonly flushRaf: () => void;
   slot(id: string): HTMLElement;
   button(ariaLabel: string): HTMLButtonElement;
+  /** Oeffnet "Energie" und liefert die Taste darin. */
+  powerButton(ariaLabel: string): HTMLButtonElement;
 }
 
 describe('ButtonCanvasComponent', () => {
@@ -88,25 +90,47 @@ describe('ButtonCanvasComponent', () => {
     expect(sockets[0].sentMessages).toEqual(['{"type":"key","keys":["UP"]}']);
   });
 
+  it('offers the power actions behind one button instead of in the grid', async () => {
+    const { fixture, button, powerButton } = await setupCanvas(false);
+    const element = fixture.nativeElement as HTMLElement;
+    const dialog = element.querySelector('dialog.power-dialog') as HTMLDialogElement;
+
+    expect(element.querySelector('.layout-slot [aria-label="Rechner herunterfahren"]')).toBeNull();
+    expect(button('Energie-Optionen')).toBeTruthy();
+
+    powerButton('Rechner herunterfahren');
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelectorAll('.power-menu button')).toHaveLength(6);
+
+    dialog.querySelector<HTMLButtonElement>('button.secondary-button')!.click();
+    fixture.detectChanges();
+    expect(dialog.open).toBe(false);
+    expect(dialog.querySelector('.power-menu')).toBeNull();
+  });
+
   it('sends a power action only after the confirmation is accepted', async () => {
-    const { sockets, button } = await setupCanvas(false);
+    const { fixture, sockets, powerButton } = await setupCanvas(false);
     const confirmSpy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     vi.stubGlobal('confirm', confirmSpy);
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector(
+      'dialog.power-dialog',
+    ) as HTMLDialogElement;
 
-    button('Rechner herunterfahren').click();
+    powerButton('Rechner herunterfahren').click();
     expect(sockets[0].sentMessages).toEqual([]);
+    expect(dialog.open).toBe(false);
 
-    button('Rechner herunterfahren').click();
+    powerButton('Rechner herunterfahren').click();
     expect(sockets[0].sentMessages).toEqual(['{"type":"shutdown"}']);
     expect(confirmSpy).toHaveBeenCalledTimes(2);
   });
 
   it('asks for minutes and action before scheduling a timer', async () => {
-    const { fixture, sockets, button } = await setupCanvas(false);
+    const { fixture, sockets, powerButton } = await setupCanvas(false);
     const element = fixture.nativeElement as HTMLElement;
     const dialog = element.querySelector('dialog.timer-dialog') as HTMLDialogElement;
     const open = () => {
-      button('Timer stellen').click();
+      powerButton('Timer stellen').click();
       fixture.detectChanges();
     };
 
@@ -132,12 +156,12 @@ describe('ButtonCanvasComponent', () => {
   });
 
   it('sends a plain shutdown timer without power, as older servers expect', async () => {
-    const { fixture, sockets, button } = await setupCanvas(false);
+    const { fixture, sockets, powerButton } = await setupCanvas(false);
     const dialog = (fixture.nativeElement as HTMLElement).querySelector(
       'dialog.timer-dialog',
     ) as HTMLDialogElement;
 
-    button('Timer stellen').click();
+    powerButton('Timer stellen').click();
     fixture.detectChanges();
     dialog.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
 
@@ -145,7 +169,7 @@ describe('ButtonCanvasComponent', () => {
   });
 
   it('offers the remaining minutes and action of a pending timer', async () => {
-    const { fixture, sockets, button } = await setupCanvas(false);
+    const { fixture, sockets, powerButton } = await setupCanvas(false);
     const dialog = (fixture.nativeElement as HTMLElement).querySelector(
       'dialog.timer-dialog',
     ) as HTMLDialogElement;
@@ -155,7 +179,7 @@ describe('ButtonCanvasComponent', () => {
         data: '{"type":"shutdownTimer","remainingSeconds":530,"action":"displayOff"}',
       }),
     );
-    button('Timer stellen').click();
+    powerButton('Timer stellen').click();
     fixture.detectChanges();
 
     expect(dialog.querySelector('input')!.value).toBe('9');
@@ -254,10 +278,10 @@ describe('ButtonCanvasComponent', () => {
   it('keeps media buttons interactive in view mode', async () => {
     const view = await setupCanvas(false);
 
-    view.button('Stumm').click();
+    view.button('Wiedergabe stoppen').click();
 
-    expect(view.button('Stumm').disabled).toBe(false);
-    expect(view.sockets[0].sentMessages).toEqual(['{"type":"key","keys":["VOLUME_MUTE"]}']);
+    expect(view.button('Wiedergabe stoppen').disabled).toBe(false);
+    expect(view.sockets[0].sentMessages).toEqual(['{"type":"key","keys":["MEDIA_STOP"]}']);
   });
 });
 
@@ -336,6 +360,19 @@ async function setupCanvas(editMode: boolean): Promise<CanvasHarness> {
 
       if (element === null) {
         throw new Error(`Button not found: ${ariaLabel}`);
+      }
+
+      return element;
+    },
+    powerButton: (ariaLabel: string): HTMLButtonElement => {
+      root.querySelector<HTMLButtonElement>('button[aria-label="Energie-Optionen"]')?.click();
+      fixture.detectChanges();
+      const element = root.querySelector<HTMLButtonElement>(
+        `dialog.power-dialog button[aria-label="${ariaLabel}"]`,
+      );
+
+      if (element === null) {
+        throw new Error(`Power button not found: ${ariaLabel}`);
       }
 
       return element;

@@ -32,8 +32,10 @@ export const TRANSLATIONS = {
 
   'shell.editLayout': { de: 'Layout bearbeiten', en: 'Edit layout' },
   'shell.settings': { de: 'Einstellungen', en: 'Settings' },
-  'shell.activeComputer': { de: 'Aktiver Computer', en: 'Active computer' },
-  'shell.activeShort': { de: 'Aktiv', en: 'Active' },
+  'shell.connectionMenu': {
+    de: 'Verbindung: {{status}}, {{address}}',
+    en: 'Connection: {{status}}, {{address}}',
+  },
   'shell.reconnect': { de: 'Neu verbinden', en: 'Reconnect' },
   'shell.disconnect': { de: 'Verbindung trennen', en: 'Disconnect' },
   'shell.viewTabsAriaLabel': { de: 'Ansicht', en: 'View' },
@@ -162,6 +164,8 @@ export const TRANSLATIONS = {
     de: 'Timer stellen',
     en: 'Set a timer',
   },
+  'button.power-menu.label': { de: 'Energie', en: 'Power' },
+  'button.power-menu.ariaLabel': { de: 'Energie-Optionen', en: 'Power options' },
   'timer.title': { de: 'Timer', en: 'Timer' },
   'timer.minutes': {
     de: 'In Minuten (0 bricht einen Timer ab)',
@@ -622,7 +626,10 @@ export const TRANSLATIONS = {
     en: 'Also open this tab',
   },
   'settings.profiles.view.keep': { de: 'Tab nicht wechseln', en: "Don't switch tabs" },
-  'settings.profiles.apps.current': { de: 'Vorne am PC: {{app}}', en: 'In front on the PC: {{app}}' },
+  'settings.profiles.apps.current': {
+    de: 'Vorne am PC: {{app}}',
+    en: 'In front on the PC: {{app}}',
+  },
   'settings.profiles.apps.add': { de: 'Hinzufügen', en: 'Add' },
   'settings.profiles.apps.hint': {
     de: 'Mehrere mit Komma trennen. Ist keines davon vorne, kommt das vorige Profil zurück.',

@@ -157,7 +157,9 @@ describe('App', () => {
     fixture.detectChanges();
     queryButtonByText(compiled, 'Neu laden').click();
 
-    expect(compiled.querySelector('.update-banner')?.textContent).toContain('Neue Version verfügbar');
+    expect(compiled.querySelector('.update-banner')?.textContent).toContain(
+      'Neue Version verfügbar',
+    );
     expect(reloads).toBe(1);
   });
 
@@ -168,7 +170,32 @@ describe('App', () => {
 
     expect(app).toBeTruthy();
     expect(compiled.querySelector('.brand-name')?.textContent?.trim()).toBe('YFRemote');
-    expect(compiled.textContent).toContain('localhost:5050');
+    expect(compiled.querySelector('.connection-menu')).toBeNull();
+
+    // Die Adresse steht nicht mehr in einer eigenen Zeile, sondern im Menue der Statusanzeige.
+    const pill = compiled.querySelector<HTMLButtonElement>('button.status-pill');
+    expect(pill?.getAttribute('aria-label')).toContain('localhost:5050');
+    pill?.click();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.connection-menu')?.textContent).toContain('localhost:5050');
+    expect(pill?.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('reconnects from the connection menu and closes it', async () => {
+    const { fixture, sockets } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    sockets[0].open();
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('button.status-pill')?.click();
+    fixture.detectChanges();
+
+    queryButtonByText(compiled, 'Neu verbinden').click();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.connection-menu')).toBeNull();
+    expect(sockets.length).toBe(2);
   });
 
   it('sends the next-tab hotkey from the UI', async () => {
@@ -189,17 +216,21 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     sockets[0].open();
+    sockets[0].receive('{"type":"media","volume":40,"muted":false,"title":"Song","playing":true}');
     fixture.detectChanges();
 
-    queryButton(compiled, 'Play Pause').click();
-    queryButton(compiled, 'Leiser').click();
-    queryButton(compiled, 'Lauter').click();
-    queryButton(compiled, 'Stumm').click();
+    // Die Medientasten sitzen in der Medienleiste, nicht mehr im Raster.
+    expect(compiled.querySelector('.layout-slot [aria-label="Play Pause"]')).toBeNull();
+    const strip = compiled.querySelector('.media-strip') as HTMLElement;
+    queryButton(strip, 'Vorheriger Titel').click();
+    queryButton(strip, 'Play Pause').click();
+    queryButton(strip, 'Nächster Titel').click();
+    queryButton(strip, 'Stumm').click();
 
     expect(sockets[0].sentMessages).toEqual([
+      '{"type":"key","keys":["MEDIA_PREVIOUS"]}',
       '{"type":"key","keys":["MEDIA_PLAY_PAUSE"]}',
-      '{"type":"key","keys":["VOLUME_DOWN"]}',
-      '{"type":"key","keys":["VOLUME_UP"]}',
+      '{"type":"key","keys":["MEDIA_NEXT"]}',
       '{"type":"key","keys":["VOLUME_MUTE"]}',
     ]);
   });
@@ -483,17 +514,19 @@ describe('App', () => {
     queryButton(compiled, 'Layout bearbeiten').click();
     fixture.detectChanges();
 
-    const muteSlot = queryButton(compiled, 'Stumm').closest('.layout-slot');
-    const removeButton = muteSlot?.querySelector<HTMLButtonElement>('.slot-remove');
+    const slot = queryButton(compiled, 'Vollbild umschalten').closest('.layout-slot');
+    const removeButton = slot?.querySelector<HTMLButtonElement>('.slot-remove');
 
     expect(removeButton).not.toBeNull();
     removeButton?.click();
     fixture.detectChanges();
 
-    expect(compiled.querySelector('button[aria-label="Stumm"]')).toBeNull();
+    expect(
+      compiled.querySelector('.layout-slot button[aria-label="Vollbild umschalten"]'),
+    ).toBeNull();
 
     const persisted = JSON.parse(storage.getItem(BUTTON_LAYOUT_STORAGE_KEY) ?? '{}');
-    expect(persisted.hiddenBuiltInIds).toEqual(['mute']);
+    expect(persisted.hiddenBuiltInIds).toContain('fullscreen');
   });
 
   it('falls back to the default layout when stored data is malformed', async () => {

@@ -73,6 +73,40 @@
   }
 </div>
 
+<!-- "Energie": die seltenen, nicht umkehrbaren Aktionen hinter einer Taste statt sechs im Raster. -->
+<dialog
+  #powerDialog
+  class="power-dialog"
+  [attr.aria-label]="i18n.t('button.power-menu.label')"
+  (close)="powerOpen.set(false)"
+>
+  @if (powerOpen()) {
+    <div class="timer-dialog__form">
+      <h2>{{ i18n.t('button.power-menu.label') }}</h2>
+      <div class="power-menu">
+        @for (button of powerButtons; track button.id) {
+          <button
+            class="control-button"
+            type="button"
+            [attr.aria-label]="i18n.t(button.ariaLabel)"
+            (click)="triggerPower(button)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path [attr.d]="iconPaths[button.icon]"></path>
+            </svg>
+            <span>{{ i18n.t(button.label) }}</span>
+          </button>
+        }
+      </div>
+      <div class="settings-actions">
+        <button class="secondary-button" type="button" (click)="closePower()">
+          {{ i18n.t('common.cancel') }}
+        </button>
+      </div>
+    </div>
+  }
+</dialog>
+
 <dialog
   #timerDialog
   class="timer-dialog"

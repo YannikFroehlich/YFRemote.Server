@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Fernbedienung aufgeräumt, damit auf dem Handy mehr Platz für die Tasten bleibt:
+  - Kopf: Die eigene Zeile mit der aktiven Adresse ist weg. Die Statusanzeige zeigt verbunden den Namen des Rechners, z. B. "YUNNIK-LAPTOP". Ein Tippen darauf öffnet ein kleines Menü mit der Adresse, "Neu verbinden" und "Verbindung trennen". Auf dem Handy steht im Kopf nur noch das Logo.
+  - Tabs: Nur der offene Tab zeigt seinen Namen, die anderen nur ihr Symbol. So passen alle Tabs nebeneinander, auch "Mixer", den man bisher erst durch Wischen fand.
+  - Medienleiste: Sie hat jetzt eigene Tasten für "Vorheriger", "Play/Pause" und "Nächster". Ein Tippen auf das Lautsprecher-Symbol schaltet stumm. Auf dem Handy steht der Titel in einer eigenen Zeile.
+  - Remote-Tab: Play, Leiser, Lauter, Stumm, Vorheriger und Nächster sind aus dem Standardlayout verschwunden, weil die Medienleiste sie schon hat. Ruhemodus, Neustart, Herunterfahren, Sperren, Bildschirm aus und Timer stecken jetzt hinter einer Taste "Energie", die sie in einem Dialog anbietet, mit derselben Rückfrage wie bisher. Wer das Standardlayout nie verändert hat, bekommt das neue automatisch. Ein angepasstes Layout bleibt, wie es ist, und erhält nur die Taste "Energie" dazu. "Zurücksetzen" im Bearbeiten-Modus führt zum neuen Standard. Die ausgeblendeten Tasten lassen sich dort einzeln wieder einblenden.
+
 ## [2.55.0] - 2026-11-16
 
 ### Added

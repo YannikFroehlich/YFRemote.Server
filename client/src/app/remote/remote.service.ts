@@ -198,6 +198,7 @@ export class RemoteService implements OnDestroy {
   private readonly screenAvailableSignal = signal(false);
   private readonly audioAvailableSignal = signal(false);
   private readonly touchAvailableSignal = signal(false);
+  private readonly serverNameSignal = signal<string | null>(null);
   private readonly screenTouchSignal = signal(
     parseStoredFlag(this.readStorage(SCREEN_TOUCH_STORAGE_KEY), false),
   );
@@ -291,6 +292,9 @@ export class RemoteService implements OnDestroy {
   readonly audioAvailable = this.audioAvailableSignal.asReadonly();
   /** Aktion `touch` (echte Touch-Eingabe im Tab "Bildschirm"), laut /health. */
   readonly touchAvailable = this.touchAvailableSignal.asReadonly();
+  /** Rechnername laut /health (z. B. "YUNNIK-LAPTOP"); `null`, solange er unbekannt ist. Bleibt
+   *  beim Trennen stehen, damit der Kopf beim Neuverbinden nicht auf die Adresse zurueckspringt. */
+  readonly serverName = this.serverNameSignal.asReadonly();
   /** Schalter "Touch" im Tab "Bildschirm": Finger statt Maus. */
   readonly screenTouch = this.screenTouchSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
@@ -1121,7 +1125,13 @@ export class RemoteService implements OnDestroy {
         readonly screen?: unknown;
         readonly audio?: unknown;
         readonly touch?: unknown;
+        readonly name?: unknown;
       };
+      this.serverNameSignal.set(
+        typeof body.name === 'string' && body.name.trim() !== ''
+          ? body.name.trim().slice(0, 64)
+          : null,
+      );
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
           ? body.platform
@@ -1451,8 +1461,7 @@ function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
 function isForegroundAppMessage(value: unknown): value is ForegroundAppMessage {
   const message = value as Partial<ForegroundAppMessage> | null;
   return (
-    message?.type === 'foregroundApp' &&
-    (message.name === null || typeof message.name === 'string')
+    message?.type === 'foregroundApp' && (message.name === null || typeof message.name === 'string')
   );
 }
 

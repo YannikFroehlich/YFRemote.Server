@@ -28,7 +28,7 @@ public sealed class WindowsAudioCapture : IAudioCapture
         Func<ReadOnlyMemory<byte>, Task> write,
         CancellationToken cancellationToken)
     {
-        var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
+        var enumerator = (IMMDeviceEnumerator)new WindowsMediaStatusReader.MMDeviceEnumerator();
         IMMDevice? device = null;
         object? clientObject = null;
         object? captureObject = null;
@@ -219,10 +219,6 @@ public sealed class WindowsAudioCapture : IAudioCapture
             Marshal.ReleaseComObject(comObject);
         }
     }
-
-    [ComImport]
-    [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    private class MMDeviceEnumerator;
 
     [ComImport]
     [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6")]

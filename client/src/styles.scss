@@ -423,8 +423,20 @@ body::before {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+// iOS zoomt beim Antippen in jedes Feld unter 16px hinein und bleibt danach vergroessert.
+// -webkit-touch-callout kennt nur Safari auf iPhone/iPad, Android und Desktop bleiben unveraendert.
+@supports (-webkit-touch-callout: none) {
+  input:not([type='range'], [type='checkbox'], [type='radio'], [type='file'], [type='color']),
+  select,
+  textarea {
+    font-size: max(16px, 1rem) !important;
+  }
 }
 
 button {

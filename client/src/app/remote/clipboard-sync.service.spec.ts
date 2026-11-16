@@ -3,6 +3,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import {
+  CLIPBOARD_AUTO_SYNC_PROBE,
   ClipboardService,
   DEVICE_CLIPBOARD_READER,
   DEVICE_CLIPBOARD_WRITER,
@@ -34,7 +35,7 @@ class FakeDocument {
 describe('ClipboardSyncService', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  function setup() {
+  async function setup(autoSync = true) {
     const remote = {
       clipboardSync: signal(true),
       clipboardSyncSupported: signal(true),
@@ -64,19 +65,22 @@ describe('ClipboardSyncService', () => {
           },
         },
         { provide: DEVICE_CLIPBOARD_READER, useValue: async () => device.text },
+        { provide: CLIPBOARD_AUTO_SYNC_PROBE, useValue: async () => autoSync },
         { provide: DOCUMENT, useValue: document },
       ],
     });
 
-    TestBed.inject(ClipboardSyncService);
+    const service = TestBed.inject(ClipboardSyncService);
     TestBed.tick();
-    return { remote, sent, written, device, document };
+    await settle();
+    TestBed.tick();
+    return { remote, sent, written, device, document, service };
   }
 
   const settle = () => new Promise((resolve) => setTimeout(resolve));
 
   it('sends text copied on the device when returning to the app, but not the old content', async () => {
-    const { sent, device, document } = setup();
+    const { sent, device, document } = await setup();
     await settle();
 
     document.returnToApp();
@@ -91,7 +95,7 @@ describe('ClipboardSyncService', () => {
   });
 
   it('does not write the PC echo of text the device just sent', async () => {
-    const { remote, sent, written, device, document } = setup();
+    const { remote, sent, written, device, document } = await setup();
     await settle();
     device.text = 'vom Gerät';
     document.returnToApp();
@@ -106,7 +110,7 @@ describe('ClipboardSyncService', () => {
   });
 
   it('writes PC text to the device and does not echo it back', async () => {
-    const { remote, sent, written, document } = setup();
+    const { remote, sent, written, document } = await setup();
     await settle();
 
     remote.pcClipboard.set({ type: 'clipboard', text: 'vom PC' });
@@ -120,7 +124,7 @@ describe('ClipboardSyncService', () => {
   });
 
   it('keeps PC text until the app has focus again', async () => {
-    const { remote, written, document } = setup();
+    const { remote, written, document } = await setup();
     await settle();
     document.focused = false;
 
@@ -136,11 +140,25 @@ describe('ClipboardSyncService', () => {
   });
 
   it('does nothing while sync is switched off', async () => {
-    const { remote, sent, written, device, document } = setup();
+    const { remote, sent, written, device, document } = await setup();
     await settle();
     remote.clipboardSync.set(false);
     TestBed.tick();
 
+    remote.pcClipboard.set({ type: 'clipboard', text: 'vom PC' });
+    TestBed.tick();
+    device.text = 'neu';
+    document.returnToApp();
+    await settle();
+
+    expect(written).toEqual([]);
+    expect(sent).toEqual([]);
+  });
+
+  it('stays off in a browser that only allows clipboard access on a tap (Safari)', async () => {
+    const { remote, sent, written, device, document, service } = await setup(false);
+
+    expect(service.available()).toBe(false);
     remote.pcClipboard.set({ type: 'clipboard', text: 'vom PC' });
     TestBed.tick();
     device.text = 'neu';

@@ -1,4 +1,5 @@
-﻿import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
+﻿import { DOCUMENT } from '@angular/common';
+import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   AccessMessage,
   ClipboardPushMessage,
@@ -102,8 +103,17 @@ export const REMOTE_VIBRATE = new InjectionToken<(pattern: VibratePattern) => vo
   },
 );
 
+/** Ohne Vibration (iOS) ist der Schalter "Vibration bei Tastendruck" sinnlos und wird ausgeblendet. */
+export const REMOTE_CAN_VIBRATE = new InjectionToken<boolean>('REMOTE_CAN_VIBRATE', {
+  providedIn: 'root',
+  factory: () => typeof globalThis.navigator?.vibrate === 'function',
+});
+
 const SOCKET_OPEN = 1;
 const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
+// iOS laesst einen neuen WebSocket zur LAN-IP nach der Rueckkehr aus dem Hintergrund manchmal
+// ohne jedes Ereignis haengen (WebKit-Bug 308073); ohne Frist bliebe es bei "Verbinde...".
+const CONNECT_TIMEOUT_MS = 8000;
 const ERROR_VISIBLE_MS = 4200;
 const PC_NOTIFICATION_VISIBLE_MS = 8000;
 const CLIPBOARD_HISTORY_SIZE = 10;
@@ -218,6 +228,20 @@ export class RemoteService implements OnDestroy {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly document = inject(DOCUMENT);
+  // Zurueck in der App: nicht erst die laufende Wartezeit abwarten. iOS hat den Socket im
+  // Hintergrund ohnehin geschlossen.
+  private readonly onVisibilityChange = (): void => {
+    if (
+      this.document.visibilityState === 'visible' &&
+      !this.manualDisconnectSignal() &&
+      this.statusSignal() !== 'connected'
+    ) {
+      this.reconnectAttempt = 0;
+      this.openFreshSocket();
+    }
+  };
   private requestSequence = 0;
   private readonly pendingActions = new Map<string, PendingAction>();
 
@@ -311,6 +335,7 @@ export class RemoteService implements OnDestroy {
 
   constructor() {
     this.recordServerProfile(this.configSignal());
+    this.document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     if (this.autoConnect) {
       this.connect();
@@ -892,6 +917,7 @@ export class RemoteService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.manualDisconnectSignal.set(true);
     this.clearReconnectTimer();
     this.clearErrorTimer();
@@ -911,6 +937,14 @@ export class RemoteService implements OnDestroy {
       const socket = this.createSocket(socketUrl);
       this.socket = socket;
       this.bindSocket(socket);
+      this.connectTimer = setTimeout(() => {
+        this.connectTimer = null;
+        if (this.socket === socket && this.statusSignal() === 'connecting') {
+          this.closeActiveSocket();
+          this.statusSignal.set('disconnected');
+          this.scheduleReconnect();
+        }
+      }, CONNECT_TIMEOUT_MS);
     } catch (error) {
       this.statusSignal.set('disconnected');
       this.showError(
@@ -926,6 +960,7 @@ export class RemoteService implements OnDestroy {
         return;
       }
 
+      this.clearConnectTimer();
       this.reconnectAttempt = 0;
       this.statusSignal.set('connected');
       this.clearError();
@@ -1269,6 +1304,7 @@ export class RemoteService implements OnDestroy {
   }
 
   private closeActiveSocket(): void {
+    this.clearConnectTimer();
     this.failPendingActions();
     this.gamepadRumbleSignal.set(0);
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
@@ -1344,6 +1380,13 @@ export class RemoteService implements OnDestroy {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  private clearConnectTimer(): void {
+    if (this.connectTimer !== null) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
     }
   }
 

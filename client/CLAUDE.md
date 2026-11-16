@@ -68,7 +68,7 @@ new component the same, unless everything its template reads is a signal or an i
    or `localStorage` directly.
    - The socket, page location, storage, vibration, and auto-connect-on-construct behavior are all
      swapped via `InjectionToken`s (`REMOTE_WEBSOCKET_FACTORY`, `SERVER_LOCATION`,
-     `REMOTE_STORAGE`, `REMOTE_VIBRATE`, `REMOTE_AUTO_CONNECT`) so
+     `REMOTE_STORAGE`, `REMOTE_VIBRATE`, `REMOTE_CAN_VIBRATE`, `REMOTE_AUTO_CONNECT`) so
      tests can inject fakes (see `RemoteSocket` interface and `MockRemoteSocket` in
      [remote.service.spec.ts](src/app/remote/remote.service.spec.ts)) instead of hitting a real
      socket/`localStorage`. Follow this pattern for any other browser API a service needs to own.
@@ -96,7 +96,12 @@ new component the same, unless everything its template reads is a signal or an i
      it writes pushed text via `DEVICE_CLIPBOARD_WRITER` (deferred until the document has focus),
      and on `focus`/`visibilitychange` it reads `DEVICE_CLIPBOARD_READER` and sends changed text
      with `ClipboardService.sendText`. The first read only sets the baseline, and the PC's echo of
-     sent text is skipped.
+     sent text is skipped. It stays off unless `CLIPBOARD_AUTO_SYNC_PROBE` resolves `true` (the
+     browser knows the `clipboard-read` permission, i.e. Chromium): Safari needs a tap for every
+     clipboard access, so automatic sync could never land there.
+   - A handshake without answer is abandoned after `CONNECT_TIMEOUT_MS` and retried, and
+     `visibilitychange` back to visible reconnects at once: iOS can leave a new socket to a LAN IP
+     hanging forever after the background (WebKit bug 308073).
    - `systemStats` pushes land in the `systemStats` signal, but only while
      `watchSystemStats(true)` is in effect: `SystemStatsComponent` (the "PC" tab, shown where
      `systemStatsSupported()`, i.e. any known platform; on the Android server it is labeled "Gerät" and

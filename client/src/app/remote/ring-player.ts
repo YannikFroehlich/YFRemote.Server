@@ -32,18 +32,29 @@ export const RING_PLAYER = new InjectionToken<RingPlayer>('RING_PLAYER', {
 const BEEP_INTERVAL_MS = 1000;
 
 // Ohne App nur, solange die Seite offen ist; das Stummschalten des Handys gilt hier mit.
-class BrowserRingPlayer implements RingPlayer {
+export class BrowserRingPlayer implements RingPlayer {
   private context: AudioContext | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
+
+  // Der Ruf vom PC kommt ohne Nutzergeste, und iOS laesst einen AudioContext nur klingen, der in
+  // einer Geste gestartet wurde. Deshalb beim ersten Tippen anlegen und bis zum Klingeln anhalten.
+  private readonly unlock = (): void => {
+    const context = this.createContext();
+    void (this.timer === undefined ? context?.suspend() : context?.resume())?.catch(
+      () => undefined,
+    );
+  };
+
+  constructor() {
+    globalThis.addEventListener?.('pointerdown', this.unlock, { capture: true, once: true });
+  }
 
   start(): void {
     if (this.timer !== undefined) {
       return;
     }
 
-    const Context = globalThis.AudioContext;
-    this.context = Context ? new Context() : null;
-    void this.context?.resume().catch(() => undefined);
+    void this.createContext()?.resume().catch(() => undefined);
     this.beep();
     this.timer = setInterval(() => this.beep(), BEEP_INTERVAL_MS);
   }
@@ -55,9 +66,17 @@ class BrowserRingPlayer implements RingPlayer {
   stop(): void {
     clearInterval(this.timer);
     this.timer = undefined;
-    void this.context?.close().catch(() => undefined);
-    this.context = null;
+    // Nicht schliessen: ein neuer Kontext waere ohne Geste wieder stumm.
+    void this.context?.suspend().catch(() => undefined);
     globalThis.navigator?.vibrate?.(0);
+  }
+
+  private createContext(): AudioContext | null {
+    const Context = globalThis.AudioContext;
+    if (this.context === null && typeof Context === 'function') {
+      this.context = new Context();
+    }
+    return this.context;
   }
 
   private beep(): void {

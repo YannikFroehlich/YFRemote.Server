@@ -38,6 +38,24 @@ export const DEVICE_CLIPBOARD_IMAGE_WRITER = new InjectionToken<DeviceClipboardI
   },
 );
 
+/** Ob der Browser die Zwischenablage ohne Tippen lesen und schreiben laesst: nur wer die
+ *  Berechtigung `clipboard-read` kennt (Chromium). Safari verlangt fuer jeden Zugriff eine Geste,
+ *  der automatische Abgleich kaeme dort nie an. */
+export const CLIPBOARD_AUTO_SYNC_PROBE = new InjectionToken<() => Promise<boolean>>(
+  'CLIPBOARD_AUTO_SYNC_PROBE',
+  {
+    providedIn: 'root',
+    factory: () => async () => {
+      try {
+        await globalThis.navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  },
+);
+
 export type DeviceClipboardReader = () => Promise<string>;
 
 /** `null` wie beim Schreiben. Safari und Firefox kennen die Berechtigung `clipboard-read` nicht;

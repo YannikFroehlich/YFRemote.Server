@@ -555,6 +555,46 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"notifications","enabled":false}');
   });
 
+  it('gives up a handshake that never answers and tries again', () => {
+    vi.useFakeTimers();
+    try {
+      const { remote, sockets } = setupRemoteService();
+      remote.connect();
+
+      vi.advanceTimersByTime(7999);
+      expect(remote.status()).toBe('connecting');
+      vi.advanceTimersByTime(1);
+      expect(remote.status()).toBe('disconnected');
+      expect(sockets[0].closed).toBe(true);
+
+      vi.advanceTimersByTime(2000);
+      expect(sockets.length).toBe(2);
+      sockets[1].open();
+      vi.advanceTimersByTime(10000);
+      expect(remote.status()).toBe('connected');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reconnects at once when the app comes back to the foreground', () => {
+    vi.useFakeTimers();
+    try {
+      const { remote, sockets } = setupRemoteService();
+      remote.connect();
+      sockets[0].open();
+      sockets[0].closeFromServer();
+      expect(sockets.length).toBe(1);
+
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(sockets.length).toBe(2);
+      expect(remote.status()).toBe('connecting');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('watches the app in front only after the profile switch is turned on', async () => {
     const { remote, sockets, storage } = setupRemoteService({ health: { platform: 'windows' } });
     expect(remote.autoProfile()).toBe(false);

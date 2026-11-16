@@ -14,7 +14,7 @@ import { normalizeProfileView, ProfileView } from './button-layout-profiles';
 import { FILE_SAVER } from './file-transfer.service';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ServerConfig } from './remote.models';
-import { RemoteService } from './remote.service';
+import { REMOTE_CAN_VIBRATE, RemoteService } from './remote.service';
 import {
   hostValidator,
   isValidHost,
@@ -52,6 +52,7 @@ export class SettingsDialogComponent {
   protected readonly theme = inject(ThemeService);
   protected readonly i18n = inject(TranslationService);
   protected readonly clipboardSync = inject(ClipboardSyncService);
+  protected readonly canVibrate = inject(REMOTE_CAN_VIBRATE);
   protected readonly pcNotificationsSupported = this.remote.pcNotificationsSupported;
   protected readonly autoProfile = this.remote.autoProfile;
   protected readonly autoProfileSupported = this.remote.autoProfileSupported;

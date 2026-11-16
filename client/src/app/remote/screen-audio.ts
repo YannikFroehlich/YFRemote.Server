@@ -16,6 +16,15 @@ export const SCREEN_AUDIO_CONTEXT_FACTORY = new InjectionToken<() => ScreenAudio
   },
 );
 
+/** iOS spielt Web Audio sonst als "ambient": der Stummschalter am Rand macht den PC-Ton stumm.
+ *  `playback` gilt nur, solange der Ton laeuft, weil es andere Apps (Musik) unterbricht. */
+export function usePlaybackAudioSession(on: boolean): void {
+  const navigator = globalThis.navigator as { audioSession?: { type: string } } | undefined;
+  if (navigator?.audioSession) {
+    navigator.audioSession.type = on ? 'playback' : 'auto';
+  }
+}
+
 // Vorlauf gegen WLAN-Ruckler; liegt mehr als MAX_AHEAD_SECONDS in der Warteschlange (etwa nach
 // einer Pause im Hintergrund), wird verworfen statt immer weiter hinterherzulaufen.
 const LEAD_SECONDS = 0.15;

@@ -367,6 +367,7 @@ internal static class Program
         builder.Services.AddSingleton<WindowsInputSender>();
         builder.Services.AddSingleton<IInputService, WindowsInputService>();
         builder.Services.AddSingleton<IMouseService, WindowsMouseService>();
+        builder.Services.AddSingleton<ITouchService, WindowsTouchService>();
         builder.Services.AddSingleton<IPowerService, WindowsPowerService>();
         builder.Services.AddSingleton<IAppLauncher, WindowsAppLauncher>();
         builder.Services.AddSingleton<IWindowService, WindowsWindowService>();
@@ -487,6 +488,7 @@ internal static class Program
         var voicemeeterService = app.Services.GetService<IVoicemeeterService>();
         var screenSupported = app.Services.GetService<IScreenCapture>() is not null;
         var audioSupported = app.Services.GetService<IAudioCapture>() is not null;
+        var touchSupported = app.Services.GetService<ITouchService>() is not null;
         app.MapGet("/health", () =>
         {
             var adapter = NetworkAddressService.GetDeviceAdapter();
@@ -500,7 +502,8 @@ internal static class Program
                 voicemeeterService?.IsInstalled ?? false,
                 Environment.MachineName,
                 screenSupported,
-                audioSupported);
+                audioSupported,
+                touchSupported);
         });
 
         if (httpsOptions.Enabled)

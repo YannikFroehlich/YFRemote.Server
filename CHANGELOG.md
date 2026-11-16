@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Tab "Bildschirm": Mit dem Schalter "Touch" kommen die Finger als echte Touch-Eingabe am PC an statt als Maus. Windows erkennt damit seine eigenen Gesten: Zoomen mit zwei Fingern, Wischen, Wischen vom Rand, langes Drücken. Bis zu 10 Finger, nur mit einem Windows-PC.
+
 ## [2.54.0] - 2026-11-15
 
 ### Security

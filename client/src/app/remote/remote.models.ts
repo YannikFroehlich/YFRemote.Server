@@ -32,6 +32,13 @@ export interface ScreenMoveAction {
   readonly monitor?: string;
 }
 
+/** Alle Finger, die gerade das Bild beruehren (Schalter "Touch"); leer hebt alle ab. */
+export interface TouchAction {
+  readonly type: 'touch';
+  readonly points: readonly { readonly id: number; readonly x: number; readonly y: number }[];
+  readonly monitor?: string;
+}
+
 /** Ein Monitor des PCs aus `GET /screen/monitors`. */
 export interface ScreenMonitor {
   readonly id: string;
@@ -390,6 +397,7 @@ export type RemoteAction =
   | MouseClickAction
   | ScreenClickAction
   | ScreenMoveAction
+  | TouchAction
   | MouseButtonAction
   | MouseScrollAction
   | MouseZoomAction

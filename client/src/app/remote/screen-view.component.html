@@ -21,6 +21,19 @@
     [class.screen-view__toolbar--left]="handle().x < 0.5"
     [class.screen-view__toolbar--up]="handle().y >= 0.5"
   >
+    @if (touchSupported()) {
+      <button
+        class="snap-switch"
+        type="button"
+        role="switch"
+        [attr.title]="i18n.t('screen.touchTitle')"
+        [attr.aria-label]="i18n.t('screen.touch')"
+        [attr.aria-checked]="touchMode()"
+        (click)="toggleTouch()"
+      >
+        <span>{{ i18n.t('screen.touch') }}</span>
+      </button>
+    }
     @if (soundSupported()) {
       <button
         class="snap-switch"

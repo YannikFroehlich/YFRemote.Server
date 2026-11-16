@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using YFRemote.Server;
 using YFRemote.Server.Configuration;
@@ -48,6 +49,24 @@ public sealed class UserSettingsConfigurationTests
             builder => builder.AddCommandLine(["Https:Enabled=false"]));
 
         Assert.IsFalse(ReadHttpsEnabled(configuration));
+    }
+
+    [TestMethod]
+    [DataRow(new string[0], true)]
+    [DataRow(new[] { "Server:Port=5060" }, true)]
+    [DataRow(new[] { "Https:Enabled=false" }, false)]
+    public void WebApplicationBuilder_KeepsTheDocumentedOrder(string[] args, bool expectedHttpsEnabled)
+    {
+        // appsettings.json im Testausgabeordner hat "Https:Enabled": false.
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory
+        });
+
+        Program.AddUserSettings(builder.Configuration, filePath);
+
+        Assert.AreEqual(expectedHttpsEnabled, ReadHttpsEnabled(builder.Configuration));
     }
 
     [TestMethod]

@@ -44,6 +44,7 @@ public sealed class ClipboardEndpointTests
                 $"Server:Port={port}",
                 $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}",
                 $"Diagnostics:LogDirectory={Path.Combine(testDirectory, "Logs")}",
+                $"UserSettings:FilePath={Path.Combine(testDirectory, "settings.json")}",
                 "Clipboard:MaxTextLength=20",
                 "Clipboard:MaxImageSizeBytes=1024"
             ],

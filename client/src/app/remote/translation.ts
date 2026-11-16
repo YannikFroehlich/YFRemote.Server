@@ -417,6 +417,11 @@ export const TRANSLATIONS = {
     de: 'Vibration bei Tastendruck (Android)',
     en: 'Vibration on key press (Android)',
   },
+  'settings.animations': { de: 'Animationen', en: 'Animations' },
+  'settings.animations.hint': {
+    de: 'Aus: Tabs, Dialoge und Tasten erscheinen sofort, ohne Bewegung. "Bewegung reduzieren" des Geräts gilt in jedem Fall.',
+    en: 'Off: tabs, dialogs and buttons appear at once, without motion. The device setting "Reduce motion" always applies.',
+  },
   'settings.clipboardSync': {
     de: 'Zwischenablage automatisch abgleichen',
     en: 'Sync clipboard automatically',

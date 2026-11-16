@@ -1,5 +1,9 @@
 <main class="remote-shell">
-  <section class="remote-panel remote-panel--app" aria-label="YFRemote Remote">
+  <section
+    class="remote-panel remote-panel--app"
+    aria-label="YFRemote Remote"
+    [attr.data-enter]="viewEnter()"
+  >
     <header class="remote-header">
       <div class="brand-block brand-lockup">
         <img class="brand-mark" src="/brand-mark.png" alt="" width="128" height="128" />
@@ -48,7 +52,7 @@
 
         @if (connectionMenuOpen()) {
           <div class="connection-menu__backdrop" (click)="closeConnectionMenu()"></div>
-          <div class="connection-menu" role="menu">
+          <div class="connection-menu" role="menu" animate.leave="menu-leave">
             <div class="connection-menu__identity">
               <span>{{ statusLabel(status()) }}</span>
               <strong>{{ config().host }}:{{ config().port }}</strong>

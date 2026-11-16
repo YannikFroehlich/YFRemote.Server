@@ -1551,31 +1551,47 @@ h2 {
   display: flex;
 }
 
+// Alle mit flex-basis auto: dann aendert nur der aufklappende Name die Breiten, und der Wechsel
+// gleitet, statt zu springen.
 .view-tabs--main .view-tab {
   min-width: 32px;
   min-height: 44px;
-  flex: 1 1 0;
-  padding: 0 4px;
+  flex: 1 1 auto;
+  gap: 0;
+  padding: 0 6px;
+  // Gleiche Reihenfolge wie die Druck-Federung unten (.view-tab:active), plus gap.
+  transition-property: transform, border-color, background, color, box-shadow, gap;
+  transition-duration: 420ms, 160ms, 160ms, 160ms, 160ms, 260ms;
+  transition-timing-function: var(--ease-spring), ease, ease, ease, ease, var(--ease-emphasized);
 }
 
 .view-tabs--main .view-tab--active {
-  flex: 0 0 auto;
-  padding: 0 10px;
+  gap: 6px;
 }
 
 .view-tabs--main .view-tab svg {
   width: 19px;
   height: 19px;
+  flex: none;
 }
 
-// Der Name bleibt fuer Screenreader stehen, sichtbar ist nur das Symbol.
-.view-tabs--main .view-tab:not(.view-tab--active) > span {
-  position: absolute;
+// Zugeklappt bleibt der Name fuer Screenreader im Baum, sichtbar ist nur das Symbol.
+.view-tabs--main .view-tab > span {
   overflow: hidden;
-  width: 1px;
-  height: 1px;
-  clip: rect(0 0 0 0);
+  max-width: 0;
+  opacity: 0;
   white-space: nowrap;
+  transition:
+    max-width 260ms var(--ease-emphasized),
+    opacity 180ms ease;
+}
+
+.view-tabs--main .view-tab--active > span {
+  max-width: 9em;
+  opacity: 1;
+  transition:
+    max-width 260ms var(--ease-emphasized),
+    opacity 220ms ease 60ms;
 }
 
 .view-content {
@@ -3152,7 +3168,8 @@ select:focus-visible {
 
 // Bewegung: alles reines CSS. Eingangsanimationen laufen, sobald Angular ein Element einfuegt
 // (@if, @for); fuer das Schliessen der Dialoge setzt das Template animate.leave="dialog-leave".
-// Der prefers-reduced-motion-Block unten verkuerzt alles davon auf 0.01ms.
+// Der prefers-reduced-motion-Block unten und der Schalter "Animationen" in den Einstellungen
+// (data-motion="off" am <html>, ThemeService) verkuerzen alles davon auf 0.01ms.
 :root {
   // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
   --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
@@ -3206,23 +3223,74 @@ select:focus-visible {
   }
 }
 
+@keyframes slide-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes slide-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
 // Beim Laden und nach dem Koppeln gleitet die ganze Oberflaeche herein.
 .remote-panel {
   animation: rise-in 520ms var(--ease-emphasized) backwards;
 }
 
-// Neuer Tab: der Inhalt gleitet von unten herein. Die Remote-Buttons kommen einzeln (siehe
-// .layout-slot), deshalb nicht noch einmal die ganze Flaeche.
-.view-content > :not(app-button-canvas),
-.media-strip,
+// Erster Aufbau: Inhalt und Medienleiste gleiten von unten herein, die Remote-Tasten als Welle von
+// oben links nach unten rechts, gestaffelt nach Zeile und Spalte. Nur beim Start - bei jeder
+// Rueckkehr in den Tab waere die Welle nur Wartezeit.
+.remote-panel:not([data-enter]) :is(.view-content > :not(app-button-canvas), .media-strip) {
+  animation: rise-in 380ms var(--ease-emphasized) backwards;
+}
+
+.remote-panel:not([data-enter]) .layout-slot {
+  animation: rise-in 460ms var(--ease-emphasized) backwards;
+  animation-delay: calc(var(--row) * 28ms + var(--col) * 10ms);
+}
+
+// Tabwechsel: der neue Inhalt kommt von der Seite, auf der sein Tab liegt (rechts davon: von
+// rechts), wie beim Wischen. Die Medienleiste gehoert zum Remote-Tab und kommt mit.
+.remote-panel[data-enter='forward'] :is(.view-content > *, .media-strip) {
+  animation: slide-in-forward 300ms var(--ease-emphasized) backwards;
+}
+
+.remote-panel[data-enter='back'] :is(.view-content > *, .media-strip) {
+  animation: slide-in-back 300ms var(--ease-emphasized) backwards;
+}
+
 .toast {
   animation: rise-in 380ms var(--ease-emphasized) backwards;
 }
 
-// Die Buttons laufen als Welle von oben links nach unten rechts ein, gestaffelt nach Zeile und Spalte.
-.layout-slot {
-  animation: rise-in 460ms var(--ease-emphasized) backwards;
-  animation-delay: calc(var(--row) * 28ms + var(--col) * 10ms);
+// Das Verbindungsmenue klappt aus der Statusanzeige auf und dorthin wieder zu.
+.connection-menu {
+  transform-origin: top right;
+  animation: menu-in 180ms var(--ease-emphasized) backwards;
+}
+
+.menu-leave {
+  pointer-events: none;
+  animation: menu-out 140ms ease forwards;
 }
 
 .update-banner {
@@ -3503,13 +3571,30 @@ select:focus-visible {
   flex: 1;
 }
 
+// 0.01ms statt "none": Angular wartet bei animate.leave auf animationend, das muss weiter kommen.
+@mixin no-motion {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    @include no-motion;
+  }
+}
+
+// Schalter "Animationen" in den Einstellungen aus.
+:root[data-motion='off'] {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    @include no-motion;
   }
 }

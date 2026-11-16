@@ -335,7 +335,13 @@ place that touches `<html>`: `applyTheme` writes `data-mode`/`data-style` plus, 
 the derived tokens as inline custom properties (it clears the whole inline `style` first, so nothing
 else may put inline styles on `<html>`). Every change also stores the finished `AppliedTheme` under
 `yfremote.appliedTheme`; the inline script in `index.html` only replays that snapshot, so the boot
-path has no theme logic of its own. An own style is a `CustomTheme` (base style + light/dark + a
+path has no theme logic of its own. The settings switch "Animationen" is `ThemeService.animations`
+(`yfremote.animations`, default on): off sets `data-motion="off"` on `<html>` (also from the inline
+script, before the entry animation starts), and `styles.scss` then applies the same `no-motion`
+mixin as `prefers-reduced-motion` (0.01ms durations, not `none`, because `animate.leave` waits for
+`animationend`). Tab switches set `data-enter="forward"`/`"back"` on `.remote-panel`
+(`RemoteControlComponent.showView`), which picks the slide direction; the button wave of
+`.layout-slot` runs only while that attribute is still absent, i.e. on the first render. An own style is a `CustomTheme` (base style + light/dark + a
 handful of values); `deriveCustomThemeProperties` expands those into the full token set, then the
 `advanced` map overrides single tokens. `normalizeCustomTheme` is the trust boundary for stored and
 imported styles: hex colors and in-range numbers only, so no foreign CSS reaches a token.

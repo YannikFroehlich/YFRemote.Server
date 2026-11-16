@@ -3,6 +3,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { REMOTE_STORAGE } from './remote.service';
 import {
   ACTIVE_CUSTOM_THEME_STORAGE_KEY,
+  ANIMATIONS_STORAGE_KEY,
   AppliedTheme,
   APPLIED_THEME_STORAGE_KEY,
   applyTheme,
@@ -39,8 +40,11 @@ export class ThemeService {
     parseStoredCustomThemes(this.readStorage(CUSTOM_THEMES_STORAGE_KEY)),
   );
   private readonly activeCustomIdSignal = signal(this.readStorage(ACTIVE_CUSTOM_THEME_STORAGE_KEY));
+  // Standardmaessig an; "Animationen reduzieren" des Systems gilt trotzdem (styles.scss).
+  private readonly animationsSignal = signal(this.readStorage(ANIMATIONS_STORAGE_KEY) !== 'false');
 
   readonly mode = this.modeSignal.asReadonly();
+  readonly animations = this.animationsSignal.asReadonly();
   readonly style = this.styleSignal.asReadonly();
   readonly customThemes = this.customThemesSignal.asReadonly();
   /** Der aktive eigene Stil; null, wenn ein eingebauter Stil gilt. */
@@ -50,6 +54,24 @@ export class ThemeService {
 
   constructor() {
     this.applyCurrent();
+    this.applyAnimations();
+  }
+
+  saveAnimations(enabled: boolean): void {
+    this.animationsSignal.set(enabled);
+    this.storage?.setItem(ANIMATIONS_STORAGE_KEY, String(enabled));
+    this.applyAnimations();
+  }
+
+  // Eigenes Attribut neben data-mode/data-style; applyTheme fasst es nicht an. index.html setzt es
+  // schon vor dem Start, damit die Eingangsanimation bei "aus" gar nicht erst beginnt.
+  private applyAnimations(): void {
+    const root = this.document.documentElement;
+    if (this.animationsSignal()) {
+      root.removeAttribute('data-motion');
+    } else {
+      root.setAttribute('data-motion', 'off');
+    }
   }
 
   saveMode(mode: ThemeMode): void {

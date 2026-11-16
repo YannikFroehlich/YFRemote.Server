@@ -13,11 +13,94 @@ export const DEFAULT_PROFILE_ID = 'profile:standard';
 export const ANDROID_PROFILE_ID = 'profile:android';
 export const MAX_LAYOUT_PROFILES = 20;
 export const MAX_PROFILE_NAME_LENGTH = 40;
+export const MAX_PROFILE_APPS = 20;
+/** Wie `MaxAppNameLength` am Server. */
+export const MAX_PROFILE_APP_LENGTH = 100;
 
 export interface ButtonLayoutProfile {
   readonly id: string;
   readonly name: string;
   readonly layout: ButtonLayout;
+  /** Programme (Name wie im Mixer), bei denen der automatische Profilwechsel dieses Profil nimmt. */
+  readonly apps?: readonly string[];
+  /** Tab, auf den der automatische Wechsel dazu geht; ohne bleibt der Tab, wie er ist. */
+  readonly view?: ProfileView;
+}
+
+/** Tabs, die ein Profil beim automatischen Wechsel oeffnen kann (Werte wie `RemoteView`). */
+export const PROFILE_VIEWS = [
+  'remote',
+  'touchpad',
+  'screen',
+  'keyboard',
+  'presentation',
+  'gamepad',
+  'system',
+  'mixer',
+] as const;
+export type ProfileView = (typeof PROFILE_VIEWS)[number];
+
+export function normalizeProfileView(candidate: unknown): ProfileView | null {
+  return PROFILE_VIEWS.find((view) => view === candidate) ?? null;
+}
+
+/** Ein Profil mit neuen Programmen und neuem Tab; leere Werte fallen ganz weg. */
+export function withProfileExtras(
+  profile: ButtonLayoutProfile,
+  apps: readonly string[] | undefined,
+  view: ProfileView | null | undefined,
+): ButtonLayoutProfile {
+  const base: { -readonly [K in keyof ButtonLayoutProfile]: ButtonLayoutProfile[K] } = {
+    id: profile.id,
+    name: profile.name,
+    layout: profile.layout,
+  };
+  if (apps !== undefined && apps.length > 0) {
+    base.apps = apps;
+  }
+  if (view != null) {
+    base.view = view;
+  }
+  return base;
+}
+
+/** Bereinigt die Programmliste eines Profils: getrimmt, ohne Doppelte, begrenzt. */
+export function normalizeProfileApps(candidate: unknown): readonly string[] {
+  if (!Array.isArray(candidate)) {
+    return [];
+  }
+
+  const apps: string[] = [];
+  for (const entry of candidate) {
+    const name = typeof entry === 'string' ? entry.trim() : '';
+    if (
+      name.length > 0 &&
+      name.length <= MAX_PROFILE_APP_LENGTH &&
+      !apps.some((app) => sameApp(app, name)) &&
+      apps.length < MAX_PROFILE_APPS
+    ) {
+      apps.push(name);
+    }
+  }
+
+  return apps;
+}
+
+export function sameApp(a: string, b: string): boolean {
+  return a.localeCompare(b, 'de-DE', { sensitivity: 'base' }) === 0;
+}
+
+/** Das Profil, das zum Programm vorne passt; Android hat keine Programme. */
+export function findProfileForApp(
+  profiles: readonly ButtonLayoutProfile[],
+  app: string | null,
+): ButtonLayoutProfile | undefined {
+  return app === null
+    ? undefined
+    : profiles.find(
+        (profile) =>
+          profile.id !== ANDROID_PROFILE_ID && profile.apps?.some((name) => sameApp(name, app)),
+      );
 }
 
 export interface ButtonLayoutProfileStore {
@@ -151,5 +234,9 @@ function normalizeProfile(candidate: unknown): ButtonLayoutProfile | null {
     return null;
   }
 
-  return { id: value.id, name, layout };
+  return withProfileExtras(
+    { id: value.id, name, layout },
+    normalizeProfileApps(value.apps),
+    normalizeProfileView(value.view),
+  );
 }

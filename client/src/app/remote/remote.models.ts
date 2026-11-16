@@ -32,6 +32,13 @@ export interface ScreenMoveAction {
   readonly monitor?: string;
 }
 
+/** Alle Finger, die gerade das Bild beruehren (Schalter "Touch"); leer hebt alle ab. */
+export interface TouchAction {
+  readonly type: 'touch';
+  readonly points: readonly { readonly id: number; readonly x: number; readonly y: number }[];
+  readonly monitor?: string;
+}
+
 /** Ein Monitor des PCs aus `GET /screen/monitors`. */
 export interface ScreenMonitor {
   readonly id: string;
@@ -287,6 +294,19 @@ export interface AppsWatchAction {
   readonly enabled: boolean;
 }
 
+/** Schaltet fuer diese Verbindung die Meldung des Programms im Vordergrund ein oder aus
+ *  (automatischer Profilwechsel, nur Windows). */
+export interface ForegroundAppWatchAction {
+  readonly type: 'foregroundApp';
+  readonly enabled: boolean;
+}
+
+/** Programm im Vordergrund am PC, Name wie im Mixer; `null` ohne Fenster im Vordergrund. */
+export interface ForegroundAppMessage {
+  readonly type: 'foregroundApp';
+  readonly name: string | null;
+}
+
 /** Setzt Lautstaerke (0-100) und/oder Stummschaltung einer App: per `id` aus dem Mixer oder per
  *  `name` aus einem eigenen Button (trifft alle Apps des Namens; ohne beides wird umgeschaltet). */
 export interface AppVolumeAction {
@@ -390,6 +410,7 @@ export type RemoteAction =
   | MouseClickAction
   | ScreenClickAction
   | ScreenMoveAction
+  | TouchAction
   | MouseButtonAction
   | MouseScrollAction
   | MouseZoomAction
@@ -406,6 +427,7 @@ export type RemoteAction =
   | VoicemeeterWatchAction
   | VoicemeeterParameterAction
   | AppsWatchAction
+  | ForegroundAppWatchAction
   | AppVolumeAction
   | AudioOutputAction
   | LaunchAction

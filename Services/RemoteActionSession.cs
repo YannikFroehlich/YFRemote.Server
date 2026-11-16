@@ -11,7 +11,8 @@ public sealed class RemoteActionSession(
     Action<SystemStatsMessage>? onSystemStats = null,
     Action<VoicemeeterMessage>? onVoicemeeter = null,
     Action<AppVolumesMessage>? onApps = null,
-    Action<PcNotificationMessage>? onNotification = null) : IDisposable
+    Action<PcNotificationMessage>? onNotification = null,
+    Action<ForegroundAppMessage>? onForegroundApp = null) : IDisposable
 {
     public string DeviceName { get; init; } = "Unbekanntes Gerät";
 
@@ -33,6 +34,10 @@ public sealed class RemoteActionSession(
     internal IDisposable? AppsSubscription { get; set; }
 
     internal IDisposable? NotificationsSubscription { get; set; }
+
+    internal IDisposable? ForegroundAppSubscription { get; set; }
+
+    internal void PushForegroundApp(ForegroundAppMessage message) => onForegroundApp?.Invoke(message);
 
     internal void Rumble(GamepadRumble rumble) => onRumble?.Invoke(rumble);
 
@@ -82,5 +87,7 @@ public sealed class RemoteActionSession(
         AppsSubscription = null;
         NotificationsSubscription?.Dispose();
         NotificationsSubscription = null;
+        ForegroundAppSubscription?.Dispose();
+        ForegroundAppSubscription = null;
     }
 }

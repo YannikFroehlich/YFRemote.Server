@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
+﻿import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   AccessMessage,
   ClipboardPushMessage,
@@ -24,10 +24,12 @@ import {
   SystemStatsMessage,
   VoicemeeterMessage,
   AppVolumesMessage,
+  ForegroundAppMessage,
 } from './remote.models';
 import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
+  AUTO_PROFILE_STORAGE_KEY,
   CLIPBOARD_SYNC_STORAGE_KEY,
   PC_NOTIFICATIONS_STORAGE_KEY,
   getServerConfigFromLocation,
@@ -38,6 +40,7 @@ import {
   parseScreenQuality,
   SCREEN_MONITOR_STORAGE_KEY,
   SCREEN_QUALITY_STORAGE_KEY,
+  SCREEN_TOUCH_STORAGE_KEY,
   ScreenQuality,
   INVERT_SCROLL_STORAGE_KEY,
   LIVE_TYPING_STORAGE_KEY,
@@ -172,6 +175,7 @@ export class RemoteService implements OnDestroy {
   private readonly mediaOnlySignal = signal(false);
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
+  private readonly ringingSignal = signal(false);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
   private readonly mediaCoverSignal = signal<string | null>(null);
   private mediaCoverId: string | null = null;
@@ -182,6 +186,10 @@ export class RemoteService implements OnDestroy {
   private readonly pcNotificationsSignal = signal(
     parseStoredFlag(this.readStorage(PC_NOTIFICATIONS_STORAGE_KEY), false),
   );
+  private readonly autoProfileSignal = signal(
+    parseStoredFlag(this.readStorage(AUTO_PROFILE_STORAGE_KEY), false),
+  );
+  private readonly foregroundAppSignal = signal<string | null>(null);
   private readonly pcNotificationSignal = signal<PcNotificationMessage | null>(null);
   private pcNotificationTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
@@ -189,6 +197,10 @@ export class RemoteService implements OnDestroy {
   private readonly voicemeeterAvailableSignal = signal(false);
   private readonly screenAvailableSignal = signal(false);
   private readonly audioAvailableSignal = signal(false);
+  private readonly touchAvailableSignal = signal(false);
+  private readonly screenTouchSignal = signal(
+    parseStoredFlag(this.readStorage(SCREEN_TOUCH_STORAGE_KEY), false),
+  );
   private readonly voicemeeterSignal = signal<VoicemeeterMessage | null>(null);
   private readonly recordedStepsSignal = signal<readonly MacroStep[] | null>(null);
   private lastRecordedAt = 0;
@@ -233,6 +245,9 @@ export class RemoteService implements OnDestroy {
   readonly gamepadRumble = this.gamepadRumbleSignal.asReadonly();
   /** Datei, die der PC gerade anbietet; `null`, solange keine angeboten ist. */
   readonly fileOffer = this.fileOfferSignal.asReadonly();
+  /** "Gerät klingeln lassen" im Tray des PCs. Bleibt auch bei einem Verbindungsabbruch an - wer
+   *  das Handy sucht, soll es weiter hoeren -, bis `stopRinging` es ausschaltet. */
+  readonly ringing = this.ringingSignal.asReadonly();
   /** Lautstaerke und laufendes Medium am PC; `null`, solange die Gegenstelle keine meldet. */
   readonly mediaStatus = this.mediaStatusSignal.asReadonly();
   /** Albumcover des laufenden Mediums als Data-URL; `null` ohne Cover oder solange es laedt. */
@@ -250,6 +265,12 @@ export class RemoteService implements OnDestroy {
   /** Gewuenschte Weiterleitung der Windows-Benachrichtigungen; nur der Windows-Server kann sie. */
   readonly pcNotifications = this.pcNotificationsSignal.asReadonly();
   readonly pcNotificationsSupported = computed(() => this.serverPlatformSignal() === 'windows');
+  /** Layout-Profil passend zum Programm vorne am PC wechseln; standardmaessig aus, nur Windows. */
+  readonly autoProfile = this.autoProfileSignal.asReadonly();
+  readonly autoProfileSupported = computed(() => this.serverPlatformSignal() === 'windows');
+  /** Programm im Vordergrund, solange `autoProfile` an ist. Bleibt beim Trennen stehen, damit das
+   *  Profil waehrend eines Neuverbindens nicht hin- und herspringt. */
+  readonly foregroundApp = this.foregroundAppSignal.asReadonly();
   /** Die zuletzt weitergeleitete Benachrichtigung, fuer ein paar Sekunden. */
   readonly pcNotification = this.pcNotificationSignal.asReadonly();
   /** Den Abgleich koennen nur der Windows- und der Linux-Server, nicht die Android-App. */
@@ -268,6 +289,10 @@ export class RemoteService implements OnDestroy {
   readonly screenAvailable = this.screenAvailableSignal.asReadonly();
   /** `GET /screen/audio` (PC-Ton im Tab "Bildschirm"), ebenfalls laut /health. */
   readonly audioAvailable = this.audioAvailableSignal.asReadonly();
+  /** Aktion `touch` (echte Touch-Eingabe im Tab "Bildschirm"), laut /health. */
+  readonly touchAvailable = this.touchAvailableSignal.asReadonly();
+  /** Schalter "Touch" im Tab "Bildschirm": Finger statt Maus. */
+  readonly screenTouch = this.screenTouchSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
@@ -385,6 +410,11 @@ export class RemoteService implements OnDestroy {
     this.storage?.setItem(SCREEN_QUALITY_STORAGE_KEY, quality);
   }
 
+  saveScreenTouch(enabled: boolean): void {
+    this.screenTouchSignal.set(enabled);
+    this.storage?.setItem(SCREEN_TOUCH_STORAGE_KEY, String(enabled));
+  }
+
   saveHaptics(enabled: boolean): void {
     this.hapticsSignal.set(enabled);
     this.storage?.setItem(HAPTICS_STORAGE_KEY, String(enabled));
@@ -411,6 +441,15 @@ export class RemoteService implements OnDestroy {
     this.pcNotificationsSignal.set(enabled);
     this.storage?.setItem(PC_NOTIFICATIONS_STORAGE_KEY, String(enabled));
     this.sendPcNotifications();
+  }
+
+  saveAutoProfile(enabled: boolean): void {
+    this.autoProfileSignal.set(enabled);
+    this.storage?.setItem(AUTO_PROFILE_STORAGE_KEY, String(enabled));
+    if (!enabled) {
+      this.foregroundAppSignal.set(null);
+    }
+    this.sendForegroundAppWatch();
   }
 
   /** Entfernt die angezeigte Benachrichtigung auch am PC (Info-Center) und blendet sie aus. */
@@ -726,6 +765,10 @@ export class RemoteService implements OnDestroy {
     this.fileOfferSignal.set(null);
   }
 
+  stopRinging(): void {
+    this.ringingSignal.set(false);
+  }
+
   removeServerProfile(config: ServerConfig): void {
     const updated = withoutServerProfile(this.serverProfilesSignal(), config);
     this.serverProfilesSignal.set(updated);
@@ -941,6 +984,11 @@ export class RemoteService implements OnDestroy {
       return;
     }
 
+    if ((message as { type?: unknown } | null)?.type === 'ring') {
+      this.ringingSignal.set(true);
+      return;
+    }
+
     if (isMediaStatusMessage(message)) {
       this.mediaStatusSignal.set(message);
       void this.loadMediaCover(message.coverId ?? null);
@@ -950,6 +998,13 @@ export class RemoteService implements OnDestroy {
     if (isClipboardPushMessage(message)) {
       this.pcClipboardSignal.set(message);
       this.rememberClipboardText(message.text);
+      return;
+    }
+
+    if (isForegroundAppMessage(message)) {
+      if (this.autoProfileSignal()) {
+        this.foregroundAppSignal.set(message.name);
+      }
       return;
     }
 
@@ -1065,6 +1120,7 @@ export class RemoteService implements OnDestroy {
         readonly voicemeeter?: unknown;
         readonly screen?: unknown;
         readonly audio?: unknown;
+        readonly touch?: unknown;
       };
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
@@ -1075,12 +1131,14 @@ export class RemoteService implements OnDestroy {
       this.voicemeeterAvailableSignal.set(body.voicemeeter === true);
       this.screenAvailableSignal.set(body.screen === true);
       this.audioAvailableSignal.set(body.audio === true);
+      this.touchAvailableSignal.set(body.touch === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
       this.screenAvailableSignal.set(false);
       this.audioAvailableSignal.set(false);
+      this.touchAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,
@@ -1099,6 +1157,15 @@ export class RemoteService implements OnDestroy {
     }
     if (this.appsWatched) {
       this.sendAppsWatch();
+    }
+    if (this.autoProfileSignal()) {
+      this.sendForegroundAppWatch();
+    }
+  }
+
+  private sendForegroundAppWatch(): void {
+    if (this.autoProfileSupported() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'foregroundApp', enabled: this.autoProfileSignal() });
     }
   }
 
@@ -1379,6 +1446,14 @@ function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
 function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
   const message = value as Partial<ClipboardPushMessage> | null;
   return message?.type === 'clipboard' && typeof message.text === 'string';
+}
+
+function isForegroundAppMessage(value: unknown): value is ForegroundAppMessage {
+  const message = value as Partial<ForegroundAppMessage> | null;
+  return (
+    message?.type === 'foregroundApp' &&
+    (message.name === null || typeof message.name === 'string')
+  );
 }
 
 function isPcNotificationMessage(value: unknown): value is PcNotificationMessage {

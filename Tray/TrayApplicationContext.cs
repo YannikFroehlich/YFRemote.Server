@@ -31,12 +31,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem statusItem;
     private readonly ToolStripMenuItem pinItem;
     private readonly ToolStripMenuItem pairedDevicesItem;
+    private readonly ToolStripMenuItem ringItem;
     private readonly ToolStripMenuItem gamepadDriverItem;
     private readonly ToolStripMenuItem shutdownTimerItem;
     private readonly ShutdownTimer shutdownTimer;
     private readonly System.Windows.Forms.Timer initialUpdateTimer;
     private readonly System.Windows.Forms.Timer periodicUpdateTimer;
     private readonly Control uiDispatcher = new();
+    private readonly CancellationTokenSource offerPipeStop = new();
     private readonly string localAddress;
     private readonly string deviceAddress;
     private readonly string? certificateUrl;
@@ -142,6 +144,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         pairedDevicesItem = new ToolStripMenuItem("Gekoppelte Geräte");
         pairedDevicesItem.Click += (_, _) => ShowPairedDevicesDialog();
 
+        ringItem = new ToolStripMenuItem("Gerät klingeln lassen");
+
         updateItem = new ToolStripMenuItem(
             updateService.CanUpdate
                 ? "Nach Updates suchen..."
@@ -182,6 +186,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             copyPinItem,
             regeneratePinItem,
             pairedDevicesItem,
+            ringItem,
             new ToolStripSeparator(),
             updateItem,
             new ToolStripSeparator(),
@@ -235,12 +240,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         Notify("YFRemote läuft", $"Der Server ist unter {deviceAddress} erreichbar.");
+        _ = WindowsExplorerSendMenu.ListenAsync(
+            path => uiDispatcher.BeginInvoke(() => OfferPath(path)),
+            offerPipeStop.Token);
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            offerPipeStop.Cancel();
+            offerPipeStop.Dispose();
             fileTransferService.FileReceived -= OnFileReceived;
             fileOfferService.Downloaded -= OnOfferedFileDownloaded;
             clipboardReadNotifier.Read -= OnClipboardRead;
@@ -404,14 +414,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OfferFile()
     {
         using var dialog = new OpenFileDialog { Title = "Datei an Geräte senden" };
-        if (dialog.ShowDialog() != DialogResult.OK)
+        if (dialog.ShowDialog() == DialogResult.OK)
         {
-            return;
+            OfferPath(dialog.FileName);
         }
+    }
 
+    // Auch fuer "An YFRemote-Geräte senden" im Explorer, siehe WindowsExplorerSendMenu.
+    public void OfferPath(string path)
+    {
         try
         {
-            var offer = fileOfferService.Offer(dialog.FileName);
+            var offer = fileOfferService.Offer(path);
             Notify(
                 "Datei bereitgestellt",
                 $"\"{offer.Name}\" kann jetzt 10 Minuten lang auf den gekoppelten Geräten geladen werden.");
@@ -641,6 +655,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? $"Gekoppelte Geräte ({pairedDevices.Count})..."
             : $"Gekoppelte Geräte ({pairedDevices.Count}, {connectedCount} verbunden)...";
         pairedDevicesItem.Enabled = pairedDevices.Count > 0;
+
+        // Nur verbundene Geraete koennen klingeln; die Android-App haelt die Verbindung auch im
+        // Hintergrund, ein Browser nur, solange die Seite offen ist.
+        ringItem.DropDownItems.Clear();
+        foreach (var device in pairedDevices.Where(device => connectionRegistry.IsConnected(device.Id)))
+        {
+            var deviceItem = new ToolStripMenuItem(device.Name);
+            deviceItem.Click += (_, _) =>
+            {
+                connectionRegistry.Ring(device.Id);
+                Notify("Gerät klingelt", $"\"{device.Name}\" klingelt, bis es dort gestoppt wird.");
+            };
+            ringItem.DropDownItems.Add(deviceItem);
+        }
+
+        ringItem.Enabled = ringItem.DropDownItems.Count > 0;
     }
 
     private void ShowPairedDevicesDialog()

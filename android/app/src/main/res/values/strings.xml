@@ -8,6 +8,11 @@
     <string name="notification_stop">Stoppen</string>
     <string name="notification_regenerate_pin">PIN neu erzeugen</string>
     <string name="media_channel_name">Wiedergabe am gesteuerten Gerät</string>
+    <string name="ring_channel_name">Gerät suchen</string>
+    <string name="ring_title">Der PC sucht dieses Gerät</string>
+    <string name="ring_stop">Stopp</string>
+    <string name="listener_channel_name">Im Hintergrund erreichbar</string>
+    <string name="listener_title">Erreichbar für „Gerät klingeln lassen“</string>
     <string name="widget_description">Wiedergabe und Lautstärke des zuletzt geöffneten Geräts</string>
     <string name="widget_no_device">Zuerst ein Gerät in YFRemote öffnen</string>
     <string name="widget_volume_down">Leiser</string>
@@ -16,4 +21,10 @@
     <string name="widget_next">Weiter</string>
     <string name="widget_volume_up">Lauter</string>
     <string name="widget_channel_name">Medien-Widget</string>
+    <string name="button_widget_description">Ein eigener Button aus der Fernbedienung, z. B. PC sperren</string>
+    <string name="button_picker_title">Button wählen</string>
+    <string name="button_picker_empty">Noch keine eigenen Buttons. Öffne ein Gerät in YFRemote, lege dort im Bearbeiten-Modus einen Button an und verlasse die Fernbedienung einmal, dann erscheint er hier.</string>
+    <string name="button_target_missing">Button nicht mehr vorhanden - bitte neu wählen.</string>
+    <string name="button_target_missing_short">Button wählen</string>
+    <string name="tile_label">YFRemote %1$d</string>
 </resources>

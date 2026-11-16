@@ -18,8 +18,10 @@ export const POINTER_ACCELERATION_STORAGE_KEY = 'yfremote.pointerAcceleration';
 export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
 export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
 export const PC_NOTIFICATIONS_STORAGE_KEY = 'yfremote.pcNotifications';
+export const AUTO_PROFILE_STORAGE_KEY = 'yfremote.autoProfile';
 export const SCREEN_QUALITY_STORAGE_KEY = 'yfremote.screenQuality';
 export const SCREEN_MONITOR_STORAGE_KEY = 'yfremote.screenMonitor';
+export const SCREEN_TOUCH_STORAGE_KEY = 'yfremote.screenTouch';
 export type ScreenQuality = 'performance' | 'balanced' | 'quality';
 export const SCREEN_QUALITIES: readonly ScreenQuality[] = ['performance', 'balanced', 'quality'];
 

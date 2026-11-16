@@ -35,6 +35,15 @@ class RemoteDevices(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("remote_devices", Context.MODE_PRIVATE)
     private val tokens = context.getSharedPreferences("remote_tokens", Context.MODE_PRIVATE)
+    private val buttons = context.getSharedPreferences("remote_buttons", Context.MODE_PRIVATE)
+
+    /** Eigene Buttons des Web-Clients fuer Widget und Schnellkacheln (RemoteWebActivity.copyToken). */
+    fun buttons(url: String): List<RemoteButton> = RemoteButton.parse(buttons.getString(url, null))
+
+    fun setButtons(url: String, layoutJson: String?) {
+        buttons.edit().putString(url, RemoteButton.fromLayout(layoutJson)).apply()
+        ButtonWidget.refresh(context)
+    }
 
     fun load(): List<RemoteDevice> = parse(prefs.getString(KEY, null))
 
@@ -43,15 +52,19 @@ class RemoteDevices(private val context: Context) {
     fun remove(url: String) {
         save(load().filterNot { it.url == url })
         tokens.edit().remove(url).apply()
+        buttons.edit().remove(url).apply()
         if (lastUrl == url) prefs.edit().remove(KEY_LAST).apply()
         MediaWidget.refresh(context)
+        RingListenerService.refresh(context)
     }
 
     fun token(url: String): String? = tokens.getString(url, null)
 
     /** null: im Web-Client nicht gemerkt oder entkoppelt - dann kann nur die Oberflaeche selbst koppeln. */
     fun setToken(url: String, token: String?) {
+        if (token == token(url)) return
         if (token == null) tokens.edit().remove(url).apply() else tokens.edit().putString(url, token).apply()
+        RingListenerService.refresh(context)
     }
 
     /** Zuletzt geoeffnetes Geraet - das Ziel des Medien-Widgets. */

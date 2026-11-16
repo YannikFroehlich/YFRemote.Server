@@ -434,6 +434,25 @@ describe('RemoteService', () => {
     expect(remote.fileOffer()?.id).toBe('o2');
   });
 
+  it('rings on the PC request until stopped, also across a lost connection', () => {
+    const { remote, sockets } = setupRemoteService();
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive('{"type":"ring"}');
+
+    expect(remote.ringing()).toBe(true);
+    expect(remote.lastError()).toBeNull();
+
+    sockets[0].close();
+
+    expect(remote.ringing()).toBe(true);
+
+    remote.stopRinging();
+
+    expect(remote.ringing()).toBe(false);
+  });
+
   it('shows the pushed media status until the connection ends', () => {
     const { remote, sockets } = setupRemoteService();
     const media = { type: 'media', volume: 40, muted: false, title: 'Song', playing: true };
@@ -514,6 +533,28 @@ describe('RemoteService', () => {
 
     remote.savePcNotifications(false);
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"notifications","enabled":false}');
+  });
+
+  it('watches the app in front only after the profile switch is turned on', async () => {
+    const { remote, sockets, storage } = setupRemoteService({ health: { platform: 'windows' } });
+    expect(remote.autoProfile()).toBe(false);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+    expect(sockets[0].sentMessages).toEqual([]);
+
+    sockets[0].receive('{"type":"foregroundApp","name":"VLC media player"}');
+    expect(remote.foregroundApp()).toBeNull();
+
+    remote.saveAutoProfile(true);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"foregroundApp","enabled":true}');
+    expect(storage.getItem('yfremote.autoProfile')).toBe('true');
+    sockets[0].receive('{"type":"foregroundApp","name":"VLC media player"}');
+    expect(remote.foregroundApp()).toBe('VLC media player');
+
+    remote.saveAutoProfile(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"foregroundApp","enabled":false}');
+    expect(remote.foregroundApp()).toBeNull();
   });
 
   it('removes a forwarded notification on the PC too', async () => {

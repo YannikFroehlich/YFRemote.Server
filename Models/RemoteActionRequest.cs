@@ -47,6 +47,9 @@ public sealed record RemoteActionRequest
     // screenClick: der Monitor aus GET /screen/monitors, ohne Angabe der Hauptbildschirm.
     public string? Monitor { get; init; }
 
+    // touch: alle Finger, die gerade das Bild beruehren; eine leere Liste hebt alle ab.
+    public IReadOnlyList<TouchPoint>? Points { get; init; }
+
     // shutdownTimer: was bei Ablauf passiert ("shutdown", "sleep", "displayOff"), ohne Angabe "shutdown".
     public string? Power { get; init; }
 

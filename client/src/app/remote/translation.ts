@@ -241,6 +241,8 @@ export const TRANSLATIONS = {
   'fileOffer.download': { de: 'Annehmen', en: 'Accept' },
   'fileOffer.dismiss': { de: 'Ablehnen', en: 'Decline' },
   'fileOffer.close': { de: 'Schließen', en: 'Close' },
+  'ring.title': { de: 'Der PC sucht dieses Gerät', en: 'The PC is looking for this device' },
+  'ring.stop': { de: 'Klingeln beenden', en: 'Stop ringing' },
   'pcNotification.remove': { de: 'Am PC entfernen', en: 'Remove on PC' },
   'fileOffer.error': {
     de: 'Die Datei ist nicht mehr verfügbar.',
@@ -518,6 +520,11 @@ export const TRANSLATIONS = {
     de: 'Ton des PCs auf diesem Gerät abspielen',
     en: 'Play the PC sound on this device',
   },
+  'screen.touch': { de: 'Touch', en: 'Touch' },
+  'screen.touchTitle': {
+    de: 'Finger als echte Touch-Eingabe am PC statt als Maus',
+    en: 'Send fingers to the PC as real touch input instead of the mouse',
+  },
   'screen.soundFailed': {
     de: 'Der Ton des PCs lässt sich gerade nicht abspielen.',
     en: 'The PC sound cannot be played right now.',
@@ -594,6 +601,33 @@ export const TRANSLATIONS = {
   'settings.style.import': { de: 'Stile importieren', en: 'Import styles' },
   'settings.profiles.title': { de: 'Profile und Sicherung', en: 'Profiles and backup' },
   'settings.profiles.active.label': { de: 'Aktives Profil', en: 'Active profile' },
+  'settings.profiles.auto': {
+    de: 'Profil passend zum Programm am PC wechseln',
+    en: 'Switch profile to match the app on the PC',
+  },
+  'settings.profiles.auto.unsupported': {
+    de: 'Nur mit einem Windows-PC.',
+    en: 'Only with a Windows PC.',
+  },
+  'settings.profiles.apps.label': {
+    de: 'Programme für dieses Profil',
+    en: 'Apps for this profile',
+  },
+  'settings.profiles.apps.placeholder': {
+    de: 'z. B. VLC media player, PowerPoint',
+    en: 'e.g. VLC media player, PowerPoint',
+  },
+  'settings.profiles.view.label': {
+    de: 'Dazu diesen Tab öffnen',
+    en: 'Also open this tab',
+  },
+  'settings.profiles.view.keep': { de: 'Tab nicht wechseln', en: "Don't switch tabs" },
+  'settings.profiles.apps.current': { de: 'Vorne am PC: {{app}}', en: 'In front on the PC: {{app}}' },
+  'settings.profiles.apps.add': { de: 'Hinzufügen', en: 'Add' },
+  'settings.profiles.apps.hint': {
+    de: 'Mehrere mit Komma trennen. Ist keines davon vorne, kommt das vorige Profil zurück.',
+    en: 'Separate several with commas. When none of them is in front, the previous profile returns.',
+  },
   'settings.profiles.new.label': { de: 'Neues Profil', en: 'New profile' },
   'settings.profiles.new.placeholder': { de: 'z. B. Präsentation', en: 'e.g. Presentation' },
   'settings.profiles.new.error': {

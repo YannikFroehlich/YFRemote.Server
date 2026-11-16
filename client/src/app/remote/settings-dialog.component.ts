@@ -1,8 +1,9 @@
-import { Component, inject, output, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
+import { normalizeProfileView, ProfileView } from './button-layout-profiles';
 import { FILE_SAVER } from './file-transfer.service';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ServerConfig } from './remote.models';
@@ -45,6 +46,24 @@ export class SettingsDialogComponent {
   protected readonly i18n = inject(TranslationService);
   protected readonly clipboardSync = inject(ClipboardSyncService);
   protected readonly pcNotificationsSupported = this.remote.pcNotificationsSupported;
+  protected readonly autoProfile = this.remote.autoProfile;
+  protected readonly autoProfileSupported = this.remote.autoProfileSupported;
+  protected readonly foregroundApp = this.remote.foregroundApp;
+  private readonly activeProfile = computed(() =>
+    this.layout.profiles().find((profile) => profile.id === this.layout.activeProfileId()),
+  );
+  protected readonly activeProfileApps = computed(() => this.activeProfile()?.apps?.join(', ') ?? '');
+  protected readonly activeProfileView = computed(() => this.activeProfile()?.view ?? '');
+  protected readonly profileViews: readonly { value: ProfileView; label: string }[] = [
+    { value: 'remote', label: 'Remote' },
+    { value: 'touchpad', label: 'Touchpad' },
+    { value: 'screen', label: 'shell.tabScreen' },
+    { value: 'keyboard', label: 'shell.tabKeyboard' },
+    { value: 'presentation', label: 'shell.tabPresentation' },
+    { value: 'gamepad', label: 'shell.tabGamepad' },
+    { value: 'system', label: 'shell.tabSystem' },
+    { value: 'mixer', label: 'shell.tabMixer' },
+  ];
   // Ueber die App-Bruecke, wo es eine gibt: im WebView der Android-App tut ein blob:-Link nichts.
   private readonly saveFile = inject(FILE_SAVER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
@@ -280,6 +299,27 @@ export class SettingsDialogComponent {
 
   protected removeServerProfile(profile: ServerConfig): void {
     this.remote.removeServerProfile(profile);
+  }
+
+  // Wie das Profil selbst sofort gespeichert, nicht erst mit "Speichern".
+  protected toggleAutoProfile(): void {
+    this.remote.saveAutoProfile(!this.autoProfile());
+  }
+
+  protected saveProfileApps(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.layout.setProfileApps(this.layout.activeProfileId(), value.split(','));
+  }
+
+  protected saveProfileView(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.layout.setProfileView(this.layout.activeProfileId(), normalizeProfileView(value));
+  }
+
+  protected addForegroundApp(app: string): void {
+    const id = this.layout.activeProfileId();
+    const apps = this.layout.profiles().find((profile) => profile.id === id)?.apps ?? [];
+    this.layout.setProfileApps(id, [...apps, app]);
   }
 
   protected selectProfile(event: Event): void {

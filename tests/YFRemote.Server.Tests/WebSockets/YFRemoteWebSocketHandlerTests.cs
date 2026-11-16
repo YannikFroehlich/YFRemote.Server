@@ -112,6 +112,71 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_Ring_ReachesOnlyTheRequestedDevice()
+    {
+        var registry = new WebSocketConnectionRegistry();
+        var deviceId = Guid.NewGuid();
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(connectionRegistry: registry)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None, deviceId: deviceId);
+        // "access" kommt erst nach dem Abonnieren - danach geht kein Ring mehr verloren.
+        await ReceiveAnyJsonAsync(pair.Client);
+
+        registry.Ring(Guid.NewGuid());
+        registry.Ring(deviceId);
+
+        // Kaeme der fremde Ring an, waere er die erste Nachricht.
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("ring", pushed.GetProperty("type").GetString());
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
+    public async Task HandleAsync_Background_GetsTheRingButNoMediaOfferOrTimer()
+    {
+        var offeredFile = Path.GetTempFileName();
+        try
+        {
+            var registry = new WebSocketConnectionRegistry();
+            var deviceId = Guid.NewGuid();
+            var fileOfferService = new FileOfferService(TimeProvider.System);
+            fileOfferService.Offer(offeredFile);
+            using var shutdownTimer = new ShutdownTimer(new NoOpPowerService(), NullLogger<ShutdownTimer>.Instance);
+            shutdownTimer.Schedule(TimeSpan.FromMinutes(10), "Handy");
+            var mediaStatus = new PollingBroadcaster<MediaStatusMessage>(
+                () => Task.FromResult(new MediaStatusMessage(40, false, "Song", "Band", true)),
+                Timeout.InfiniteTimeSpan,
+                announceCurrent: true,
+                NullLogger.Instance);
+            await using var pair = await WebSocketPair.CreateAsync();
+            var handleTask = CreateHandler(
+                    fileOfferService: fileOfferService,
+                    mediaStatus: mediaStatus,
+                    shutdownTimer: shutdownTimer,
+                    connectionRegistry: registry)
+                .HandleAsync(pair.Server, "test-client", CancellationToken.None, deviceId: deviceId, background: true);
+            await ReceiveAnyJsonAsync(pair.Client);
+
+            await mediaStatus.PollAsync();
+            fileOfferService.Offer(offeredFile);
+            registry.Ring(deviceId);
+
+            // Medien, Angebot oder Termin kaemen vor dem Ring an.
+            var pushed = await ReceiveJsonAsync(pair.Client);
+            Assert.AreEqual("ring", pushed.GetProperty("type").GetString());
+
+            await CloseClientAsync(pair.Client);
+            await AwaitHandlerAsync(handleTask);
+        }
+        finally
+        {
+            File.Delete(offeredFile);
+        }
+    }
+
+    [TestMethod]
     public async Task HandleAsync_ShutdownTimer_IsPushedOnConnectAndWhenCancelled()
     {
         using var shutdownTimer = new ShutdownTimer(new NoOpPowerService(), NullLogger<ShutdownTimer>.Instance);
@@ -276,6 +341,39 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_ForegroundAppEnabled_PushesChangesUntilDisabled()
+    {
+        var name = "VLC media player";
+        var foregroundApp = new PollingBroadcaster<ForegroundAppMessage>(
+            () => Task.FromResult(new ForegroundAppMessage(name)),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: true,
+            NullLogger.Instance);
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(foregroundApp: foregroundApp)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None, mediaOnly: true);
+
+        // Auch "Nur Medien" darf es: der Remote-Tab mit den Medientasten wechselt mit.
+        await SendTextAsync(pair.Client, """{"type":"foregroundApp","enabled":true}""");
+        Assert.IsTrue((await ReceiveResponseAsync(pair.Client)).Success);
+        await foregroundApp.PollAsync();
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("foregroundApp", pushed.GetProperty("type").GetString());
+        Assert.AreEqual("VLC media player", pushed.GetProperty("name").GetString());
+
+        await SendTextAsync(pair.Client, """{"type":"foregroundApp","enabled":false,"requestId":"off"}""");
+        Assert.AreEqual("off", (await ReceiveResponseAsync(pair.Client)).RequestId);
+        name = "PowerPoint";
+        await foregroundApp.PollAsync();
+
+        await SendTextAsync(pair.Client, """{"type":"volume","value":50,"requestId":"next"}""");
+        Assert.AreEqual("next", (await ReceiveResponseAsync(pair.Client)).RequestId);
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_InvalidJson_SendsFailureResponse()
     {
         await using var pair = await WebSocketPair.CreateAsync();
@@ -417,7 +515,9 @@ public sealed class YFRemoteWebSocketHandlerTests
         PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
         PollingBroadcaster<SystemStatsMessage>? systemStats = null,
         ShutdownTimer? shutdownTimer = null,
-        PollingBroadcaster<PcNotificationMessage?>? notifications = null)
+        PollingBroadcaster<PcNotificationMessage?>? notifications = null,
+        PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null,
+        WebSocketConnectionRegistry? connectionRegistry = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -428,7 +528,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             clipboardSync,
             shutdownTimer: shutdownTimer,
             systemStats: systemStats,
-            notifications: notifications);
+            notifications: notifications,
+            foregroundApp: foregroundApp);
 
         return new YFRemoteWebSocketHandler(
             actionHandler,
@@ -436,7 +537,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             timeProvider ?? TimeProvider.System,
             NullLogger<YFRemoteWebSocketHandler>.Instance,
             mediaStatus,
-            shutdownTimer);
+            shutdownTimer,
+            connectionRegistry);
     }
 
     private static Task SendTextAsync(WebSocket socket, string text) =>

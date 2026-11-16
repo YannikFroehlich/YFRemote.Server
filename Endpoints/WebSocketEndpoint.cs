@@ -59,7 +59,9 @@ internal static class WebSocketEndpoint
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
             var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var deviceName = pairingService.GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name;
-            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly);
+            // background=1: Hintergrundverbindung der Android-App, die nur aufs Klingeln wartet.
+            var background = context.Request.Query["background"] == "1";
+            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly, deviceId, background);
         });
     }
 }

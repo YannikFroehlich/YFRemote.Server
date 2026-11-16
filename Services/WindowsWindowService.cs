@@ -47,6 +47,29 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
         return windows;
     }
 
+    private static (uint ProcessId, string? Name) lastForeground;
+
+    // Nur der Prozess wird gemerkt: die Dateibeschreibung zu lesen zaehlt die Module des Prozesses
+    // auf, das muss nicht jede Sekunde sein.
+    public static string? ForegroundApp()
+    {
+        var handle = GetForegroundWindow();
+        if (handle == 0 || GetWindowThreadProcessId(handle, out var processId) == 0)
+        {
+            return null;
+        }
+
+        var last = lastForeground;
+        if (last.ProcessId == processId)
+        {
+            return last.Name;
+        }
+
+        var name = processId == (uint)Environment.ProcessId ? null : WindowsMediaStatusReader.ProcessName((int)processId);
+        lastForeground = (processId, name);
+        return name;
+    }
+
     public bool TryApply(string id, WindowCommand command)
     {
         if (!ListWindows().Any(window => window.Id == id))
@@ -162,6 +185,9 @@ public sealed class WindowsWindowService(WindowsInputSender inputSender) : IWind
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(nint handle);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
 
     [DllImport("user32.dll", EntryPoint = "PostMessageW")]
     [return: MarshalAs(UnmanagedType.Bool)]

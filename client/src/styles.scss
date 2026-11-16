@@ -1381,6 +1381,33 @@ h2 {
   white-space: nowrap;
 }
 
+// Ueber allem, auch dem Controller: wer das Handy sucht, soll es mit einem Tipp stumm schalten.
+.ring-alert {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px;
+  background: var(--surface-dialog);
+  color: var(--text);
+  text-align: center;
+}
+
+.ring-alert__title {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.ring-alert__stop {
+  min-width: 220px;
+  min-height: 64px;
+  font-size: 1.1rem;
+}
+
 .view-tabs {
   display: grid;
   // Gleich breit, solange alle passen; sonst laesst sich die Leiste wischen, statt dass sich die

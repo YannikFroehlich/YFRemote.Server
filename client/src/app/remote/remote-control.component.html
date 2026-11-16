@@ -218,6 +218,15 @@
       </div>
     </div>
 
+    @if (ringing()) {
+      <div class="ring-alert" role="alertdialog" aria-labelledby="ring-alert-title">
+        <span id="ring-alert-title" class="ring-alert__title">{{ i18n.t('ring.title') }}</span>
+        <button class="primary-button ring-alert__stop" type="button" (click)="stopRinging()">
+          {{ i18n.t('ring.stop') }}
+        </button>
+      </div>
+    }
+
     <!-- Im Controller-Modus laege der Hinweis ueber den Tasten. -->
     @if (fileOffer(); as offer) {
       @if (activeView() !== 'gamepad') {

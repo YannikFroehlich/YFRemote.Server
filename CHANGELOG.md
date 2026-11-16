@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
+
 ## [2.57.0] - 2026-11-16
 
 ### Added

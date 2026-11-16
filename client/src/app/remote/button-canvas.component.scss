@@ -1,7 +1,7 @@
 :host {
   display: block;
-  flex: 1 1 auto;
-  min-height: 0;
+  /* Nicht schrumpfen: sonst ragen die unteren Reihen ueber die Ablage darunter. */
+  flex: 1 0 auto;
 }
 
 .layout-canvas {

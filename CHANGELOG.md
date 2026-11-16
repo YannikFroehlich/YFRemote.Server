@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".
+
 ## [2.57.0] - 2026-11-16
 
 ### Added

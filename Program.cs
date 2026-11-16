@@ -100,7 +100,10 @@ internal static class Program
                 app.Logger.LogWarning(exception, "Failed to register the Explorer send menu.");
             }
 
-            using var trayContext = new TrayApplicationContext(app);
+            // Kein using: Application.Run gibt den Kontext beim Beenden selbst frei. Ein zweites
+            // Dispose warf ObjectDisposedException aus offerPipeStop.Cancel() und landete als
+            // "Startfehler" bei jedem Beenden, Neustart (HTTPS-Schalter) und Update.
+            var trayContext = new TrayApplicationContext(app);
             if (offerPath is not null)
             {
                 trayContext.OfferPath(offerPath);

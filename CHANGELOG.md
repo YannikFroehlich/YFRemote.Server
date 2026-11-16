@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Tray: "Gerät klingeln lassen" lässt ein verbundenes Gerät klingeln, bis man dort "Klingeln beenden" tippt. In der Android-App klingelt es mit dem Weckerton und voller Lautstärke, auch wenn das Handy lautlos ist, und lässt sich in der Benachrichtigung stoppen. Im Browser piept die offene Seite und vibriert. Das Gerät muss dafür verbunden sein, also die Fernbedienung offen haben.
+
 ## [2.54.0] - 2026-11-15
 
 ### Security

@@ -241,6 +241,8 @@ export const TRANSLATIONS = {
   'fileOffer.download': { de: 'Annehmen', en: 'Accept' },
   'fileOffer.dismiss': { de: 'Ablehnen', en: 'Decline' },
   'fileOffer.close': { de: 'Schließen', en: 'Close' },
+  'ring.title': { de: 'Der PC sucht dieses Gerät', en: 'The PC is looking for this device' },
+  'ring.stop': { de: 'Klingeln beenden', en: 'Stop ringing' },
   'pcNotification.remove': { de: 'Am PC entfernen', en: 'Remove on PC' },
   'fileOffer.error': {
     de: 'Die Datei ist nicht mehr verfügbar.',

@@ -59,7 +59,7 @@ internal static class WebSocketEndpoint
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
             var client = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var deviceName = pairingService.GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name;
-            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly);
+            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly, deviceId);
         });
     }
 }

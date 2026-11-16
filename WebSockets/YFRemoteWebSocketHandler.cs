@@ -14,7 +14,8 @@ public sealed class YFRemoteWebSocketHandler(
     TimeProvider timeProvider,
     ILogger<YFRemoteWebSocketHandler> logger,
     PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
-    ShutdownTimer? shutdownTimer = null)
+    ShutdownTimer? shutdownTimer = null,
+    WebSocketConnectionRegistry? connectionRegistry = null)
 {
     private const int BufferSize = 4096;
     private const int MaxMessageBytes = 16 * 1024;
@@ -36,7 +37,8 @@ public sealed class YFRemoteWebSocketHandler(
         string client,
         CancellationToken cancellationToken,
         string? deviceName = null,
-        bool mediaOnly = false)
+        bool mediaOnly = false,
+        Guid? deviceId = null)
     {
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
@@ -71,6 +73,17 @@ public sealed class YFRemoteWebSocketHandler(
         }
         using var mediaSubscription = mediaStatus?.Subscribe(status =>
             _ = SendPushAsync(socket, sendLock, status, client, cancellationToken));
+        void OnRingRequested(Guid requested)
+        {
+            if (requested == deviceId)
+            {
+                _ = SendPushAsync(socket, sendLock, new RingMessage(), client, cancellationToken);
+            }
+        }
+        if (connectionRegistry is not null)
+        {
+            connectionRegistry.RingRequested += OnRingRequested;
+        }
 
         try
         {
@@ -124,6 +137,10 @@ public sealed class YFRemoteWebSocketHandler(
         finally
         {
             fileOfferService.Offered -= OnFileOffered;
+            if (connectionRegistry is not null)
+            {
+                connectionRegistry.RingRequested -= OnRingRequested;
+            }
             if (shutdownTimer is not null)
             {
                 shutdownTimer.Changed -= OnShutdownTimerChanged;

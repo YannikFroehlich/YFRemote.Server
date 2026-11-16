@@ -172,6 +172,7 @@ export class RemoteService implements OnDestroy {
   private readonly mediaOnlySignal = signal(false);
   private readonly gamepadRumbleSignal = signal(0);
   private readonly fileOfferSignal = signal<FileOfferMessage | null>(null);
+  private readonly ringingSignal = signal(false);
   private readonly mediaStatusSignal = signal<MediaStatusMessage | null>(null);
   private readonly mediaCoverSignal = signal<string | null>(null);
   private mediaCoverId: string | null = null;
@@ -233,6 +234,9 @@ export class RemoteService implements OnDestroy {
   readonly gamepadRumble = this.gamepadRumbleSignal.asReadonly();
   /** Datei, die der PC gerade anbietet; `null`, solange keine angeboten ist. */
   readonly fileOffer = this.fileOfferSignal.asReadonly();
+  /** "Gerät klingeln lassen" im Tray des PCs. Bleibt auch bei einem Verbindungsabbruch an - wer
+   *  das Handy sucht, soll es weiter hoeren -, bis `stopRinging` es ausschaltet. */
+  readonly ringing = this.ringingSignal.asReadonly();
   /** Lautstaerke und laufendes Medium am PC; `null`, solange die Gegenstelle keine meldet. */
   readonly mediaStatus = this.mediaStatusSignal.asReadonly();
   /** Albumcover des laufenden Mediums als Data-URL; `null` ohne Cover oder solange es laedt. */
@@ -726,6 +730,10 @@ export class RemoteService implements OnDestroy {
     this.fileOfferSignal.set(null);
   }
 
+  stopRinging(): void {
+    this.ringingSignal.set(false);
+  }
+
   removeServerProfile(config: ServerConfig): void {
     const updated = withoutServerProfile(this.serverProfilesSignal(), config);
     this.serverProfilesSignal.set(updated);
@@ -938,6 +946,11 @@ export class RemoteService implements OnDestroy {
 
     if (isRumbleMessage(message)) {
       this.gamepadRumbleSignal.set(Math.max(message.largeMotor, message.smallMotor));
+      return;
+    }
+
+    if ((message as { type?: unknown } | null)?.type === 'ring') {
+      this.ringingSignal.set(true);
       return;
     }
 

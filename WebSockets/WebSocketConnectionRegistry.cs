@@ -11,6 +11,11 @@ public sealed class WebSocketConnectionRegistry
     // Kommt auf dem Thread der Verbindung, ausserhalb der Sperre.
     public event Action? ConnectionsChanged;
 
+    // "Gerät suchen" im Tray; jede offene Verbindung des Geraets schickt daraufhin "ring".
+    public event Action<Guid>? RingRequested;
+
+    public void Ring(Guid deviceId) => RingRequested?.Invoke(deviceId);
+
     public bool IsConnected(Guid deviceId)
     {
         lock (syncRoot)

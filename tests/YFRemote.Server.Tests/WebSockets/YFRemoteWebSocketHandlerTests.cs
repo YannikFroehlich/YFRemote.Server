@@ -112,6 +112,28 @@ public sealed class YFRemoteWebSocketHandlerTests
     }
 
     [TestMethod]
+    public async Task HandleAsync_Ring_ReachesOnlyTheRequestedDevice()
+    {
+        var registry = new WebSocketConnectionRegistry();
+        var deviceId = Guid.NewGuid();
+        await using var pair = await WebSocketPair.CreateAsync();
+        var handleTask = CreateHandler(connectionRegistry: registry)
+            .HandleAsync(pair.Server, "test-client", CancellationToken.None, deviceId: deviceId);
+        // "access" kommt erst nach dem Abonnieren - danach geht kein Ring mehr verloren.
+        await ReceiveAnyJsonAsync(pair.Client);
+
+        registry.Ring(Guid.NewGuid());
+        registry.Ring(deviceId);
+
+        // Kaeme der fremde Ring an, waere er die erste Nachricht.
+        var pushed = await ReceiveJsonAsync(pair.Client);
+        Assert.AreEqual("ring", pushed.GetProperty("type").GetString());
+
+        await CloseClientAsync(pair.Client);
+        await AwaitHandlerAsync(handleTask);
+    }
+
+    [TestMethod]
     public async Task HandleAsync_ShutdownTimer_IsPushedOnConnectAndWhenCancelled()
     {
         using var shutdownTimer = new ShutdownTimer(new NoOpPowerService(), NullLogger<ShutdownTimer>.Instance);
@@ -417,7 +439,8 @@ public sealed class YFRemoteWebSocketHandlerTests
         PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
         PollingBroadcaster<SystemStatsMessage>? systemStats = null,
         ShutdownTimer? shutdownTimer = null,
-        PollingBroadcaster<PcNotificationMessage?>? notifications = null)
+        PollingBroadcaster<PcNotificationMessage?>? notifications = null,
+        WebSocketConnectionRegistry? connectionRegistry = null)
     {
         var actionHandler = new RemoteActionHandler(
             inputService ?? new RecordingInputService(),
@@ -436,7 +459,8 @@ public sealed class YFRemoteWebSocketHandlerTests
             timeProvider ?? TimeProvider.System,
             NullLogger<YFRemoteWebSocketHandler>.Instance,
             mediaStatus,
-            shutdownTimer);
+            shutdownTimer,
+            connectionRegistry);
     }
 
     private static Task SendTextAsync(WebSocket socket, string text) =>

@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Bildschirm-Ansicht: Der Schalter "Touch" in der Leiste hat jetzt ein Symbol wie die anderen Schalter. Im Vollbild war er bisher eine leere Taste.
+
 ## [2.56.0] - 2026-11-16
 
 ### Added

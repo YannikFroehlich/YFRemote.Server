@@ -52,14 +52,16 @@ describe('BrowserRingPlayer', () => {
     const player = new BrowserRingPlayer();
     globalThis.dispatchEvent(new Event('pointerdown'));
 
-    expect(FakeAudioContext.created.length).toBe(1);
-    const context = FakeAudioContext.created[0];
+    // Spieler aus anderen Testdateien haengen noch am selben window und reagieren mit; dieser
+    // hat sich zuletzt angemeldet, sein Kontext entsteht also zuletzt.
+    const created = FakeAudioContext.created.length;
+    const context = FakeAudioContext.created.at(-1)!;
     expect(context.calls).toEqual(['suspend']);
 
     player.start();
     player.stop();
 
-    expect(FakeAudioContext.created.length).toBe(1);
+    expect(FakeAudioContext.created.length).toBe(created);
     expect(context.calls).toEqual(['suspend', 'resume', 'suspend']);
   });
 
@@ -68,6 +70,7 @@ describe('BrowserRingPlayer', () => {
 
     player.start();
 
+    expect(FakeAudioContext.created.length).toBe(1);
     expect(FakeAudioContext.created[0].calls).toEqual(['resume']);
     player.stop();
   });

@@ -10,6 +10,7 @@ import {
 import { GAMEPAD_LAYOUT_STORAGE_KEY, presetLayout } from './gamepad-layout';
 import {
   REMOTE_AUTO_CONNECT,
+  REMOTE_CAN_VIBRATE,
   REMOTE_STORAGE,
   REMOTE_VIBRATE,
   REMOTE_WEBSOCKET_FACTORY,
@@ -163,6 +164,19 @@ describe('GamepadComponent', () => {
 
     expect(pad.vibrations).toEqual([0, 2450, 0]);
     expect(pad.remote.lastError()).toBeNull();
+  });
+
+  it('says that rumble is not supported on a device that cannot vibrate', async () => {
+    const pad = await setupGamepad({ canVibrate: false });
+    expect(pad.root.textContent).not.toContain('Rumble');
+
+    pad.receive({ type: 'rumble', largeMotor: 0, smallMotor: 255 });
+    pad.flushEffects();
+    pad.flushEffects();
+
+    expect(pad.root.querySelector('.gamepad__status')?.textContent).toContain(
+      'Vibration (Rumble) wird auf diesem Gerät nicht unterstützt.',
+    );
   });
 
   it('grades rumble strength as pulses and renews the pattern until the game stops', async () => {
@@ -443,6 +457,7 @@ async function setupGamepad(
     pageUrl?: string;
     inAndroidApp?: boolean;
     orientationBridge?: { setOrientationEnabled(enabled: boolean): void };
+    canVibrate?: boolean;
   } = {},
 ) {
   const stored = new Map<string, string>();
@@ -476,6 +491,7 @@ async function setupGamepad(
       { provide: ORIENTATION_BRIDGE, useValue: options.orientationBridge ?? null },
       { provide: DOWNLOAD_BRIDGE, useValue: options.inAndroidApp ? { download: () => true } : null },
       { provide: REMOTE_VIBRATE, useValue: (pattern: VibratePattern) => vibrations.push(pattern) },
+      { provide: REMOTE_CAN_VIBRATE, useValue: options.canVibrate ?? true },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {

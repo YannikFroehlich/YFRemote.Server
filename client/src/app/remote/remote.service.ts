@@ -1,4 +1,5 @@
-﻿import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
+﻿import { DOCUMENT } from '@angular/common';
+import { computed, inject, Injectable, InjectionToken, OnDestroy, signal } from '@angular/core';
 import {
   AccessMessage,
   ClipboardPushMessage,
@@ -102,8 +103,18 @@ export const REMOTE_VIBRATE = new InjectionToken<(pattern: VibratePattern) => vo
   },
 );
 
+/** Ohne Vibration (iOS) ist der Schalter "Vibration bei Tastendruck" sinnlos und wird ausgeblendet. */
+export const REMOTE_CAN_VIBRATE = new InjectionToken<boolean>('REMOTE_CAN_VIBRATE', {
+  providedIn: 'root',
+  factory: () => typeof globalThis.navigator?.vibrate === 'function',
+});
+
 const SOCKET_OPEN = 1;
 const RECONNECT_DELAYS_MS = [2000, 4000, 6000, 8000, 10000] as const;
+// iOS laesst einen neuen WebSocket zur LAN-IP nach der Rueckkehr aus dem Hintergrund manchmal
+// ohne jedes Ereignis haengen (WebKit-Bug 308073); ohne Frist bliebe es bei "Verbinde...".
+const CONNECT_TIMEOUT_MS = 8000;
+const STUCK_AFTER_TIMEOUTS = 2;
 const ERROR_VISIBLE_MS = 4200;
 const PC_NOTIFICATION_VISIBLE_MS = 8000;
 const CLIPBOARD_HISTORY_SIZE = 10;
@@ -196,6 +207,7 @@ export class RemoteService implements OnDestroy {
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
+  private readonly httpsPortSignal = signal<number | null>(null);
   private readonly screenAvailableSignal = signal(false);
   private readonly audioAvailableSignal = signal(false);
   private readonly touchAvailableSignal = signal(false);
@@ -218,6 +230,24 @@ export class RemoteService implements OnDestroy {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private errorTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempt = 0;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
+  // Nur Aufbauten ohne jedes Ereignis zaehlen. Ein ausgeschalteter PC antwortet mit close und ist
+  // kein Fall fuers Neuladen.
+  private connectTimeouts = 0;
+  private readonly connectionStuckSignal = signal(false);
+  private readonly document = inject(DOCUMENT);
+  // Zurueck in der App: nicht erst die laufende Wartezeit abwarten. iOS hat den Socket im
+  // Hintergrund ohnehin geschlossen.
+  private readonly onVisibilityChange = (): void => {
+    if (
+      this.document.visibilityState === 'visible' &&
+      !this.manualDisconnectSignal() &&
+      this.statusSignal() !== 'connected'
+    ) {
+      this.reconnectAttempt = 0;
+      this.openFreshSocket();
+    }
+  };
   private requestSequence = 0;
   private readonly pendingActions = new Map<string, PendingAction>();
 
@@ -288,6 +318,8 @@ export class RemoteService implements OnDestroy {
   readonly mixerSupported = this.clipboardSyncSupported;
   /** Ob am PC Voicemeeter installiert ist (`GET /health`); dann gibt es den Tab "Mixer". */
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
+  /** HTTPS-Port laut /health, `null` solange der PC nur HTTP anbietet (oder unbekannt). */
+  readonly httpsPort = this.httpsPortSignal.asReadonly();
   /** `GET /screen` gibt es erst ab dem Server, der es in /health meldet. */
   readonly screenAvailable = this.screenAvailableSignal.asReadonly();
   /** `GET /screen/audio` (PC-Ton im Tab "Bildschirm"), ebenfalls laut /health. */
@@ -307,10 +339,14 @@ export class RemoteService implements OnDestroy {
   readonly recordedSteps = this.recordedStepsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
   readonly manuallyDisconnected = this.manualDisconnectSignal.asReadonly();
+  /** Mehrere Verbindungsaufbauten nacheinander blieben ohne jede Antwort haengen (iOS nach dem
+   *  Hintergrund, WebKit-Bug 308073); dann hilft laut Bugbericht nur Neuladen der Seite. */
+  readonly connectionStuck = this.connectionStuckSignal.asReadonly();
   readonly socketUrl = computed(() => this.createSocketUrl());
 
   constructor() {
     this.recordServerProfile(this.configSignal());
+    this.document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     if (this.autoConnect) {
       this.connect();
@@ -323,6 +359,8 @@ export class RemoteService implements OnDestroy {
   }
 
   disconnect(): void {
+    this.connectTimeouts = 0;
+    this.connectionStuckSignal.set(false);
     this.manualDisconnectSignal.set(true);
     this.clearReconnectTimer();
     this.closeActiveSocket();
@@ -892,6 +930,7 @@ export class RemoteService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.manualDisconnectSignal.set(true);
     this.clearReconnectTimer();
     this.clearErrorTimer();
@@ -911,6 +950,16 @@ export class RemoteService implements OnDestroy {
       const socket = this.createSocket(socketUrl);
       this.socket = socket;
       this.bindSocket(socket);
+      this.connectTimer = setTimeout(() => {
+        this.connectTimer = null;
+        if (this.socket === socket && this.statusSignal() === 'connecting') {
+          this.closeActiveSocket();
+          this.statusSignal.set('disconnected');
+          this.connectTimeouts += 1;
+          this.connectionStuckSignal.set(this.connectTimeouts >= STUCK_AFTER_TIMEOUTS);
+          this.scheduleReconnect();
+        }
+      }, CONNECT_TIMEOUT_MS);
     } catch (error) {
       this.statusSignal.set('disconnected');
       this.showError(
@@ -926,7 +975,10 @@ export class RemoteService implements OnDestroy {
         return;
       }
 
+      this.clearConnectTimer();
       this.reconnectAttempt = 0;
+      this.connectTimeouts = 0;
+      this.connectionStuckSignal.set(false);
       this.statusSignal.set('connected');
       this.clearError();
       void this.detectServerPlatform();
@@ -954,6 +1006,9 @@ export class RemoteService implements OnDestroy {
       }
 
       this.socket = null;
+      // Eine Antwort, wenn auch eine Absage: der Aufbau haengt nicht.
+      this.connectTimeouts = 0;
+      this.connectionStuckSignal.set(false);
       this.gamepadRumbleSignal.set(0);
       this.fileOfferSignal.set(null);
       this.mediaStatusSignal.set(null);
@@ -1132,7 +1187,13 @@ export class RemoteService implements OnDestroy {
         readonly audio?: unknown;
         readonly touch?: unknown;
         readonly name?: unknown;
+        readonly httpsPort?: unknown;
       };
+      this.httpsPortSignal.set(
+        Number.isInteger(body.httpsPort) && (body.httpsPort as number) > 0
+          ? (body.httpsPort as number)
+          : null,
+      );
       this.serverNameSignal.set(
         typeof body.name === 'string' && body.name.trim() !== ''
           ? body.name.trim().slice(0, 64)
@@ -1150,6 +1211,7 @@ export class RemoteService implements OnDestroy {
       this.touchAvailableSignal.set(body.touch === true);
     } catch {
       this.serverPlatformSignal.set(null);
+      this.httpsPortSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
       this.screenAvailableSignal.set(false);
@@ -1269,6 +1331,7 @@ export class RemoteService implements OnDestroy {
   }
 
   private closeActiveSocket(): void {
+    this.clearConnectTimer();
     this.failPendingActions();
     this.gamepadRumbleSignal.set(0);
     // Ein noch gueltiges Angebot kommt beim naechsten Verbinden wieder, ein abgelaufenes nicht.
@@ -1344,6 +1407,13 @@ export class RemoteService implements OnDestroy {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  private clearConnectTimer(): void {
+    if (this.connectTimer !== null) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
     }
   }
 

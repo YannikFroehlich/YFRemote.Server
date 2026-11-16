@@ -651,6 +651,27 @@ describe('ScreenViewComponent', () => {
     }
   });
 
+  it('fills the visible area instead where the device has no fullscreen (iPhone)', async () => {
+    const { fixture, element } = await setup(new Blob(['jpeg']));
+    const view = element.querySelector('.screen-view')!;
+    const button = element.querySelector<HTMLElement>('[aria-label="Vollbild"]')!;
+
+    button.click();
+    fixture.detectChanges();
+    expect(view.classList).toContain('screen-view--fullscreen');
+    expect(button.getAttribute('aria-checked')).toBe('true');
+    expect(element.querySelector('.screen-view__handle')).not.toBeNull();
+
+    // Zurueck wie im echten Vollbild: Logo antippen, dann der Vollbild-Schalter.
+    element.querySelector<HTMLElement>('.screen-view__handle')!.click();
+    fixture.detectChanges();
+    button.click();
+    fixture.detectChanges();
+    expect(view.classList).not.toContain('screen-view--fullscreen');
+    expect(element.querySelector('.screen-view__handle')).toBeNull();
+    fixture.destroy();
+  });
+
   describe('in fullscreen', () => {
     const enterFullscreen = async (element: HTMLElement) => {
       const view = element.querySelector('.screen-view')!;

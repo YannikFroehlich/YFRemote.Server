@@ -16,7 +16,12 @@ import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
 import { distance, Point } from './screen-gestures';
-import { playPcmStream, SCREEN_AUDIO_CONTEXT_FACTORY, ScreenAudioContext } from './screen-audio';
+import {
+  playPcmStream,
+  SCREEN_AUDIO_CONTEXT_FACTORY,
+  ScreenAudioContext,
+  usePlaybackAudioSession,
+} from './screen-audio';
 import { SCREEN_VIDEO_PLAYER } from './screen-video';
 import { TranslationService } from './translation.service';
 import { MAX_SCROLL_DELTA, SCROLL_SCALE } from './touchpad/touchpad.component';
@@ -102,6 +107,8 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
+  // Auf dem iPhone gibt es kein Element-Vollbild; dort fuellt die Ansicht per CSS den sichtbaren
+  // Bereich (.screen-view--fullscreen), und fullscreen() steht fuer beides.
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
   protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
@@ -797,8 +804,10 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     // Der AudioContext muss hier im Klick entstehen, sonst laesst ihn der Browser stumm.
+    usePlaybackAudioSession(true);
     const context = this.createAudioContext();
     if (context === null) {
+      usePlaybackAudioSession(false);
       this.soundFailed.set(true);
       return;
     }
@@ -837,6 +846,7 @@ export class ScreenViewComponent implements OnDestroy {
     this.soundOn.set(false);
     sound?.abort.abort();
     void sound?.context.close().catch(() => undefined);
+    usePlaybackAudioSession(false);
   }
 
   // Fokus direkt im Klick, sonst oeffnet Android die Tastatur nicht. mousedown am Schalter ist
@@ -910,6 +920,14 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected async toggleFullscreen(): Promise<void> {
+    if (!this.fullscreenSupported) {
+      this.fullscreen.update((on) => !on);
+      this.menuOpen.set(false);
+      // Wie beim echten Vollbild: das Video in der neuen Breite holen.
+      this.videoAbort?.abort();
+      return;
+    }
+
     if (this.fullscreen()) {
       await this.document.exitFullscreen?.().catch(() => undefined);
       return;

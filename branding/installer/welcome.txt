@@ -1,0 +1,3 @@
+YFRemote macht Handy, Tablet oder einen zweiten Computer zur Fernbedienung für diesen PC: Tastatur, Maus, Medien und Lautstärke über das eigene Netzwerk.
+
+Dieser Assistent installiert YFRemote. Installationsart und Zielordner lassen sich in den nächsten Schritten wählen.

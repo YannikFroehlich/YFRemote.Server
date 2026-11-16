@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
-import { computed, effect, inject, Injectable, untracked } from '@angular/core';
+import { computed, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import {
+  CLIPBOARD_AUTO_SYNC_PROBE,
   ClipboardService,
   DEVICE_CLIPBOARD_READER,
   DEVICE_CLIPBOARD_WRITER,
@@ -20,11 +21,17 @@ export class ClipboardSyncService {
   private readonly writeDevice = inject(DEVICE_CLIPBOARD_WRITER);
   private readonly readDevice = inject(DEVICE_CLIPBOARD_READER);
   private readonly document = inject(DOCUMENT);
+  private readonly probeAutoSync = inject(CLIPBOARD_AUTO_SYNC_PROBE);
 
   /** Die Async-Clipboard-API gibt es nur im sicheren Kontext (HTTPS), dazu muss der Server mitmachen. */
   readonly secureContextAvailable = this.writeDevice !== null;
+  private readonly browserAllowsAutoSyncSignal = signal(false);
+  readonly browserAllowsAutoSync = this.browserAllowsAutoSyncSignal.asReadonly();
   readonly available = computed(
-    () => this.secureContextAvailable && this.remote.clipboardSyncSupported(),
+    () =>
+      this.secureContextAvailable &&
+      this.browserAllowsAutoSync() &&
+      this.remote.clipboardSyncSupported(),
   );
   private readonly active = computed(
     () => this.available() && this.remote.clipboardSync() && this.remote.status() === 'connected',
@@ -36,6 +43,10 @@ export class ClipboardSyncService {
   private pendingPcText: string | null = null;
 
   constructor() {
+    if (this.secureContextAvailable) {
+      void this.probeAutoSync().then((allowed) => this.browserAllowsAutoSyncSignal.set(allowed));
+    }
+
     effect(() => {
       const push = this.remote.pcClipboard();
       if (push !== null && untracked(this.active)) {

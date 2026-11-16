@@ -11,7 +11,7 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { GamepadState } from '../remote.models';
-import { REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
+import { REMOTE_CAN_VIBRATE, REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
 import { GAMEPAD_TRANSPORT } from './gamepad-transport';
 import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
 import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
@@ -207,6 +207,7 @@ export class GamepadComponent implements OnDestroy {
   // WebSocket zum Server oder, in der Android-App, Bluetooth (gamepad-transport.ts).
   private readonly remote = inject(GAMEPAD_TRANSPORT);
   private readonly vibrate = inject(REMOTE_VIBRATE);
+  private readonly canVibrate = inject(REMOTE_CAN_VIBRATE);
   private readonly storage = inject(REMOTE_STORAGE);
   private readonly location = inject(SERVER_LOCATION);
   protected readonly i18n = inject(TranslationService);
@@ -261,8 +262,13 @@ export class GamepadComponent implements OnDestroy {
   private readonly rumbleLevel = computed(() =>
     Math.ceil((this.remote.gamepadRumble() / RUMBLE_MAX) * RUMBLE_LEVELS),
   );
+  /** Was dieses Geraet nicht kann (iPhone: kein Vollbild, keine Vibration), steht in der Statuszeile. */
+  protected readonly deviceHint = signal<string | null>(null);
   private readonly rumbleEffect = effect((onCleanup) => {
     const pattern = rumblePattern(this.rumbleLevel());
+    if (pattern !== 0 && !this.canVibrate) {
+      this.deviceHint.set('gamepad.rumbleUnsupported');
+    }
     this.vibrate(pattern);
     if (pattern !== 0) {
       const timer = setInterval(() => this.vibrate(pattern), RUMBLE_RENEW_MS);
@@ -271,7 +277,12 @@ export class GamepadComponent implements OnDestroy {
   });
 
   constructor() {
-    afterNextRender(() => void enterLandscapeFullscreen());
+    afterNextRender(async () => {
+      // Die Android-App dreht und vergroessert selbst.
+      if (!(await enterLandscapeFullscreen()) && !this.inAndroidApp) {
+        this.deviceHint.set('gamepad.fullscreenUnsupported');
+      }
+    });
   }
 
   protected pressButton(event: PointerEvent, button: GamepadButton): void {
@@ -743,21 +754,26 @@ function sameState(a: GamepadState, b: GamepadState): boolean {
 }
 
 // Nur auf Touch-Geraeten: dort fehlt sonst im Querformat der halbe Bildschirm an die
-// Browserleiste. iOS kann beides nicht, Desktop-Browser sollen nicht ungefragt Vollbild werden -
-// Fehler bleiben deshalb bewusst still.
-async function enterLandscapeFullscreen(): Promise<void> {
+// Browserleiste. Desktop-Browser sollen nicht ungefragt Vollbild werden. `false` nur, wenn das
+// Geraet gar kein Vollbild kennt (iPhone); andere Fehler bleiben still.
+async function enterLandscapeFullscreen(): Promise<boolean> {
   if (!globalThis.matchMedia?.('(pointer: coarse)').matches) {
-    return;
+    return true;
+  }
+
+  if (document.fullscreenEnabled !== true) {
+    return false;
   }
 
   try {
-    await document.documentElement.requestFullscreen?.();
+    await document.documentElement.requestFullscreen();
     const orientation = globalThis.screen?.orientation as
       { lock?: (orientation: string) => Promise<void> } | undefined;
     await orientation?.lock?.('landscape');
   } catch {
-    // Kein Vollbild/keine Ausrichtungssperre moeglich - der Hinweis "quer halten" bleibt.
+    // Keine Ausrichtungssperre moeglich - der Hinweis "quer halten" bleibt.
   }
+  return true;
 }
 
 function exitFullscreen(): void {

@@ -1,0 +1,5 @@
+YFRemote ist installiert und über das Startmenü zu finden.
+
+Nach dem Start sitzt YFRemote als Symbol im Infobereich der Taskleiste. Ein Rechtsklick darauf zeigt Adresse und PIN, mit denen sich ein Gerät im Browser koppelt.
+
+Updates installiert YFRemote selbst über dasselbe Menü.

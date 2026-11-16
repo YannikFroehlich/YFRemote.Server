@@ -11,6 +11,8 @@
   --surface-raised: #1a2539;
   --surface-soft: #0f1828;
   --surface-hover: #1e2b42;
+  /* Hinter der weissen iOS-Statusleiste der Homescreen-App, in jedem Modus gleich dunkel. */
+  --status-bar-scrim: rgba(0, 0, 0, 0.55);
   --line: rgba(var(--line-rgb), 0.09);
   --line-strong: rgba(56, 189, 248, 0.28);
   --text: #e8eef8;
@@ -423,8 +425,36 @@ body::before {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+// iOS zoomt beim Antippen in jedes Feld unter 16px hinein und bleibt danach vergroessert.
+// -webkit-touch-callout kennt nur Safari auf iPhone/iPad, Android und Desktop bleiben unveraendert.
+@supports (-webkit-touch-callout: none) {
+  input:not([type='range'], [type='checkbox'], [type='radio'], [type='file'], [type='color']),
+  select,
+  textarea {
+    font-size: max(16px, 1rem) !important;
+  }
+
+  // Homescreen-App: "black-translucent" (index.html) zeichnet Uhr und Akku weiss ueber die Seite,
+  // im hellen Modus waeren sie unlesbar. Ein dunkler Streifen darunter haelt sie lesbar.
+  @media (display-mode: standalone) {
+    body::after {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 1000;
+      height: env(safe-area-inset-top);
+      background: var(--status-bar-scrim);
+      content: '';
+      pointer-events: none;
+    }
+  }
 }
 
 button {
@@ -529,7 +559,7 @@ h2 {
 
 .remote-panel--app {
   height: min(880px, calc(100vh - 40px));
-  height: min(880px, calc(100dvh - 40px));
+  height: min(880px, calc(100dvh - 40px - var(--keyboard-inset, 0px)));
 }
 
 .remote-panel--pairing {
@@ -1108,7 +1138,7 @@ h2 {
 
 // Im Vollbild fuellt das Bild den Rest; object-fit haelt das Seitenverhaeltnis, den Klick
 // rechnet die Komponente auf das eigentliche Bild um.
-.screen-view:fullscreen {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) {
   // Das Logo bleibt ganz sichtbar, auch wenn es an den Rand gezogen oder das Geraet gedreht wird.
   --handle-left: clamp(30px, calc(var(--handle-x) * 100%), calc(100% - 30px));
   --handle-top: clamp(30px, calc(var(--handle-y) * 100%), calc(100% - 30px));
@@ -1117,11 +1147,27 @@ h2 {
   background: var(--app-bg);
 }
 
+// Ersatz-Vollbild fuer das iPhone, das kein Element-Vollbild kennt: die Ansicht fuellt den
+// sichtbaren Bereich ueber der App. Ohne Tastatur und Notch-Raender, die dort bleiben muessen.
+.screen-view--fullscreen {
+  position: fixed;
+  inset: 0 0 var(--keyboard-inset, 0px);
+  z-index: 45;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+// backdrop-filter macht das Panel zum Bezugsrahmen fuer position: fixed - die Ansicht bliebe
+// sonst im Panel gefangen.
+.remote-panel:has(.screen-view--fullscreen) {
+  backdrop-filter: none;
+}
+
 .screen-view__handle {
   display: none;
 }
 
-.screen-view:fullscreen .screen-view__handle {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__handle {
   position: absolute;
   top: var(--handle-top);
   left: var(--handle-left);
@@ -1148,7 +1194,7 @@ h2 {
   pointer-events: none;
 }
 
-.screen-view:fullscreen .screen-view__stage {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__stage {
   flex: 1 1 0;
   min-height: 0;
   border: 0;
@@ -1156,14 +1202,14 @@ h2 {
   background: transparent;
 }
 
-.screen-view:fullscreen .screen-view__image {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__image {
   height: 100%;
   object-fit: contain;
 }
 
 // Im Vollbild schweben Schalter, Tastaturfeld und Hinweise ueber dem Bild, statt ihm Hoehe
 // wegzunehmen; die Schalter dann nur als Symbol.
-.screen-view:fullscreen .screen-view__toolbar {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar {
   position: absolute;
   top: calc(var(--handle-top) + 28px);
   right: calc(100% - var(--handle-left) - 22px);
@@ -1172,23 +1218,23 @@ h2 {
   max-width: calc(var(--handle-left) + 12px);
 }
 
-.screen-view:fullscreen .screen-view__toolbar--closed {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar--closed {
   display: none;
 }
 
-.screen-view:fullscreen .screen-view__toolbar--left {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar--left {
   right: auto;
   left: calc(var(--handle-left) - 22px);
   justify-content: flex-start;
   max-width: calc(100% - var(--handle-left) + 12px);
 }
 
-.screen-view:fullscreen .screen-view__toolbar--up {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar--up {
   top: auto;
   bottom: calc(100% - var(--handle-top) + 28px);
 }
 
-.screen-view:fullscreen .screen-view__toolbar .snap-switch {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch {
   min-width: 42px;
   min-height: 42px;
   justify-content: center;
@@ -1197,20 +1243,20 @@ h2 {
   backdrop-filter: blur(6px);
 }
 
-.screen-view:fullscreen .screen-view__quality {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__quality {
   min-height: 42px;
   background: rgba(var(--overlay-rgb), 0.72);
 }
 
-.screen-view:fullscreen .screen-view__toolbar .snap-switch span {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch span {
   display: none;
 }
 
-.screen-view:fullscreen .screen-view__toolbar .snap-switch[aria-checked='true'] {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch[aria-checked='true'] {
   background: rgba(var(--accent-rgb), 0.3);
 }
 
-.screen-view:fullscreen .stats-waiting {
+.screen-view:is(:fullscreen, .screen-view--fullscreen) .stats-waiting {
   position: absolute;
   top: 10px;
   left: 10px;
@@ -1450,7 +1496,7 @@ h2 {
 
 .update-banner {
   position: fixed;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(16px + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px));
   left: 50%;
   z-index: 40;
   display: flex;
@@ -1672,9 +1718,10 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+// Endet ueber der Bildschirmtastatur, sonst laege der Dialog mittig hinter ihr.
 .settings-layer {
   position: fixed;
-  inset: 0;
+  inset: 0 0 var(--keyboard-inset, 0px);
   z-index: 20;
   display: grid;
   place-items: center;
@@ -1698,7 +1745,7 @@ select:focus-visible {
   display: flex;
   width: min(100%, 460px);
   max-height: calc(100vh - 36px);
-  max-height: calc(100dvh - 36px);
+  max-height: calc(100dvh - 36px - var(--keyboard-inset, 0px));
   flex-direction: column;
   padding: 24px;
   overflow: hidden;
@@ -1723,6 +1770,21 @@ select:focus-visible {
 .settings-dialog__header,
 .settings-actions {
   flex: none;
+}
+
+.settings-steps {
+  margin: 0;
+  padding-left: 18px;
+}
+
+// Links, die wie Knoepfe aussehen (Profil laden, Zu HTTPS wechseln).
+a.primary-button,
+a.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
 }
 
 .settings-dialog__status {
@@ -2850,7 +2912,7 @@ select:focus-visible {
 
   .remote-panel {
     height: 100vh;
-    height: 100dvh;
+    height: calc(100dvh - var(--keyboard-inset, 0px));
     gap: 10px;
     padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
       calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
@@ -2949,7 +3011,7 @@ select:focus-visible {
 
   .settings-dialog {
     max-height: calc(100vh - 20px);
-    max-height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px - var(--keyboard-inset, 0px));
     padding: 20px;
     border-radius: calc(20px * var(--radius-scale));
   }
@@ -3386,7 +3448,7 @@ select:focus-visible {
 .power-dialog {
   width: min(calc(100% - 36px), 380px);
   max-width: none;
-  max-height: calc(100dvh - 36px);
+  max-height: calc(100dvh - 36px - var(--keyboard-inset, 0px));
   padding: 0;
   overflow: auto;
   border: var(--border-width) solid var(--line);

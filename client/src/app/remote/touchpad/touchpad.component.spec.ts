@@ -573,6 +573,15 @@ describe('TouchpadComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Diktieren geht nur über HTTPS');
   });
 
+  it('keeps the dictation button on plain HTTP even without speech recognition, to show the HTTPS hint', async () => {
+    const { fixture } = await setupTouchpad({ pageUrl: 'http://192.168.178.41:5050/' });
+
+    micButton(fixture)!.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Diktieren geht nur über HTTPS');
+  });
+
   it('dictates through the Android app bridge on a plain-HTTP LAN address', async () => {
     const started: string[] = [];
     let stopped = false;

@@ -530,7 +530,8 @@ internal static class Program
                 Environment.MachineName,
                 screenSupported,
                 audioSupported,
-                touchSupported);
+                touchSupported,
+                httpsOptions.Enabled ? httpsOptions.Port : null);
         });
 
         if (httpsOptions.Enabled)
@@ -542,6 +543,10 @@ internal static class Program
                 provider.ExportAuthorityCertificate(),
                 "application/x-x509-ca-cert",
                 "YFRemote-CA.crt"));
+            app.MapGet("/ca.mobileconfig", (ServerCertificateProvider provider) => Results.File(
+                AppleConfigurationProfile.Create(provider.ExportAuthorityCertificate()),
+                AppleConfigurationProfile.ContentType,
+                "YFRemote.mobileconfig"));
         }
 
         app.MapWebSocketEndpoint();

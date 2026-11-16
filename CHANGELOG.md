@@ -23,6 +23,31 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- iPhone: Die Einstellungen führen über `http://` Schritt für Schritt zu HTTPS: Profil laden, installieren, Vertrauen einschalten, zur `https://`-Adresse wechseln. Der Server liefert das Zertifikat dafür zusätzlich als iOS-Konfigurationsprofil (`/ca.mobileconfig`), und `/health` meldet den HTTPS-Port.
+- iPhone: Ein einmaliger Hinweis empfiehlt im Safari-Tab "Zum Home-Bildschirm", weil Safari die Kopplung sonst nach 7 Tagen ohne Besuch vergisst.
+
+### Changed
+
+- Windows-Installer im Aussehen von YFRemote: Der Assistent (`.msi`, mit Wahl von Installationsart und Zielordner) zeigt Logo und Farben der App und begrüßt und verabschiedet mit eigenen Texten. Das Fenster von `Setup.exe` zeigt beim Installieren das Logo statt eines leeren Fortschrittsbalkens.
+
+### Fixed
+
+- iPhone: Die Bildschirmtastatur verdeckt keine Felder und Knöpfe mehr. Die App und Dialoge enden über der Tastatur, weil Safari dafür weder das Layout noch `dvh` verkleinert.
+- iPhone: Uhr und Akku oben bleiben in der Homescreen-App auch im hellen Modus lesbar. Ein dunkler Streifen liegt hinter der weißen Statusleiste.
+- iPhone: Wischen vom linken oder rechten Rand auf Touchpad und Controller blättert in Safari nicht mehr zurück oder vor.
+- iPhone: Bleibt der Verbindungsaufbau zweimal ohne jede Antwort hängen (nach der Rückkehr aus dem Hintergrund), bietet die App "Neu laden" an. Laut WebKit-Fehlerbericht hilft dann nur das.
+- Bildschirm-Ansicht: Der Schalter "Touch" in der Leiste hat jetzt ein Symbol wie die anderen Schalter. Im Vollbild war er bisher eine leere Taste.
+- iPhone: Safari vergrößert die Seite nicht mehr beim Antippen eines Eingabe- oder Auswahlfelds. Auswahlfelder nutzen überall die Schrift der App statt einer Serifenschrift.
+- iPhone: Was das Gerät nicht kann, steht jetzt sichtbar da statt still zu fehlen: "Vibration bei Tastendruck" und der automatische Zwischenablage-Abgleich sind ausgegraut mit "Auf diesem Gerät nicht unterstützt", und der Controller meldet fehlendes Vollbild und fehlende Vibration (Rumble) in seiner Statuszeile.
+- iPhone: Der Vollbild-Knopf der Bildschirm-Ansicht ist jetzt auch auf dem iPhone da. Weil Safari dort kein echtes Vollbild kennt, füllt die Ansicht den ganzen sichtbaren Bereich ohne Kopfzeile und Tabs, mit dem Logo zum Aufklappen der Optionen wie im Vollbild. In der Homescreen-App und quer gehalten ist das praktisch Vollbild, im Safari-Tab bleiben dessen Leisten.
+- iPhone: Der Mikrofon-Knopf im Touchpad erscheint über `http://` wieder und zeigt den HTTPS-Hinweis. Safari 26 blendet die Spracherkennung dort ganz aus, der Knopf fehlte deshalb ohne Erklärung.
+- iPhone: "Gerät klingeln lassen" ist hörbar, sobald die Seite einmal angetippt wurde. Der PC-Ton der Bildschirm-Ansicht spielt auch bei eingeschaltetem Stummschalter.
+- Verbindung: Ein Verbindungsaufbau ohne Antwort bricht nach 8 Sekunden ab und versucht es neu. Nach der Rückkehr in die App wird sofort neu verbunden. iOS ließ den Aufbau nach dem Hintergrund bisher endlos bei "Verbinde..." hängen.
+
+## [2.56.0] - 2026-11-16
+
+### Added
+
 - Einstellungen, "Darstellung": Der neue Schalter "Animationen" (standardmäßig an) schaltet alle Bewegungen der Oberfläche ab. Tabs, Dialoge und Tasten erscheinen dann sofort. "Bewegung reduzieren" des Geräts gilt wie bisher in jedem Fall.
 
 ### Changed

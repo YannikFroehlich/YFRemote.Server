@@ -178,6 +178,14 @@ wizard and wants to choose the installation scope or target directory. The gener
 `Setup.exe` remains a one-click installer; Velopack does not add wizard pages to that
 executable. Tray updates continue to work for MSI installations.
 
+Both installers carry the brand: `vpk pack` gets the files in `branding/installer/` -
+`msi-banner.bmp` (493x58, header of the wizard pages), `msi-dialog.bmp` (493x312, welcome and
+finish page), `welcome.txt`/`conclusion.txt` (German texts of those two pages) and `splash.png`
+(the `Setup.exe` window). The images come from `branding/render_icons.py` like the logo files. The
+wizard writes black text onto the bitmaps, so everything outside the dark brand field has to stay
+white: text starts at 180 px on the dialog bitmap and reaches about 400 px on the banner. The
+wizard's own strings follow the Windows display language; only the two text files are German.
+
 ## Validation before publishing
 
 Run the relevant checks before merging or releasing.

@@ -16,7 +16,9 @@ feature.
   and `name` (`Environment.MachineName`), which the Android app shows in "Steuern" instead of the IP,
   and `screen` (an `IScreenCapture` is registered), without which the Client hides the "Bildschirm"
   tab - an older server would answer `GET /screen` with the SPA's `index.html`, and `audio` (an
-  `IAudioCapture` is registered), without which the tab hides its "Ton" switch.
+  `IAudioCapture` is registered), without which the tab hides its "Ton" switch, and `httpsPort`
+  (`Https:Port` while `Https:Enabled`, otherwise `null`), from which the Client's iPhone guide
+  builds the `https://` address.
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -219,6 +221,11 @@ feature.
 - `GET /ca.crt` → the public certificate of the local certificate authority, registered only when
   `Https:Enabled` is set. Deliberately without an `Origin` or pairing check and reachable over
   plain HTTP, because it has to be installable before a device trusts the server.
+- `GET /ca.mobileconfig` → the same certificate as an iOS configuration profile
+  (`AppleConfigurationProfile`, `application/x-apple-aspen-config`, UUIDs derived from the
+  certificate so a second download replaces the profile). Same registration and lack of checks as
+  `/ca.crt`. The Client's settings link to it on an iPhone/iPad opened over HTTP, when `/health`
+  reports `httpsPort` (set only while `Https:Enabled`).
 - Static files from `wwwroot` (the Angular client's production build, copied in from `client/`)
   with SPA fallback to `index.html` if present.
 

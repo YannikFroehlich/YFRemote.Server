@@ -77,6 +77,14 @@ export const TRANSLATIONS = {
     de: 'Neigungssteuerung braucht HTTPS - im Tray "HTTPS verwenden" einschalten.',
     en: 'Tilt control needs HTTPS - turn on "HTTPS verwenden" in the tray.',
   },
+  'gamepad.fullscreenUnsupported': {
+    de: 'Vollbild wird auf diesem Gerät nicht unterstützt.',
+    en: 'Fullscreen is not supported on this device.',
+  },
+  'gamepad.rumbleUnsupported': {
+    de: 'Vibration (Rumble) wird auf diesem Gerät nicht unterstützt.',
+    en: 'Vibration (rumble) is not supported on this device.',
+  },
   'gamepad.gyroDenied': {
     de: 'Zugriff auf die Bewegungssensoren wurde verweigert.',
     en: 'Access to the motion sensors was denied.',
@@ -431,8 +439,12 @@ export const TRANSLATIONS = {
     en: 'Only available over HTTPS ("HTTPS verwenden" in the tray menu).',
   },
   'settings.clipboardSync.browserUnsupported': {
-    de: 'Dieser Browser (z. B. Safari) gibt die Zwischenablage nur auf Tippen frei. Kopieren geht über den Zwischenablage-Knopf im Touchpad.',
-    en: 'This browser (e.g. Safari) only shares the clipboard on a tap. Use the clipboard button on the touchpad instead.',
+    de: 'Auf diesem Gerät nicht unterstützt: der Browser (z. B. Safari) gibt die Zwischenablage nur auf Tippen frei. Kopieren geht über den Zwischenablage-Knopf im Touchpad.',
+    en: 'Not supported on this device: the browser (e.g. Safari) only shares the clipboard on a tap. Use the clipboard button on the touchpad instead.',
+  },
+  'settings.haptics.unsupported': {
+    de: 'Auf diesem Gerät nicht unterstützt: der Browser kann nicht vibrieren (z. B. iPhone).',
+    en: 'Not supported on this device: the browser cannot vibrate (e.g. iPhone).',
   },
   'settings.pcNotifications': {
     de: 'Windows-Benachrichtigungen anzeigen',
@@ -546,6 +558,10 @@ export const TRANSLATIONS = {
   'screen.keyboardTitle': { de: 'Am PC tippen', en: 'Type on the PC' },
   'screen.keys': { de: 'Sondertasten', en: 'Special keys' },
   'screen.fullscreen': { de: 'Vollbild', en: 'Fullscreen' },
+  'screen.fullscreenUnsupported': {
+    de: 'Vollbild wird auf diesem Gerät nicht unterstützt. Für mehr Platz das Handy quer halten.',
+    en: 'Fullscreen is not supported on this device. Turn your phone sideways for more room.',
+  },
   'screen.menu': { de: 'Optionen', en: 'Options' },
   'screen.monitor': { de: 'Monitor', en: 'Monitor' },
   'screen.monitor.primary': {

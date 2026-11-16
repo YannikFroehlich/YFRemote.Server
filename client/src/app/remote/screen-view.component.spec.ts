@@ -651,6 +651,18 @@ describe('ScreenViewComponent', () => {
     }
   });
 
+  it('explains on tap that the device has no fullscreen (iPhone)', async () => {
+    const { fixture, element } = await setup(new Blob(['jpeg']));
+    const button = element.querySelector<HTMLElement>('[aria-label="Vollbild"]')!;
+    expect(button.classList).toContain('snap-switch--unsupported');
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(element.textContent).toContain('Vollbild wird auf diesem Gerät nicht unterstützt.');
+    fixture.destroy();
+  });
+
   describe('in fullscreen', () => {
     const enterFullscreen = async (element: HTMLElement) => {
       const view = element.querySelector('.screen-view')!;

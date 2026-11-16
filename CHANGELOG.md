@@ -23,6 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
 - Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".
 
 ## [2.57.0] - 2026-11-16

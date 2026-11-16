@@ -61,7 +61,8 @@ Out of scope:
 - anything a paired device with full access can already do by design (it can type, use the
   mouse, and shut down the PC — that is the product),
 - forwarding port `5050`/`5443` to the internet or otherwise exposing YFRemote outside a trusted
-  network, which the README advises against,
+  network, which the README advises against (reaching it through a private VPN such as
+  Tailscale, as the README describes, counts as a trusted network),
 - eavesdropping on the plain-HTTP connection when HTTPS is switched off,
 - certificate warnings when the local CA is not installed on the device,
 - attacks that require local administrator rights or physical access to the PC,

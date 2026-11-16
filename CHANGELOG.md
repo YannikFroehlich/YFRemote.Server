@@ -27,6 +27,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 - Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
 - Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".
 - Tests: Die Server-Tests schreiben ihre Logs in ihren eigenen Temp-Ordner (neuer Schlüssel `Diagnostics:LogDirectory`) statt nach `%LOCALAPPDATA%\YFRemote\Logs`, wo sie bei 14 behaltenen Dateien die Logs des installierten Servers verdrängt haben.
+- Explorer-Menü "An YFRemote-Geräte senden": Ist die Named Pipe belegt, wartet YFRemote kurz und versucht es erneut, statt in einer Endlosschleife zu hängen. Die Server-Tests hängen deshalb nicht mehr, während YFRemote auf demselben Rechner läuft, und schicken keine Testdatei mehr an den laufenden Server.
 
 ## [2.57.0] - 2026-11-16
 

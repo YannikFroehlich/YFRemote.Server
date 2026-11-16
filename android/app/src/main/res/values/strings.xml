@@ -16,4 +16,10 @@
     <string name="widget_next">Weiter</string>
     <string name="widget_volume_up">Lauter</string>
     <string name="widget_channel_name">Medien-Widget</string>
+    <string name="button_widget_description">Ein eigener Button aus der Fernbedienung, z. B. PC sperren</string>
+    <string name="button_picker_title">Button wählen</string>
+    <string name="button_picker_empty">Noch keine eigenen Buttons. Öffne ein Gerät in YFRemote, lege dort im Bearbeiten-Modus einen Button an und verlasse die Fernbedienung einmal, dann erscheint er hier.</string>
+    <string name="button_target_missing">Button nicht mehr vorhanden - bitte neu wählen.</string>
+    <string name="button_target_missing_short">Button wählen</string>
+    <string name="tile_label">YFRemote %1$d</string>
 </resources>

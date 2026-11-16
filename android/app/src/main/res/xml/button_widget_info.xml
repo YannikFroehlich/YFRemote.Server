@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ein eigener Button (remote/ButtonWidget); welcher, fragt ButtonPickerActivity beim Ablegen. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="60dp"
+    android:minHeight="60dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_custom_button"
+    android:previewLayout="@layout/widget_custom_button"
+    android:configure="com.yfremote.android.remote.ButtonPickerActivity"
+    android:widgetFeatures="reconfigurable"
+    android:description="@string/button_widget_description"
+    android:widgetCategory="home_screen" />

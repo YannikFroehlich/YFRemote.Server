@@ -99,6 +99,18 @@ plus "Gekoppelten Geräten anbieten" for one file while the phone's own server r
 name opens that device. The buttons start `remote/MediaWidgetService`, a `dataSync` foreground
 service that ends with the response, because a broadcast receiver would run as a background process
 behind the firewall chain described above. None of this is verified on a phone yet.
+Custom buttons reach the home screen and the quick settings the same way: `copyToken` also reads
+the WebView's `localStorage['yfremote.buttonLayout']` (the active layout only, not other profiles)
+and `RemoteDevices.setButtons` keeps its `customButtons` per origin (`RemoteButton`, steps capped
+like the Client: 10 steps, 5 s delay). `remote/ButtonWidget` (1x1, reconfigurable) and the three
+fixed tiles `ButtonTile1`-`3` ("YFRemote 1-3", Android only knows tiles declared in the manifest)
+point at one device + button id in `ButtonTargets`, chosen in `ButtonPickerActivity` (widget
+configure, first tap on an empty tile, or long press via `QS_TILE_PREFERENCES`). A tap starts
+`MediaWidgetService` with `EXTRA_TARGET`, which looks the steps up fresh and runs them through
+`RemoteClient.sendSteps`: one `/ws` connection, each step only after the previous one's `requestId`
+answer, stopping at the first rejection, like the Client's `runSteps`. If Android refuses the
+foreground service from a tile, the tile sends directly. A button only shows up after the remote
+was left once (`onPause`), and a deleted button leaves its widget/tile asking for a new choice.
 Devices are added by typing an address or by scanning a connection QR code
 (`zxing-android-embedded`'s `CaptureActivity`, no Google Play services needed):
 `RemoteDevices.parseQrCode` reads the same `http://<host>:<port>/#pin=<pin>` payload as

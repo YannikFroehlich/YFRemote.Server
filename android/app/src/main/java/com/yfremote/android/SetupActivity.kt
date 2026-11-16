@@ -69,6 +69,7 @@ import com.yfremote.android.remote.QrCode
 import com.yfremote.android.remote.RemoteDevice
 import com.yfremote.android.remote.RemoteDevices
 import com.yfremote.android.remote.RemoteWebActivity
+import com.yfremote.android.remote.RingListenerService
 import com.yfremote.android.remote.WakeOnLan
 import com.yfremote.android.server.KtorServer
 import com.yfremote.android.service.YFRemoteForegroundService
@@ -166,6 +167,8 @@ class SetupActivity : Activity() {
         super.onCreate(savedInstanceState)
         remoteDevices = RemoteDevices(this)
         requestNotificationPermissionIfNeeded()
+        // Nach einem App-Update oder wenn Android den Dienst beendet hat.
+        RingListenerService.refresh(this)
         // Randlos: der Farbschein oben laeuft unter die Statusleiste, Abstaende kommen aus den Insets.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
@@ -469,6 +472,31 @@ class SetupActivity : Activity() {
                 addView(remoteContainer)
                 addView(primaryButton("QR-Code scannen") { scanQrCode() })
                 addView(secondaryButton("Adresse eingeben") { showAddDeviceDialog() })
+            },
+        )
+        addView(
+            card("Im Hintergrund erreichbar").apply {
+                val status = statusRow()
+                addView(status.row)
+                addView(
+                    mutedText().apply {
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                        text = "Hält die Verbindung zu den gekoppelten PCs, damit „Gerät klingeln lassen“ auch bei geschlossener App klingelt. Kostet etwas Akku."
+                        setPadding(0, 0, 0, dp(14))
+                    },
+                )
+                lateinit var button: Button
+                fun show() {
+                    val on = RingListenerService.isEnabled(this@SetupActivity)
+                    if (on) status.set("An", color(R.color.brand_ok)) else status.set("Aus", color(R.color.brand_text_muted))
+                    button.text = if (on) "Ausschalten" else "Einschalten"
+                }
+                button = secondaryButton("") {
+                    RingListenerService.setEnabled(this@SetupActivity, !RingListenerService.isEnabled(this@SetupActivity))
+                    show()
+                }
+                addView(button)
+                show()
             },
         )
     }

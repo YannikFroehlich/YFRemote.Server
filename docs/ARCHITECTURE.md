@@ -33,7 +33,14 @@ feature.
   `FileOfferService`: one offer at a time, 10-minute lifetime). The offer itself reaches devices as
   an unsolicited `{"type":"fileOffer","id","name","size"}` WebSocket message, pushed on offer and
   again on every connect. `Origin` optional like `GET /clipboard/text`; every download raises a
-  "Datei gesendet" balloon.
+  "Datei gesendet" balloon. The Explorer's context menu offers the same ("An YFRemote-Geräte
+  senden", `WindowsExplorerSendMenu`): an installed build writes
+  `HKCU\Software\Classes\*\shell\YFRemote.SendToDevices` on every start (removed by the uninstall
+  hook), whose command starts the launcher with `--offer-file "%1"`. A second instance hands the path
+  to the running one over a per-session named pipe (`PipeOptions.CurrentUserOnly`) instead of the
+  "läuft bereits" box; without a running one it starts normally and offers the file. Windows 11
+  shows the entry only under "Weitere Optionen anzeigen", because the new menu needs package
+  identity. With several files selected, the last one wins (one offer at a time).
 - `GET /processes` (`WindowEndpoints`) → `{ processes: [{id,name,cpu,memoryMb}] }`, the 15
   processes with the highest CPU load (ties by memory), for the "PC" tab; same gate as
   `GET /windows`. `ProcessService` (BCL only, Windows and Linux) samples `TotalProcessorTime`
@@ -153,6 +160,19 @@ feature.
   `left`/`right`, long press = right): `IMouseService.MoveToScreen` sets the pointer in
   physical pixels like the capture, then the normal click runs. Linux throws
   `NotSupportedException`. Verified on the phone on 2026-11-03 (pointer landed within ~15 px).
+  The tab's "Touch" switch (`/health` `touch`, shown only then; `RemoteService.screenTouch`,
+  `yfremote.screenTouch`, default off) replaces all of these gestures with real touch input: every
+  finger on the picture gets an id 0-9 while it lies, and each `pointerdown`/`pointerup` (moves at
+  most per frame and every 16 ms) sends the whole state as `{"type":"touch","points":[{id,x,y}],"monitor"}`,
+  like the controller, so a lost message cannot leave a finger down. `WindowsTouchService` diffs it
+  against the previous state into `InjectTouchInput` frames (new id `DOWN`, known `UPDATE`, missing
+  `UP`; physical pixels like the capture, max 10 contacts, works without a touchscreen) and re-sends
+  held contacts every 100 ms, because Windows cancels a contact that gets no frames. Windows then
+  recognizes its own gestures (pinch, swipe, edge swipes, press-and-hold). The connection's
+  `RemoteActionSession` lifts the fingers when it ends, a hidden page sends an empty list, and "Nur
+  Medien" devices are refused. Checked on the dev PC on 2026-11-16 with a temporary test window: a
+  held contact arrived as `WM_POINTERDOWN`, three keep-alive `WM_POINTERUPDATE`s and `WM_POINTERUP`,
+  promoted to a left click. Gestures in real apps and the phone side are unverified.
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the
@@ -165,7 +185,7 @@ feature.
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`
   is declared by hand for the 120-frame GOP). Encoded sizes are rounded to width % 16 and height % 4,
   because Intel's encoder fails on the first frame otherwise (710x398, 1376x774 measured). A frame is
-  encoded on a desktop or cursor change, at least once per second, at most 60/s; a full send buffer
+  encoded on a desktop or cursor change, at least once per second, at most 60/s on a fixed schedule (high-resolution waitable timer: `Thread.Sleep` rounds to 15.6 ms, which made a 60 Hz monitor deliver only every second frame, and Windows 11 ignores `timeBeginPeriod` for the windowless tray process); a full send buffer
   throttles capture instead of queueing. `Fmp4Writer` (one `moof`+`mdat` per frame) gives every frame
   1/60 s of media time regardless of when it arrived, because a gap in the timeline would stall the
   browser: with fewer frames the video waits at the buffer end and shows each on arrival, the player
@@ -269,7 +289,14 @@ change (scheduled, cancelled, elapsed) is pushed to all connected devices as
 because the device clock may differ from the PC's. The Client shows a countdown with "Abbrechen"
 above the Remote buttons.
 
-**Server pushes besides responses.** Next to `fileOffer` and `rumble`, the socket carries
+**Server pushes besides responses.** The tray's "Gerät klingeln lassen" lists the connected
+devices and calls `WebSocketConnectionRegistry.Ring(deviceId)`; every open connection of that device
+(`HandleAsync` gets its `deviceId`) pushes `{"type":"ring"}`. The Client shows a full-screen
+`.ring-alert` with "Klingeln beenden" and plays a tone through `RING_PLAYER` (Web Audio beeps plus
+vibration in a browser, `YFRemoteRing` in the Android app, see docs/ANDROID.md). `ringing` stays on
+across a lost connection until it is stopped on the device. A `/ws?background=1` connection (the
+Android app's background socket) gets the ring but no `media`, `fileOffer` or `shutdownTimer`
+pushes, so it never keeps the media poll running; it still counts as connected in the tray. Next to `fileOffer` and `rumble`, the socket carries
 `{"type":"media","volume","muted","title","artist","playing","position","duration","canSeek","coverId"}`
 (`WindowsMediaStatusReader` reads
 Core Audio over COM and the WinRT media session manager; for a Voicemeeter device see below;

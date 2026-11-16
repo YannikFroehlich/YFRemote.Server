@@ -25,6 +25,7 @@ public sealed partial class RemoteActionHandler(
     IPcNotifications? pcNotifications = null,
     IBrightnessService? brightness = null,
     IProcessService? processes = null,
+    ITouchService? touch = null,
     PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
@@ -67,6 +68,7 @@ public sealed partial class RemoteActionHandler(
                 "mouseclick" => HandleMouseClick(request),
                 "screenclick" => HandleScreenClick(request),
                 "screenmove" => HandleScreenMove(request),
+                "touch" => HandleTouch(request, session),
                 "mousedown" => HandleMouseButton(request, isDown: true, session),
                 "mouseup" => HandleMouseButton(request, isDown: false, session),
                 "mousescroll" => HandleMouseScroll(request),
@@ -260,6 +262,40 @@ public sealed partial class RemoteActionHandler(
         mouseService.MoveToScreen(x, y, request.Monitor);
         return RemoteActionResponse.Ok();
     }
+
+    // Finger im Bild des Tabs "Bildschirm" als echte Touch-Eingabe. Wie mouseDown merkt sich die
+    // Verbindung liegende Finger, damit sie bei einem Abbruch nicht am PC liegen bleiben.
+    private RemoteActionResponse HandleTouch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (touch is null)
+        {
+            return Fail("Touch input is not supported on this server.");
+        }
+
+        var points = request.Points ?? [];
+        if (points.Count > MaxTouchPoints
+            || points.Any(point => point is null || point.Id is < 0 or >= MaxTouchPoints || !(point.X is >= 0 and <= 1) || !(point.Y is >= 0 and <= 1))
+            || points.Select(point => point.Id).Distinct().Count() != points.Count)
+        {
+            return Fail($"Action 'touch' requires up to {MaxTouchPoints} points with distinct ids 0-{MaxTouchPoints - 1} and x and y between 0 and 1.");
+        }
+
+        var monitor = request.Monitor;
+        touch.Apply(points, monitor);
+        if (points.Count == 0)
+        {
+            session?.ReleaseMouseButton(TouchHoldKey);
+        }
+        else
+        {
+            session?.HoldMouseButton(TouchHoldKey, () => touch.Apply([], monitor));
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    private const int MaxTouchPoints = 10;
+    private const string TouchHoldKey = "touch";
 
     private RemoteActionResponse HandleMouseClick(RemoteActionRequest request)
     {

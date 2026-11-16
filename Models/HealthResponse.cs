@@ -9,7 +9,8 @@ namespace YFRemote.Server.Models;
 // zeigt dann den Tab "Mixer". Name: der Rechnername, den die Android-App in "Steuern" statt der IP
 // zeigt - im LAN ohnehin sichtbar (NetBIOS/mDNS). Screen: GET /screen gibt es, der Client zeigt
 // dann den Tab "Bildschirm" - aeltere Server antworteten dort mit der Startseite. Audio: GET
-// /screen/audio gibt es, der Tab zeigt dann den Schalter "Ton".
+// /screen/audio gibt es, der Tab zeigt dann den Schalter "Ton". Touch: die Aktion "touch" gibt es,
+// der Tab zeigt den Schalter "Touch".
 public sealed record HealthResponse(
     string Status,
     string Service,
@@ -20,4 +21,5 @@ public sealed record HealthResponse(
     bool Voicemeeter = false,
     string? Name = null,
     bool Screen = false,
-    bool Audio = false);
+    bool Audio = false,
+    bool Touch = false);

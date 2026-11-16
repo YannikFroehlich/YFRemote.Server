@@ -434,6 +434,25 @@ describe('RemoteService', () => {
     expect(remote.fileOffer()?.id).toBe('o2');
   });
 
+  it('rings on the PC request until stopped, also across a lost connection', () => {
+    const { remote, sockets } = setupRemoteService();
+
+    remote.connect();
+    sockets[0].open();
+    sockets[0].receive('{"type":"ring"}');
+
+    expect(remote.ringing()).toBe(true);
+    expect(remote.lastError()).toBeNull();
+
+    sockets[0].close();
+
+    expect(remote.ringing()).toBe(true);
+
+    remote.stopRinging();
+
+    expect(remote.ringing()).toBe(false);
+  });
+
   it('shows the pushed media status until the connection ends', () => {
     const { remote, sockets } = setupRemoteService();
     const media = { type: 'media', volume: 40, muted: false, title: 'Song', playing: true };

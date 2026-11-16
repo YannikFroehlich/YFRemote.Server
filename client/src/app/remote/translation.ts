@@ -241,6 +241,8 @@ export const TRANSLATIONS = {
   'fileOffer.download': { de: 'Annehmen', en: 'Accept' },
   'fileOffer.dismiss': { de: 'Ablehnen', en: 'Decline' },
   'fileOffer.close': { de: 'Schließen', en: 'Close' },
+  'ring.title': { de: 'Der PC sucht dieses Gerät', en: 'The PC is looking for this device' },
+  'ring.stop': { de: 'Klingeln beenden', en: 'Stop ringing' },
   'pcNotification.remove': { de: 'Am PC entfernen', en: 'Remove on PC' },
   'fileOffer.error': {
     de: 'Die Datei ist nicht mehr verfügbar.',
@@ -517,6 +519,11 @@ export const TRANSLATIONS = {
   'screen.soundTitle': {
     de: 'Ton des PCs auf diesem Gerät abspielen',
     en: 'Play the PC sound on this device',
+  },
+  'screen.touch': { de: 'Touch', en: 'Touch' },
+  'screen.touchTitle': {
+    de: 'Finger als echte Touch-Eingabe am PC statt als Maus',
+    en: 'Send fingers to the PC as real touch input instead of the mouse',
   },
   'screen.soundFailed': {
     de: 'Der Ton des PCs lässt sich gerade nicht abspielen.',

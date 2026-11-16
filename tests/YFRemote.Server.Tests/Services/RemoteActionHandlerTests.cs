@@ -8,6 +8,61 @@ namespace YFRemote.Server.Tests.Services;
 public sealed class RemoteActionHandlerTests
 {
     [TestMethod]
+    public void Handle_Touch_AppliesPointsAndLiftsThemWhenTheConnectionEnds()
+    {
+        var touch = new RecordingTouchService();
+        var handler = new RemoteActionHandler(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            touch: touch);
+        var session = new RemoteActionSession();
+
+        var response = handler.Handle(
+            new RemoteActionRequest { Type = "touch", Monitor = @"\\.\DISPLAY1", Points = [new TouchPoint(0, 0.5, 0.25), new TouchPoint(1, 0.1, 0.9)] },
+            session);
+
+        Assert.IsTrue(response.Success);
+        Assert.AreEqual("0:0.5,0.25 1:0.1,0.9 @\\\\.\\DISPLAY1", touch.Calls.Single());
+
+        session.Dispose();
+
+        Assert.AreEqual(" @\\\\.\\DISPLAY1", touch.Calls[^1]);
+    }
+
+    [TestMethod]
+    public void Handle_Touch_RejectsBadPointsAndMediaOnly()
+    {
+        var touch = new RecordingTouchService();
+        var handler = new RemoteActionHandler(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            touch: touch);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "touch", Points = [new TouchPoint(0, 1.5, 0)] }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "touch", Points = [new TouchPoint(10, 0, 0)] }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "touch", Points = [new TouchPoint(2, 0, 0), new TouchPoint(2, 1, 1)] }).Success);
+        Assert.IsFalse(handler.Handle(
+            new RemoteActionRequest { Type = "touch", Points = [new TouchPoint(0, 0, 0)] },
+            new RemoteActionSession { MediaOnly = true }).Success);
+        Assert.IsEmpty(touch.Calls);
+
+        var unsupported = new RemoteActionHandler(new RecordingInputService(), new RecordingMouseService(), new RecordingPowerService(), NullLogger<RemoteActionHandler>.Instance);
+        Assert.IsFalse(unsupported.Handle(new RemoteActionRequest { Type = "touch", Points = [] }).Success);
+    }
+
+    private sealed class RecordingTouchService : ITouchService
+    {
+        public List<string> Calls { get; } = [];
+
+        public void Apply(IReadOnlyList<TouchPoint> points, string? monitor) =>
+            Calls.Add(string.Join(" ", points.Select(point => FormattableString.Invariant($"{point.Id}:{point.X},{point.Y}"))) + " @" + monitor);
+    }
+
+    [TestMethod]
     public void Handle_SuccessfulAction_EchoesRequestId()
     {
         var inputService = new RecordingInputService();

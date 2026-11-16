@@ -14,7 +14,8 @@ public sealed class YFRemoteWebSocketHandler(
     TimeProvider timeProvider,
     ILogger<YFRemoteWebSocketHandler> logger,
     PollingBroadcaster<MediaStatusMessage>? mediaStatus = null,
-    ShutdownTimer? shutdownTimer = null)
+    ShutdownTimer? shutdownTimer = null,
+    WebSocketConnectionRegistry? connectionRegistry = null)
 {
     private const int BufferSize = 4096;
     private const int MaxMessageBytes = 16 * 1024;
@@ -36,7 +37,9 @@ public sealed class YFRemoteWebSocketHandler(
         string client,
         CancellationToken cancellationToken,
         string? deviceName = null,
-        bool mediaOnly = false)
+        bool mediaOnly = false,
+        Guid? deviceId = null,
+        bool background = false)
     {
         logger.LogInformation("WebSocket client connected: {Client}", client);
 
@@ -56,34 +59,48 @@ public sealed class YFRemoteWebSocketHandler(
             DeviceName = deviceName ?? client,
             MediaOnly = mediaOnly
         };
-        // Ein Geraet mit "Nur Medien" darf die Datei ohnehin nicht laden.
+        // Ein Geraet mit "Nur Medien" darf die Datei ohnehin nicht laden. Die Hintergrundverbindung der
+        // Android-App wartet nur aufs Klingeln: ohne Medienstatus und Angebote, sonst fragte der PC den
+        // Medienstatus ab, solange das Handy an ist, und weckte es jede Sekunde.
         void OnFileOffered(FileOfferMessage offer) =>
             _ = SendPushAsync(socket, sendLock, offer, client, cancellationToken);
-        if (!mediaOnly)
+        var offers = !mediaOnly && !background;
+        if (offers)
         {
             fileOfferService.Offered += OnFileOffered;
         }
         // Jedes Geraet soll den Termin sehen und abbrechen koennen, nicht nur das, das ihn gesetzt hat.
         void OnShutdownTimerChanged(string? changedBy) =>
             _ = SendPushAsync(socket, sendLock, shutdownTimer!.Status, client, cancellationToken);
-        if (shutdownTimer is not null)
+        if (shutdownTimer is not null && !background)
         {
             shutdownTimer.Changed += OnShutdownTimerChanged;
         }
-        using var mediaSubscription = mediaStatus?.Subscribe(status =>
+        using var mediaSubscription = background ? null : mediaStatus?.Subscribe(status =>
             _ = SendPushAsync(socket, sendLock, status, client, cancellationToken));
+        void OnRingRequested(Guid requested)
+        {
+            if (requested == deviceId)
+            {
+                _ = SendPushAsync(socket, sendLock, new RingMessage(), client, cancellationToken);
+            }
+        }
+        if (connectionRegistry is not null)
+        {
+            connectionRegistry.RingRequested += OnRingRequested;
+        }
 
         try
         {
             await SendJsonAsync(socket, sendLock, new AccessMessage(mediaOnly), cancellationToken);
 
             // Ein Geraet, das sich erst nach der Freigabe verbindet, soll die Datei trotzdem sehen.
-            if (!mediaOnly && fileOfferService.Current is { } currentOffer)
+            if (offers && fileOfferService.Current is { } currentOffer)
             {
                 await SendJsonAsync(socket, sendLock, currentOffer, cancellationToken);
             }
 
-            if (shutdownTimer?.Status is { RemainingSeconds: not null } timerStatus)
+            if (!background && shutdownTimer?.Status is { RemainingSeconds: not null } timerStatus)
             {
                 await SendJsonAsync(socket, sendLock, timerStatus, cancellationToken);
             }
@@ -125,6 +142,10 @@ public sealed class YFRemoteWebSocketHandler(
         finally
         {
             fileOfferService.Offered -= OnFileOffered;
+            if (connectionRegistry is not null)
+            {
+                connectionRegistry.RingRequested -= OnRingRequested;
+            }
             if (shutdownTimer is not null)
             {
                 shutdownTimer.Changed -= OnShutdownTimerChanged;

@@ -24,6 +24,15 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 ### Added
 
 - Einstellungen, "Profile und Sicherung": Der neue Schalter "Profil passend zum Programm am PC wechseln" ist standardmäßig aus und nur mit einem Windows-PC verfügbar. Ist er an, ordnet man jedem Layout-Profil Programme zu, z. B. "VLC media player", oder übernimmt das Programm, das gerade vorne ist. Kommt eines davon am PC nach vorne, wechselt der Remote-Tab auf dieses Profil. Unter "Dazu diesen Tab öffnen" kann ein Profil zusätzlich einen Tab öffnen, z. B. für ein Spiel den Controller oder für PowerPoint die Folien. Ist keines mehr vorne, kehren das vorige Profil und der vorige Tab zurück. Ein Profil, das man von Hand wählt, bleibt stehen, bis ein anderes Programm nach vorne kommt. Während man Buttons bearbeitet, wechselt das Profil nicht.
+- Tray: "Gerät klingeln lassen" lässt ein verbundenes Gerät klingeln, bis man dort "Klingeln beenden" tippt. In der Android-App klingelt es mit dem Weckerton und voller Lautstärke, auch wenn das Handy lautlos ist, und lässt sich in der Benachrichtigung stoppen. Im Browser piept die offene Seite und vibriert. Das Gerät muss dafür verbunden sein, also die Fernbedienung offen haben.
+- Android-App, Tab "Steuern": Mit "Im Hintergrund erreichbar" klingelt "Gerät klingeln lassen" auch, wenn die App geschlossen ist. Der Schalter ist standardmäßig aus und bleibt nach einem Neustart des Handys an. Die App hält dafür eine Verbindung zu jedem gekoppelten PC offen, was etwas Akku kostet, und zeigt eine dauerhafte, stille Benachrichtigung. Über diese Verbindung schickt der PC nur das Klingeln, keine Medienmeldungen.
+- Tab "Bildschirm": Mit dem Schalter "Touch" kommen die Finger als echte Touch-Eingabe am PC an statt als Maus. Windows erkennt damit seine eigenen Gesten: Zoomen mit zwei Fingern, Wischen, Wischen vom Rand, langes Drücken. Bis zu 10 Finger, nur mit einem Windows-PC.
+- Android-App: Eigene Buttons der Fernbedienung gibt es jetzt als Widget ("YFRemote Button") und als Schnellkachel ("YFRemote 1" bis "3") – z. B. "PC sperren" oder ein Makro, ohne die App zu öffnen. Welcher Button, wählt man beim Ablegen des Widgets bzw. beim ersten Tippen auf die Kachel (ändern: lange drücken). Die Buttons übernimmt die App, sobald man die Fernbedienung des Geräts einmal verlässt.
+- Explorer: Rechtsklick auf eine Datei → "An YFRemote-Geräte senden" bietet sie allen gekoppelten Geräten an, wie "Datei an Geräte senden..." im Tray. Unter Windows 11 steht der Eintrag unter "Weitere Optionen anzeigen". Läuft YFRemote nicht, startet es dafür. Nur in der installierten Version.
+
+### Fixed
+
+- Tab "Bildschirm": Das H.264-Bild läuft flüssiger. Die Aufnahme wartete zwischen zwei Bildern mit dem groben 15,6-ms-Takt von Windows und verpasste dadurch an einem 60-Hz-Monitor immer wieder ein Bild (bisher gemessen 36-46 statt 60 Bilder/s). Sie wartet jetzt mit einem genauen Zeitgeber auf einen festen 60-Hz-Takt. Auflösung und Bitrate bleiben gleich.
 
 ## [2.54.0] - 2026-11-15
 

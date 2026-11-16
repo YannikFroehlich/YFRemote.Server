@@ -541,7 +541,7 @@ h2 {
 
 .remote-panel--app {
   height: min(880px, calc(100vh - 40px));
-  height: min(880px, calc(100dvh - 40px));
+  height: min(880px, calc(100dvh - 40px - var(--keyboard-inset, 0px)));
 }
 
 .remote-panel--pairing {
@@ -1462,7 +1462,7 @@ h2 {
 
 .update-banner {
   position: fixed;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(16px + env(safe-area-inset-bottom) + var(--keyboard-inset, 0px));
   left: 50%;
   z-index: 40;
   display: flex;
@@ -1684,9 +1684,10 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+// Endet ueber der Bildschirmtastatur, sonst laege der Dialog mittig hinter ihr.
 .settings-layer {
   position: fixed;
-  inset: 0;
+  inset: 0 0 var(--keyboard-inset, 0px);
   z-index: 20;
   display: grid;
   place-items: center;
@@ -1710,7 +1711,7 @@ select:focus-visible {
   display: flex;
   width: min(100%, 460px);
   max-height: calc(100vh - 36px);
-  max-height: calc(100dvh - 36px);
+  max-height: calc(100dvh - 36px - var(--keyboard-inset, 0px));
   flex-direction: column;
   padding: 24px;
   overflow: hidden;
@@ -1735,6 +1736,21 @@ select:focus-visible {
 .settings-dialog__header,
 .settings-actions {
   flex: none;
+}
+
+.settings-steps {
+  margin: 0;
+  padding-left: 18px;
+}
+
+// Links, die wie Knoepfe aussehen (Profil laden, Zu HTTPS wechseln).
+a.primary-button,
+a.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
 }
 
 .settings-dialog__status {
@@ -2867,7 +2883,7 @@ select:focus-visible {
 
   .remote-panel {
     height: 100vh;
-    height: 100dvh;
+    height: calc(100dvh - var(--keyboard-inset, 0px));
     gap: 10px;
     padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
       calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
@@ -2966,7 +2982,7 @@ select:focus-visible {
 
   .settings-dialog {
     max-height: calc(100vh - 20px);
-    max-height: calc(100dvh - 20px);
+    max-height: calc(100dvh - 20px - var(--keyboard-inset, 0px));
     padding: 20px;
     border-radius: calc(20px * var(--radius-scale));
   }
@@ -3403,7 +3419,7 @@ select:focus-visible {
 .power-dialog {
   width: min(calc(100% - 36px), 380px);
   max-width: none;
-  max-height: calc(100dvh - 36px);
+  max-height: calc(100dvh - 36px - var(--keyboard-inset, 0px));
   padding: 0;
   overflow: auto;
   border: var(--border-width) solid var(--line);

@@ -111,7 +111,7 @@ console UI — `OutputType=WinExe`. Startup exceptions are caught, written to
 crashing silently.
 
 **Web layer.** Minimal-API endpoints, wired up in `Program.BuildApplication`. `/health` and
-`/ca.crt` are mapped there directly; everything else lives in `Endpoints/` as one `Map…` extension
+`/ca.crt`/`/ca.mobileconfig` are mapped there directly; everything else lives in `Endpoints/` as one `Map…` extension
 method on `WebApplication` per area (`WebSocketEndpoint`, `PairingEndpoints`, `FileEndpoints`,
 `ClipboardEndpoints`), so they keep logging through `app.Logger`. `RequestGuards` holds
 `IsAllowedOrigin`, `GetBearerToken`, and `AuthorizePairedDeviceAsync` — the shared gate of the

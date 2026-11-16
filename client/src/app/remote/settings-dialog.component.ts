@@ -31,7 +31,10 @@ import {
   SCROLL_SPEED_MIN,
   SCROLL_SPEED_STEP,
   scrollSpeedValidator,
+  isTrustworthyOrigin,
+  SERVER_LOCATION,
 } from './server-config';
+import { IS_IOS } from './device';
 import { CustomTheme, ThemeMode, ThemeStyle } from './theme';
 import { ThemeEditorDialogComponent } from './theme-editor-dialog.component';
 import { ThemeService } from './theme.service';
@@ -53,6 +56,20 @@ export class SettingsDialogComponent {
   protected readonly i18n = inject(TranslationService);
   protected readonly clipboardSync = inject(ClipboardSyncService);
   protected readonly canVibrate = inject(REMOTE_CAN_VIBRATE);
+  private readonly location = inject(SERVER_LOCATION);
+  private readonly isIos = inject(IS_IOS);
+  // Nur iPhone/iPad ueber http:// an einem PC: dort fehlt ohne HTTPS am meisten, und iOS verlangt
+  // fuers Zertifikat mehrere Schritte in den Einstellungen.
+  protected readonly httpsGuide = computed(
+    () =>
+      this.isIos &&
+      !isTrustworthyOrigin(this.location) &&
+      (this.remote.serverPlatform() === 'windows' || this.remote.serverPlatform() === 'linux'),
+  );
+  protected readonly httpsUrl = computed(() => {
+    const port = this.remote.httpsPort();
+    return port === null ? null : `https://${this.location.hostname}:${port}/`;
+  });
   protected readonly pcNotificationsSupported = this.remote.pcNotificationsSupported;
   protected readonly autoProfile = this.remote.autoProfile;
   protected readonly autoProfileSupported = this.remote.autoProfileSupported;

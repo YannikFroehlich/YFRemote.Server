@@ -21,7 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- iPhone: Die Einstellungen führen über `http://` Schritt für Schritt zu HTTPS: Profil laden, installieren, Vertrauen einschalten, zur `https://`-Adresse wechseln. Der Server liefert das Zertifikat dafür zusätzlich als iOS-Konfigurationsprofil (`/ca.mobileconfig`), und `/health` meldet den HTTPS-Port.
+- iPhone: Ein einmaliger Hinweis empfiehlt im Safari-Tab "Zum Home-Bildschirm", weil Safari die Kopplung sonst nach 7 Tagen ohne Besuch vergisst.
+
 ### Fixed
+
+- iPhone: Die Bildschirmtastatur verdeckt keine Felder und Knöpfe mehr. Die App und Dialoge enden über der Tastatur, weil Safari dafür weder das Layout noch `dvh` verkleinert.
 
 - Bildschirm-Ansicht: Der Schalter "Touch" in der Leiste hat jetzt ein Symbol wie die anderen Schalter. Im Vollbild war er bisher eine leere Taste.
 - iPhone: Safari vergrößert die Seite nicht mehr beim Antippen eines Eingabe- oder Auswahlfelds. Auswahlfelder nutzen überall die Schrift der App statt einer Serifenschrift.

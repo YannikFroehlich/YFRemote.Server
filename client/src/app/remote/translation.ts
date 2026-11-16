@@ -442,6 +442,39 @@ export const TRANSLATIONS = {
     de: 'Auf diesem Gerät nicht unterstützt: der Browser (z. B. Safari) gibt die Zwischenablage nur auf Tippen frei. Kopieren geht über den Zwischenablage-Knopf im Touchpad.',
     en: 'Not supported on this device: the browser (e.g. Safari) only shares the clipboard on a tap. Use the clipboard button on the touchpad instead.',
   },
+  'homeScreen.title': { de: 'Tipp: YFRemote als App', en: 'Tip: YFRemote as an app' },
+  'homeScreen.text': {
+    de: 'Teilen → "Zum Home-Bildschirm". Safari vergisst die Kopplung sonst nach 7 Tagen ohne Besuch. In der App einmal neu koppeln.',
+    en: 'Share → "Add to Home Screen". Otherwise Safari forgets the pairing after 7 days without a visit. Pair once more in the app.',
+  },
+  'homeScreen.dismiss': { de: 'Ausblenden', en: 'Hide' },
+  'settings.https.title': { de: 'HTTPS auf dem iPhone', en: 'HTTPS on iPhone' },
+  'settings.https.intro': {
+    de: 'Diktieren, Neigungssteuerung, Zwischenablage-Knöpfe und Updates gehen auf dem iPhone nur über HTTPS.',
+    en: 'Dictation, tilt control, clipboard buttons and updates only work over HTTPS on an iPhone.',
+  },
+  'settings.https.off': {
+    de: 'Am PC ist HTTPS aus (oder er ist nicht verbunden): im Infobereich "HTTPS verwenden" einschalten, dann diese Einstellungen neu öffnen.',
+    en: 'HTTPS is off on the PC (or it is not connected): turn on "HTTPS verwenden" in the tray, then reopen these settings.',
+  },
+  'settings.https.step1': {
+    de: '"Profil laden" antippen und "Zulassen" wählen.',
+    en: 'Tap "Load profile" and choose "Allow".',
+  },
+  'settings.https.step2': {
+    de: 'Einstellungen-App → "Profil geladen" → Installieren.',
+    en: 'Settings app → "Profile Downloaded" → Install.',
+  },
+  'settings.https.step3': {
+    de: 'Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen → "YFRemote" einschalten.',
+    en: 'Settings → General → About → Certificate Trust Settings → turn on "YFRemote".',
+  },
+  'settings.https.step4': {
+    de: '"Zu HTTPS wechseln" antippen und dort mit einer neuen PIN aus dem Infobereich koppeln.',
+    en: 'Tap "Switch to HTTPS" and pair there with a new PIN from the tray.',
+  },
+  'settings.https.profile': { de: 'Profil laden', en: 'Load profile' },
+  'settings.https.open': { de: 'Zu HTTPS wechseln', en: 'Switch to HTTPS' },
   'settings.haptics.unsupported': {
     de: 'Auf diesem Gerät nicht unterstützt: der Browser kann nicht vibrieren (z. B. iPhone).',
     en: 'Not supported on this device: the browser cannot vibrate (e.g. iPhone).',

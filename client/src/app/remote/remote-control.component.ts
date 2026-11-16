@@ -4,6 +4,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { ButtonCanvasComponent } from './button-canvas.component';
@@ -144,6 +145,14 @@ export class RemoteControlComponent {
     }
   });
   protected readonly editMode = signal(false);
+  // Nur bei neuem Programm vorne, nicht bei jedem Profilwechsel (untracked): ein Wechsel von Hand
+  // bleibt so stehen, bis ein anderes Programm nach vorne kommt. Beim Bearbeiten springt nichts.
+  private readonly autoProfileEffect = effect(() => {
+    const app = this.remote.foregroundApp();
+    if (this.remote.autoProfile() && !this.editMode()) {
+      untracked(() => this.layout.applyForegroundApp(app));
+    }
+  });
   protected readonly editorOpen = signal(false);
   protected readonly editorTargetId = signal<string | null>(null);
   protected readonly editorInitialSteps = signal<readonly MacroStep[]>([]);

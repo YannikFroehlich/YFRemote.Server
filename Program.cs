@@ -413,6 +413,11 @@ internal static class Program
             BroadcastPollInterval,
             announceCurrent: false,
             services.GetRequiredService<ILogger<PollingBroadcaster<PcNotificationMessage?>>>()));
+        builder.Services.AddSingleton(services => new PollingBroadcaster<ForegroundAppMessage>(
+            () => Task.FromResult(new ForegroundAppMessage(WindowsWindowService.ForegroundApp())),
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<ForegroundAppMessage>>>()));
 #else
         builder.Services.AddSingleton<LinuxInputSender>();
         builder.Services.AddSingleton<IInputService, LinuxInputService>();

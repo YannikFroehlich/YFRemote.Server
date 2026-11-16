@@ -516,6 +516,28 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"notifications","enabled":false}');
   });
 
+  it('watches the app in front only after the profile switch is turned on', async () => {
+    const { remote, sockets, storage } = setupRemoteService({ health: { platform: 'windows' } });
+    expect(remote.autoProfile()).toBe(false);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() => expect(remote.serverPlatform()).toBe('windows'));
+    expect(sockets[0].sentMessages).toEqual([]);
+
+    sockets[0].receive('{"type":"foregroundApp","name":"VLC media player"}');
+    expect(remote.foregroundApp()).toBeNull();
+
+    remote.saveAutoProfile(true);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"foregroundApp","enabled":true}');
+    expect(storage.getItem('yfremote.autoProfile')).toBe('true');
+    sockets[0].receive('{"type":"foregroundApp","name":"VLC media player"}');
+    expect(remote.foregroundApp()).toBe('VLC media player');
+
+    remote.saveAutoProfile(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"foregroundApp","enabled":false}');
+    expect(remote.foregroundApp()).toBeNull();
+  });
+
   it('removes a forwarded notification on the PC too', async () => {
     const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
     remote.connect();

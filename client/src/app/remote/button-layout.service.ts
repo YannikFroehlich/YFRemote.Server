@@ -24,7 +24,9 @@ import {
   BUTTON_LAYOUT_PROFILES_STORAGE_KEY,
   LayoutProfileState,
   MAX_LAYOUT_PROFILES,
+  findProfileForApp,
   importProfileState,
+  normalizeProfileApps,
   normalizeProfileName,
   parseStoredProfileState,
   serializeProfileState,
@@ -89,6 +91,9 @@ export class ButtonLayoutService {
 
   /** Profil, das vor dem Wechsel ins Android-Profil aktiv war - nur fuer diese Sitzung. */
   private profileBeforeAndroid: string | null = null;
+  /** Profil, das vor dem ersten automatischen Wechsel aktiv war; dahin geht es zurueck, sobald
+   *  vorne kein zugeordnetes Programm mehr ist. */
+  private profileBeforeAuto: string | null = null;
 
   readonly layout = this.layoutSignal.asReadonly();
   readonly snapToGrid = computed(() => this.layoutSignal().snapToGrid);
@@ -174,7 +179,49 @@ export class ButtonLayoutService {
     return true;
   }
 
+  /** Wechselt zum Profil, dem `app` zugeordnet ist, und ohne Treffer zurueck zum Profil von vor dem
+   *  ersten Wechsel. Im Android-Profil passiert nichts. */
+  applyForegroundApp(app: string | null): void {
+    if (this.activeProfileIdSignal() === ANDROID_PROFILE_ID) {
+      return;
+    }
+
+    const target = findProfileForApp(this.profilesSignal(), app);
+    if (target !== undefined) {
+      if (target.id !== this.activeProfileIdSignal()) {
+        const before = this.profileBeforeAuto ?? this.activeProfileIdSignal();
+        this.switchProfile(target.id);
+        this.profileBeforeAuto = before;
+      }
+      return;
+    }
+
+    const before = this.profileBeforeAuto;
+    if (before !== null) {
+      this.profileBeforeAuto = null;
+      if (this.profilesSignal().some((profile) => profile.id === before)) {
+        this.switchProfile(before);
+      }
+    }
+  }
+
+  setProfileApps(id: string, apps: readonly string[]): void {
+    const normalized = normalizeProfileApps(apps);
+    this.profilesSignal.update((profiles) =>
+      profiles.map((profile) => {
+        if (profile.id !== id) {
+          return profile;
+        }
+        const base = { id: profile.id, name: profile.name, layout: profile.layout };
+        return normalized.length > 0 ? { ...base, apps: normalized } : base;
+      }),
+    );
+    this.persistProfileState();
+  }
+
   switchProfile(id: string): boolean {
+    // Ein Wechsel von Hand gilt: danach geht der automatische nicht mehr dorthin zurueck.
+    this.profileBeforeAuto = null;
     this.profileErrorSignal.set(null);
     const profile = this.profilesSignal().find((candidate) => candidate.id === id);
     if (profile === undefined) {

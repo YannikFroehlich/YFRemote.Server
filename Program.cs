@@ -287,9 +287,12 @@ internal static class Program
         };
         source.ResolveFileProvider();
 
+        // Vor die letzte Kommandozeilen-Quelle: WebApplication.CreateBuilder legt bei Argumenten
+        // schon in der Host-Konfiguration eine an. Vor der ersten landete die Datei unter
+        // appsettings.json, und deren "Https:Enabled": false gewann, sobald Argumente kamen.
         var insertIndex = configuration.Sources.Count;
 
-        for (var index = 0; index < configuration.Sources.Count; index++)
+        for (var index = configuration.Sources.Count - 1; index >= 0; index--)
         {
             if (configuration.Sources[index] is CommandLineConfigurationSource)
             {
@@ -312,7 +315,10 @@ internal static class Program
             WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot")
         });
 
-        AddUserSettings(builder.Configuration, UserSettingsStore.FilePath);
+        // Ueberschreibbar, damit die Tests nicht die echte settings.json des Rechners lesen.
+        AddUserSettings(
+            builder.Configuration,
+            builder.Configuration["UserSettings:FilePath"] ?? UserSettingsStore.FilePath);
         DiagnosticLogging.Configure(builder);
 
         var serverOptions = builder.Configuration

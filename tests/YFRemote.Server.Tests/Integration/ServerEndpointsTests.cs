@@ -46,7 +46,8 @@ public sealed class ServerEndpointsTests
                 "Server:Host=127.0.0.1",
                 $"Server:Port={port}",
                 $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}",
-                $"Diagnostics:LogDirectory={Path.Combine(testDirectory, "Logs")}"
+                $"Diagnostics:LogDirectory={Path.Combine(testDirectory, "Logs")}",
+                $"UserSettings:FilePath={Path.Combine(testDirectory, "settings.json")}"
             ],
             services =>
             {

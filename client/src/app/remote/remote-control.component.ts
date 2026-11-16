@@ -10,7 +10,7 @@ import {
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
-import { ProfileView } from './button-layout-profiles';
+import { PROFILE_VIEWS, ProfileView } from './button-layout-profiles';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import { MediaBridgeService } from './media-bridge.service';
 import { FileTransferService } from './file-transfer.service';
@@ -141,7 +141,13 @@ export class RemoteControlComponent {
   protected readonly mediaOnly = this.remote.mediaOnly;
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly settingsOpen = signal(false);
+  /** Klein unter der Statusanzeige: Adresse, Neu verbinden, Trennen - frueher eine eigene Zeile. */
+  protected readonly connectionMenuOpen = signal(false);
+  protected readonly serverName = this.remote.serverName;
   protected readonly activeView = signal<RemoteView>('remote');
+  /** Richtung des letzten Tabwechsels fuer die Einblendung; null bis zum ersten Wechsel, dann
+   *  laufen die Remote-Tasten noch als Welle ein (nur beim Start, nicht bei jeder Rueckkehr). */
+  protected readonly viewEnter = signal<'forward' | 'back' | null>(null);
   // Den Mixer gibt es nur auf PC-Servern, die Systemanzeige nur mit bekanntem Server. Fallen sie weg
   // (Android-Server, /health fehlgeschlagen) oder sperrt der PC Eingaben, verschwinden Tabs - ohne
   // Wechsel bliebe die Ansicht leer.
@@ -153,7 +159,7 @@ export class RemoteControlComponent {
       (!this.screenSupported() && view === 'screen') ||
       (this.mediaOnly() && INPUT_VIEWS.has(view))
     ) {
-      this.activeView.set('remote');
+      untracked(() => this.showView('remote'));
     }
   });
   protected readonly editMode = signal(false);
@@ -209,6 +215,12 @@ export class RemoteControlComponent {
     this.remote.sendAction({ type: 'shutdownTimer', minutes: 0 });
   }
 
+  protected sendMediaKey(
+    key: 'MEDIA_PREVIOUS' | 'MEDIA_PLAY_PAUSE' | 'MEDIA_NEXT' | 'VOLUME_MUTE',
+  ): void {
+    this.remote.sendAction({ type: 'key', keys: [key] });
+  }
+
   protected setVolume(event: Event): void {
     const volume = (event.target as HTMLInputElement).valueAsNumber;
     this.remote.sendAction({ type: 'volume', volume });
@@ -236,17 +248,37 @@ export class RemoteControlComponent {
   }
 
   protected reconnect(): void {
+    this.connectionMenuOpen.set(false);
     this.remote.reconnect();
   }
 
   protected disconnect(): void {
+    this.connectionMenuOpen.set(false);
     this.remote.disconnect();
+  }
+
+  protected toggleConnectionMenu(): void {
+    this.connectionMenuOpen.update((open) => !open);
+  }
+
+  protected closeConnectionMenu(): void {
+    this.connectionMenuOpen.set(false);
   }
 
   protected selectView(view: RemoteView): void {
     this.editMode.set(false);
-    this.activeView.set(view);
+    this.showView(view);
     this.viewBeforeAuto = null;
+  }
+
+  // Der neue Inhalt kommt von der Seite herein, auf der sein Tab liegt - wie beim Wischen.
+  private showView(view: RemoteView): void {
+    const from = PROFILE_VIEWS.indexOf(this.activeView());
+    const to = PROFILE_VIEWS.indexOf(view);
+    if (from !== to) {
+      this.viewEnter.set(to > from ? 'forward' : 'back');
+    }
+    this.activeView.set(view);
   }
 
   // Wie beim Profil: Tab des passenden Profils, ohne einen zurueck zum Tab von vorher. Einen Tab, den
@@ -255,13 +287,13 @@ export class RemoteControlComponent {
     if (view !== undefined && this.viewAvailable(view)) {
       if (view !== this.activeView()) {
         this.viewBeforeAuto ??= this.activeView();
-        this.activeView.set(view);
+        this.showView(view);
       }
       return;
     }
 
     if (this.viewBeforeAuto !== null) {
-      this.activeView.set(this.viewBeforeAuto);
+      this.showView(this.viewBeforeAuto);
       this.viewBeforeAuto = null;
     }
   }

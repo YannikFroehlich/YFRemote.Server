@@ -7,7 +7,14 @@ import {
   ButtonLayoutService,
   PROFILE_ID_FACTORY,
 } from './button-layout.service';
-import { ANDROID_BUILT_IN_BUTTONS, BUILT_IN_BUTTONS } from './remote-actions';
+import {
+  ANDROID_BUILT_IN_BUTTONS,
+  BUILT_IN_BUTTONS,
+  DEFAULT_HIDDEN_BUILT_IN_IDS,
+  LEGACY_DEFAULT_PLACEMENTS,
+} from './remote-actions';
+
+const DEFAULT_VISIBLE_COUNT = BUILT_IN_BUTTONS.length - DEFAULT_HIDDEN_BUILT_IN_IDS.length;
 import { REMOTE_STORAGE } from './remote.service';
 
 class MemoryStorage implements Storage {
@@ -58,12 +65,56 @@ describe('ButtonLayoutService', () => {
     TestBed.resetTestingModule();
   });
 
-  it('starts with every built-in button placed and snap enabled', () => {
+  it('starts with the default buttons placed, the duplicates hidden and snap enabled', () => {
     const { service } = setupService();
 
-    expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
+    expect(service.visibleButtons()).toHaveLength(DEFAULT_VISIBLE_COUNT);
     expect(service.snapToGrid()).toBe(true);
-    expect(service.hiddenButtons()).toEqual([]);
+    expect(service.hiddenButtons().map((button) => button.id)).toEqual(DEFAULT_HIDDEN_BUILT_IN_IDS);
+  });
+
+  it('moves an untouched old default layout to the new one but keeps a customized one', () => {
+    const custom = { id: 'custom:own', col: 0, row: 18, colSpan: 4, rowSpan: 2 };
+    const stored = (placements: readonly object[]) =>
+      JSON.stringify({
+        version: 1,
+        snapToGrid: true,
+        placements,
+        customButtons: [
+          {
+            id: 'custom:own',
+            label: 'Eigen',
+            icon: 'key',
+            steps: [{ action: { type: 'key', keys: ['F5'] }, delayMs: 0 }],
+          },
+        ],
+        hiddenBuiltInIds: [],
+      });
+
+    const untouched = new MemoryStorage();
+    untouched.setItem(BUTTON_LAYOUT_STORAGE_KEY, stored([...LEGACY_DEFAULT_PLACEMENTS, custom]));
+    const migrated = setupService(untouched).service;
+    expect(migrated.hiddenButtons().map((button) => button.id)).toEqual(
+      DEFAULT_HIDDEN_BUILT_IN_IDS,
+    );
+    expect(migrated.visibleButtons().some((item) => item.placement.id === 'power-menu')).toBe(true);
+    expect(
+      migrated.visibleButtons().find((item) => item.placement.id === 'custom:own')?.placement,
+    ).toMatchObject({ col: 0, row: 18 });
+    TestBed.resetTestingModule();
+
+    // Eine verschobene Taste: das Layout gehoert dem Nutzer, nur "Energie" kommt dazu.
+    const moved = LEGACY_DEFAULT_PLACEMENTS.map((placement) =>
+      placement.id === 'mute' ? { ...placement, col: 0, row: 20 } : placement,
+    );
+    const customized = new MemoryStorage();
+    customized.setItem(BUTTON_LAYOUT_STORAGE_KEY, stored([...moved, custom]));
+    const kept = setupService(customized).service;
+    expect(kept.hiddenButtons()).toEqual([]);
+    expect(
+      kept.visibleButtons().find((item) => item.placement.id === 'mute')?.placement,
+    ).toMatchObject({ col: 0, row: 20 });
+    expect(kept.visibleButtons().some((item) => item.placement.id === 'power-menu')).toBe(true);
   });
 
   it('switches to an Android profile for an Android server and back for a PC', () => {
@@ -72,18 +123,29 @@ describe('ButtonLayoutService', () => {
     service.applyServerPlatform('android');
 
     expect(service.activeProfileId()).toBe(ANDROID_PROFILE_ID);
-    expect(service.visibleButtons().map((placed) => placed.button.id).sort()).toEqual(
-      ANDROID_BUILT_IN_BUTTONS.map((button) => button.id).sort(),
-    );
+    expect(
+      service
+        .visibleButtons()
+        .map((placed) => placed.button.id)
+        .sort(),
+    ).toEqual(ANDROID_BUILT_IN_BUTTONS.map((button) => button.id).sort());
     // Genau die Buttons, die der Android-Server ablehnt, duerfen nicht auftauchen.
-    for (const id of ['previous-tab', 'next-tab', 'close-tab', 'restore-tab', 'fullscreen', 'restart', 'shutdown']) {
+    for (const id of [
+      'previous-tab',
+      'next-tab',
+      'close-tab',
+      'restore-tab',
+      'fullscreen',
+      'restart',
+      'shutdown',
+    ]) {
       expect(service.visibleButtons().some((placed) => placed.button.id === id)).toBe(false);
     }
 
     service.applyServerPlatform('windows');
 
     expect(service.activeProfileId()).not.toBe(ANDROID_PROFILE_ID);
-    expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
+    expect(service.visibleButtons()).toHaveLength(DEFAULT_VISIBLE_COUNT);
   });
 
   it('keeps the Android-only buttons after a reload in the Android profile', () => {
@@ -94,9 +156,12 @@ describe('ButtonLayoutService', () => {
     const { service } = setupService(storage);
 
     expect(service.activeProfileId()).toBe(ANDROID_PROFILE_ID);
-    expect(service.visibleButtons().map((placed) => placed.button.id).sort()).toEqual(
-      ANDROID_BUILT_IN_BUTTONS.map((button) => button.id).sort(),
-    );
+    expect(
+      service
+        .visibleButtons()
+        .map((placed) => placed.button.id)
+        .sort(),
+    ).toEqual(ANDROID_BUILT_IN_BUTTONS.map((button) => button.id).sort());
   });
 
   it('keeps the Android profile untouched while the platform is unknown', () => {
@@ -161,21 +226,25 @@ describe('ButtonLayoutService', () => {
   it('hides a built-in button and moves it into hiddenButtons', () => {
     const { service, storage } = setupService();
 
-    service.hideButton('mute');
+    service.hideButton('fullscreen');
 
-    expect(service.visibleButtons().some((item) => item.placement.id === 'mute')).toBe(false);
-    expect(service.hiddenButtons().map((button) => button.id)).toContain('mute');
-    expect(storage.getItem(BUTTON_LAYOUT_STORAGE_KEY)).toContain('"hiddenBuiltInIds":["mute"]');
+    expect(service.visibleButtons().some((item) => item.placement.id === 'fullscreen')).toBe(false);
+    expect(service.hiddenButtons().map((button) => button.id)).toContain('fullscreen');
+    expect(JSON.parse(storage.getItem(BUTTON_LAYOUT_STORAGE_KEY)!).hiddenBuiltInIds).toContain(
+      'fullscreen',
+    );
   });
 
   it('restores a hidden button into a free slot', () => {
     const { service } = setupService();
 
-    service.hideButton('mute');
+    service.hideButton('fullscreen');
+    service.restoreButton('fullscreen');
     service.restoreButton('mute');
 
+    expect(service.visibleButtons().some((item) => item.placement.id === 'fullscreen')).toBe(true);
     expect(service.visibleButtons().some((item) => item.placement.id === 'mute')).toBe(true);
-    expect(service.hiddenButtons()).toEqual([]);
+    expect(service.hiddenButtons().map((button) => button.id)).not.toContain('mute');
   });
 
   it('adds a custom button with a deterministic id and no leaked "type" duplication', () => {
@@ -231,7 +300,8 @@ describe('ButtonLayoutService', () => {
   it('resets to the default layout while keeping custom buttons placed at the bottom', () => {
     const { service } = setupService();
 
-    service.hideButton('mute');
+    service.hideButton('fullscreen');
+    service.restoreButton('mute');
     service.addCustomButton({
       label: 'Speichern',
       icon: 'key',
@@ -239,8 +309,10 @@ describe('ButtonLayoutService', () => {
     });
     service.resetLayout();
 
-    expect(service.hiddenButtons()).toEqual([]);
-    expect(service.visibleButtons().some((item) => item.placement.id === 'mute')).toBe(true);
+    // Zurueck zum Standard heisst auch: Medien- und Energietasten wieder ausgeblendet.
+    expect(service.hiddenButtons().map((button) => button.id)).toEqual(DEFAULT_HIDDEN_BUILT_IN_IDS);
+    expect(service.visibleButtons().some((item) => item.placement.id === 'fullscreen')).toBe(true);
+    expect(service.visibleButtons().some((item) => item.placement.id === 'mute')).toBe(false);
     expect(service.visibleButtons().some((item) => item.placement.id === 'custom:test1')).toBe(
       true,
     );
@@ -252,7 +324,7 @@ describe('ButtonLayoutService', () => {
 
     const { service } = setupService(storage);
 
-    expect(service.visibleButtons()).toHaveLength(BUILT_IN_BUTTONS.length);
+    expect(service.visibleButtons()).toHaveLength(DEFAULT_VISIBLE_COUNT);
   });
 
   it('migrates the existing browser layout into a Standard profile', () => {
@@ -282,13 +354,13 @@ describe('ButtonLayoutService', () => {
     service.movePlacement('up', 3, 2);
 
     expect(service.createProfile('Medien')).toBe(true);
-    service.hideButton('mute');
+    service.hideButton('fullscreen');
     expect(service.activeProfileId()).toBe('profile:test1');
 
     const standard = service.profiles().find((profile) => profile.name === 'Standard');
     expect(standard).toBeDefined();
     expect(service.switchProfile(standard!.id)).toBe(true);
-    expect(service.hiddenButtons()).toEqual([]);
+    expect(service.hiddenButtons().map((button) => button.id)).not.toContain('fullscreen');
     expect(
       service.visibleButtons().find((item) => item.placement.id === 'up')?.placement,
     ).toMatchObject({

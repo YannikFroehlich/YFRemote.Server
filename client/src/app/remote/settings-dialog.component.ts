@@ -1,4 +1,11 @@
-import { Component, computed, inject, output, signal, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  output,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -52,7 +59,9 @@ export class SettingsDialogComponent {
   private readonly activeProfile = computed(() =>
     this.layout.profiles().find((profile) => profile.id === this.layout.activeProfileId()),
   );
-  protected readonly activeProfileApps = computed(() => this.activeProfile()?.apps?.join(', ') ?? '');
+  protected readonly activeProfileApps = computed(
+    () => this.activeProfile()?.apps?.join(', ') ?? '',
+  );
   protected readonly activeProfileView = computed(() => this.activeProfile()?.view ?? '');
   protected readonly profileViews: readonly { value: ProfileView; label: string }[] = [
     { value: 'remote', label: 'Remote' },
@@ -112,6 +121,7 @@ export class SettingsDialogComponent {
     pcNotifications: new FormControl(this.remote.pcNotifications(), { nonNullable: true }),
     language: new FormControl<Lang>(this.i18n.language(), { nonNullable: true }),
     themeMode: new FormControl<ThemeMode>(this.theme.mode(), { nonNullable: true }),
+    animations: new FormControl(this.theme.animations(), { nonNullable: true }),
     /** Eingebauter Stil oder `custom:<id>` für einen eigenen. */
     themeStyle: new FormControl<string>(this.initialStyleSelection(), { nonNullable: true }),
   });
@@ -156,6 +166,7 @@ export class SettingsDialogComponent {
     }
     this.i18n.setLanguage(this.form.controls.language.value);
     this.saveTheme();
+    this.theme.saveAnimations(this.form.controls.animations.value);
 
     // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
     const configSaved =
@@ -268,7 +279,13 @@ export class SettingsDialogComponent {
   }
 
   protected toggleSetting(
-    name: 'pointerAcceleration' | 'invertScroll' | 'haptics' | 'clipboardSync' | 'pcNotifications',
+    name:
+      | 'pointerAcceleration'
+      | 'invertScroll'
+      | 'haptics'
+      | 'clipboardSync'
+      | 'pcNotifications'
+      | 'animations',
   ): void {
     const control = this.form.controls[name];
     control.setValue(!control.value);

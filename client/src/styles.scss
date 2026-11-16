@@ -541,7 +541,6 @@ h2 {
 }
 
 .remote-header,
-.server-strip,
 .settings-dialog__header,
 .settings-actions {
   display: flex;
@@ -559,8 +558,7 @@ h2 {
 }
 
 .brand-block,
-.settings-dialog__header div,
-.server-strip__identity {
+.settings-dialog__header div {
   min-width: 0;
 }
 
@@ -615,10 +613,10 @@ h2 {
   text-transform: uppercase;
 }
 
-.top-controls,
-.server-strip__actions {
+.top-controls {
+  position: relative;
   display: flex;
-  flex-shrink: 0;
+  min-width: 0;
   align-items: center;
   gap: 8px;
 }
@@ -665,38 +663,95 @@ h2 {
   }
 }
 
-.server-strip {
-  min-height: 62px;
-  padding: 10px 12px 10px 16px;
+.status-pill--button {
+  min-width: 0;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.status-pill--button[aria-expanded='true'] {
+  border-color: var(--line-strong);
+}
+
+.status-pill__text {
+  overflow: hidden;
+  max-width: 14em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-pill__chevron {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-right: -4px;
+  fill: currentColor;
+  opacity: 0.7;
+}
+
+.connection-menu__backdrop {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+}
+
+.connection-menu {
+  position: absolute;
+  z-index: 41;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  min-width: 220px;
+  gap: 2px;
+  padding: 6px;
   border: var(--border-width) solid var(--line);
   border-radius: var(--radius-md);
-  background: var(--surface-soft);
+  background: var(--surface-raised);
+  box-shadow: 0 16px 40px rgba(var(--shadow-rgb), calc(0.32 * var(--shadow-strength)));
 }
 
-.server-strip__identity {
+.connection-menu__identity {
   display: grid;
   gap: 2px;
-}
-
-.server-strip__label {
+  padding: 6px 10px 8px;
+  border-bottom: var(--border-width) solid var(--line);
   color: var(--muted);
-  font-size: 0.67rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
 }
 
-.server-strip__label-short {
-  display: none;
+.connection-menu__identity strong {
+  color: var(--text-soft);
+  font-size: 0.86rem;
 }
 
-.server-strip strong {
-  overflow: hidden;
+.connection-menu__item {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: calc(10px * var(--radius-scale));
+  background: transparent;
   color: var(--text-soft);
   font-size: 0.86rem;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: left;
+}
+
+.connection-menu__item:hover,
+.connection-menu__item:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.connection-menu__item svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 .round-button {
@@ -863,9 +918,42 @@ h2 {
 }
 
 .media-strip__slider {
-  width: 96px;
+  width: 84px;
   margin: 0;
   accent-color: var(--accent);
+}
+
+.media-strip__controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.media-strip__button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  touch-action: manipulation;
+  transition: background 160ms ease;
+}
+
+.media-strip__button:active,
+.media-strip__button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.media-strip__button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .media-strip__cover {
@@ -1411,7 +1499,7 @@ h2 {
 .view-tabs {
   display: grid;
   // Gleich breit, solange alle passen; sonst laesst sich die Leiste wischen, statt dass sich die
-  // Beschriftungen ueberlappen (acht Tabs auf einem schmalen Telefon).
+  // Beschriftungen ueberlappen.
   grid-auto-columns: minmax(max-content, 1fr);
   grid-auto-flow: column;
   overflow-x: auto;
@@ -1455,6 +1543,55 @@ h2 {
   box-shadow:
     0 8px 24px rgba(var(--shadow-rgb), calc(0.2 * var(--shadow-strength))),
     0 1px 0 rgba(var(--highlight-rgb), 0.04) inset;
+}
+
+// Hauptleiste: nur der offene Tab zeigt seinen Namen, die anderen ihr Symbol - so passen alle
+// neun auf ein Telefon. Reicht es trotzdem nicht, laesst sie sich weiter wischen.
+.view-tabs--main {
+  display: flex;
+}
+
+// Alle mit flex-basis auto: dann aendert nur der aufklappende Name die Breiten, und der Wechsel
+// gleitet, statt zu springen.
+.view-tabs--main .view-tab {
+  min-width: 32px;
+  min-height: 44px;
+  flex: 1 1 auto;
+  gap: 0;
+  padding: 0 6px;
+  // Gleiche Reihenfolge wie die Druck-Federung unten (.view-tab:active), plus gap.
+  transition-property: transform, border-color, background, color, box-shadow, gap;
+  transition-duration: 420ms, 160ms, 160ms, 160ms, 160ms, 260ms;
+  transition-timing-function: var(--ease-spring), ease, ease, ease, ease, var(--ease-emphasized);
+}
+
+.view-tabs--main .view-tab--active {
+  gap: 6px;
+}
+
+.view-tabs--main .view-tab svg {
+  width: 19px;
+  height: 19px;
+  flex: none;
+}
+
+// Zugeklappt bleibt der Name fuer Screenreader im Baum, sichtbar ist nur das Symbol.
+.view-tabs--main .view-tab > span {
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  white-space: nowrap;
+  transition:
+    max-width 260ms var(--ease-emphasized),
+    opacity 180ms ease;
+}
+
+.view-tabs--main .view-tab--active > span {
+  max-width: 9em;
+  opacity: 1;
+  transition:
+    max-width 260ms var(--ease-emphasized),
+    opacity 220ms ease 60ms;
 }
 
 .view-content {
@@ -2747,58 +2884,30 @@ select:focus-visible {
     background: var(--surface-soft);
   }
 
-  .server-strip {
-    min-height: 40px;
-    padding: 2px 2px 2px 8px;
-    border: 0;
-    border-radius: calc(11px * var(--radius-scale));
-    background: transparent;
-  }
-
-  .server-strip__identity {
-    display: flex;
-    align-items: baseline;
-    gap: 7px;
-  }
-
-  .server-strip__label {
-    flex: none;
-    font-size: 0.58rem;
-    letter-spacing: 0.08em;
-  }
-
-  .server-strip__label-long {
+  // Auf dem Telefon reicht im Kopf der Fernbedienung das Logo; das Koppeln zeigt den Namen weiter.
+  .remote-header .brand-copy {
     display: none;
   }
 
-  .server-strip__label-short {
-    display: inline;
+  // Titel in der ersten Zeile, Tasten und Lautstaerke darunter - sonst blieb vom Titel "Am ...".
+  .media-strip__now {
+    flex-basis: 100%;
   }
 
-  .server-strip strong {
-    font-size: 0.76rem;
+  .media-strip__volume {
+    flex: 1;
   }
 
-  .server-strip__actions {
-    gap: 4px;
-  }
-
-  .server-strip .round-button--small {
-    width: 34px;
-    height: 34px;
-    border-radius: calc(10px * var(--radius-scale));
-  }
-
-  .server-strip .round-button--small svg {
-    width: 17px;
-    height: 17px;
+  .media-strip__slider {
+    width: auto;
+    min-width: 0;
+    flex: 1;
   }
 
   .view-tabs {
     gap: 2px;
-    padding: 3px;
+    padding: 0;
     border: 0;
-    border-top: var(--border-width) solid var(--line);
     border-radius: 0;
     background: transparent;
   }
@@ -3003,8 +3112,9 @@ select:focus-visible {
     height: 15px;
   }
 
-  // Fuenf Tabs passen auf ein schmales Telefon nur ohne Symbole.
-  .view-tabs:has(> .view-tab:nth-child(5)) .view-tab {
+  // Fuenf beschriftete Tabs (Schrittarten im Editor) passen auf ein schmales Telefon nur ohne
+  // Symbole; die Hauptleiste zeigt umgekehrt nur Symbole.
+  .view-tabs:not(.view-tabs--main):has(> .view-tab:nth-child(5)) .view-tab {
     padding: 0 4px;
 
     svg {
@@ -3058,7 +3168,8 @@ select:focus-visible {
 
 // Bewegung: alles reines CSS. Eingangsanimationen laufen, sobald Angular ein Element einfuegt
 // (@if, @for); fuer das Schliessen der Dialoge setzt das Template animate.leave="dialog-leave".
-// Der prefers-reduced-motion-Block unten verkuerzt alles davon auf 0.01ms.
+// Der prefers-reduced-motion-Block unten und der Schalter "Animationen" in den Einstellungen
+// (data-motion="off" am <html>, ThemeService) verkuerzen alles davon auf 0.01ms.
 :root {
   // "Emphasized decelerate" aus Material 3: schneller Start, langes weiches Auslaufen.
   --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
@@ -3112,23 +3223,74 @@ select:focus-visible {
   }
 }
 
+@keyframes slide-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+
+@keyframes slide-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
 // Beim Laden und nach dem Koppeln gleitet die ganze Oberflaeche herein.
 .remote-panel {
   animation: rise-in 520ms var(--ease-emphasized) backwards;
 }
 
-// Neuer Tab: der Inhalt gleitet von unten herein. Die Remote-Buttons kommen einzeln (siehe
-// .layout-slot), deshalb nicht noch einmal die ganze Flaeche.
-.view-content > :not(app-button-canvas),
-.media-strip,
+// Erster Aufbau: Inhalt und Medienleiste gleiten von unten herein, die Remote-Tasten als Welle von
+// oben links nach unten rechts, gestaffelt nach Zeile und Spalte. Nur beim Start - bei jeder
+// Rueckkehr in den Tab waere die Welle nur Wartezeit.
+.remote-panel:not([data-enter]) :is(.view-content > :not(app-button-canvas), .media-strip) {
+  animation: rise-in 380ms var(--ease-emphasized) backwards;
+}
+
+.remote-panel:not([data-enter]) .layout-slot {
+  animation: rise-in 460ms var(--ease-emphasized) backwards;
+  animation-delay: calc(var(--row) * 28ms + var(--col) * 10ms);
+}
+
+// Tabwechsel: der neue Inhalt kommt von der Seite, auf der sein Tab liegt (rechts davon: von
+// rechts), wie beim Wischen. Die Medienleiste gehoert zum Remote-Tab und kommt mit.
+.remote-panel[data-enter='forward'] :is(.view-content > *, .media-strip) {
+  animation: slide-in-forward 300ms var(--ease-emphasized) backwards;
+}
+
+.remote-panel[data-enter='back'] :is(.view-content > *, .media-strip) {
+  animation: slide-in-back 300ms var(--ease-emphasized) backwards;
+}
+
 .toast {
   animation: rise-in 380ms var(--ease-emphasized) backwards;
 }
 
-// Die Buttons laufen als Welle von oben links nach unten rechts ein, gestaffelt nach Zeile und Spalte.
-.layout-slot {
-  animation: rise-in 460ms var(--ease-emphasized) backwards;
-  animation-delay: calc(var(--row) * 28ms + var(--col) * 10ms);
+// Das Verbindungsmenue klappt aus der Statusanzeige auf und dorthin wieder zu.
+.connection-menu {
+  transform-origin: top right;
+  animation: menu-in 180ms var(--ease-emphasized) backwards;
+}
+
+.menu-leave {
+  pointer-events: none;
+  animation: menu-out 140ms ease forwards;
 }
 
 .update-banner {
@@ -3218,9 +3380,10 @@ select:focus-visible {
   border-radius: calc(12px * var(--radius-scale));
 }
 
-// Der Timer-Dialog (button-canvas.component) sieht aus wie der Farbwaehler.
+// Timer- und Energie-Dialog (button-canvas.component) sehen aus wie der Farbwaehler.
 .color-picker,
-.timer-dialog {
+.timer-dialog,
+.power-dialog {
   width: min(calc(100% - 36px), 380px);
   max-width: none;
   max-height: calc(100dvh - 36px);
@@ -3236,12 +3399,14 @@ select:focus-visible {
 }
 
 .color-picker[open],
-.timer-dialog[open] {
+.timer-dialog[open],
+.power-dialog[open] {
   animation: dialog-in 420ms var(--ease-emphasized) backwards;
 }
 
 .color-picker::backdrop,
-.timer-dialog::backdrop {
+.timer-dialog::backdrop,
+.power-dialog::backdrop {
   background: rgba(var(--scrim-rgb), 0.72);
   backdrop-filter: blur(10px);
   animation: fade-in 240ms ease backwards;
@@ -3260,6 +3425,17 @@ select:focus-visible {
   display: grid;
   gap: 16px;
   padding: 22px;
+}
+
+.power-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.power-menu .control-button {
+  width: 100%;
+  min-height: 76px;
 }
 
 .color-picker__area {
@@ -3395,13 +3571,30 @@ select:focus-visible {
   flex: 1;
 }
 
+// 0.01ms statt "none": Angular wartet bei animate.leave auf animationend, das muss weiter kommen.
+@mixin no-motion {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    @include no-motion;
+  }
+}
+
+// Schalter "Animationen" in den Einstellungen aus.
+:root[data-motion='off'] {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    @include no-motion;
   }
 }

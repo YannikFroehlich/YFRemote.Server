@@ -19,6 +19,8 @@ export const LIVE_TYPING_STORAGE_KEY = 'yfremote.liveTyping';
 export const CLIPBOARD_SYNC_STORAGE_KEY = 'yfremote.clipboardSync';
 export const PC_NOTIFICATIONS_STORAGE_KEY = 'yfremote.pcNotifications';
 export const AUTO_PROFILE_STORAGE_KEY = 'yfremote.autoProfile';
+/** Zuletzt angenommenes oder abgelehntes Dateiangebot (dessen Id). */
+export const DISMISSED_FILE_OFFER_STORAGE_KEY = 'yfremote.dismissedFileOffer';
 export const SCREEN_QUALITY_STORAGE_KEY = 'yfremote.screenQuality';
 export const SCREEN_MONITOR_STORAGE_KEY = 'yfremote.screenMonitor';
 export const SCREEN_TOUCH_STORAGE_KEY = 'yfremote.screenTouch';

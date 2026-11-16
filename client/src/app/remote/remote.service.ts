@@ -30,6 +30,7 @@ import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
 import {
   AUTO_PROFILE_STORAGE_KEY,
+  DISMISSED_FILE_OFFER_STORAGE_KEY,
   CLIPBOARD_SYNC_STORAGE_KEY,
   PC_NOTIFICATIONS_STORAGE_KEY,
   getServerConfigFromLocation,
@@ -198,6 +199,7 @@ export class RemoteService implements OnDestroy {
   private readonly screenAvailableSignal = signal(false);
   private readonly audioAvailableSignal = signal(false);
   private readonly touchAvailableSignal = signal(false);
+  private readonly serverNameSignal = signal<string | null>(null);
   private readonly screenTouchSignal = signal(
     parseStoredFlag(this.readStorage(SCREEN_TOUCH_STORAGE_KEY), false),
   );
@@ -207,9 +209,10 @@ export class RemoteService implements OnDestroy {
   private voicemeeterWatched = false;
   private readonly appsSignal = signal<AppVolumesMessage | null>(null);
   private appsWatched = false;
-  // Der Server schickt das Angebot bei jedem Verbinden erneut - ein verworfenes soll dann nicht
-  // wieder auftauchen.
-  private dismissedFileOfferId: string | null = null;
+  // Der Server schickt das Angebot bei jedem Verbinden erneut - ein angenommenes oder verworfenes
+  // soll dann nicht wieder auftauchen, auch nicht nach einem Neuladen der Seite (die Android-App
+  // baut sie bei jedem Oeffnen neu auf), solange es noch gilt.
+  private dismissedFileOfferId: string | null = this.readStorage(DISMISSED_FILE_OFFER_STORAGE_KEY);
 
   private socket: RemoteSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -291,6 +294,9 @@ export class RemoteService implements OnDestroy {
   readonly audioAvailable = this.audioAvailableSignal.asReadonly();
   /** Aktion `touch` (echte Touch-Eingabe im Tab "Bildschirm"), laut /health. */
   readonly touchAvailable = this.touchAvailableSignal.asReadonly();
+  /** Rechnername laut /health (z. B. "YUNNIK-LAPTOP"); `null`, solange er unbekannt ist. Bleibt
+   *  beim Trennen stehen, damit der Kopf beim Neuverbinden nicht auf die Adresse zurueckspringt. */
+  readonly serverName = this.serverNameSignal.asReadonly();
   /** Schalter "Touch" im Tab "Bildschirm": Finger statt Maus. */
   readonly screenTouch = this.screenTouchSignal.asReadonly();
   /** Zuletzt gemeldete Voicemeeter-Kanaele; `null`, solange niemand zusieht oder nichts kam. */
@@ -761,7 +767,11 @@ export class RemoteService implements OnDestroy {
   }
 
   dismissFileOffer(): void {
-    this.dismissedFileOfferId = this.fileOfferSignal()?.id ?? null;
+    const id = this.fileOfferSignal()?.id;
+    if (id !== undefined) {
+      this.dismissedFileOfferId = id;
+      this.storage?.setItem(DISMISSED_FILE_OFFER_STORAGE_KEY, id);
+    }
     this.fileOfferSignal.set(null);
   }
 
@@ -1121,7 +1131,13 @@ export class RemoteService implements OnDestroy {
         readonly screen?: unknown;
         readonly audio?: unknown;
         readonly touch?: unknown;
+        readonly name?: unknown;
       };
+      this.serverNameSignal.set(
+        typeof body.name === 'string' && body.name.trim() !== ''
+          ? body.name.trim().slice(0, 64)
+          : null,
+      );
       this.serverPlatformSignal.set(
         body.platform === 'windows' || body.platform === 'linux' || body.platform === 'android'
           ? body.platform
@@ -1451,8 +1467,7 @@ function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
 function isForegroundAppMessage(value: unknown): value is ForegroundAppMessage {
   const message = value as Partial<ForegroundAppMessage> | null;
   return (
-    message?.type === 'foregroundApp' &&
-    (message.name === null || typeof message.name === 'string')
+    message?.type === 'foregroundApp' && (message.name === null || typeof message.name === 'string')
   );
 }
 

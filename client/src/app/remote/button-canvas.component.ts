@@ -20,12 +20,30 @@ import {
   readableTextColor,
   resolveButtonSteps,
 } from './button-layout';
+import { POWER_ACTIONS, POWER_MENU_ID } from './remote-actions';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { RemoteButtonConfig, TimerPower } from './remote.models';
 import { RemoteService } from './remote.service';
 import { TranslationService } from './translation.service';
 
 const DRAG_THRESHOLD_PX = 6;
+
+// Ohne showModal (aeltere WebViews, jsdom) reicht das open-Attribut.
+function showDialog(dialog: HTMLDialogElement): void {
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute('open', '');
+  }
+}
+
+function closeDialog(dialog: HTMLDialogElement): void {
+  if (typeof dialog.close === 'function') {
+    dialog.close();
+  } else {
+    dialog.removeAttribute('open');
+  }
+}
 
 interface DragState {
   readonly pointerId: number;
@@ -84,6 +102,9 @@ export class ButtonCanvasComponent implements OnDestroy {
 
   private readonly canvasRef = viewChild<ElementRef<HTMLElement>>('canvas');
   private readonly timerDialog = viewChild.required<ElementRef<HTMLDialogElement>>('timerDialog');
+  private readonly powerDialog = viewChild.required<ElementRef<HTMLDialogElement>>('powerDialog');
+  protected readonly powerButtons = POWER_ACTIONS;
+  protected readonly powerOpen = signal(false);
   protected readonly timerPowers: readonly TimerPower[] = ['shutdown', 'sleep', 'displayOff'];
   /** null = geschlossen; der Dialoginhalt wird nur waehrend der Eingabe gerendert. */
   protected readonly timerDraft = signal<{ minutes: number; power: TimerPower } | null>(null);
@@ -109,13 +130,18 @@ export class ButtonCanvasComponent implements OnDestroy {
   }
 
   protected closeTimer(): void {
-    const dialog = this.timerDialog().nativeElement;
-    if (typeof dialog.close === 'function') {
-      dialog.close();
-    } else {
-      dialog.removeAttribute('open');
-    }
+    closeDialog(this.timerDialog().nativeElement);
     this.timerDraft.set(null);
+  }
+
+  protected closePower(): void {
+    closeDialog(this.powerDialog().nativeElement);
+    this.powerOpen.set(false);
+  }
+
+  protected triggerPower(button: RemoteButtonConfig): void {
+    this.closePower();
+    this.trigger(button);
   }
 
   protected labelVisible(button: RemoteButtonConfig): boolean {
@@ -131,7 +157,17 @@ export class ButtonCanvasComponent implements OnDestroy {
       return;
     }
 
-    const action = item.button.action;
+    this.trigger(item.button);
+  }
+
+  private trigger(button: RemoteButtonConfig): void {
+    if (button.id === POWER_MENU_ID) {
+      this.powerOpen.set(true);
+      showDialog(this.powerDialog().nativeElement);
+      return;
+    }
+
+    const action = button.action;
 
     if (action?.type === 'shutdownTimer') {
       // Laeuft schon ein Termin, stehen seine Restzeit und Aktion im Dialog - so ist Verlaengern
@@ -143,16 +179,11 @@ export class ButtonCanvasComponent implements OnDestroy {
         power:
           remainingMinutes > 0 ? this.remote.shutdownTimerPower() : (action.power ?? 'shutdown'),
       });
-      const dialog = this.timerDialog().nativeElement;
-      if (typeof dialog.showModal === 'function') {
-        dialog.showModal();
-      } else {
-        dialog.setAttribute('open', '');
-      }
+      showDialog(this.timerDialog().nativeElement);
       return;
     }
 
-    const steps = resolveButtonSteps(item.button);
+    const steps = resolveButtonSteps(button);
 
     if (steps.length === 0) {
       return;
@@ -160,10 +191,7 @@ export class ButtonCanvasComponent implements OnDestroy {
 
     // Energieaktionen sind nicht umkehrbar: lieber einmal nachfragen, als den Rechner durch
     // einen Fehlgriff auf dem Touchscreen herunterzufahren.
-    if (
-      item.button.confirm !== undefined &&
-      !globalThis.confirm(this.i18n.t(item.button.confirm))
-    ) {
+    if (button.confirm !== undefined && !globalThis.confirm(this.i18n.t(button.confirm))) {
       return;
     }
 

@@ -23,6 +23,33 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Einstellungen, "Darstellung": Der neue Schalter "Animationen" (standardmäßig an) schaltet alle Bewegungen der Oberfläche ab. Tabs, Dialoge und Tasten erscheinen dann sofort. "Bewegung reduzieren" des Geräts gilt wie bisher in jedem Fall.
+
+### Changed
+
+- Animationen folgen jetzt der Bedienung:
+  - Beim Tabwechsel kommt der neue Inhalt von der Seite, auf der sein Tab liegt, wie beim Wischen. Bisher kam jeder Tab von unten.
+  - Die Remote-Tasten laufen nur noch beim Start als Welle ein, nicht mehr bei jeder Rückkehr in den Tab.
+  - Der Name des offenen Tabs klappt weich auf, statt zu springen.
+  - Das Verbindungsmenü klappt aus der Statusanzeige auf und dorthin wieder zu.
+  - Mit "Bewegung reduzieren" des Geräts waren die Remote-Tasten beim Start kurz unsichtbar, weil ihre Verzögerung blieb. Jetzt erscheinen sie sofort.
+
+- Fernbedienung aufgeräumt, damit auf dem Handy mehr Platz für die Tasten bleibt:
+  - Kopf: Die eigene Zeile mit der aktiven Adresse ist weg. Die Statusanzeige zeigt verbunden den Namen des Rechners, z. B. "YUNNIK-LAPTOP". Ein Tippen darauf öffnet ein kleines Menü mit der Adresse, "Neu verbinden" und "Verbindung trennen". Auf dem Handy steht im Kopf nur noch das Logo.
+  - Tabs: Nur der offene Tab zeigt seinen Namen, die anderen nur ihr Symbol. So passen alle Tabs nebeneinander, auch "Mixer", den man bisher erst durch Wischen fand.
+  - Medienleiste: Sie hat jetzt eigene Tasten für "Vorheriger", "Play/Pause" und "Nächster". Ein Tippen auf das Lautsprecher-Symbol schaltet stumm. Auf dem Handy steht der Titel in einer eigenen Zeile.
+  - Remote-Tab: Play, Leiser, Lauter, Stumm, Vorheriger und Nächster sind aus dem Standardlayout verschwunden, weil die Medienleiste sie schon hat. Ruhemodus, Neustart, Herunterfahren, Sperren, Bildschirm aus und Timer stecken jetzt hinter einer Taste "Energie", die sie in einem Dialog anbietet, mit derselben Rückfrage wie bisher. Wer das Standardlayout nie verändert hat, bekommt das neue automatisch. Ein angepasstes Layout bleibt, wie es ist, und erhält nur die Taste "Energie" dazu. "Zurücksetzen" im Bearbeiten-Modus führt zum neuen Standard. Die ausgeblendeten Tasten lassen sich dort einzeln wieder einblenden.
+
+### Fixed
+
+- Dateiangebot: Ein angenommenes oder abgelehntes Angebot tauchte wieder auf, sobald die Seite neu geladen wurde, solange es am PC noch galt (10 Minuten). In der Android-App passierte das bei jedem Öffnen der Fernbedienung. Das Gerät merkt sich jetzt, welches Angebot erledigt ist.
+- Android-App, "Gerät klingeln lassen": Lief der Weckerton beim ersten Mal nicht an und kam das Klingeln ein zweites Mal, blieb die Wecker-Lautstärke nach "Stopp" auf Maximum. Jetzt kommt die ursprüngliche Lautstärke zurück.
+- Das Verbindungsmenü unter der Statusanzeige schließt jetzt auch mit Escape, wenn der Fokus noch auf der Statusanzeige liegt.
+
+## [2.55.0] - 2026-11-16
+
+### Added
+
 - Einstellungen, "Profile und Sicherung": Der neue Schalter "Profil passend zum Programm am PC wechseln" ist standardmäßig aus und nur mit einem Windows-PC verfügbar. Ist er an, ordnet man jedem Layout-Profil Programme zu, z. B. "VLC media player", oder übernimmt das Programm, das gerade vorne ist. Kommt eines davon am PC nach vorne, wechselt der Remote-Tab auf dieses Profil. Unter "Dazu diesen Tab öffnen" kann ein Profil zusätzlich einen Tab öffnen, z. B. für ein Spiel den Controller oder für PowerPoint die Folien. Ist keines mehr vorne, kehren das vorige Profil und der vorige Tab zurück. Ein Profil, das man von Hand wählt, bleibt stehen, bis ein anderes Programm nach vorne kommt. Während man Buttons bearbeitet, wechselt das Profil nicht.
 - Tray: "Gerät klingeln lassen" lässt ein verbundenes Gerät klingeln, bis man dort "Klingeln beenden" tippt. In der Android-App klingelt es mit dem Weckerton und voller Lautstärke, auch wenn das Handy lautlos ist, und lässt sich in der Benachrichtigung stoppen. Im Browser piept die offene Seite und vibriert. Das Gerät muss dafür verbunden sein, also die Fernbedienung offen haben.
 - Android-App, Tab "Steuern": Mit "Im Hintergrund erreichbar" klingelt "Gerät klingeln lassen" auch, wenn die App geschlossen ist. Der Schalter ist standardmäßig aus und bleibt nach einem Neustart des Handys an. Die App hält dafür eine Verbindung zu jedem gekoppelten PC offen, was etwas Akku kostet, und zeigt eine dauerhafte, stille Benachrichtigung. Über diese Verbindung schickt der PC nur das Klingeln, keine Medienmeldungen.

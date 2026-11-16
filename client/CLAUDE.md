@@ -137,11 +137,16 @@ new component the same, unless everything its template reads is a signal or an i
 4. **The button layout is a free-form, user-editable canvas**, layered on top of the static
    button definitions:
    - `remote-actions.ts` still defines the built-in buttons (`D_PAD_ACTIONS`, `BROWSER_ACTIONS`,
-     `SYSTEM_ACTIONS`, `MEDIA_ACTIONS`, `POWER_ACTIONS`, flattened into `BUILT_IN_BUTTONS`), plus
-     `DEFAULT_PLACEMENTS`, which reproduces today's visual arrangement as cell coordinates on a
-     12-column grid. Adding a new built-in button means adding a `RemoteButtonConfig` to the
+     `SYSTEM_ACTIONS`, `MEDIA_ACTIONS`, `POWER_MENU_BUTTON`, `POWER_ACTIONS`, flattened into
+     `BUILT_IN_BUTTONS`), plus `DEFAULT_PLACEMENTS`, the default arrangement as cell coordinates on
+     a 12-column grid. Adding a new built-in button means adding a `RemoteButtonConfig` to the
      right array *and* a `DEFAULT_PLACEMENTS` entry for it — otherwise it has no default position
-     (it will still auto-place itself once, via the merge logic below).
+     (it will still auto-place itself once, via the merge logic below). A built-in that the
+     default layout should hide goes into `DEFAULT_HIDDEN_BUILT_IN_IDS` instead: today the media
+     keys the media strip already offers and the power buttons behind "Energie". Their size when
+     restored comes from `LEGACY_DEFAULT_PLACEMENTS` (`defaultSpanFor`), the layout up to v2.55;
+     `resolveButtonLayout` also moves a stored, never touched copy of that legacy layout to the
+     current default (`migrateUntouchedLegacyDefault`), while a customized one stays as it is.
    - **The set of built-in buttons depends on the server's platform.** `RemoteService` reads
      `GET /health` on every successful connect and exposes the reported platform as
      `serverPlatform()` (`windows`/`linux`/`android`, `null` while unknown).
@@ -184,6 +189,8 @@ new component the same, unless everything its template reads is a signal or an i
      canvas behaves exactly like the old static grids — a plain `click` sends the button's
      action. A button with `confirm` set (the power buttons: Ruhemodus/Neustart/Herunterfahren)
      asks via `globalThis.confirm` first, since those actions are not undoable from a phone.
+     `POWER_MENU_ID` ("Energie") has no action of its own: the canvas opens its `.power-dialog`
+     with all `POWER_ACTIONS`, which run through the same `trigger` path (confirm, timer dialog).
    - `ButtonEditorDialogComponent` is the create/edit modal for custom buttons (label, one of the
      existing `RemoteIcon`s, and a key/hotkey picker built from `keyboard-keys.ts`), structured
      like `SettingsDialogComponent`.
@@ -328,7 +335,13 @@ place that touches `<html>`: `applyTheme` writes `data-mode`/`data-style` plus, 
 the derived tokens as inline custom properties (it clears the whole inline `style` first, so nothing
 else may put inline styles on `<html>`). Every change also stores the finished `AppliedTheme` under
 `yfremote.appliedTheme`; the inline script in `index.html` only replays that snapshot, so the boot
-path has no theme logic of its own. An own style is a `CustomTheme` (base style + light/dark + a
+path has no theme logic of its own. The settings switch "Animationen" is `ThemeService.animations`
+(`yfremote.animations`, default on): off sets `data-motion="off"` on `<html>` (also from the inline
+script, before the entry animation starts), and `styles.scss` then applies the same `no-motion`
+mixin as `prefers-reduced-motion` (0.01ms durations, not `none`, because `animate.leave` waits for
+`animationend`). Tab switches set `data-enter="forward"`/`"back"` on `.remote-panel`
+(`RemoteControlComponent.showView`), which picks the slide direction; the button wave of
+`.layout-slot` runs only while that attribute is still absent, i.e. on the first render. An own style is a `CustomTheme` (base style + light/dark + a
 handful of values); `deriveCustomThemeProperties` expands those into the full token set, then the
 `advanced` map overrides single tokens. `normalizeCustomTheme` is the trust boundary for stored and
 imported styles: hex colors and in-range numbers only, so no foreign CSS reaches a token.

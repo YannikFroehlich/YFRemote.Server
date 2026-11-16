@@ -3,6 +3,7 @@ import {
   BUTTON_LAYOUT_VERSION,
   clampPlacement,
   DEFAULT_BUTTON_LAYOUT,
+  defaultSpanFor,
   findFreeSlot,
   LAYOUT_COLUMNS,
   MAX_MACRO_STEPS,
@@ -18,14 +19,19 @@ import { BUILT_IN_BUTTONS } from './remote-actions';
 import { RemoteButtonConfig } from './remote.models';
 
 describe('button-layout', () => {
-  it('contains every built-in button exactly once in the default layout', () => {
-    const ids = DEFAULT_BUTTON_LAYOUT.placements.map((placement) => placement.id);
-    const uniqueIds = new Set(ids);
+  it('places or hides every built-in button exactly once in the default layout', () => {
+    const ids = [
+      ...DEFAULT_BUTTON_LAYOUT.placements.map((placement) => placement.id),
+      ...DEFAULT_BUTTON_LAYOUT.hiddenBuiltInIds,
+    ];
 
-    expect(uniqueIds.size).toBe(BUILT_IN_BUTTONS.length);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.sort()).toEqual(BUILT_IN_BUTTONS.map((button) => button.id).sort());
+  });
 
-    for (const button of BUILT_IN_BUTTONS) {
-      expect(ids).toContain(button.id);
+  it('keeps a real default size for the buttons the default layout hides', () => {
+    for (const id of DEFAULT_BUTTON_LAYOUT.hiddenBuiltInIds) {
+      expect(defaultSpanFor(id)).toBeDefined();
     }
   });
 
@@ -35,9 +41,7 @@ describe('button-layout', () => {
       expect(parseStoredButtonLayout('{')).toEqual(DEFAULT_BUTTON_LAYOUT);
       expect(parseStoredButtonLayout('"just a string"')).toEqual(DEFAULT_BUTTON_LAYOUT);
       expect(
-        parseStoredButtonLayout(
-          JSON.stringify({ ...DEFAULT_BUTTON_LAYOUT, version: 99 }),
-        ),
+        parseStoredButtonLayout(JSON.stringify({ ...DEFAULT_BUTTON_LAYOUT, version: 99 })),
       ).toEqual(DEFAULT_BUTTON_LAYOUT);
     });
 

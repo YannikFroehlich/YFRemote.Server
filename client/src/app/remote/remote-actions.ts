@@ -194,6 +194,17 @@ export const POWER_ACTIONS: readonly RemoteButtonConfig[] = [
   },
 ];
 
+/** Eine Taste "Energie", die POWER_ACTIONS in einem Dialog anbietet (ButtonCanvasComponent). Ohne
+ *  eigene Aktion; die einzelnen Energietasten gibt es weiter, im Standardlayout nur ausgeblendet. */
+export const POWER_MENU_ID = 'power-menu';
+
+export const POWER_MENU_BUTTON: RemoteButtonConfig = {
+  id: POWER_MENU_ID,
+  label: 'button.power-menu.label',
+  ariaLabel: 'button.power-menu.ariaLabel',
+  icon: 'power',
+};
+
 /** Nur fuer einen Android-Server: Home, Uebersicht und Sperren gibt es auf dem PC nicht, und
  *  der Server bildet sie auf `performGlobalAction` ab (siehe android/PLAN.md, Stufe 4). */
 export const ANDROID_ACTIONS: readonly RemoteButtonConfig[] = [
@@ -226,6 +237,7 @@ export const BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
   ...SYSTEM_ACTIONS,
   ...BROWSER_ACTIONS,
   ...MEDIA_ACTIONS,
+  POWER_MENU_BUTTON,
   ...POWER_ACTIONS,
 ];
 
@@ -239,8 +251,38 @@ export const ANDROID_BUILT_IN_BUTTONS: readonly RemoteButtonConfig[] = [
   ...MEDIA_ACTIONS,
 ];
 
-/** Bildet das bisherige feste Layout in Zellen-Koordinaten nach (12 Spalten). */
+/** Standardlayout (12 Spalten). Play, Lauter, Leiser, Stumm, Vorheriger und Naechster stecken in
+ *  der Medienleiste darueber, die Energietasten hinter "Energie"; sie stehen in
+ *  DEFAULT_HIDDEN_BUILT_IN_IDS und lassen sich im Bearbeiten-Modus wieder einblenden. */
 export const DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
+  { id: 'up', col: 3, row: 0, colSpan: 3, rowSpan: 2 },
+  { id: 'left', col: 0, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'ok', col: 3, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'right', col: 6, row: 2, colSpan: 3, rowSpan: 2 },
+  { id: 'down', col: 3, row: 4, colSpan: 3, rowSpan: 2 },
+  { id: 'back', col: 9, row: 0, colSpan: 3, rowSpan: 3 },
+  { id: 'fullscreen', col: 9, row: 3, colSpan: 3, rowSpan: 3 },
+  { id: 'previous-tab', col: 0, row: 6, colSpan: 6, rowSpan: 2 },
+  { id: 'next-tab', col: 6, row: 6, colSpan: 6, rowSpan: 2 },
+  { id: 'close-tab', col: 0, row: 8, colSpan: 6, rowSpan: 2 },
+  { id: 'restore-tab', col: 6, row: 8, colSpan: 6, rowSpan: 2 },
+  { id: 'stop', col: 0, row: 10, colSpan: 6, rowSpan: 2 },
+  { id: POWER_MENU_ID, col: 6, row: 10, colSpan: 6, rowSpan: 2 },
+];
+
+export const DEFAULT_HIDDEN_BUILT_IN_IDS: readonly string[] = [
+  'play-pause',
+  'volume-down',
+  'volume-up',
+  'mute',
+  'previous-track',
+  'next-track',
+  ...POWER_ACTIONS.map((button) => button.id),
+];
+
+/** Das Standardlayout bis v2.55. Wer es nie veraendert hat, bekommt das neue (button-layout.ts,
+ *  migrateUntouchedLegacyDefault); ein angepasstes Layout bleibt, wie es ist. */
+export const LEGACY_DEFAULT_PLACEMENTS: readonly ButtonPlacement[] = [
   { id: 'up', col: 3, row: 0, colSpan: 3, rowSpan: 2 },
   { id: 'left', col: 0, row: 2, colSpan: 3, rowSpan: 2 },
   { id: 'ok', col: 3, row: 2, colSpan: 3, rowSpan: 2 },

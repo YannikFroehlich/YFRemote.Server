@@ -327,6 +327,34 @@
           </div>
         </fieldset>
 
+        @if (httpsGuide()) {
+          <section class="settings-section" aria-labelledby="https-title">
+            <div class="settings-section__heading">
+              <div>
+                <p class="eyebrow">iPhone</p>
+                <h3 id="https-title">{{ i18n.t('settings.https.title') }}</h3>
+              </div>
+            </div>
+            <p class="settings-hint">{{ i18n.t('settings.https.intro') }}</p>
+            @if (httpsUrl(); as url) {
+              <ol class="settings-hint settings-steps">
+                <li>{{ i18n.t('settings.https.step1') }}</li>
+                <li>{{ i18n.t('settings.https.step2') }}</li>
+                <li>{{ i18n.t('settings.https.step3') }}</li>
+                <li>{{ i18n.t('settings.https.step4') }}</li>
+              </ol>
+              <div class="settings-actions">
+                <a class="secondary-button" href="/ca.mobileconfig">
+                  {{ i18n.t('settings.https.profile') }}
+                </a>
+                <a class="primary-button" [href]="url">{{ i18n.t('settings.https.open') }}</a>
+              </div>
+            } @else {
+              <p class="settings-hint">{{ i18n.t('settings.https.off') }}</p>
+            }
+          </section>
+        }
+
         <section class="settings-section" aria-labelledby="profiles-title">
           <div class="settings-section__heading">
             <div>

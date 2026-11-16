@@ -1,4 +1,11 @@
-import { Component, inject, InjectionToken, ChangeDetectionStrategy } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import {
+  Component,
+  DestroyRef,
+  inject,
+  InjectionToken,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { SwUpdate } from '@angular/service-worker';
 import { EMPTY, filter, map } from 'rxjs';
@@ -6,6 +13,7 @@ import { RemoteControlComponent } from './remote/remote-control.component';
 import { PairingGateComponent } from './remote/pairing-gate.component';
 import { GamepadComponent } from './remote/gamepad/gamepad.component';
 import { BLUETOOTH_GAMEPAD_BRIDGE } from './remote/gamepad/gamepad-transport';
+import { watchKeyboardInset } from './remote/device';
 import { PairingService } from './remote/pairing.service';
 import { ThemeService } from './remote/theme.service';
 import { TranslationService } from './remote/translation.service';
@@ -44,6 +52,13 @@ export class App {
       : EMPTY,
     { initialValue: false },
   );
+
+  constructor() {
+    const window = inject(DOCUMENT).defaultView;
+    if (window) {
+      inject(DestroyRef).onDestroy(watchKeyboardInset(window));
+    }
+  }
 
   protected reload(): void {
     this.reloadPage();

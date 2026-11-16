@@ -20,7 +20,9 @@ import { REMOTE_ICON_PATHS } from './remote-icons';
 import { MAX_MACRO_STEPS } from './button-layout';
 import { formatDuration } from './duration';
 import { ConnectionStatus, FileOfferMessage, MacroStep } from './remote.models';
-import { RemoteService } from './remote.service';
+import { REMOTE_STORAGE, RemoteService } from './remote.service';
+import { IS_IOS, IS_STANDALONE } from './device';
+import { HOME_SCREEN_HINT_STORAGE_KEY } from './server-config';
 import { SettingsDialogComponent } from './settings-dialog.component';
 import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
@@ -88,6 +90,14 @@ export class RemoteControlComponent {
     onCleanup(() => this.ringPlayer.stop());
   });
   protected readonly pcNotification = this.remote.pcNotification;
+  private readonly storage = inject(REMOTE_STORAGE);
+  // Safari loescht die Kopplung nach 7 Tagen ohne Besuch, die Home-Bildschirm-App nicht. iOS fragt
+  // nie von selbst nach der Installation, deshalb einmal ein Hinweis, bis er weggeklickt wird.
+  protected readonly homeScreenHint = signal(
+    inject(IS_IOS) &&
+      !inject(IS_STANDALONE) &&
+      this.storage?.getItem(HOME_SCREEN_HINT_STORAGE_KEY) !== 'dismissed',
+  );
   protected readonly mediaStatus = this.remote.mediaStatus;
   protected readonly mediaCover = this.remote.mediaCover;
   protected readonly formatTime = formatDuration;
@@ -120,6 +130,11 @@ export class RemoteControlComponent {
   private readonly clipboardSync = inject(ClipboardSyncService);
   // Media-Benachrichtigung der Android-App; ausserhalb der App tut der Dienst nichts.
   private readonly mediaBridge = inject(MediaBridgeService);
+  protected dismissHomeScreenHint(): void {
+    this.homeScreenHint.set(false);
+    this.storage?.setItem(HOME_SCREEN_HINT_STORAGE_KEY, 'dismissed');
+  }
+
   protected readonly fileOfferTitleKey = computed(() =>
     this.remote.serverPlatform() === 'android' ? 'fileOffer.title.android' : 'fileOffer.title',
   );

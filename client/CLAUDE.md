@@ -305,6 +305,16 @@ new component the same, unless everything its template reads is a signal or an i
    `SettingsDialogComponent`) renders in `app.html` instead of `RemoteControlComponent` while
    `pairing.isPaired()` is false.
 
+**iPhone/iPad (`device.ts`).** `IS_IOS` and `IS_STANDALONE` (started from the home screen) are
+tokens like the other browser APIs. `App` runs `watchKeyboardInset`, which keeps `--keyboard-inset`
+on `body` (not `<html>`, whose inline styles `ThemeService` replaces) at the height the on-screen
+keyboard covers: Safari shrinks neither the layout nor `dvh` for it and ignores
+`interactive-widget`. Every rule sized from `dvh` subtracts it, and `.settings-layer` ends above it;
+a new full-height or bottom-fixed element must do the same. `RemoteControlComponent` shows a
+one-time "Zum Home-Bildschirm" banner in Safari tabs (`yfremote.homeScreenHint`), and the settings
+show an HTTPS guide over `http://` (links to `/ca.mobileconfig` and to `https://` on the
+`/health` `httpsPort`, `RemoteService.httpsPort`).
+
 **Update hint.** The production build runs Angular's service worker (`provideServiceWorker` in
 `app.config.ts`), which keeps serving the cached version and only downloads a new one in the
 background. `App` listens to `SwUpdate.versionUpdates` (injected optionally - it only exists with

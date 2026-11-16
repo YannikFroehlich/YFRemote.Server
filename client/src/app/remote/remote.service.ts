@@ -206,6 +206,7 @@ export class RemoteService implements OnDestroy {
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
   private systemStatsWatched = false;
   private readonly voicemeeterAvailableSignal = signal(false);
+  private readonly httpsPortSignal = signal<number | null>(null);
   private readonly screenAvailableSignal = signal(false);
   private readonly audioAvailableSignal = signal(false);
   private readonly touchAvailableSignal = signal(false);
@@ -312,6 +313,8 @@ export class RemoteService implements OnDestroy {
   readonly mixerSupported = this.clipboardSyncSupported;
   /** Ob am PC Voicemeeter installiert ist (`GET /health`); dann gibt es den Tab "Mixer". */
   readonly voicemeeterAvailable = this.voicemeeterAvailableSignal.asReadonly();
+  /** HTTPS-Port laut /health, `null` solange der PC nur HTTP anbietet (oder unbekannt). */
+  readonly httpsPort = this.httpsPortSignal.asReadonly();
   /** `GET /screen` gibt es erst ab dem Server, der es in /health meldet. */
   readonly screenAvailable = this.screenAvailableSignal.asReadonly();
   /** `GET /screen/audio` (PC-Ton im Tab "Bildschirm"), ebenfalls laut /health. */
@@ -1167,7 +1170,13 @@ export class RemoteService implements OnDestroy {
         readonly audio?: unknown;
         readonly touch?: unknown;
         readonly name?: unknown;
+        readonly httpsPort?: unknown;
       };
+      this.httpsPortSignal.set(
+        Number.isInteger(body.httpsPort) && (body.httpsPort as number) > 0
+          ? (body.httpsPort as number)
+          : null,
+      );
       this.serverNameSignal.set(
         typeof body.name === 'string' && body.name.trim() !== ''
           ? body.name.trim().slice(0, 64)
@@ -1185,6 +1194,7 @@ export class RemoteService implements OnDestroy {
       this.touchAvailableSignal.set(body.touch === true);
     } catch {
       this.serverPlatformSignal.set(null);
+      this.httpsPortSignal.set(null);
       this.gamepadAvailableSignal.set(false);
       this.voicemeeterAvailableSignal.set(false);
       this.screenAvailableSignal.set(false);

@@ -555,6 +555,20 @@ describe('RemoteService', () => {
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"notifications","enabled":false}');
   });
 
+  it('reads the HTTPS port from /health, and none while the PC offers plain HTTP only', async () => {
+    const withHttps = setupRemoteService({ health: { platform: 'windows', httpsPort: 5443 } });
+    withHttps.remote.connect();
+    withHttps.sockets[0].open();
+    await vi.waitFor(() => expect(withHttps.remote.httpsPort()).toBe(5443));
+    TestBed.resetTestingModule();
+
+    const plain = setupRemoteService({ health: { platform: 'windows', httpsPort: null } });
+    plain.remote.connect();
+    plain.sockets[0].open();
+    await vi.waitFor(() => expect(plain.remote.serverPlatform()).toBe('windows'));
+    expect(plain.remote.httpsPort()).toBeNull();
+  });
+
   it('gives up a handshake that never answers and tries again', () => {
     vi.useFakeTimers();
     try {

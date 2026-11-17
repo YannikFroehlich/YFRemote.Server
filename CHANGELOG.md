@@ -23,6 +23,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Tab "PC": Die Netzwerk-Kachel zeigt keinen leeren Balken mehr, der nie gefüllt wurde - sie hat keinen Prozentwert.
+- Tab "PC": Die Prozessliste zeigt die CPU-Last mit einer Nachkommastelle. Auf einem ruhigen PC standen bisher alle Prozesse auf "0 %".
 - Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.
 - Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
 - Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".

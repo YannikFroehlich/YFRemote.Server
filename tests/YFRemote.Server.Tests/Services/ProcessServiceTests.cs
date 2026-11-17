@@ -9,9 +9,11 @@ public sealed class ProcessServiceTests
     public void CpuPercent_CountsAllCoresLikeTaskManager()
     {
         // Ein voll ausgelasteter Kern von vieren ist 25 %.
-        Assert.AreEqual(25, ProcessService.CpuPercent(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500), 4));
-        Assert.AreEqual(100, ProcessService.CpuPercent(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(1), 4));
-        Assert.AreEqual(0, ProcessService.CpuPercent(TimeSpan.FromSeconds(1), TimeSpan.Zero, 4));
+        Assert.AreEqual(25.0, ProcessService.CpuPercent(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500), 4));
+        Assert.AreEqual(100.0, ProcessService.CpuPercent(TimeSpan.FromSeconds(9), TimeSpan.FromSeconds(1), 4));
+        Assert.AreEqual(0.0, ProcessService.CpuPercent(TimeSpan.FromSeconds(1), TimeSpan.Zero, 4));
+        // Unter 1 % bleibt eine Nachkommastelle stehen: 60 ms auf 12 Kernen in einer Sekunde sind 0,5 %.
+        Assert.AreEqual(0.5, ProcessService.CpuPercent(TimeSpan.FromMilliseconds(60), TimeSpan.FromSeconds(1), 12));
     }
 
     [TestMethod]

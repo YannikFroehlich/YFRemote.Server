@@ -27,6 +27,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Controller auf dem iPhone: Statt "Vollbild wird auf diesem Gerät nicht unterstützt" zeigt der Safari-Tab jetzt, wie es geht (Teilen → "Zum Home-Bildschirm"). In der Home-Bildschirm-App, die den Bildschirm ohnehin füllt, entfällt der Hinweis.
 - Tab "PC": Die Netzwerk-Kachel zeigt keinen leeren Balken mehr, der nie gefüllt wurde - sie hat keinen Prozentwert.
 - Tab "PC": Die Prozessliste zeigt die CPU-Last mit einer Nachkommastelle. Auf einem ruhigen PC standen bisher alle Prozesse auf "0 %".
 - Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.

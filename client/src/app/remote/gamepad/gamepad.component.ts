@@ -13,6 +13,7 @@ import {
 import { GamepadState } from '../remote.models';
 import { REMOTE_CAN_VIBRATE, REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
 import { GAMEPAD_TRANSPORT } from './gamepad-transport';
+import { keepScreenAwake } from '../device';
 import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
 import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
@@ -277,6 +278,7 @@ export class GamepadComponent implements OnDestroy {
   });
 
   constructor() {
+    keepScreenAwake();
     afterNextRender(async () => {
       // Die Android-App dreht und vergroessert selbst.
       if (!(await enterLandscapeFullscreen()) && !this.inAndroidApp) {

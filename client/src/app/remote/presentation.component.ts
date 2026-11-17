@@ -9,6 +9,7 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
+import { keepScreenAwake } from './device';
 import { formatDuration } from './duration';
 import { MediaBridgeService } from './media-bridge.service';
 import { REMOTE_ICON_PATHS } from './remote-icons';
@@ -133,6 +134,10 @@ export class PresentationComponent implements OnInit, OnDestroy {
   private pendingX = 0;
   private pendingY = 0;
   private frame: number | null = null;
+
+  constructor() {
+    keepScreenAwake();
+  }
 
   ngOnInit(): void {
     this.mediaBridge.setVolumeKeyHandler((direction) => this.step(direction === 'up' ? 1 : -1));

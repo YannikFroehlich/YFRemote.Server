@@ -104,6 +104,14 @@ describe('SystemStatsComponent', () => {
     expect(drive).toContain('25.0 GB frei von 100.0 GB');
     expect(network).toContain('↓ 12.3 Mbit/s');
     expect(network).toContain('↑ 850 kbit/s');
+    const networkTile = [...element.querySelectorAll('.stats-tile')].find((tile) =>
+      tile.textContent?.includes('Netzwerk'),
+    );
+    expect(networkTile?.querySelector('.stats-bar')).toBeNull();
+    const driveTile = [...element.querySelectorAll('.stats-tile')].find((tile) =>
+      tile.textContent?.includes('C:'),
+    );
+    expect(driveTile?.querySelector('.stats-bar')).not.toBeNull();
     expect(element.querySelector('.process-row')?.textContent).toContain('3 % · 20 MB');
 
     const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValueOnce(true);

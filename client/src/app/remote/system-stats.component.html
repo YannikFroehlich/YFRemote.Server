@@ -8,9 +8,11 @@
             row.value ?? (row.load === undefined ? '–' : row.load + ' %')
           }}</span>
         </div>
-        <div class="stats-bar" aria-hidden="true">
-          <span [style.width.%]="row.load ?? 0"></span>
-        </div>
+        @if (row.value === undefined) {
+          <div class="stats-bar" aria-hidden="true">
+            <span [style.width.%]="row.load ?? 0"></span>
+          </div>
+        }
         <span class="stats-tile__detail">{{ row.detail }}</span>
       </div>
     }

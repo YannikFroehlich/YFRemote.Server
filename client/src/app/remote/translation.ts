@@ -81,6 +81,10 @@ export const TRANSLATIONS = {
     de: 'Vollbild wird auf diesem Gerät nicht unterstützt.',
     en: 'Fullscreen is not supported on this device.',
   },
+  'gamepad.fullscreenHomeScreen': {
+    de: 'Für Vollbild: Teilen → „Zum Home-Bildschirm“ und von dort öffnen.',
+    en: 'For fullscreen: Share → "Add to Home Screen" and open it from there.',
+  },
   'gamepad.rumbleUnsupported': {
     de: 'Vibration (Rumble) wird auf diesem Gerät nicht unterstützt.',
     en: 'Vibration (rumble) is not supported on this device.',

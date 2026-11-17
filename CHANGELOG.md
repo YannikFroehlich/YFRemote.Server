@@ -23,6 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Controller auf dem iPhone: Statt "Vollbild wird auf diesem Gerät nicht unterstützt" zeigt der Safari-Tab jetzt, wie es geht (Teilen → "Zum Home-Bildschirm"). In der Home-Bildschirm-App, die den Bildschirm ohnehin füllt, entfällt der Hinweis.
 - Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.
 - Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
 - Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".

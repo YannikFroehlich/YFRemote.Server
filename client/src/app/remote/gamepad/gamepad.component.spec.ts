@@ -19,6 +19,7 @@ import {
 } from '../remote.service';
 import { SERVER_LOCATION } from '../server-config';
 import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
+import { IS_IOS, IS_STANDALONE } from '../device';
 
 class MockRemoteSocket implements RemoteSocket {
   readonly sentMessages: string[] = [];
@@ -177,6 +178,29 @@ describe('GamepadComponent', () => {
     expect(pad.root.querySelector('.gamepad__status')?.textContent).toContain(
       'Vibration (Rumble) wird auf diesem Gerät nicht unterstützt.',
     );
+  });
+
+  describe('on a touch device without element fullscreen', () => {
+    beforeEach(() => vi.stubGlobal('matchMedia', () => ({ matches: true })));
+
+    const status = async (options: { ios?: boolean; standalone?: boolean }) => {
+      const pad = await setupGamepad(options);
+      await new Promise((resolve) => setTimeout(resolve));
+      pad.flushEffects();
+      return pad.root.querySelector('.gamepad__status')?.textContent ?? '';
+    };
+
+    it('points the iPhone in a Safari tab to the home-screen app', async () => {
+      expect(await status({ ios: true })).toContain('Zum Home-Bildschirm');
+    });
+
+    it('says nothing about fullscreen in the home-screen app', async () => {
+      expect(await status({ ios: true, standalone: true })).not.toContain('Vollbild');
+    });
+
+    it('keeps the plain hint on other devices', async () => {
+      expect(await status({})).toContain('Vollbild wird auf diesem Gerät nicht unterstützt.');
+    });
   });
 
   it('grades rumble strength as pulses and renews the pattern until the game stops', async () => {
@@ -458,6 +482,8 @@ async function setupGamepad(
     inAndroidApp?: boolean;
     orientationBridge?: { setOrientationEnabled(enabled: boolean): void };
     canVibrate?: boolean;
+    ios?: boolean;
+    standalone?: boolean;
   } = {},
 ) {
   const stored = new Map<string, string>();
@@ -492,6 +518,8 @@ async function setupGamepad(
       { provide: DOWNLOAD_BRIDGE, useValue: options.inAndroidApp ? { download: () => true } : null },
       { provide: REMOTE_VIBRATE, useValue: (pattern: VibratePattern) => vibrations.push(pattern) },
       { provide: REMOTE_CAN_VIBRATE, useValue: options.canVibrate ?? true },
+      { provide: IS_IOS, useValue: options.ios ?? false },
+      { provide: IS_STANDALONE, useValue: options.standalone ?? false },
       {
         provide: REMOTE_WEBSOCKET_FACTORY,
         useValue: (url: string) => {

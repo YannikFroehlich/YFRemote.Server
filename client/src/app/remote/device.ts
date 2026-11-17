@@ -1,4 +1,5 @@
-import { InjectionToken } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { DestroyRef, inject, InjectionToken } from '@angular/core';
 
 /** Wie die Tokens in remote.service.ts: Browser-API austauschbar, damit Tests nicht neu laden. */
 export const PAGE_RELOAD = new InjectionToken<() => void>('PAGE_RELOAD', {
@@ -26,6 +27,80 @@ export function preventEdgeSwipe(document: Document): () => void {
 
   document.addEventListener('touchstart', listener, { passive: false });
   return () => document.removeEventListener('touchstart', listener);
+}
+
+export interface ScreenWakeLock {
+  release(): Promise<void>;
+}
+
+/** Screen Wake Lock API; `null` ohne Unterstuetzung (aeltere Safari-Versionen, die Android-WebView). */
+export const SCREEN_WAKE_LOCK = new InjectionToken<(() => Promise<ScreenWakeLock>) | null>(
+  'SCREEN_WAKE_LOCK',
+  {
+    providedIn: 'root',
+    factory: () => {
+      const wakeLock = (
+        globalThis.navigator as
+          | { wakeLock?: { request(type: 'screen'): Promise<ScreenWakeLock> } }
+          | undefined
+      )?.wakeLock;
+      return wakeLock ? () => wakeLock.request('screen') : null;
+    },
+  },
+);
+
+/** Haelt den Bildschirm wach, solange die aufrufende Komponente lebt - als Feld-Initialisierer
+ *  aufrufen. Ohne Beruehrung sperrt sich das Handy sonst nach der Auto-Sperrzeit, mitten im Vortrag
+ *  oder beim Zuschauen, und die Verbindung bricht ab. Der Browser gibt die Sperre selbst frei, sobald
+ *  die Seite verborgen ist; sie wird beim Zurueckkommen neu geholt. Lehnt der Browser ohne
+ *  Nutzeraktion ab, klappt es beim naechsten Tippen. */
+export function keepScreenAwake(): void {
+  const request = inject(SCREEN_WAKE_LOCK);
+  const document = inject(DOCUMENT);
+  if (!request) {
+    return;
+  }
+
+  let lock: ScreenWakeLock | null = null;
+  let pending = false;
+  let destroyed = false;
+  const acquire = (): void => {
+    if (destroyed || lock || pending || document.visibilityState !== 'visible') {
+      return;
+    }
+    pending = true;
+    request().then(
+      (sentinel) => {
+        pending = false;
+        if (destroyed) {
+          void sentinel.release().catch(() => undefined);
+        } else {
+          lock = sentinel;
+        }
+      },
+      () => {
+        pending = false;
+      },
+    );
+  };
+  const onVisibility = (): void => {
+    if (document.visibilityState === 'visible') {
+      acquire();
+    } else {
+      lock = null;
+    }
+  };
+
+  document.addEventListener('visibilitychange', onVisibility);
+  document.addEventListener('pointerdown', acquire);
+  acquire();
+  inject(DestroyRef).onDestroy(() => {
+    destroyed = true;
+    document.removeEventListener('visibilitychange', onVisibility);
+    document.removeEventListener('pointerdown', acquire);
+    void lock?.release().catch(() => undefined);
+    lock = null;
+  });
 }
 
 /** iPhone oder iPad. iPadOS gibt sich als Mac aus, verraet sich aber durch Touch-Punkte. */

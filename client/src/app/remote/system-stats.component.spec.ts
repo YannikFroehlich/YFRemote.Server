@@ -91,7 +91,7 @@ describe('SystemStatsComponent', () => {
       },
       [],
       null,
-      [{ id: 42, name: 'notepad', cpu: 3, memoryMb: 20 }],
+      [{ id: 42, name: 'notepad', cpu: 0.4, memoryMb: 20 }],
     );
     const tiles = [...element.querySelectorAll('.stats-tile')].map((tile) =>
       tile.textContent?.replace(/\s+/g, ' ').trim(),
@@ -104,7 +104,15 @@ describe('SystemStatsComponent', () => {
     expect(drive).toContain('25.0 GB frei von 100.0 GB');
     expect(network).toContain('↓ 12.3 Mbit/s');
     expect(network).toContain('↑ 850 kbit/s');
-    expect(element.querySelector('.process-row')?.textContent).toContain('3 % · 20 MB');
+    const networkTile = [...element.querySelectorAll('.stats-tile')].find((tile) =>
+      tile.textContent?.includes('Netzwerk'),
+    );
+    expect(networkTile?.querySelector('.stats-bar')).toBeNull();
+    const driveTile = [...element.querySelectorAll('.stats-tile')].find((tile) =>
+      tile.textContent?.includes('C:'),
+    );
+    expect(driveTile?.querySelector('.stats-bar')).not.toBeNull();
+    expect(element.querySelector('.process-row')?.textContent).toContain('0.4 % · 20 MB');
 
     const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValueOnce(true);
     element

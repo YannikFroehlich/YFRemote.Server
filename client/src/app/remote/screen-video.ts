@@ -12,18 +12,42 @@ export interface ScreenVideoPlayer {
   ): Promise<void>;
 }
 
-/** `null` ohne MediaSource (iPhone-Safari, alte Browser) - dann bleibt es bei JPEG. */
+/** `null` ohne MediaSource und ManagedMediaSource (alte Browser) - dann bleibt es bei JPEG. */
 export const SCREEN_VIDEO_PLAYER = new InjectionToken<ScreenVideoPlayer | null>(
   'SCREEN_VIDEO_PLAYER',
   {
     providedIn: 'root',
-    factory: () =>
-      typeof globalThis.MediaSource === 'function' &&
-      globalThis.MediaSource.isTypeSupported('video/mp4; codecs="avc1.4d0028"')
-        ? { play: playFmp4Stream }
-        : null,
+    factory: () => {
+      const Source = findMediaSource(globalThis);
+      return Source
+        ? {
+            play: (body, video, codec, signal, onFrame) =>
+              playFmp4Stream(Source, body, video, codec, signal, onFrame),
+          }
+        : null;
+    },
   },
 );
+
+export interface MediaSourceConstructor {
+  new (): MediaSource;
+  isTypeSupported(type: string): boolean;
+}
+
+/** MediaSource, sonst ManagedMediaSource: Safari auf dem iPhone kennt nur diese (ab iOS 17.1). */
+export function findMediaSource(scope: object): MediaSourceConstructor | null {
+  const { MediaSource, ManagedMediaSource } = scope as {
+    MediaSource?: MediaSourceConstructor;
+    ManagedMediaSource?: MediaSourceConstructor;
+  };
+  return (
+    [MediaSource, ManagedMediaSource].find(
+      (candidate) =>
+        typeof candidate === 'function' &&
+        candidate.isTypeSupported('video/mp4; codecs="avc1.4d0028"'),
+    ) ?? null
+  );
+}
 
 // Der Server zaehlt jedes Bild als 1/60 s Videozeit, egal wie selten es kommt. Kommen Bilder
 // langsamer, wartet das Video am Pufferende und zeigt jedes sofort; liegt mehr vor (WLAN-Stau),
@@ -36,13 +60,17 @@ const KEEP_SECONDS = 10;
 const TRIM_SECONDS = 30;
 
 async function playFmp4Stream(
+  Source: MediaSourceConstructor,
   body: ReadableStream<Uint8Array<ArrayBuffer>>,
   video: HTMLVideoElement,
   codec: string,
   signal: AbortSignal,
   onFrame: () => void,
 ): Promise<void> {
-  const source = new MediaSource();
+  // ManagedMediaSource oeffnet sonst nicht: Safari verlangt dafuer eine AirPlay-Quelle oder diese
+  // Absage. AirPlay ergibt fuer einen Live-Strom aus dem LAN ohnehin keinen Sinn.
+  video.disableRemotePlayback = true;
+  const source = new Source();
   const url = URL.createObjectURL(source);
   const reader = body.getReader();
   const cancel = () => void reader.cancel().catch(() => undefined);

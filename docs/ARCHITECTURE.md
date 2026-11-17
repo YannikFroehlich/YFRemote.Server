@@ -181,7 +181,9 @@ feature.
   fallback: the Client switches as soon as an answer is not `video/mp4` (`501` without a hardware
   encoder, an older server's SPA fallback), also after video already played (server updated, monitor
   switched), otherwise the last frame would freeze; only a request that gets no answer at all is
-  retried as video. MediaSource is missing in iPhone Safari.
+  retried as video. iPhone Safari has no MediaSource, only `ManagedMediaSource` (iOS 17.1+), which
+  `findMediaSource` takes as the fallback; it only opens with `video.disableRemotePlayback = true`.
+  That path is unverified on a real iPhone.
   `WindowsScreenCapture.Video.cs` runs on the duplication's own D3D11 device: copy of `Latest` into a
   GDI-compatible texture, cursor via `DrawCursor`, `ID3D11VideoProcessor` (BGRA to NV12 and scaling),
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`

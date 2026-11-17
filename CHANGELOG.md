@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Bildschirm-Ansicht auf dem iPhone: Mit iOS 17.1 oder neuer kommt der PC-Bildschirm als flüssiges H.264-Video (über `ManagedMediaSource`) statt als einzelne JPEG-Bilder, sofern der PC einen Hardware-Encoder hat.
+
 ### Fixed
 
 - Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.

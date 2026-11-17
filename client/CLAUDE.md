@@ -319,6 +319,11 @@ does not navigate back/forward (not the screen view, which relies on `click`). T
 attempts in a row that time out without any event set `RemoteService.connectionStuck`, and
 `RemoteControlComponent` offers "Neu laden" (`PAGE_RELOAD`, now in `device.ts`). In the home-screen
 app on iOS a `--status-bar-scrim` strip sits under the white `black-translucent` status bar.
+`keepScreenAwake()` (also `device.ts`, behind the `SCREEN_WAKE_LOCK` token, `null` without the API)
+holds a screen wake lock for as long as the calling component lives; `PresentationComponent`,
+`ScreenViewComponent` and `GamepadComponent` call it in their constructor. The browser drops the lock
+when the page is hidden, so it is taken again on `visibilitychange`, and a refusal is retried on the
+next `pointerdown`.
 
 **Update hint.** The production build runs Angular's service worker (`provideServiceWorker` in
 `app.config.ts`), which keeps serving the cached version and only downloads a new one in the

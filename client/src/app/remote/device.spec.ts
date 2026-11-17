@@ -1,4 +1,73 @@
-import { preventEdgeSwipe, watchKeyboardInset } from './device';
+import { Component } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import {
+  keepScreenAwake,
+  preventEdgeSwipe,
+  SCREEN_WAKE_LOCK,
+  ScreenWakeLock,
+  watchKeyboardInset,
+} from './device';
+
+describe('keepScreenAwake', () => {
+  @Component({ template: '' })
+  class AwakeComponent {
+    constructor() {
+      keepScreenAwake();
+    }
+  }
+
+  let visibility: DocumentVisibilityState;
+  let release: ReturnType<typeof vi.fn<() => Promise<void>>>;
+  let request: ReturnType<typeof vi.fn<() => Promise<ScreenWakeLock>>>;
+
+  beforeEach(() => {
+    visibility = 'visible';
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
+    release = vi.fn<() => Promise<void>>(() => Promise.resolve());
+    request = vi.fn<() => Promise<ScreenWakeLock>>(() => Promise.resolve({ release }));
+    TestBed.configureTestingModule({ providers: [{ provide: SCREEN_WAKE_LOCK, useValue: request }] });
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve));
+
+  it('holds the lock while the component lives and releases it on destroy', async () => {
+    const fixture = TestBed.createComponent(AwakeComponent);
+    await settle();
+    expect(request).toHaveBeenCalledTimes(1);
+
+    document.dispatchEvent(new Event('pointerdown'));
+    expect(request).toHaveBeenCalledTimes(1);
+
+    fixture.destroy();
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes the lock again after the page was hidden, and retries a refusal on the next tap', async () => {
+    request.mockRejectedValueOnce(new Error('NotAllowedError'));
+    const fixture = TestBed.createComponent(AwakeComponent);
+    await settle();
+
+    document.dispatchEvent(new Event('pointerdown'));
+    await settle();
+    expect(request).toHaveBeenCalledTimes(2);
+
+    visibility = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+    visibility = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await settle();
+    expect(request).toHaveBeenCalledTimes(3);
+
+    fixture.destroy();
+  });
+
+  it('does nothing without the Wake Lock API', () => {
+    TestBed.overrideProvider(SCREEN_WAKE_LOCK, { useValue: null });
+    expect(() => TestBed.createComponent(AwakeComponent).destroy()).not.toThrow();
+  });
+});
 
 describe('preventEdgeSwipe', () => {
   function touchStart(target: Element, clientX: number): Event {

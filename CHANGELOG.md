@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Client: Die Tabs "Folien" und "Bildschirm" sowie der Controller halten den Bildschirm des Handys wach (Screen Wake Lock API, iPhone ab iOS 16.4, Chrome auf Android). Ohne Berührung sperrte sich das Handy bisher nach der Auto-Sperrzeit, mitten im Vortrag oder beim Zuschauen. Die Android-App-WebView kennt die API nicht; dort ändert sich nichts.
+
 ### Fixed
 
 - Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.

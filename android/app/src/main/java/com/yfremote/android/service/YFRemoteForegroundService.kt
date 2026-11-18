@@ -66,7 +66,9 @@ class YFRemoteForegroundService : Service() {
 
         connectionRegistry = ConnectionRegistry { handler.post { YFRemoteAccessibilityService.instance?.hideCursor() } }
         // Kopplung, Entkoppeln (auch per DELETE /pair) und Ablauf wechseln die PIN ohne die App.
-        pairing = PairingRepository(filesDir) { handler.post(refreshRunnable) }
+        pairing = PairingRepository(filesDir, isConnected = connectionRegistry::isConnected) {
+            handler.post(refreshRunnable)
+        }
         fileOffers = FileOfferRepository(File(cacheDir, "offers"))
 
         val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager

@@ -32,6 +32,8 @@ class ConnectionRegistry(private val onAllClosed: () -> Unit = {}) {
         }
     }
 
+    fun isConnected(deviceId: String): Boolean = synchronized(lock) { connectionsByDeviceId.containsKey(deviceId) }
+
     // Nicht suspend, damit auch die Setup-UI (Main-Thread, ohne Coroutine) entkoppeln kann -
     // jede Session schliesst sich in ihrem eigenen Scope.
     fun closeConnections(deviceId: String) {

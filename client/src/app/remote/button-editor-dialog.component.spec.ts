@@ -252,7 +252,7 @@ describe('ButtonEditorDialogComponent', () => {
     queryButtonByText(root, 'Schritt hinzufügen').click();
     fixture.detectChanges();
 
-    expect(stepSummaries(root)).toEqual(['Voicemeeter: Mikrofon · Lautstärke -6.5 dB']);
+    expect(stepSummaries(root)).toEqual(['Voicemeeter: Mikrofon · Lautstärke -6,5 dB']);
   });
 
   it('adds app steps by name: mute toggle and volume', async () => {

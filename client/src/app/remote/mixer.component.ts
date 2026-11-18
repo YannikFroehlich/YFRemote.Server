@@ -133,7 +133,7 @@ export class MixerComponent implements OnDestroy {
     if (this.isApp()) {
       return `${row.value} %`;
     }
-    return `${row.value > 0 ? '+' : ''}${row.value.toFixed(1)} dB`;
+    return `${row.value > 0 ? '+' : ''}${this.i18n.number(row.value, 1)} dB`;
   }
 
   private channels(kind: 'Strip' | 'Bus'): readonly VoicemeeterChannel[] {

@@ -115,8 +115,8 @@
             <small>
               {{
                 i18n.t('settings.rangeError', {
-                  min: mouseSensitivityMin.toFixed(1),
-                  max: mouseSensitivityMax.toFixed(1),
+                  min: i18n.number(mouseSensitivityMin, 1),
+                  max: i18n.number(mouseSensitivityMax, 1),
                 })
               }}
             </small>
@@ -153,8 +153,8 @@
             <small>
               {{
                 i18n.t('settings.rangeError', {
-                  min: scrollSpeedMin.toFixed(2),
-                  max: scrollSpeedMax.toFixed(2),
+                  min: i18n.number(scrollSpeedMin, 2),
+                  max: i18n.number(scrollSpeedMax, 2),
                 })
               }}
             </small>

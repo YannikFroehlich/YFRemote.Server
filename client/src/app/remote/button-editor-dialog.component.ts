@@ -377,7 +377,7 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
           switch: this.voicemeeterSwitchLabel(name),
           mode:
             name === 'Gain'
-              ? `${value > 0 ? '+' : ''}${value} dB`
+              ? `${value > 0 ? '+' : ''}${this.i18n.number(value)} dB`
               : this.switchModeLabel(action.value === undefined ? undefined : action.value === 1),
         });
       }

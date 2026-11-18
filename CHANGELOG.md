@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Client: Zahlen mit Nachkommastellen stehen auf Deutsch mit Komma ("0,8 %", "8,5 / 15,8 GB", "12,3 Mbit/s", "-6,5 dB") statt mit Punkt - im Tab "PC", im Mixer, beim Dateiangebot, im Knopf-Editor und in den Einstellungen. Auf Englisch bleibt der Punkt.
+- Gekoppelte Geräte laufen nicht mehr ab, solange sie verbunden sind - am PC und in der Android-App. Bisher zählten die 90 Tage ab dem Verbindungsaufbau, sodass ein ununterbrochen verbundenes Gerät (etwa ein Wandtablet) danach neu koppeln musste. Jetzt zählen sie ab dem Trennen.
+
 ## [2.58.0] - 2026-11-18
 
 ### Added

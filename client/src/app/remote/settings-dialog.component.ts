@@ -311,11 +311,11 @@ export class SettingsDialogComponent {
   }
 
   protected sensitivityLabel(): string {
-    return Number(this.form.controls.mouseSensitivity.value).toFixed(2);
+    return this.i18n.number(Number(this.form.controls.mouseSensitivity.value), 2);
   }
 
   protected scrollSpeedLabel(): string {
-    return Number(this.form.controls.scrollSpeed.value).toFixed(2);
+    return this.i18n.number(Number(this.form.controls.scrollSpeed.value), 2);
   }
 
   protected hasFieldError(

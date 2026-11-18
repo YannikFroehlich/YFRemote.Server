@@ -156,6 +156,22 @@ class PairingRepositoryTest {
     }
 
     @Test
+    fun `connected device does not expire and counts from the disconnect`() {
+        val token = requireNotNull(repository.tryPair(repository.getCurrentPin().first, "Wandtablet", "127.0.0.1").token)
+        val devicesFile = File(tempDir, "devices.json")
+        val old = Instant.now().minus(Duration.ofDays(91)).toString()
+        devicesFile.writeText(devicesFile.readText().replace(Regex("\"lastSeenUtc\":\"[^\"]+\""), "\"lastSeenUtc\":\"$old\""))
+
+        var connected = true
+        val reloaded = PairingRepository(tempDir, isConnected = { connected })
+        val deviceId = reloaded.getPairedDevices().single().id
+
+        connected = false
+        reloaded.markSeen(deviceId)
+        assertTrue(reloaded.isValidToken(token))
+    }
+
+    @Test
     fun `invalid or missing token is never valid`() {
         assertFalse(repository.isValidToken(null))
         assertFalse(repository.isValidToken(""))

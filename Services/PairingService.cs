@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Models;
+using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server.Services;
 
@@ -16,6 +17,7 @@ public sealed class PairingService
     private readonly ILogger<PairingService> logger;
     private readonly PairingStorageOptions options;
     private readonly TimeProvider timeProvider;
+    private readonly WebSocketConnectionRegistry? connections;
     private readonly string devicesFilePath;
     private readonly string backupFilePath;
     private readonly string lockoutsFilePath;
@@ -30,13 +32,15 @@ public sealed class PairingService
     public PairingService(
         ILogger<PairingService> logger,
         PairingStorageOptions options,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        WebSocketConnectionRegistry? connections = null)
     {
         options.Validate();
 
         this.logger = logger;
         this.options = options;
         this.timeProvider = timeProvider;
+        this.connections = connections;
         devicesFilePath = Path.GetFullPath(options.DevicesFilePath);
         backupFilePath = $"{devicesFilePath}.bak";
         lockoutsFilePath = Path.Combine(
@@ -157,17 +161,34 @@ public sealed class PairingService
                 return false;
             }
 
-            devices[index] = devices[index] with { LastSeenUtc = now };
             deviceId = devices[index].Id;
             mediaOnly = devices[index].MediaOnly;
-
-            if (now >= nextLastSeenPersistenceUtc)
-            {
-                TryPersistDevices();
-                nextLastSeenPersistenceUtc = now.Add(options.LastSeenPersistenceInterval);
-            }
-
+            MarkSeen(index, now);
             return true;
+        }
+    }
+
+    // Beim Trennen einer /ws-Verbindung: die Ablaufzeit zaehlt ab dem Ende der Verbindung, nicht ab
+    // ihrem Aufbau, sonst liefe ein Geraet nach langer Verbindung direkt danach ab.
+    public void MarkSeen(Guid deviceId)
+    {
+        lock (syncRoot)
+        {
+            var index = devices.FindIndex(device => device.Id == deviceId);
+            if (index >= 0)
+            {
+                MarkSeen(index, UtcNow);
+            }
+        }
+    }
+
+    private void MarkSeen(int index, DateTimeOffset now)
+    {
+        devices[index] = devices[index] with { LastSeenUtc = now };
+        if (now >= nextLastSeenPersistenceUtc)
+        {
+            TryPersistDevices();
+            nextLastSeenPersistenceUtc = now.Add(options.LastSeenPersistenceInterval);
         }
     }
 
@@ -284,8 +305,8 @@ public sealed class PairingService
 
     // Ein abgelaufenes Geraet gilt sofort nicht mehr, auch wenn das Speichern scheitert - die Datei
     // holt es beim naechsten Schreiben nach, und beim Start wird erneut aussortiert.
-    // ponytail: LastSeen kommt nur vom Verbindungsaufbau; wer ununterbrochen laenger als
-    // DeviceExpiry verbunden bleibt, muss danach neu koppeln. Sonst LastSeen beim Trennen setzen.
+    // Ein gerade verbundenes Geraet laeuft nie ab, auch wenn LastSeen vom Verbindungsaufbau vor
+    // Monaten stammt; beim Trennen setzt MarkSeen die Zeit neu.
     private void RemoveExpiredDevices(DateTimeOffset now)
     {
         if (options.DeviceExpiry == TimeSpan.Zero)
@@ -293,7 +314,10 @@ public sealed class PairingService
             return;
         }
 
-        var expired = devices.Where(device => now - device.LastSeenUtc >= options.DeviceExpiry).ToList();
+        var expired = devices
+            .Where(device => now - device.LastSeenUtc >= options.DeviceExpiry)
+            .Where(device => connections?.IsConnected(device.Id) != true)
+            .ToList();
         if (expired.Count == 0)
         {
             return;

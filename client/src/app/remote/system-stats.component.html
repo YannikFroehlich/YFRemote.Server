@@ -136,7 +136,7 @@
       <div class="window-list__row">
         <div class="window-list__item process-row">
           <span class="window-list__title">{{ process.name }}</span>
-          <span class="window-list__app">{{ process.cpu.toFixed(1) }} % · {{ process.memoryMb }} MB</span>
+          <span class="window-list__app">{{ i18n.number(process.cpu, 1) }} % · {{ process.memoryMb }} MB</span>
         </div>
         <button
           type="button"

@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Windows: Eigenes YFRemote-Fenster mit Status, Adresse, PIN und QR-Code, einer Tabelle der gekoppelten Geräte (verbunden/zuletzt gesehen, Zugriff, Kopplungsdatum - klingeln lassen, "Nur Medien", "Vollzugriff", entkoppeln), Datei senden, HTTPS, Autostart, Zertifikat, Controller-Treiber, Diagnoseordner und Updates. Es öffnet sich per Doppelklick auf das Tray-Symbol oder über "YFRemote öffnen..." im Tray-Menü und aktualisiert sich laufend. Aussehen wie Weboberfläche und Android-App: dunkle Karten, Pillen-Knöpfe mit Akzentverlauf, Schalter statt Häkchen, dunkle Titelleiste. Die Fenster "QR-Code zum Verbinden" und "Zertifikat installieren" haben dasselbe Aussehen bekommen, ebenso das Tray-Menü (dunkel, runde Ecken unter Windows 11, blaue Haken) und alle Rückfragen und Fehlermeldungen des Tray-Programms (eigener Dialog statt der Windows-Meldungsbox). Nur "YFRemote läuft bereits" und der Startfehler bleiben bewusst Windows-Meldungen.
+- Windows: Im YFRemote-Fenster lässt sich jede Art von Tray-Meldung einzeln abschalten - Start, Update verfügbar, Datei empfangen/gesendet, Zwischenablage, weitergeleitete Benachrichtigungen, Bildschirm- und Tonübertragung, Ausschalt-Timer und Bestätigungen eigener Aktionen. Die Auswahl steht in `%LOCALAPPDATA%\YFRemote\settings.json` und übersteht Updates. Der Doppelklick öffnete bisher die Weboberfläche im Browser, das geht jetzt über "Im Browser öffnen". "Gekoppelte Geräte" im Tray-Menü öffnet ebenfalls das Fenster statt des bisherigen Auswahldialogs.
+
 ## [2.58.1] - 2026-11-18
 
 ### Fixed

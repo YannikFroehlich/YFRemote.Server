@@ -84,6 +84,34 @@ public sealed class UserSettingsStoreTests
         Assert.AreEqual(1, Directory.GetFiles(directoryPath).Length);
     }
 
+    [TestMethod]
+    public void GetDisabledNotifications_WithoutFile_IsEmpty()
+    {
+        Assert.AreEqual(0, UserSettingsStore.GetDisabledNotifications(filePath).Count);
+    }
+
+    [TestMethod]
+    public void SetNotificationEnabled_RoundTripsAndKeepsOtherSections()
+    {
+        UserSettingsStore.SetHttpsEnabled(filePath, enabled: true);
+        UserSettingsStore.SetNotificationEnabled(filePath, "FileReceived", enabled: false);
+        UserSettingsStore.SetNotificationEnabled(filePath, "ScreenView", enabled: false);
+        UserSettingsStore.SetNotificationEnabled(filePath, "ScreenView", enabled: true);
+
+        var disabled = UserSettingsStore.GetDisabledNotifications(filePath);
+
+        CollectionAssert.AreEquivalent(new[] { "FileReceived" }, disabled.ToArray());
+        Assert.IsTrue(ReadHttpsEnabled());
+    }
+
+    [TestMethod]
+    public void GetDisabledNotifications_IgnoresValuesThatAreNotBooleans()
+    {
+        File.WriteAllText(filePath, """{"Notifications":{"FileReceived":"off","Started":false}}""");
+
+        CollectionAssert.AreEquivalent(new[] { "Started" }, UserSettingsStore.GetDisabledNotifications(filePath).ToArray());
+    }
+
     private bool ReadHttpsEnabled()
     {
         using var document = JsonDocument.Parse(File.ReadAllText(filePath));

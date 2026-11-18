@@ -39,8 +39,9 @@ flowchart LR
   paired devices can be viewed and revoked at any time from the tray menu.
 - **Optional HTTPS** — a self-issued local certificate authority, installable
   on a phone via a tray QR code, for a browser-warning-free connection.
-- **Tray integration** — device address, PIN, paired devices, and updates, all
-  from the notification area, with no separate window.
+- **Tray integration** — device address, PIN, paired devices, and updates from the
+  notification area; double-clicking the tray icon opens a YFRemote window that shows
+  and changes all of it in one place.
 - **Automatic updates** — background update checks and one-click installation via
   Velopack, sourced from this repository's public GitHub Releases.
 - **Traceable diagnostics** — rotating log files that never contain PINs, tokens,

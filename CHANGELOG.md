@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.58.1] - 2026-11-18
+
 ### Fixed
 
 - Client: Zahlen mit Nachkommastellen stehen auf Deutsch mit Komma ("0,8 %", "8,5 / 15,8 GB", "12,3 Mbit/s", "-6,5 dB") statt mit Punkt - im Tab "PC", im Mixer, beim Dateiangebot, im Knopf-Editor und in den Einstellungen. Auf Englisch bleibt der Punkt.

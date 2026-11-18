@@ -118,8 +118,9 @@ feature.
   `/screen/video` and `screenClick`. `ScreenMonitor.Resolve` turns an unknown or missing id into the
   primary monitor for capture and click alike, so picture and tap always agree. Capture state
   (`MonitorCapture`: duplication, JPEG cache, lock) is per monitor. A cursor on another monitor counts
-  as invisible, so its movement encodes nothing. The dev PC has one monitor, so a real second one
-  (including negative coordinates left of the primary) is unverified.
+  as invisible, so its movement encodes nothing. Checked on 2026-11-17 with three monitors and a
+  phone: the monitor left of the primary (X=-1920) showed the right picture, and a tap put the cursor
+  within 4 px of the target.
 - `GET /screen?width=N` (`ScreenEndpoints`) → one JPEG of a monitor for the Client's
   "Bildschirm" tab, which keeps two requests in flight, each at most every 33 ms (paused while the
   page is hidden), and shows a frame only if no later-started one was shown already. Same gate and
@@ -181,7 +182,9 @@ feature.
   fallback: the Client switches as soon as an answer is not `video/mp4` (`501` without a hardware
   encoder, an older server's SPA fallback), also after video already played (server updated, monitor
   switched), otherwise the last frame would freeze; only a request that gets no answer at all is
-  retried as video. MediaSource is missing in iPhone Safari.
+  retried as video. iPhone Safari has no MediaSource, only `ManagedMediaSource` (iOS 17.1+), which
+  `findMediaSource` takes as the fallback; it only opens with `video.disableRemotePlayback = true`.
+  That path is unverified on a real iPhone.
   `WindowsScreenCapture.Video.cs` runs on the duplication's own D3D11 device: copy of `Latest` into a
   GDI-compatible texture, cursor via `DrawCursor`, `ID3D11VideoProcessor` (BGRA to NV12 and scaling),
   hardware H.264 MFT of the same adapter (`Vortice.MediaFoundation`; async, event-driven; `ICodecAPI`
@@ -348,7 +351,8 @@ reports the topology, the `displayMode` action applies one with
 switching is unverified, and it is reported with a single monitor too, where Windows refuses to
 switch) and `micMuted` (mute of the default capture device through the same
 `IAudioEndpointVolume` path as the volume, `null` without a microphone; the `micMute` action with
-`muted` sets it; Windows only, unverified in the real app). Both are hidden for "Nur Medien".
+`muted` sets it; Windows only; muting and unmuting from a phone was checked against the endpoint
+on 2026-11-17). Both are hidden for "Nur Medien".
 `SystemExtrasReader.Wrap` adds, on both platforms, `drives` (`[{name,freeMb,totalMb}]`: fixed
 drives of at least 1 GB via `DriveInfo`, which leaves out network and USB drives) and
 `netDownKbps`/`netUpKbps` (kilobit per second summed over all active adapters except loopback and

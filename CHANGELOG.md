@@ -23,7 +23,21 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Bildschirm-Ansicht auf dem iPhone: Mit iOS 17.1 oder neuer kommt der PC-Bildschirm als flüssiges H.264-Video (über `ManagedMediaSource`) statt als einzelne JPEG-Bilder, sofern der PC einen Hardware-Encoder hat.
+- Client: Die Tabs "Folien" und "Bildschirm" sowie der Controller halten den Bildschirm des Handys wach (Screen Wake Lock API, iPhone ab iOS 16.4, Chrome auf Android). Ohne Berührung sperrte sich das Handy bisher nach der Auto-Sperrzeit, mitten im Vortrag oder beim Zuschauen. Die Android-App-WebView kennt die API nicht; dort ändert sich nichts.
 - README: Anleitung für den Zugriff von unterwegs über ein privates VPN wie Tailscale, statt einen Port im Router freizugeben.
+
+### Fixed
+
+- Controller auf dem iPhone: Statt "Vollbild wird auf diesem Gerät nicht unterstützt" zeigt der Safari-Tab jetzt, wie es geht (Teilen → "Zum Home-Bildschirm"). In der Home-Bildschirm-App, die den Bildschirm ohnehin füllt, entfällt der Hinweis.
+- Tab "PC": Die Netzwerk-Kachel zeigt keinen leeren Balken mehr, der nie gefüllt wurde - sie hat keinen Prozentwert.
+- Tab "PC": Die Prozessliste zeigt die CPU-Last mit einer Nachkommastelle. Auf einem ruhigen PC standen bisher alle Prozesse auf "0 %".
+- Bildschirm-Ansicht: Mit eingeschaltetem Ton melden die Lautstärketasten nicht mehr "Action failed". Lautstärke und Mixer am PC funktionieren währenddessen wieder.
+- Fernbedienung bearbeiten: Die Ablage mit den ausgeblendeten Knöpfen liegt nicht mehr über den unteren Reihen des Rasters, wenn der Platz auf dem Handy knapp ist.
+- Tray: Beenden, der Neustart nach "HTTPS verwenden" und ein Update zeigen nicht mehr die Meldung "YFRemote konnte nicht gestartet werden" mit "The CancellationTokenSource has been disposed".
+- Tests: Die Server-Tests schreiben ihre Logs in ihren eigenen Temp-Ordner (neuer Schlüssel `Diagnostics:LogDirectory`) statt nach `%LOCALAPPDATA%\YFRemote\Logs`, wo sie bei 14 behaltenen Dateien die Logs des installierten Servers verdrängt haben.
+- Explorer-Menü "An YFRemote-Geräte senden": Ist die Named Pipe belegt, wartet YFRemote kurz und versucht es erneut, statt in einer Endlosschleife zu hängen. Die Server-Tests hängen deshalb nicht mehr, während YFRemote auf demselben Rechner läuft, und schicken keine Testdatei mehr an den laufenden Server.
+- Tray: Der Schalter "HTTPS verwenden" gilt auch, wenn YFRemote mit Kommandozeilen-Argumenten startet (zum Beispiel `dotnet run -- Server:Port=5060`). Bisher hatte dann `appsettings.json` Vorrang vor der gespeicherten Einstellung. Die Server-Tests lesen außerdem nicht mehr die echte `settings.json` (neuer Schlüssel `UserSettings:FilePath`).
 
 ## [2.57.0] - 2026-11-16
 

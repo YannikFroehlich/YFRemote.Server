@@ -336,9 +336,13 @@ public sealed partial class WindowsMediaStatusReader(WindowsVoicemeeter voicemee
         }
     }
 
+    // Die einzige Klasse fuer diese CLSID im Prozess, auch fuer WindowsAudioCapture: Windows liefert
+    // denselben Enumerator zurueck, und die Laufzeit nimmt dann den schon vorhandenen Wrapper. Hat
+    // eine zweite [ComImport]-Klasse ihn angelegt, wirft der Cast InvalidCastException ("Action
+    // failed." bei den Lautstaerketasten, solange der Ton des Bildschirms laeuft).
     [ComImport]
     [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    private class MMDeviceEnumerator;
+    internal class MMDeviceEnumerator;
 
     [ComImport]
     [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6")]

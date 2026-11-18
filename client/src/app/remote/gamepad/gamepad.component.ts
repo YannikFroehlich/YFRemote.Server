@@ -13,6 +13,7 @@ import {
 import { GamepadState } from '../remote.models';
 import { REMOTE_CAN_VIBRATE, REMOTE_STORAGE, REMOTE_VIBRATE } from '../remote.service';
 import { GAMEPAD_TRANSPORT } from './gamepad-transport';
+import { IS_IOS, IS_STANDALONE, keepScreenAwake } from '../device';
 import { DOWNLOAD_BRIDGE } from '../file-transfer.service';
 import { isTrustworthyOrigin, SERVER_LOCATION } from '../server-config';
 import { TranslationService } from '../translation.service';
@@ -215,6 +216,8 @@ export class GamepadComponent implements OnDestroy {
   // Zurueck-Taste das Vollbild, und die soll den Controller schliessen - sonst bliebe er hochkant
   // offen. Im Browser endet Vollbild auch beim App-Wechsel; dort bleibt der Controller offen.
   private readonly inAndroidApp = inject(DOWNLOAD_BRIDGE) !== null;
+  private readonly isIos = inject(IS_IOS);
+  private readonly isStandalone = inject(IS_STANDALONE);
   private readonly orientationBridge = inject(ORIENTATION_BRIDGE);
   private wasFullscreen = false;
 
@@ -277,11 +280,17 @@ export class GamepadComponent implements OnDestroy {
   });
 
   constructor() {
+    keepScreenAwake();
     afterNextRender(async () => {
-      // Die Android-App dreht und vergroessert selbst.
-      if (!(await enterLandscapeFullscreen()) && !this.inAndroidApp) {
-        this.deviceHint.set('gamepad.fullscreenUnsupported');
+      // Die Android-App dreht und vergroessert selbst. Die Home-Bildschirm-App fuellt den Schirm
+      // ohnehin; dass sie quer gehalten werden will, sagt schon .gamepad__rotate-hint. Im
+      // Safari-Tab gibt es auf dem iPhone kein Vollbild - dort hilft nur die Home-Bildschirm-App.
+      if ((await enterLandscapeFullscreen()) || this.inAndroidApp || this.isStandalone) {
+        return;
       }
+      this.deviceHint.set(
+        this.isIos ? 'gamepad.fullscreenHomeScreen' : 'gamepad.fullscreenUnsupported',
+      );
     });
   }
 

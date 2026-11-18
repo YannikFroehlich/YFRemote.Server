@@ -12,8 +12,9 @@ public interface IProcessService
     bool TryKill(int id, string name);
 }
 
-// Cpu in Prozent aller Kerne zusammen, wie im Task-Manager.
-public sealed record ProcessInfo(int Id, string Name, int Cpu, long MemoryMb);
+// Cpu in Prozent aller Kerne zusammen, wie im Task-Manager, mit einer Nachkommastelle: Auf einem
+// ruhigen PC liegt fast jeder Prozess unter 1 %, ganze Zahlen zeigten ueberall nur 0.
+public sealed record ProcessInfo(int Id, string Name, double Cpu, long MemoryMb);
 
 // Nur System.Diagnostics, deshalb fuer Windows und Linux gemeinsam. Prozesse, deren Werte das
 // System nicht herausgibt (Systemprozesse, hoehere Rechte), fehlen in der Liste.
@@ -82,10 +83,10 @@ public sealed class ProcessService : IProcessService
         }
     }
 
-    internal static int CpuPercent(TimeSpan cpu, TimeSpan elapsed, int processors) =>
+    internal static double CpuPercent(TimeSpan cpu, TimeSpan elapsed, int processors) =>
         elapsed <= TimeSpan.Zero
             ? 0
-            : (int)Math.Clamp(Math.Round(100 * cpu.TotalMilliseconds / (elapsed.TotalMilliseconds * processors)), 0, 100);
+            : Math.Clamp(Math.Round(100 * cpu.TotalMilliseconds / (elapsed.TotalMilliseconds * processors), 1), 0, 100);
 
     private static void ForEachProcess(Action<Process> use)
     {

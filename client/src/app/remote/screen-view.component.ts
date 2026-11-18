@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
+import { keepScreenAwake } from './device';
 import { FILE_SAVER } from './file-transfer.service';
 import { keyLabel, liveTextActions } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
@@ -176,6 +177,7 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly stallTimer = setInterval(() => this.checkStall(), STALL_CHECK_MS);
 
   constructor() {
+    keepScreenAwake();
     void this.start();
     void this.loadMonitors();
   }

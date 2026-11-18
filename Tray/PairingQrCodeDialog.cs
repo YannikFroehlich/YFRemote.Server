@@ -26,7 +26,7 @@ internal sealed class PairingQrCodeDialog : Form
         this.httpPort = httpPort;
 
         Text = "Mit YFRemote verbinden";
-        ClientSize = new Size(430, 590);
+        ClientSize = new Size(430, 640);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -37,9 +37,7 @@ internal sealed class PairingQrCodeDialog : Form
         // dann abgeschnitten.
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        BackColor = Color.FromArgb(13, 20, 24);
-        ForeColor = Color.FromArgb(242, 247, 248);
-        Font = new Font("Segoe UI", 9F);
+        Theme.Apply(this);
 
         var layout = new TableLayoutPanel
         {
@@ -59,19 +57,13 @@ internal sealed class PairingQrCodeDialog : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        var titleLabel = new Label
-        {
-            AutoSize = true,
-            Font = new Font(Font, FontStyle.Bold),
-            Text = "QR-Code mit dem Mobilgerät scannen",
-            Margin = new Padding(0, 0, 0, 6)
-        };
+        var titleLabel = Theme.Title("QR-Code mit dem Mobilgerät scannen");
 
         var descriptionLabel = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(382, 0),
-            ForeColor = Color.FromArgb(167, 181, 187),
+            ForeColor = Theme.Muted,
             Text = "Der QR-Code öffnet die YFRemote-Oberfläche direkt im Browser.",
             Margin = new Padding(0, 0, 0, 14)
         };
@@ -84,21 +76,14 @@ internal sealed class PairingQrCodeDialog : Form
             Margin = new Padding(0, 0, 0, 12)
         };
 
-        var addressTextBox = new TextBox
-        {
-            Dock = DockStyle.Fill,
-            ReadOnly = true,
-            Text = deviceAddress,
-            TextAlign = HorizontalAlignment.Center,
-            Margin = new Padding(0, 0, 0, 12)
-        };
+        var addressTextBox = Theme.ReadOnlyField(deviceAddress);
+        addressTextBox.BackColor = Theme.Background;
 
-        includePairingCheckBox = new CheckBox
+        includePairingCheckBox = new ToggleSwitch(
+            "Aktuelle Pairing-PIN einschließen",
+            "Das Gerät ist nach dem Scannen gleich gekoppelt.")
         {
-            AutoSize = true,
-            Text = "Aktuelle Pairing-PIN einschließen",
-            ForeColor = ForeColor,
-            Margin = new Padding(0, 0, 0, 4)
+            Margin = new Padding(0, 0, 0, 6)
         };
         includePairingCheckBox.CheckedChanged += (_, _) => RefreshQrCode();
 
@@ -106,7 +91,7 @@ internal sealed class PairingQrCodeDialog : Form
         {
             AutoSize = true,
             MaximumSize = new Size(382, 0),
-            ForeColor = Color.FromArgb(167, 181, 187),
+            ForeColor = Theme.Muted,
             Margin = new Padding(0, 0, 0, 12)
         };
 
@@ -121,20 +106,14 @@ internal sealed class PairingQrCodeDialog : Form
 
         // GrowAndShrink: Mit dem Standard GrowOnly behalten die Buttons die beim DPI-Skalieren
         // ein zweites Mal vergrößerte Höhe (bei 300 % fast 200 px).
-        var closeButton = new Button
+        var closeButton = new PillButton("Schließen", ButtonKind.Secondary)
         {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Text = "Schließen",
             DialogResult = DialogResult.Cancel,
             Margin = new Padding(8, 0, 0, 0)
         };
 
-        copyLinkButton = new Button
+        copyLinkButton = new PillButton("Link kopieren", ButtonKind.Primary)
         {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Text = "Link kopieren",
             Margin = new Padding(0)
         };
         copyLinkButton.Click += (_, _) => CopyCurrentLink();
@@ -263,7 +242,7 @@ internal sealed class PairingQrCodeDialog : Form
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            MessageDialog.Show(
                 $"Der Verbindungslink konnte nicht kopiert werden.\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,

@@ -161,10 +161,20 @@ translated hint, and the socket stays open. A non-SYSTEM process cannot answer t
 itself.
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
-`NotifyIcon` context menu (version, status, device address, open-in-browser, copy-address,
+`NotifyIcon` context menu and owns the actions behind it; `MainWindow` (double-click on the tray
+icon, "YFRemote öffnen...", "Gekoppelte Geräte") shows status, PIN, a device table and the
+settings in one window and calls those same `internal` actions, refreshing itself once a second
+while open (the device table is only rebuilt when its content changed, so the selection survives).
+Colors and the shared controls (`Card`, `PillButton`, `ToggleSwitch`) live in `Tray/Theme.cs`; tray
+code uses `MessageDialog.Show` (same arguments as `MessageBox.Show`) instead of `MessageBox`, except
+`Program.cs`, whose two message boxes must work before/without WinForms setup.
+Every balloon goes through `Notify(TrayNotification kind, ...)`; kinds switched off in the window are
+stored as `Notifications:<Kind>: false` in `settings.json` (`UserSettingsStore`) and skipped. The enum
+names are those keys, so don't rename them; a missing key means on, so new kinds start enabled.
+The menu holds (version, status, device address, open-in-browser, copy-address,
 PIN display/copy/regenerate, a "Gekoppelte Geräte" entry whose device/connection count updates live
 via `WebSocketConnectionRegistry.ConnectionsChanged` (which also drives the tooltip and status line)
-and which opens `UnpairDevicesDialog` to revoke several devices at once, an HTTPS
+and which opens `MainWindow`, an HTTPS
 toggle, update check/install, Windows-startup toggle, exit) and owns the update-check timers (initial
 check ~1.5s after launch, then every 6 hours) via `UpdateService` (thin wrapper over Velopack's
 `UpdateManager`, pointed at public GitHub Releases of this repo). `CanUpdate` is

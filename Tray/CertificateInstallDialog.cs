@@ -25,9 +25,7 @@ internal sealed class CertificateInstallDialog : Form
         // dann abgeschnitten.
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
-        BackColor = Color.FromArgb(13, 20, 24);
-        ForeColor = Color.FromArgb(242, 247, 248);
-        Font = new Font("Segoe UI", 9F);
+        Theme.Apply(this);
 
         var layout = new TableLayoutPanel
         {
@@ -44,19 +42,13 @@ internal sealed class CertificateInstallDialog : Form
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         }
 
-        var titleLabel = new Label
-        {
-            AutoSize = true,
-            Font = new Font(Font, FontStyle.Bold),
-            Text = "QR-Code mit dem Mobilgerät scannen",
-            Margin = new Padding(0, 0, 0, 6)
-        };
+        var titleLabel = Theme.Title("QR-Code mit dem Mobilgerät scannen");
 
         var descriptionLabel = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(382, 0),
-            ForeColor = Color.FromArgb(167, 181, 187),
+            ForeColor = Theme.Muted,
             Text = "Der QR-Code lädt die Zertifikatsdatei nur herunter. Installiert wird sie "
                 + "danach von Hand in den Systemeinstellungen (siehe unten). Ohne Installation "
                 + "ist die Verbindung ebenfalls verschlüsselt - der Browser zeigt dann aber eine "
@@ -73,20 +65,16 @@ internal sealed class CertificateInstallDialog : Form
             Margin = new Padding(0, 0, 24, 12)
         };
 
-        var addressTextBox = new TextBox
-        {
-            Dock = DockStyle.Fill,
-            ReadOnly = true,
-            Text = certificateUrl,
-            TextAlign = HorizontalAlignment.Center,
-            Margin = new Padding(0, 0, 0, 12)
-        };
+        var addressTextBox = Theme.ReadOnlyField(certificateUrl);
+        addressTextBox.BackColor = Theme.Background;
 
         var instructionsLabel = new Label
         {
             AutoSize = true,
             MaximumSize = new Size(382, 0),
-            ForeColor = Color.FromArgb(167, 181, 187),
+            ForeColor = Theme.Muted,
+            // Sonst verschluckt das Label das "&" in "Verschlüsselung & Anmeldedaten" als Tastenkürzel.
+            UseMnemonic = false,
             Text = "Android: Einstellungen → Sicherheit → Verschlüsselung & Anmeldedaten → "
                 + "Zertifikat installieren → CA-Zertifikat.\n\n"
                 + "iPhone/iPad: Profil laden, dann Einstellungen → Allgemein → VPN & "
@@ -106,20 +94,14 @@ internal sealed class CertificateInstallDialog : Form
             Margin = new Padding(0)
         };
 
-        var closeButton = new Button
+        var closeButton = new PillButton("Schließen", ButtonKind.Secondary)
         {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Text = "Schließen",
             DialogResult = DialogResult.Cancel,
             Margin = new Padding(8, 0, 0, 0)
         };
 
-        copyLinkButton = new Button
+        copyLinkButton = new PillButton("Link kopieren", ButtonKind.Primary)
         {
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Text = "Link kopieren",
             Margin = new Padding(0)
         };
         copyLinkButton.Click += (_, _) => CopyLink();
@@ -161,7 +143,7 @@ internal sealed class CertificateInstallDialog : Form
         }
         catch (Exception exception)
         {
-            MessageBox.Show(
+            MessageDialog.Show(
                 $"Der Link konnte nicht kopiert werden.\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,

@@ -43,7 +43,10 @@ internal static class FileEndpoints
                 return;
             }
 
-            var form = await context.Request.ReadFormAsync(context.RequestAborted);
+            // FormOptions begrenzt jeden Multipart-Abschnitt sonst auf 128 MB - unabhaengig vom Limit oben.
+            var form = await context.Request.ReadFormAsync(
+                new FormOptions { MultipartBodyLengthLimit = fileTransferOptions.MaxFileSizeBytes },
+                context.RequestAborted);
             var file = form.Files.Count > 0 ? form.Files[0] : null;
             if (file is null || file.Length == 0)
             {

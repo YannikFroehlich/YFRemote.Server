@@ -28,7 +28,8 @@ feature.
   (`PairingService.RemoveDeviceByToken`) and force-closes any open `/ws` connection for that
   device via `WebSocketConnectionRegistry.CloseConnections`.
 - `POST /files` → multipart upload from the device, saved by `FileTransferService` to
-  `FileTransfer:TargetDirectory` (default `Documents\YFRemote`, 200 MB cap counted on the actual
+  `FileTransfer:TargetDirectory` (default `Documents\YFRemote`, 2 GB cap via `FileTransfer:MaxFileSizeBytes`,
+  also passed to `FormOptions.MultipartBodyLengthLimit` (own default 128 MB), counted on the actual
   bytes read, not `Content-Length`) under a sanitized, collision-free name; the tray shows a
   "Datei empfangen" balloon via its `FileReceived` event.
 - `GET /files/{id}` → downloads the file the tray currently offers ("Datei an Geräte senden...",

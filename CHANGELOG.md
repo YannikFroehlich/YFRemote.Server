@@ -21,6 +21,20 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Client: Beim Senden einer Datei zeigt das Touchpad den Fortschritt in Prozent mit Balken ("Datei wird gesendet … 42 %"). Der Upload läuft dafür über `XMLHttpRequest` statt `fetch`, weil nur das den Upload-Fortschritt meldet.
+
+### Changed
+
+- Dateien vom Gerät an den PC (und an den Android-Server) dürfen jetzt bis zu 2 GB groß sein statt 200 MB (`FileTransfer:MaxFileSizeBytes`).
+
+### Fixed
+
+- Server: Uploads über 128 MB scheiterten trotz höherem Limit, weil ASP.NET jeden Formularteil zusätzlich auf 128 MB begrenzt (`FormOptions.MultipartBodyLengthLimit`). Diese Grenze folgt jetzt `FileTransfer:MaxFileSizeBytes`.
+- Client: Eine zu große Datei meldet "Datei ist zu groß (max. 2 GB)." statt nur "Datei konnte nicht gesendet werden."
+- Client: Im Touchpad haben "An PC senden"/"Vom PC holen" (und Verlauf, Inhalt der PC-Zwischenablage, Einfügefeld, Status- und Fehlermeldungen) wieder Abstand zur Trennlinie der Textzeile darüber; die Meldungen haben außerdem seitlich Abstand zum Kartenrand.
+
 ## [2.59.0] - 2026-11-18
 
 ### Added

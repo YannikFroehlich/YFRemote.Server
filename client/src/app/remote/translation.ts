@@ -1121,3 +1121,12 @@ export function translate(
 
   return text.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => String(params[name] ?? ''));
 }
+
+/** Zahl mit Dezimaltrennzeichen der Sprache ("0,8" statt "0.8"); `digits` legt die Nachkommastellen
+ *  fest, ohne bleiben es so viele wie noetig. */
+export function formatNumber(lang: Lang, value: number, digits?: number): string {
+  return value.toLocaleString(lang === 'de' ? 'de-DE' : 'en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits ?? 3,
+  });
+}

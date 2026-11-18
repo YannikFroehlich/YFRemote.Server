@@ -44,7 +44,7 @@ export class SystemStatsComponent implements OnDestroy {
       return null;
     }
 
-    const gb = (mb: number) => (mb / 1024).toFixed(1);
+    const gb = (mb: number) => this.i18n.number(mb / 1024, 1);
     // Die Android-App darf CPU und GPU nicht messen - die Zeilen blieben immer leer.
     const android = this.remote.serverPlatform() === 'android';
     return [
@@ -94,8 +94,8 @@ export class SystemStatsComponent implements OnDestroy {
         : [
             {
               label: this.i18n.t('stats.network'),
-              value: `↓ ${rate(stats.netDownKbps)}`,
-              detail: `↑ ${rate(stats.netUpKbps)}`,
+              value: `↓ ${this.rate(stats.netDownKbps)}`,
+              detail: `↑ ${this.rate(stats.netUpKbps)}`,
             },
           ]),
     ];
@@ -194,7 +194,12 @@ export class SystemStatsComponent implements OnDestroy {
   protected fileSize(bytes: number): string {
     return bytes < 1024 * 1024
       ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-      : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      : `${this.i18n.number(bytes / 1024 / 1024, 1)} MB`;
+  }
+
+  /** Kilobit pro Sekunde als "850 kbit/s" bzw. ab 1000 als "12,3 Mbit/s". */
+  private rate(kbps: number): string {
+    return kbps < 1000 ? `${kbps} kbit/s` : `${this.i18n.number(kbps / 1000, 1)} Mbit/s`;
   }
 
   // Bei einem Bildschirm reicht "Helligkeit"; sonst Laptop-Display und externe Monitore durchgezaehlt.
@@ -285,9 +290,4 @@ export class SystemStatsComponent implements OnDestroy {
         : 'stats.noTemperature',
     );
   }
-}
-
-/** Kilobit pro Sekunde als "850 kbit/s" bzw. ab 1000 als "12.3 Mbit/s". */
-function rate(kbps: number): string {
-  return kbps < 1000 ? `${kbps} kbit/s` : `${(kbps / 1000).toFixed(1)} Mbit/s`;
 }

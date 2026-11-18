@@ -101,8 +101,8 @@ describe('SystemStatsComponent', () => {
     const network = tiles.find((tile) => tile?.startsWith('Netzwerk'));
 
     expect(drive).toContain('75 %');
-    expect(drive).toContain('25.0 GB frei von 100.0 GB');
-    expect(network).toContain('↓ 12.3 Mbit/s');
+    expect(drive).toContain('25,0 GB frei von 100,0 GB');
+    expect(network).toContain('↓ 12,3 Mbit/s');
     expect(network).toContain('↑ 850 kbit/s');
     const networkTile = [...element.querySelectorAll('.stats-tile')].find((tile) =>
       tile.textContent?.includes('Netzwerk'),
@@ -112,7 +112,7 @@ describe('SystemStatsComponent', () => {
       tile.textContent?.includes('C:'),
     );
     expect(driveTile?.querySelector('.stats-bar')).not.toBeNull();
-    expect(element.querySelector('.process-row')?.textContent).toContain('0.4 % · 20 MB');
+    expect(element.querySelector('.process-row')?.textContent).toContain('0,4 % · 20 MB');
 
     const confirm = vi.spyOn(globalThis, 'confirm').mockReturnValueOnce(true);
     element
@@ -168,7 +168,7 @@ describe('SystemStatsComponent', () => {
     const file = element.querySelector<HTMLButtonElement>('.folder-file')!;
 
     expect(file.textContent).toContain('bericht.pdf');
-    expect(file.textContent).toContain('2.0 MB');
+    expect(file.textContent).toContain('2,0 MB');
     file.click();
 
     expect(remote.readFolder).toHaveBeenCalled();
@@ -304,7 +304,7 @@ describe('SystemStatsComponent', () => {
       ),
     );
     expect(tiles).toEqual([
-      ['Arbeitsspeicher', '50 %', '6.0 / 12.0 GB'],
+      ['Arbeitsspeicher', '50 %', '6,0 / 12,0 GB'],
       ['Akku', '87 %', 'lädt · 31 °C'],
     ]);
     expect(element.querySelector('.window-list')).toBeNull();

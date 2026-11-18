@@ -61,7 +61,14 @@ internal static class WebSocketEndpoint
             var deviceName = pairingService.GetPairedDevices().FirstOrDefault(device => device.Id == deviceId)?.Name;
             // background=1: Hintergrundverbindung der Android-App, die nur aufs Klingeln wartet.
             var background = context.Request.Query["background"] == "1";
-            await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly, deviceId, background);
+            try
+            {
+                await handler.HandleAsync(socket, client, connectionCts.Token, deviceName, mediaOnly, deviceId, background);
+            }
+            finally
+            {
+                pairingService.MarkSeen(deviceId);
+            }
         });
     }
 }

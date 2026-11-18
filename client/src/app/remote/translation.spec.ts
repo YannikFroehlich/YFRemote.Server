@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStoredLang, translate } from './translation';
+import { formatNumber, parseStoredLang, translate } from './translation';
 
 describe('parseStoredLang', () => {
   it('accepts "en" and defaults everything else to "de"', () => {
@@ -29,5 +29,13 @@ describe('translate', () => {
 
   it('leaves unknown placeholders empty instead of throwing', () => {
     expect(translate('en', 'common.save', { unused: 'x' })).toBe('Save');
+  });
+
+  it('formats decimals with the separator of the language', () => {
+    expect(formatNumber('de', 0.8, 1)).toBe('0,8');
+    expect(formatNumber('en', 0.8, 1)).toBe('0.8');
+    expect(formatNumber('de', 2, 1)).toBe('2,0');
+    expect(formatNumber('de', -6.5)).toBe('-6,5');
+    expect(formatNumber('de', -6)).toBe('-6');
   });
 });

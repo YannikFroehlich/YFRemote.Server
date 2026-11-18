@@ -21,10 +21,12 @@ import org.json.JSONObject
 // in-memory (siehe PLAN.md Stufe 1) - kein pairing-lockouts.json wie im .NET-Server.
 // onPinChanged laeuft bei jedem PIN-Wechsel nach init, noch unter dem Lock - also nur kurz
 // weiterreichen (die Benachrichtigung zeigt die PIN, siehe YFRemoteForegroundService).
-// deviceExpiry wie PairingStorage:DeviceExpiry (90 Tage, Duration.ZERO schaltet es ab).
+// deviceExpiry wie PairingStorage:DeviceExpiry (90 Tage, Duration.ZERO schaltet es ab); ein Geraet,
+// fuer das isConnected true liefert, laeuft nie ab.
 class PairingRepository(
     private val filesDir: File,
     private val deviceExpiry: Duration = Duration.ofDays(90),
+    private val isConnected: (String) -> Boolean = { false },
     private val onPinChanged: () -> Unit = {},
 ) {
 
@@ -152,14 +154,24 @@ class PairingRepository(
             val now = Instant.now()
             removeExpiredDevices(now)
             val device = devices.firstOrNull { it.tokenHash == tokenHash } ?: return null
-            device.lastSeenUtc = now
-
-            if (!now.isBefore(nextLastSeenPersistenceUtc)) {
-                persistDevices()
-                nextLastSeenPersistenceUtc = now.plus(LAST_SEEN_PERSISTENCE_INTERVAL)
-            }
-
+            markSeen(device, now)
             return device.toInfo()
+        }
+    }
+
+    // Wie MarkSeen in PairingService.cs: beim Trennen einer /ws-Verbindung, damit die Ablaufzeit ab
+    // dem Ende der Verbindung zaehlt.
+    fun markSeen(deviceId: String) {
+        synchronized(lock) {
+            devices.firstOrNull { it.id == deviceId }?.let { markSeen(it, Instant.now()) }
+        }
+    }
+
+    private fun markSeen(device: PairedDevice, now: Instant) {
+        device.lastSeenUtc = now
+        if (!now.isBefore(nextLastSeenPersistenceUtc)) {
+            persistDevices()
+            nextLastSeenPersistenceUtc = now.plus(LAST_SEEN_PERSISTENCE_INTERVAL)
         }
     }
 
@@ -218,11 +230,10 @@ class PairingRepository(
 
     // Wie RemoveExpiredDevices in PairingService.cs: ein abgelaufenes Geraet gilt sofort nicht mehr,
     // auch wenn das Speichern scheitert - beim naechsten Schreiben oder Start wird es nachgeholt.
-    // ponytail: lastSeenUtc kommt nur vom Verbindungsaufbau; wer ununterbrochen laenger als
-    // deviceExpiry verbunden bleibt, muss danach neu koppeln. Sonst lastSeenUtc beim Trennen setzen.
+    // Ein gerade verbundenes Geraet laeuft nie ab; beim Trennen setzt markSeen die Zeit neu.
     private fun removeExpiredDevices(now: Instant) {
         if (deviceExpiry.isZero) return
-        if (devices.removeAll { !it.lastSeenUtc.plus(deviceExpiry).isAfter(now) }) {
+        if (devices.removeAll { !it.lastSeenUtc.plus(deviceExpiry).isAfter(now) && !isConnected(it.id) }) {
             persistDevices()
         }
     }

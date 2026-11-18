@@ -8,7 +8,7 @@ public sealed class FileTransferOptions
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
         "YFRemote");
 
-    public long MaxFileSizeBytes { get; init; } = 200 * 1024 * 1024;
+    public long MaxFileSizeBytes { get; init; } = 2L * 1024 * 1024 * 1024;
 
     public void Validate()
     {

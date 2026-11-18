@@ -4,7 +4,9 @@ import {
   DownloadBridge,
   FILE_SAVER,
   FILE_TRANSFER_FETCH,
+  FILE_UPLOADER,
   FileTransferService,
+  FileUploader,
 } from './file-transfer.service';
 import { PAIRING_TOKEN_STORAGE_KEY } from './pairing';
 import { PAIRING_FETCH } from './pairing.service';
@@ -76,14 +78,49 @@ class FakeFetch {
   };
 }
 
+class FakeUploader {
+  readonly calls: { url: string; token: string; body: FormData }[] = [];
+  private readonly queue: Array<(onProgress: (fraction: number) => void) => Promise<unknown>> = [];
+
+  queueJson(body: unknown, status = 200): void {
+    this.queue.push(async () => ({ status, body: JSON.stringify(body) }));
+  }
+
+  queueStep(step: (onProgress: (fraction: number) => void) => Promise<unknown>): void {
+    this.queue.push(step);
+  }
+
+  queueRejection(message = 'network error'): void {
+    this.queue.push(async () => {
+      throw new Error(message);
+    });
+  }
+
+  readonly upload: FileUploader = async (url, token, body, onProgress) => {
+    this.calls.push({ url, token, body });
+
+    const next = this.queue.shift();
+    if (!next) {
+      throw new Error('FakeUploader: no queued response');
+    }
+
+    return (await next(onProgress)) as Awaited<ReturnType<FileUploader>>;
+  };
+}
+
 interface FileTransferHarness {
   readonly fileTransfer: FileTransferService;
   readonly fakeFetch: FakeFetch;
+  readonly fakeUploader: FakeUploader;
   readonly saved: { blob: Blob; fileName: string }[];
 }
 
 function setupFileTransferService(
-  options: { storedToken?: string | null; serverUrl?: string; downloadBridge?: DownloadBridge } = {},
+  options: {
+    storedToken?: string | null;
+    serverUrl?: string;
+    downloadBridge?: DownloadBridge;
+  } = {},
 ): FileTransferHarness {
   const storage = new MemoryStorage();
 
@@ -92,6 +129,7 @@ function setupFileTransferService(
   }
 
   const fakeFetch = new FakeFetch();
+  const fakeUploader = new FakeUploader();
   const saved: { blob: Blob; fileName: string }[] = [];
 
   TestBed.configureTestingModule({
@@ -100,6 +138,7 @@ function setupFileTransferService(
       { provide: REMOTE_STORAGE, useValue: storage },
       { provide: PAIRING_FETCH, useValue: async () => new Response(null, { status: 500 }) },
       { provide: FILE_TRANSFER_FETCH, useValue: fakeFetch.fetch },
+      { provide: FILE_UPLOADER, useValue: fakeUploader.upload },
       {
         provide: FILE_SAVER,
         useValue: async (blob: Blob, fileName: string) => saved.push({ blob, fileName }) > 0,
@@ -115,6 +154,7 @@ function setupFileTransferService(
   return {
     fileTransfer: TestBed.inject(FileTransferService),
     fakeFetch,
+    fakeUploader,
     saved,
   };
 }
@@ -125,32 +165,29 @@ describe('FileTransferService', () => {
   });
 
   it('does not send a request when the device is not paired', async () => {
-    const { fileTransfer, fakeFetch } = setupFileTransferService();
+    const { fileTransfer, fakeUploader } = setupFileTransferService();
 
     const result = await fileTransfer.sendFile(new File(['x'], 'a.txt'));
 
     expect(result.success).toBe(false);
-    expect(fakeFetch.calls).toHaveLength(0);
+    expect(fakeUploader.calls).toHaveLength(0);
   });
 
   it('uploads the file with a bearer token to the same-origin /files endpoint', async () => {
-    const { fileTransfer, fakeFetch } = setupFileTransferService({ storedToken: 'tok-123' });
-    fakeFetch.queueJson({ success: true, fileName: 'a.txt' });
+    const { fileTransfer, fakeUploader } = setupFileTransferService({ storedToken: 'tok-123' });
+    fakeUploader.queueJson({ success: true, fileName: 'a.txt' });
 
     const result = await fileTransfer.sendFile(new File(['hallo'], 'a.txt'));
 
     expect(result).toEqual({ success: true, fileName: 'a.txt' });
-    expect(fakeFetch.calls[0].url).toBe('http://192.168.1.44:5050/files');
-    expect(fakeFetch.calls[0].init?.method).toBe('POST');
-    expect(new Headers(fakeFetch.calls[0].init?.headers).get('Authorization')).toBe(
-      'Bearer tok-123',
-    );
-    expect(fakeFetch.calls[0].init?.body).toBeInstanceOf(FormData);
+    expect(fakeUploader.calls[0].url).toBe('http://192.168.1.44:5050/files');
+    expect(fakeUploader.calls[0].token).toBe('tok-123');
+    expect((fakeUploader.calls[0].body.get('file') as File).name).toBe('a.txt');
   });
 
   it('surfaces the server error when the upload is rejected', async () => {
-    const { fileTransfer, fakeFetch } = setupFileTransferService({ storedToken: 'tok-123' });
-    fakeFetch.queueJson({ success: false, error: 'File is too large.' }, 413);
+    const { fileTransfer, fakeUploader } = setupFileTransferService({ storedToken: 'tok-123' });
+    fakeUploader.queueJson({ success: false, error: 'File is too large.' }, 413);
 
     const result = await fileTransfer.sendFile(new File(['x'], 'a.txt'));
 
@@ -158,22 +195,33 @@ describe('FileTransferService', () => {
   });
 
   it('reports failure without a server error when the request throws outright', async () => {
-    const { fileTransfer, fakeFetch } = setupFileTransferService({ storedToken: 'tok-123' });
-    fakeFetch.queueRejection('boom');
+    const { fileTransfer, fakeUploader } = setupFileTransferService({ storedToken: 'tok-123' });
+    fakeUploader.queueRejection('boom');
 
     const result = await fileTransfer.sendFile(new File(['x'], 'a.txt'));
 
     expect(result).toEqual({ success: false });
+    expect(fileTransfer.uploadProgress()).toBeNull();
   });
 
-  it('resets sending back to false after the upload finishes', async () => {
-    const { fileTransfer, fakeFetch } = setupFileTransferService({ storedToken: 'tok-123' });
-    fakeFetch.queueJson({ success: true, fileName: 'a.txt' });
+  it('tracks the upload progress and resets it after the upload finishes', async () => {
+    const { fileTransfer, fakeUploader } = setupFileTransferService({ storedToken: 'tok-123' });
+    const seen: (number | null)[] = [];
+    fakeUploader.queueStep(async (onProgress) => {
+      seen.push(fileTransfer.uploadProgress());
+      onProgress(0.25);
+      seen.push(fileTransfer.uploadProgress());
+      onProgress(1.5);
+      seen.push(fileTransfer.uploadProgress());
+      return { status: 200, body: JSON.stringify({ success: true, fileName: 'a.txt' }) };
+    });
 
-    expect(fileTransfer.sending()).toBe(false);
+    expect(fileTransfer.uploadProgress()).toBeNull();
     await fileTransfer.sendFile(new File(['x'], 'a.txt'));
 
+    expect(seen).toEqual([0, 0.25, 1]);
     expect(fileTransfer.sending()).toBe(false);
+    expect(fileTransfer.uploadProgress()).toBeNull();
   });
 
   it('downloads an offered file with the bearer token and hands it to the saver', async () => {

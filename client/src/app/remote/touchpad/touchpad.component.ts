@@ -199,6 +199,10 @@ export class TouchpadComponent implements OnDestroy {
     this.createRecognizer() !== null || !isTrustworthyOrigin(this.location);
   protected readonly dictating = signal(false);
   protected readonly fileSending = this.fileTransfer.sending;
+  protected readonly uploadPercent = computed(() => {
+    const progress = this.fileTransfer.uploadProgress();
+    return progress === null ? null : Math.round(progress * 100);
+  });
   // Datei-, Zwischenablage- und Diktiermeldungen teilen sich eine Zeile - die neueste gewinnt.
   protected readonly statusMessage = signal<{
     key: string;
@@ -432,6 +436,8 @@ export class TouchpadComponent implements OnDestroy {
 
     if (result.success) {
       this.showStatus('touchpad.file.success', { fileName: result.fileName ?? file.name }, true);
+    } else if (result.error === 'File is too large.') {
+      this.showStatus('touchpad.file.tooLarge');
     } else {
       this.showStatus('touchpad.file.error');
     }

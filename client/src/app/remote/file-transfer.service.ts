@@ -8,6 +8,24 @@ export const FILE_TRANSFER_FETCH = new InjectionToken<typeof fetch>('FILE_TRANSF
   factory: () => globalThis.fetch.bind(globalThis),
 });
 
+export interface FileUploadResponse {
+  readonly status: number;
+  readonly body: string;
+}
+
+export type FileUploader = (
+  url: string,
+  token: string,
+  body: FormData,
+  onProgress: (fraction: number) => void,
+) => Promise<FileUploadResponse>;
+
+/** Upload per XMLHttpRequest statt fetch: Nur XHR meldet den Upload-Fortschritt. */
+export const FILE_UPLOADER = new InjectionToken<FileUploader>('FILE_UPLOADER', {
+  providedIn: 'root',
+  factory: () => uploadWithXhr,
+});
+
 /** Haengt die Android-App (Bereich "Steuern", remote/RemoteWebActivity.kt) als
  *  window.YFRemoteDownloads ein: Ihr WebView kann blob:-Downloads nicht speichern, deshalb laedt
  *  die App die Datei selbst (Android-DownloadManager, gestreamt, mit Fortschrittsanzeige). */
@@ -61,8 +79,13 @@ export class FileTransferService {
   private readonly fetchFn = inject(FILE_TRANSFER_FETCH);
   private readonly serverLocation = inject(SERVER_LOCATION);
 
+  private readonly uploader = inject(FILE_UPLOADER);
+
   private readonly sendingSignal = signal(false);
   readonly sending = this.sendingSignal.asReadonly();
+  /** Anteil 0..1 des laufenden Uploads, `null` ohne Upload. */
+  private readonly uploadProgressSignal = signal<number | null>(null);
+  readonly uploadProgress = this.uploadProgressSignal.asReadonly();
   private readonly saveFile = inject(FILE_SAVER);
   private readonly downloadBridge = inject(DOWNLOAD_BRIDGE);
 
@@ -115,25 +138,28 @@ export class FileTransferService {
     }
 
     this.sendingSignal.set(true);
+    this.uploadProgressSignal.set(0);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await this.fetchFn(`${getServerHttpBaseUrl(this.serverLocation)}/files`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const response = await this.uploader(
+        `${getServerHttpBaseUrl(this.serverLocation)}/files`,
+        token,
+        formData,
+        (fraction) => this.uploadProgressSignal.set(Math.min(Math.max(fraction, 0), 1)),
+      );
 
       let body: FileUploadResponseBody | null = null;
       try {
-        body = (await response.json()) as FileUploadResponseBody;
+        body = JSON.parse(response.body) as FileUploadResponseBody;
       } catch {
         // Fehlerantworten ohne JSON (z. B. 401) verwenden den generischen Fallback unten.
       }
 
-      if (!response.ok || !body?.success) {
+      const ok = response.status >= 200 && response.status < 300;
+      if (!ok || !body?.success) {
         return { success: false, error: body?.error?.trim() || undefined };
       }
 
@@ -142,8 +168,31 @@ export class FileTransferService {
       return { success: false };
     } finally {
       this.sendingSignal.set(false);
+      this.uploadProgressSignal.set(null);
     }
   }
+}
+
+function uploadWithXhr(
+  url: string,
+  token: string,
+  body: FormData,
+  onProgress: (fraction: number) => void,
+): Promise<FileUploadResponse> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', url);
+    request.setRequestHeader('Authorization', `Bearer ${token}`);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(event.loaded / event.total);
+      }
+    };
+    request.onload = () => resolve({ status: request.status, body: request.responseText });
+    request.onerror = () => reject(new Error('Upload failed.'));
+    request.onabort = () => reject(new Error('Upload aborted.'));
+    request.send(body);
+  });
 }
 
 async function saveBlobAsDownload(blob: Blob, fileName: string): Promise<boolean> {

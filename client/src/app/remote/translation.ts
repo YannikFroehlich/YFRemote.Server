@@ -271,6 +271,15 @@ export const TRANSLATIONS = {
     de: 'Datei konnte nicht gesendet werden.',
     en: 'The file could not be sent.',
   },
+  'touchpad.file.sending': {
+    de: 'Datei wird gesendet … {{percent}} %',
+    en: 'Sending file … {{percent}}%',
+  },
+  'touchpad.file.sendingLabel': { de: 'Sendefortschritt', en: 'Upload progress' },
+  'touchpad.file.tooLarge': {
+    de: 'Datei ist zu groß (max. 2 GB).',
+    en: 'The file is too large (max. 2 GB).',
+  },
   'touchpad.clipboard.title': { de: 'Zwischenablage senden', en: 'Send clipboard' },
   'touchpad.clipboard.ariaLabel': { de: 'Zwischenablage senden', en: 'Send clipboard' },
   'touchpad.clipboard.hint': { de: 'Jetzt einfügen', en: 'Paste now' },

@@ -23,6 +23,22 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Client: Beim Senden einer Datei zeigt das Touchpad den Fortschritt in Prozent mit Balken ("Datei wird gesendet … 42 %"). Der Upload läuft dafür über `XMLHttpRequest` statt `fetch`, weil nur das den Upload-Fortschritt meldet.
+
+### Changed
+
+- Dateien vom Gerät an den PC (und an den Android-Server) dürfen jetzt bis zu 2 GB groß sein statt 200 MB (`FileTransfer:MaxFileSizeBytes`).
+
+### Fixed
+
+- Server: Uploads über 128 MB scheiterten trotz höherem Limit, weil ASP.NET jeden Formularteil zusätzlich auf 128 MB begrenzt (`FormOptions.MultipartBodyLengthLimit`). Diese Grenze folgt jetzt `FileTransfer:MaxFileSizeBytes`.
+- Client: Eine zu große Datei meldet "Datei ist zu groß (max. 2 GB)." statt nur "Datei konnte nicht gesendet werden."
+- Client: Im Touchpad haben "An PC senden"/"Vom PC holen" (und Verlauf, Inhalt der PC-Zwischenablage, Einfügefeld, Status- und Fehlermeldungen) wieder Abstand zur Trennlinie der Textzeile darüber; die Meldungen haben außerdem seitlich Abstand zum Kartenrand.
+
+## [2.59.0] - 2026-11-18
+
+### Added
+
 - Windows: Eigenes YFRemote-Fenster mit Status, Adresse, PIN und QR-Code, einer Tabelle der gekoppelten Geräte (verbunden/zuletzt gesehen, Zugriff, Kopplungsdatum - klingeln lassen, "Nur Medien", "Vollzugriff", entkoppeln), Datei senden, HTTPS, Autostart, Zertifikat, Controller-Treiber, Diagnoseordner und Updates. Es öffnet sich per Doppelklick auf das Tray-Symbol oder über "YFRemote öffnen..." im Tray-Menü und aktualisiert sich laufend. Aussehen wie Weboberfläche und Android-App: dunkle Karten, Pillen-Knöpfe mit Akzentverlauf, Schalter statt Häkchen, dunkle Titelleiste. Die Fenster "QR-Code zum Verbinden" und "Zertifikat installieren" haben dasselbe Aussehen bekommen, ebenso das Tray-Menü (dunkel, runde Ecken unter Windows 11, blaue Haken) und alle Rückfragen und Fehlermeldungen des Tray-Programms (eigener Dialog statt der Windows-Meldungsbox). Nur "YFRemote läuft bereits" und der Startfehler bleiben bewusst Windows-Meldungen.
 - Windows: Im YFRemote-Fenster lässt sich jede Art von Tray-Meldung einzeln abschalten - Start, Update verfügbar, Datei empfangen/gesendet, Zwischenablage, weitergeleitete Benachrichtigungen, Bildschirm- und Tonübertragung, Ausschalt-Timer und Bestätigungen eigener Aktionen. Die Auswahl steht in `%LOCALAPPDATA%\YFRemote\settings.json` und übersteht Updates. Der Doppelklick öffnete bisher die Weboberfläche im Browser, das geht jetzt über "Im Browser öffnen". "Gekoppelte Geräte" im Tray-Menü öffnet ebenfalls das Fenster statt des bisherigen Auswahldialogs.
 

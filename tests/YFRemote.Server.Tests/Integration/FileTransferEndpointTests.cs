@@ -33,6 +33,11 @@ public sealed class FileTransferEndpointTests
         filesDirectory = Path.Combine(testDirectory, "files");
         Directory.CreateDirectory(testDirectory);
 
+        await StartAppAsync(maxFileSizeBytes: 1024);
+    }
+
+    private async Task StartAppAsync(long maxFileSizeBytes)
+    {
         var port = GetFreeTcpPort();
         baseUrl = $"http://127.0.0.1:{port}";
 
@@ -43,7 +48,7 @@ public sealed class FileTransferEndpointTests
             $"Diagnostics:LogDirectory={Path.Combine(testDirectory, "Logs")}",
             $"UserSettings:FilePath={Path.Combine(testDirectory, "settings.json")}",
             $"FileTransfer:TargetDirectory={filesDirectory}",
-            "FileTransfer:MaxFileSizeBytes=1024"
+            $"FileTransfer:MaxFileSizeBytes={maxFileSizeBytes}"
         ]);
         await app.StartAsync();
 
@@ -111,6 +116,30 @@ public sealed class FileTransferEndpointTests
 
         Assert.AreEqual(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
         Assert.IsFalse(File.Exists(Path.Combine(filesDirectory, "zu-gross.txt")));
+    }
+
+    // FormOptions.MultipartBodyLengthLimit steht sonst auf 128 MB und wuerde ein groesseres
+    // Limit stillschweigend unterlaufen.
+    [TestMethod]
+    public async Task UploadFile_LargerThanDefaultFormLimit_IsAcceptedWhenConfiguredMaxAllowsIt()
+    {
+        httpClient.Dispose();
+        await app.StopAsync();
+        await app.DisposeAsync();
+        await StartAppAsync(maxFileSizeBytes: 200L * 1024 * 1024);
+        var token = await PairAndGetTokenAsync();
+        const int size = 129 * 1024 * 1024;
+
+        using var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(new byte[size]), "file", "gross.bin");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/files") { Content = form };
+        request.Headers.Add("Origin", baseUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await httpClient.SendAsync(request);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.AreEqual(size, new FileInfo(Path.Combine(filesDirectory, "gross.bin")).Length);
     }
 
     [TestMethod]

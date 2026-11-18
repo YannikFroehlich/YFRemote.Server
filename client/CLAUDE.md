@@ -235,6 +235,9 @@ new component the same, unless everything its template reads is a signal or an i
      (`DEVICE_CLIPBOARD_IMAGE_WRITER`, secure context only) and "Speichern" (`FILE_SAVER`). Inside
      the Android app `FILE_SAVER` goes through `YFRemoteDownloads.save` (base64), because the
      WebView ignores `blob:` links; the settings dialog's JSON exports use it too.
+     The upload button's `POST /files` goes through `FILE_UPLOADER` (`XMLHttpRequest`, since `fetch`
+     reports no upload progress) and fills `FileTransferService.uploadProgress`, shown as
+     `.upload-progress` under the text row; downloads stay on `FILE_TRANSFER_FETCH`.
    - `GamepadComponent` (`gamepad/`) — the controller view, shown only when `/health` reports
      `gamepad: true` (`RemoteService.gamepadAvailable`; Windows with ViGEmBus or Linux with
      `/dev/uinput`, never the Android server). It renders as a

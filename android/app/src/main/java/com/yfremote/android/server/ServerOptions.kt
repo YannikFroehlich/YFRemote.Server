@@ -9,5 +9,5 @@ data class ClipboardOptions(
 )
 
 data class FileTransferOptions(
-    val maxFileSizeBytes: Long = 200L * 1024 * 1024,
+    val maxFileSizeBytes: Long = 2L * 1024 * 1024 * 1024,
 )

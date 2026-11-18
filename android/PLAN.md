@@ -229,7 +229,7 @@ Fehlermeldung statt eines stillen No-Ops.
   10+, scoped storage) statt direktem Dateisystempfad. Dieselbe Sanitizing-Logik wie
   `FileTransferService.SanitizeFileName` (Zeilen 45–63: auf letzten `/`/`\` abschneiden, ungültige
   Zeichen ersetzen) nachbauen — die dort behobene Pfad-Traversal-Lücke (Commit `c2f5d82`) gilt hier
-  genauso. Limit wie `FileTransferOptions.MaxFileSizeBytes` (Default 200 MB).
+  genauso. Limit wie `FileTransferOptions.MaxFileSizeBytes` (Default 2 GB).
 - Clipboard Text: `ClipboardManager.setPrimaryClip`, Limit wie `ClipboardOptions.MaxTextLength`
   (Default 200.000 Zeichen).
 - Clipboard Bild: Bytes zunächst in eine App-private Datei schreiben, per `FileProvider` eine

@@ -237,6 +237,18 @@
     </div>
   }
 
+  @let percent = uploadPercent();
+  @if (percent !== null) {
+    <div class="upload-progress">
+      <span>{{ i18n.t('touchpad.file.sending', { percent }) }}</span>
+      <progress
+        max="100"
+        [value]="percent"
+        [attr.aria-label]="i18n.t('touchpad.file.sendingLabel')"
+      ></progress>
+    </div>
+  }
+
   @if (statusMessage(); as status) {
     <p
       class="settings-message"

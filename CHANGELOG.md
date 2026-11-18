@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.60.0] - 2026-11-18
+
 ### Added
 
 - Client: Beim Senden einer Datei zeigt das Touchpad den Fortschritt in Prozent mit Balken ("Datei wird gesendet … 42 %"). Der Upload läuft dafür über `XMLHttpRequest` statt `fetch`, weil nur das den Upload-Fortschritt meldet.

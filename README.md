@@ -126,6 +126,28 @@ Still, only use YFRemote on a trusted private network, and don't forward port
 [Security](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) in
 the wiki for details.
 
+### Access from outside your home network
+
+To reach the PC from a mobile network or another Wi-Fi, use a private VPN such
+as [Tailscale](https://tailscale.com) instead of forwarding a port. Only your own
+devices can then reach YFRemote, and nothing on your router is opened.
+
+1. Install Tailscale on the PC and on the phone or tablet, and sign in to the
+   same account on both.
+2. Look up the PC's Tailscale address (`100.x.y.z`) in the Tailscale app.
+3. Open `http://100.x.y.z:5050` (or `https://100.x.y.z:5443` with HTTPS) on the
+   device and pair with the PIN as usual.
+
+YFRemote needs no setting for this. It already listens on all network
+interfaces, and the HTTPS certificate covers every local IPv4 address,
+including the Tailscale one. The certificate does not cover Tailscale's
+MagicDNS name, so use the IP address with HTTPS. Each address is its own page
+origin with its own pairing: a device paired via the LAN address has to pair
+once more via the Tailscale address. To pair only once, use the Tailscale
+address at home too. If the page does not load, check that Windows Firewall
+allows YFRemote on the Tailscale network. Wake-on-LAN does not work through
+the VPN, so the PC has to be on.
+
 ## Diagnostics
 
 YFRemote writes rotating runtime logs to `%LOCALAPPDATA%\YFRemote\Logs`. "Open

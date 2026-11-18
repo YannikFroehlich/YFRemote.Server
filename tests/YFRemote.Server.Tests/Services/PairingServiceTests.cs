@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using YFRemote.Server.Configuration;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
+using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server.Tests.Services;
 
@@ -100,6 +101,27 @@ public sealed class PairingServiceTests
         Assert.IsFalse(service.IsValidToken(stale.Token));
         Assert.IsTrue(service.IsValidToken(active.Token));
         Assert.AreEqual("Tablet", CreateService().GetPairedDevices().Single().Name);
+    }
+
+    [TestMethod]
+    public void Devices_DoNotExpireWhileConnected_AndCountFromDisconnect()
+    {
+        var registry = new WebSocketConnectionRegistry();
+        var service = CreateService(connections: registry);
+        var paired = Pair(service, service.GetCurrentPin().Pin, "Wandtablet");
+        Assert.IsTrue(paired.Success, paired.Error);
+        var deviceId = service.GetPairedDevices().Single().Id;
+
+        using (var connection = new CancellationTokenSource())
+        using (registry.Register(deviceId, connection))
+        {
+            timeProvider.Advance(TimeSpan.FromDays(120));
+            Assert.AreEqual(1, service.GetPairedDevices().Count);
+        }
+
+        service.MarkSeen(deviceId);
+        timeProvider.Advance(TimeSpan.FromDays(89));
+        Assert.IsTrue(service.IsValidToken(paired.Token));
     }
 
     [TestMethod]
@@ -360,7 +382,8 @@ public sealed class PairingServiceTests
 
     private PairingService CreateService(
         string? path = null,
-        TimeSpan? lastSeenPersistenceInterval = null)
+        TimeSpan? lastSeenPersistenceInterval = null,
+        WebSocketConnectionRegistry? connections = null)
     {
         var options = new PairingStorageOptions
         {
@@ -370,7 +393,7 @@ public sealed class PairingServiceTests
             LastSeenPersistenceInterval = lastSeenPersistenceInterval ?? TimeSpan.FromMinutes(5)
         };
 
-        return new PairingService(NullLogger<PairingService>.Instance, options, timeProvider);
+        return new PairingService(NullLogger<PairingService>.Instance, options, timeProvider, connections);
     }
 
     private static PairResponse Pair(

@@ -166,6 +166,7 @@ fun Route.installRoutes(
             }
         } finally {
             registration.close()
+            pairing.markSeen(device.id)
         }
     }
 

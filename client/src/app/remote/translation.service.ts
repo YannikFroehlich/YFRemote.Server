@@ -1,6 +1,12 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { REMOTE_STORAGE } from './remote.service';
-import { Lang, LANGUAGE_STORAGE_KEY, parseStoredLang, translate } from './translation';
+import {
+  formatNumber,
+  Lang,
+  LANGUAGE_STORAGE_KEY,
+  parseStoredLang,
+  translate,
+} from './translation';
 
 @Injectable({ providedIn: 'root' })
 export class TranslationService {
@@ -19,4 +25,7 @@ export class TranslationService {
 
   readonly t = (key: string, params?: Readonly<Record<string, string | number>>): string =>
     translate(this.languageSignal(), key, params);
+
+  readonly number = (value: number, digits?: number): string =>
+    formatNumber(this.languageSignal(), value, digits);
 }

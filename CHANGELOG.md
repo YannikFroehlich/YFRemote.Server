@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.58.0] - 2026-11-18
+
 ### Added
 
 - Bildschirm-Ansicht auf dem iPhone: Mit iOS 17.1 oder neuer kommt der PC-Bildschirm als flüssiges H.264-Video (über `ManagedMediaSource`) statt als einzelne JPEG-Bilder, sofern der PC einen Hardware-Encoder hat.

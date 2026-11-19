@@ -1088,7 +1088,8 @@ class SetupActivity : Activity() {
         if (remoteContainer.isShown) checkRemoteDevices(devices)
         // Nur bei einer Aenderung neu aufbauen: refreshUi laeuft alle 2 s, und ein Tipp genau waehrend
         // des Neuaufbaus ging verloren ("Aufwecken", "Entfernen", Geraet oeffnen).
-        val rendered = devices to devices.map { remoteStatus[it.url] }
+        val showSecure = prefs().getBoolean(KEY_DEVICE_TAB_SECURE, true)
+        val rendered = Triple(devices, devices.map { remoteStatus[it.url] }, showSecure)
         if (rendered == renderedRemoteDevices) return
         renderedRemoteDevices = rendered
         remoteContainer.removeAllViews()
@@ -1104,7 +1105,11 @@ class SetupActivity : Activity() {
             return
         }
 
-        for (device in devices) {
+        // Derselbe PC steht oft zweimal da, ueber HTTP und HTTPS: in zwei Tabs bleibt die Liste
+        // uebersichtlich. Gibt es nur eine Sorte, braeuchte es keinen Tab.
+        val tabs = devices.any { it.secure } && devices.any { !it.secure }
+        if (tabs) remoteContainer.addView(deviceTabs(showSecure))
+        for (device in if (tabs) devices.filter { it.secure == showSecure } else devices) {
             val status = remoteStatus[device.url]
             val dot = View(this).apply {
                 background = GradientDrawable().apply {
@@ -1189,6 +1194,38 @@ class SetupActivity : Activity() {
                             )
                         },
                     )
+                },
+            )
+        }
+    }
+
+    private fun deviceTabs(secureSelected: Boolean): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(dp(4), dp(4), dp(4), dp(4))
+        background = GradientDrawable().apply {
+            cornerRadius = dp(24).toFloat()
+            setColor(color(R.color.brand_surface_high))
+        }
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { bottomMargin = dp(10) }
+
+        for ((label, secure) in listOf("Unverschlüsselt" to false, "Verschlüsselt" to true)) {
+            val selected = secure == secureSelected
+            addView(
+                styledButton(
+                    label,
+                    GradientDrawable().apply {
+                        setColor(if (selected) color(R.color.brand_accent) else Color.TRANSPARENT)
+                    },
+                    color(if (selected) R.color.brand_background else R.color.brand_text_muted),
+                ) {
+                    prefs().edit().putBoolean(KEY_DEVICE_TAB_SECURE, secure).apply()
+                    refreshRemoteDevices()
+                }.apply {
+                    isSelected = selected
+                    layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f)
                 },
             )
         }
@@ -1596,6 +1633,7 @@ class SetupActivity : Activity() {
     private companion object {
         const val OFFLINE = "offline"
         const val KEY_SECTION = "section"
+        const val KEY_DEVICE_TAB_SECURE = "deviceTabSecure"
         const val ACTION_UPDATE_STATUS = "com.yfremote.android.UPDATE_STATUS"
         const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
         const val BLUETOOTH_REQUEST = 2

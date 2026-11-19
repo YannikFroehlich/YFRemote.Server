@@ -890,7 +890,8 @@ describe('RemoteService', () => {
       streaming: false,
       recording: true,
       recordPaused: false,
-      inputs: [{ name: 'Mic/Aux', muted: false }],
+      inputs: [{ name: 'Mic/Aux', muted: false, volume: -6 }],
+      sources: [{ id: 7, name: 'Kamera', enabled: true }],
     };
 
     remote.watchObs(true);
@@ -905,14 +906,19 @@ describe('RemoteService', () => {
     sockets[0].receive(JSON.stringify({ type: 'obs', state: 'connected' }));
     expect(remote.obs()).toEqual(state);
 
+    remote.setObsSource(7, false);
     remote.setObsScene('Pause');
     remote.toggleObsMute('Mic/Aux');
-    expect(sockets[0].sentMessages.slice(-2)).toEqual([
+    remote.setObsVolume('Mic/Aux', -20.5);
+    expect(sockets[0].sentMessages.slice(-4)).toEqual([
+      '{"type":"obsSource","name":"Live","id":"7","enabled":false}',
       '{"type":"obsScene","name":"Pause"}',
       '{"type":"obsMute","name":"Mic/Aux"}',
+      '{"type":"obsVolume","name":"Mic/Aux","value":-20.5}',
     ]);
     expect(remote.obs()?.currentScene).toBe('Pause');
-    expect(remote.obs()?.inputs).toEqual([{ name: 'Mic/Aux', muted: true }]);
+    expect(remote.obs()?.sources).toEqual([{ id: 7, name: 'Kamera', enabled: false }]);
+    expect(remote.obs()?.inputs).toEqual([{ name: 'Mic/Aux', muted: true, volume: -20.5 }]);
 
     remote.watchObs(false);
     expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"obs","enabled":false}');

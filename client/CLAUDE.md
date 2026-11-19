@@ -118,9 +118,12 @@ new component the same, unless everything its template reads is a signal or an i
      `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
      reports `voicemeeter: true` (`voicemeeterAvailable`). `obs` pushes work the same via
      `watchObs`/`obsAvailable` (`/health` `obs: true`): `ObsComponent` (`obs.component.ts`, the
-     "OBS" tab, hidden for "Nur Medien", lazy like the Mixer) shows stream/record with explicit
-     `start`/`stop`/`pause`/`resume` modes (stopping a stream asks first), the scenes
-     (`setObsScene`) and the audio inputs (`toggleObsMute`); both setters patch the signal at once. `MixerComponent`
+     "OBS" tab, hidden for "Nur Medien", lazy like the Mixer, with its own
+     `obs.component.scss` so its styles stay out of the initial bundle) shows stream/record with
+     their running time and explicit `start`/`stop`/`pause`/`resume` modes (stopping a stream asks
+     first), replay buffer and virtual camera cards only when the push carries them, the scenes
+     (`setObsScene`), the current scene's sources (`setObsSource`) and the audio inputs
+     (`toggleObsMute`, `setObsVolume` with a -60...0 dB fader); the setters patch the signal at once. `MixerComponent`
      (`mixer.component.ts`, the "Mixer" tab, shown where `mixerSupported()`, i.e. windows/linux: an
      Apps/Inputs/Outputs switch, the Voicemeeter groups only with Voicemeeter installed; one row
      shape for both, apps in %, Voicemeeter in dB with a 0 dB tick and "0 dB" reset) and the

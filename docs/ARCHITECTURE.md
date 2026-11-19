@@ -444,16 +444,25 @@ ends in close code 4009. Port and password come from OBS itself on every connect
 keys `server_enabled`/`server_port`/`auth_required`/`server_password`), so a changed password works
 without a restart; `Obs:Port`/`Obs:Password` in `settings.json` override it, which OBS 28/29 needs,
 since those kept it in `global.ini`. The "OBS" tab subscribes `{"type":"obs","enabled"}` and gets
-`{"type":"obs","state","scenes","currentScene","streaming","recording","recordPaused","inputs":[{name,muted}]}`
-from a `PollingBroadcaster` (one `RequestBatch` for scene list, stream/record status and input
-list, a second one with `GetInputMute` per input; inputs without audio fail that and drop out).
+`{"type":"obs","state","scenes","currentScene","streaming","recording","recordPaused","streamSeconds","recordSeconds","replayBuffer","virtualCam","inputs":[{name,muted,volume}],"sources":[{id,name,enabled}]}`
+from a `PollingBroadcaster`: one `RequestBatch` for scene list, stream/record/replay-buffer/virtual-camera
+status and input list, a second one with `GetInputMute` and `GetInputVolume` per input (inputs
+without audio fail them and drop out) plus `GetSceneItemList` of the current scene. `volume` is
+`inputVolumeDb` (OBS sends `null` for -inf, read as -100), `streamSeconds`/`recordSeconds` come from
+`outputDuration` and only while that output runs, so the push changes every second then.
+`replayBuffer`/`virtualCam` are left out when OBS rejects their status request (replay buffer off
+in OBS's output settings), and the Client then hides their card.
 `state` is `connected`, `offline`, `disabled` (`server_enabled` false, nothing is tried) or
 `authFailed`, which the Client turns into hints. `GetSceneList` lists the bottom scene first, so
-`scenes` is sorted by `sceneIndex` descending, the order of OBS's own list. Commands are a fixed
+`scenes` is sorted by `sceneIndex` descending, the order of OBS's own list; `sources` the same way
+by `sceneItemIndex`. Commands are a fixed
 allowlist in `RemoteActionHandler`, never a free obs-websocket request (that could delete profiles
 or set the recording path): `obsScene` (`name` → `SetCurrentProgramScene`), `obsStream` and
 `obsRecord` (`mode` `start`/`stop`/`toggle`, default toggle; `obsRecord` also `pause`/`resume`/
-`togglePause`) and `obsMute` (`name`, `muted` or toggle). OBS rejecting a request (unknown scene,
+`togglePause`), `obsReplay` (the same three plus `save` → `SaveReplayBuffer`), `obsVirtualCam`
+(`start`/`stop`/`toggle`), `obsMute` (`name`, `muted` or toggle), `obsVolume` (`name`, `value` in dB
+-100...26 → `SetInputVolume`; the Client's fader covers -60...0) and `obsSource` (`name` = scene,
+`id` = `sceneItemId` as digits, `enabled` → `SetSceneItemEnabled`). OBS rejecting a request (unknown scene,
 stream already running) becomes a `Fail` response with OBS's comment, or a short text for the
 codes 500-503 that come without one. Not allowed for "Nur Medien". The Client sends start/stop
 explicitly from the shown state instead of toggling and asks before stopping a live stream.
@@ -461,7 +470,8 @@ Covered against a fake obs-websocket server in `ObsServiceTests`. Checked on the
 2026-11-19 against a real OBS 33.0.0 (obs-websocket 5.7.6), through the handler and in the
 Client's tab: password read from `config.json`, scene order as in OBS, scene switch, recording
 start/pause/resume/stop, mute toggle and set, wrong password, unknown scene, "Nur Medien"
-rejected. Starting a stream is unverified. Found on the way: OBS answers `PauseRecord` with
+rejected; the same evening volume, source visibility, replay buffer start/save/stop and virtual
+camera start/stop through the same requests. Starting a stream is unverified. Found on the way: OBS answers `PauseRecord` with
 success and does nothing while the recording quality is "Same as stream" (the default in simple
 mode), so the tab keeps showing the recording as running; and while OBS's first-start wizard is
 open, `StartRecord` also succeeds without recording. OBS listens on `::`, which accepts the

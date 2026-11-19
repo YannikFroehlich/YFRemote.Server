@@ -722,6 +722,10 @@ public sealed class RemoteActionHandlerTests
     [DataRow("obsRecord", "togglePause", null, null, "ToggleRecordPause ")]
     [DataRow("obsMute", null, "Mic/Aux", null, "ToggleInputMute {\"inputName\":\"Mic/Aux\"}")]
     [DataRow("obsMute", null, "Mic/Aux", true, "SetInputMute {\"inputName\":\"Mic/Aux\",\"inputMuted\":true}")]
+    [DataRow("obsReplay", "start", null, null, "StartReplayBuffer ")]
+    [DataRow("obsReplay", "save", null, null, "SaveReplayBuffer ")]
+    [DataRow("obsVirtualCam", null, null, null, "ToggleVirtualCam ")]
+    [DataRow("obsVirtualCam", "stop", null, null, "StopVirtualCam ")]
     public void Handle_Obs_SendsOnlyFixedRequests(string type, string? mode, string? name, bool? muted, string expected)
     {
         var obs = new RecordingObsService();
@@ -740,6 +744,8 @@ public sealed class RemoteActionHandlerTests
     [DataRow("obsStream", "explode", null)]
     [DataRow("obsRecord", "delete", null)]
     [DataRow("obsMute", null, null)]
+    [DataRow("obsReplay", "pause", null)]
+    [DataRow("obsVirtualCam", "save", null)]
     public void Handle_Obs_RejectsAnythingElse(string type, string? mode, string? name)
     {
         var obs = new RecordingObsService();
@@ -749,6 +755,30 @@ public sealed class RemoteActionHandlerTests
 
         Assert.IsFalse(response.Success);
         Assert.IsEmpty(obs.Requests);
+    }
+
+    [TestMethod]
+    public void Handle_ObsVolumeAndSource_ForwardValidValuesOnly()
+    {
+        var obs = new RecordingObsService();
+        var handler = CreateObsHandler(obs);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Name = "Mic/Aux", Value = -12.5 }).Success);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "obsSource", Name = "Live", Id = "7", Enabled = false }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Name = "Mic/Aux", Value = 30 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Name = "Mic/Aux" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Value = -6 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsSource", Name = "Live", Id = "-1", Enabled = true }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsSource", Name = "Live", Id = "7" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsSource", Id = "7", Enabled = true }).Success);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "SetInputVolume {\"inputName\":\"Mic/Aux\",\"inputVolumeDb\":-12.5}",
+                "SetSceneItemEnabled {\"sceneName\":\"Live\",\"sceneItemId\":7,\"sceneItemEnabled\":false}"
+            },
+            obs.Requests);
     }
 
     [TestMethod]

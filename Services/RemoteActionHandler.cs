@@ -112,6 +112,10 @@ public sealed partial class RemoteActionHandler(
                 "obsscene" => HandleObsScene(request),
                 "obsstream" => HandleObsOutput(request, "Stream"),
                 "obsrecord" => HandleObsOutput(request, "Record"),
+                "obsreplay" => HandleObsOutput(request, "ReplayBuffer"),
+                "obsvirtualcam" => HandleObsOutput(request, "VirtualCam"),
+                "obsvolume" => HandleObsVolume(request),
+                "obssource" => HandleObsSource(request),
                 "obsmute" => HandleObsMute(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
@@ -841,7 +845,8 @@ public sealed partial class RemoteActionHandler(
         return SendObs("SetCurrentProgramScene", new JsonObject { ["sceneName"] = request.Name });
     }
 
-    // Ohne mode wird umgeschaltet. Pausieren gibt es nur fuer die Aufnahme.
+    // Ohne mode wird umgeschaltet. Pausieren gibt es nur fuer die Aufnahme, Speichern nur fuer den
+    // Wiederholungspuffer.
     private RemoteActionResponse HandleObsOutput(RemoteActionRequest request, string output)
     {
         var requestType = (request.Mode?.Trim().ToLowerInvariant(), output) switch
@@ -852,6 +857,7 @@ public sealed partial class RemoteActionHandler(
             ("pause", "Record") => "PauseRecord",
             ("resume", "Record") => "ResumeRecord",
             ("togglepause", "Record") => "ToggleRecordPause",
+            ("save", "ReplayBuffer") => "SaveReplayBuffer",
             _ => null
         };
 
@@ -871,6 +877,40 @@ public sealed partial class RemoteActionHandler(
         return request.Muted is { } muted
             ? SendObs("SetInputMute", new JsonObject { ["inputName"] = request.Name, ["inputMuted"] = muted })
             : SendObs("ToggleInputMute", new JsonObject { ["inputName"] = request.Name });
+    }
+
+    // value in dB wie der Fader in OBS.
+    private RemoteActionResponse HandleObsVolume(RemoteActionRequest request)
+    {
+        if (!IsObsName(request.Name))
+        {
+            return Fail("Action 'obsVolume' requires an input name.");
+        }
+
+        if (request.Value is not (>= ObsService.MinVolumeDb and <= ObsService.MaxVolumeDb) || double.IsNaN(request.Value.Value))
+        {
+            return Fail("Action 'obsVolume' takes -100 to 26 dB.");
+        }
+
+        return SendObs("SetInputVolume", new JsonObject { ["inputName"] = request.Name, ["inputVolumeDb"] = request.Value });
+    }
+
+    // Blendet eine Quelle einer Szene ein oder aus: name ist die Szene, id OBS' sceneItemId.
+    private RemoteActionResponse HandleObsSource(RemoteActionRequest request)
+    {
+        if (!IsObsName(request.Name)
+            || !int.TryParse(request.Id, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var itemId)
+            || request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'obsSource' requires a scene name, an item id and enabled.");
+        }
+
+        return SendObs("SetSceneItemEnabled", new JsonObject
+        {
+            ["sceneName"] = request.Name,
+            ["sceneItemId"] = itemId,
+            ["sceneItemEnabled"] = enabled
+        });
     }
 
     private RemoteActionResponse SendObs(string requestType, JsonObject? requestData)

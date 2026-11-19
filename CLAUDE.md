@@ -129,7 +129,7 @@ Every endpoint with its gate, limits and status codes is described in
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `mouseZoom`, `shutdown`, `restart`,
 `sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, `launch`,
-`obsScene`/`obsStream`/`obsRecord`/`obsMute`, ...) into `IInputService` /
+`obsScene`/`obsStream`/`obsRecord`/`obsReplay`/`obsVirtualCam`/`obsMute`/`obsVolume`/`obsSource`, ...) into `IInputService` /
 `IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
 it also unmutes, like the Windows volume slider), validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws

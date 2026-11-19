@@ -616,6 +616,38 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  /** Setzt die Lautstaerke einer Audioquelle in OBS (dB), ebenfalls sofort angezeigt. */
+  setObsVolume(name: string, value: number): void {
+    const state = this.obsSignal();
+    if (!this.sendAction({ type: 'obsVolume', name, value }) || state?.inputs === undefined) {
+      return;
+    }
+
+    this.obsSignal.set({
+      ...state,
+      inputs: state.inputs.map((input) => (input.name === name ? { ...input, volume: value } : input)),
+    });
+  }
+
+  /** Blendet eine Quelle der aktuellen Szene ein oder aus, ebenfalls sofort angezeigt. */
+  setObsSource(id: number, enabled: boolean): void {
+    const state = this.obsSignal();
+    if (state?.currentScene === undefined || state.sources === undefined) {
+      return;
+    }
+
+    if (
+      this.sendAction({ type: 'obsSource', name: state.currentScene, id: String(id), enabled })
+    ) {
+      this.obsSignal.set({
+        ...state,
+        sources: state.sources.map((source) =>
+          source.id === id ? { ...source, enabled } : source,
+        ),
+      });
+    }
+  }
+
   /** Schaltet eine Audioquelle in OBS um, ebenfalls sofort angezeigt. */
   toggleObsMute(name: string): void {
     const state = this.obsSignal();
@@ -1668,6 +1700,7 @@ function isObsMessage(value: unknown): value is ObsMessage {
   const message = value as Partial<ObsMessage> | null;
   const scenes = message?.scenes as unknown;
   const inputs = message?.inputs as unknown;
+  const sources = message?.sources as unknown;
   return (
     message?.type === 'obs' &&
     OBS_STATES.has(message.state) &&
@@ -1675,12 +1708,29 @@ function isObsMessage(value: unknown): value is ObsMessage {
     typeof message.recording === 'boolean' &&
     typeof message.recordPaused === 'boolean' &&
     (message.currentScene === undefined || typeof message.currentScene === 'string') &&
+    [message.streamSeconds, message.recordSeconds].every(
+      (seconds) => seconds === undefined || typeof seconds === 'number',
+    ) &&
+    [message.replayBuffer, message.virtualCam].every(
+      (active) => active === undefined || typeof active === 'boolean',
+    ) &&
     (scenes === undefined ||
       (Array.isArray(scenes) && scenes.every((scene) => typeof scene === 'string'))) &&
     (inputs === undefined ||
       (Array.isArray(inputs) &&
         inputs.every(
-          (input) => typeof input?.name === 'string' && typeof input.muted === 'boolean',
+          (input) =>
+            typeof input?.name === 'string' &&
+            typeof input.muted === 'boolean' &&
+            typeof input.volume === 'number',
+        ))) &&
+    (sources === undefined ||
+      (Array.isArray(sources) &&
+        sources.every(
+          (source) =>
+            typeof source?.id === 'number' &&
+            typeof source.name === 'string' &&
+            typeof source.enabled === 'boolean',
         )))
   );
 }

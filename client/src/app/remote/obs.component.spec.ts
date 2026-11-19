@@ -14,7 +14,10 @@ describe('ObsComponent', () => {
     streaming: true,
     recording: false,
     recordPaused: false,
-    inputs: [{ name: 'Mic/Aux', muted: true }],
+    inputs: [{ name: 'Mic/Aux', muted: true, volume: -6.5 }],
+    streamSeconds: 83,
+    replayBuffer: true,
+    sources: [{ id: 7, name: 'Kamera', enabled: false }],
   };
 
   afterEach(() => vi.unstubAllGlobals());
@@ -25,6 +28,8 @@ describe('ObsComponent', () => {
       watchObs: vi.fn(),
       sendAction: vi.fn(() => true),
       setObsScene: vi.fn(),
+      setObsSource: vi.fn(),
+      setObsVolume: vi.fn(),
       toggleObsMute: vi.fn(),
     };
     TestBed.configureTestingModule({ providers: [{ provide: RemoteService, useValue: remote }] });
@@ -47,6 +52,33 @@ describe('ObsComponent', () => {
 
     fixture.destroy();
     expect(remote.watchObs).toHaveBeenLastCalledWith(false);
+  });
+
+  it('shows the stream time and offers replay and virtual camera only where OBS has them', () => {
+    const { remote, element, buttonWithText } = setup();
+
+    expect(element.querySelector('.obs-output__badge')?.textContent).toContain('Live · 1:23');
+    expect(buttonWithText('Kamera starten')).toBeUndefined();
+
+    buttonWithText('Replay speichern').click();
+    buttonWithText('Puffer stoppen').click();
+
+    expect(remote.sendAction.mock.calls).toEqual([
+      [{ type: 'obsReplay', mode: 'save' }],
+      [{ type: 'obsReplay', mode: 'stop' }],
+    ]);
+  });
+
+  it('shows hidden sources and sets the volume in dB', () => {
+    const { remote, element } = setup();
+    const fader = element.querySelector<HTMLInputElement>('input[type="range"]')!;
+
+    element.querySelector<HTMLButtonElement>('button[aria-label="Kamera anzeigen"]')!.click();
+    fader.value = '-12';
+    fader.dispatchEvent(new Event('change'));
+
+    expect(remote.setObsSource).toHaveBeenCalledWith(7, true);
+    expect(remote.setObsVolume).toHaveBeenCalledWith('Mic/Aux', -12);
   });
 
   it('marks the current scene and switches scenes', () => {

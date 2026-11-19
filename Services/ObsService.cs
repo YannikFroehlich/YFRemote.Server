@@ -18,6 +18,8 @@ public sealed class ObsService(ObsOptions options, ILogger<ObsService> logger) :
 
     private const int AuthenticationFailedCloseCode = 4009;
     private const int RpcVersion = 1;
+    internal const double MinVolumeDb = -100;
+    internal const double MaxVolumeDb = 26;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(3);
 
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -43,7 +45,14 @@ public sealed class ObsService(ObsOptions options, ILogger<ObsService> logger) :
             await EnsureConnectedAsync(settings, timeout.Token);
 
             var status = await BatchAsync(
-                [Request("GetSceneList"), Request("GetStreamStatus"), Request("GetRecordStatus"), Request("GetInputList")],
+                [
+                    Request("GetSceneList"),
+                    Request("GetStreamStatus"),
+                    Request("GetRecordStatus"),
+                    Request("GetInputList"),
+                    Request("GetReplayBufferStatus"),
+                    Request("GetVirtualCamStatus")
+                ],
                 timeout.Token);
             var sceneList = ResponseData(status, 0);
             var stream = ResponseData(status, 1);
@@ -52,19 +61,44 @@ public sealed class ObsService(ObsOptions options, ILogger<ObsService> logger) :
                 .Select(input => Text(input?["inputName"]))
                 .OfType<string>()
                 .ToList();
+            var currentScene = Text(sceneList?["currentProgramSceneName"]);
 
-            // Nur Quellen mit Ton beantworten GetInputMute; Bild-, Text- und Browserquellen fallen so heraus.
-            var mutes = inputNames.Count == 0
-                ? new JsonArray()
-                : await BatchAsync(
-                    inputNames.Select(name => Request("GetInputMute", new JsonObject { ["inputName"] = name })),
-                    timeout.Token);
+            // Zweite Runde: je Quelle Stummschaltung und Lautstaerke, dazu die Quellen der aktuellen
+            // Szene. Nur Quellen mit Ton beantworten GetInputMute; Bild-, Text- und Browserquellen
+            // fallen so heraus.
+            List<JsonObject> details = [];
+            foreach (var name in inputNames)
+            {
+                details.Add(Request("GetInputMute", new JsonObject { ["inputName"] = name }));
+                details.Add(Request("GetInputVolume", new JsonObject { ["inputName"] = name }));
+            }
+
+            if (currentScene is not null)
+            {
+                details.Add(Request("GetSceneItemList", new JsonObject { ["sceneName"] = currentScene }));
+            }
+
+            var answers = details.Count == 0 ? new JsonArray() : await BatchAsync(details, timeout.Token);
             var inputs = inputNames
-                .Select((name, index) => ResponseData(mutes, index) is { } mute
-                    ? new ObsInput(name, Flag(mute["inputMuted"]))
+                .Select((name, index) => ResponseData(answers, 2 * index) is { } mute
+                    ? new ObsInput(
+                        name,
+                        Flag(mute["inputMuted"]),
+                        // Stumm geregelt ist -inf dB, das JSON als null schickt.
+                        Math.Round(Math.Max(MinVolumeDb, Real(ResponseData(answers, 2 * index + 1)?["inputVolumeDb"]) ?? MinVolumeDb), 1))
                     : null)
                 .OfType<ObsInput>()
                 .ToList();
+            // Wie die Szenen: sceneItemIndex zaehlt von unten, oben in OBS steht der hoechste.
+            var sources = currentScene is null
+                ? null
+                : (ResponseData(answers, 2 * inputNames.Count)?["sceneItems"] as JsonArray ?? new JsonArray())
+                    .OrderByDescending(item => Number(item?["sceneItemIndex"]))
+                    .Select(item => Text(item?["sourceName"]) is { } name
+                        ? new ObsSceneItem(Number(item!["sceneItemId"]), name, Flag(item["sceneItemEnabled"]))
+                        : null)
+                    .OfType<ObsSceneItem>()
+                    .ToList();
 
             // GetSceneList liefert die unterste Szene zuerst; sceneIndex zaehlt von unten.
             var scenes = (sceneList?["scenes"] as JsonArray ?? new JsonArray())
@@ -73,14 +107,22 @@ public sealed class ObsService(ObsOptions options, ILogger<ObsService> logger) :
                 .OfType<string>()
                 .ToList();
 
+            // Ohne eingeschalteten Wiederholungspuffer bzw. virtuelle Kamera lehnt OBS die Abfrage ab: null.
+            var replayBuffer = ResponseData(status, 4);
+            var virtualCam = ResponseData(status, 5);
             return new ObsMessage(
                 "connected",
                 scenes,
-                Text(sceneList?["currentProgramSceneName"]),
+                currentScene,
                 Flag(stream?["outputActive"]),
                 Flag(record?["outputActive"]),
                 Flag(record?["outputPaused"]),
-                inputs);
+                inputs,
+                Seconds(stream),
+                Seconds(record),
+                replayBuffer is null ? null : Flag(replayBuffer["outputActive"]),
+                virtualCam is null ? null : Flag(virtualCam["outputActive"]),
+                sources);
         }
         catch (ObsAuthenticationException)
         {
@@ -298,6 +340,13 @@ public sealed class ObsService(ObsOptions options, ILogger<ObsService> logger) :
 
     private static int Number(JsonNode? node) =>
         node is JsonValue value && value.TryGetValue<int>(out var number) ? number : -1;
+
+    private static double? Real(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<double>(out var number) ? number : null;
+
+    // Laufzeit einer Ausgabe in ganzen Sekunden, nur solange sie laeuft.
+    private static int? Seconds(JsonNode? output) =>
+        Flag(output?["outputActive"]) ? Math.Max(0, Number(output?["outputDuration"])) / 1000 : null;
 
     private static bool IsConnectionFailure(Exception exception) =>
         exception is WebSocketException or OperationCanceledException or IOException or JsonException

@@ -63,7 +63,14 @@ public sealed class ObsServiceTests
         Assert.IsTrue(message.Streaming);
         Assert.IsTrue(message.Recording);
         Assert.IsFalse(message.RecordPaused);
-        CollectionAssert.AreEqual(new[] { new ObsInput("Mic/Aux", true) }, message.Inputs!.ToArray());
+        CollectionAssert.AreEqual(new[] { new ObsInput("Mic/Aux", true, -6.5) }, message.Inputs!.ToArray());
+        Assert.AreEqual(83, message.StreamSeconds);
+        Assert.AreEqual(0, message.RecordSeconds);
+        Assert.IsNull(message.ReplayBuffer);
+        Assert.IsFalse(message.VirtualCam);
+        CollectionAssert.AreEqual(
+            new[] { new ObsSceneItem(7, "Kamera", false), new ObsSceneItem(3, "Hintergrund", true) },
+            message.Sources!.ToArray());
 
         // Die zweite Abfrage nutzt dieselbe Verbindung.
         Assert.AreEqual(message, await service.ReadAsync());
@@ -239,13 +246,17 @@ public sealed class ObsServiceTests
             JsonNode? responseData = type switch
             {
                 "GetSceneList" => JsonNode.Parse("""{"currentProgramSceneName":"Live","scenes":[{"sceneIndex":0,"sceneName":"Pause"},{"sceneIndex":1,"sceneName":"Live"}]}"""),
-                "GetStreamStatus" => JsonNode.Parse("""{"outputActive":true}"""),
+                "GetStreamStatus" => JsonNode.Parse("""{"outputActive":true,"outputDuration":83456}"""),
                 "GetRecordStatus" => JsonNode.Parse("""{"outputActive":true,"outputPaused":false}"""),
+                "GetVirtualCamStatus" => JsonNode.Parse("""{"outputActive":false}"""),
+                "GetInputVolume" when requestData?["inputName"]?.GetValue<string>() == "Mic/Aux" => JsonNode.Parse("""{"inputVolumeMul":0.47,"inputVolumeDb":-6.54}"""),
+                "GetSceneItemList" when requestData?["sceneName"]?.GetValue<string>() == "Live" => JsonNode.Parse("""{"sceneItems":[{"sceneItemId":3,"sourceName":"Hintergrund","sceneItemEnabled":true,"sceneItemIndex":0},{"sceneItemId":7,"sourceName":"Kamera","sceneItemEnabled":false,"sceneItemIndex":1}]}"""),
                 "GetInputList" => JsonNode.Parse("""{"inputs":[{"inputName":"Mic/Aux"},{"inputName":"Webcam"}]}"""),
                 "GetInputMute" when requestData?["inputName"]?.GetValue<string>() == "Mic/Aux" => JsonNode.Parse("""{"inputMuted":true}"""),
                 _ => null
             };
-            var failed = type == "GetInputMute" && responseData is null
+            // Wiederholungspuffer aus, Webcam ohne Ton: OBS lehnt diese Abfragen ab.
+            var failed = type is "GetInputMute" or "GetInputVolume" or "GetReplayBufferStatus" && responseData is null
                 || requestData?["sceneName"]?.GetValue<string>() == "Fehlt";
             var status = new JsonObject { ["result"] = !failed, ["code"] = failed ? 600 : 100 };
             if (failed)

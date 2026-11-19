@@ -23,7 +23,7 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
-- OBS Studio lässt sich vom Handy steuern: Im neuen Tab „OBS“ startest und beendest du Stream und Aufnahme, pausierst die Aufnahme, wechselst Szenen und schaltest Audioquellen stumm. Der PC verbindet sich dafür selbst mit dem WebSocket-Server von OBS (ab OBS 28 eingebaut, unter Werkzeuge → WebSocket-Servereinstellungen einschalten) und liest Port und Passwort aus der OBS-Einstellung. Geräte mit „Nur Medien“ sehen den Tab nicht. Pausieren geht nur, wenn OBS es zulässt – bei der Aufnahmequalität „Wie Stream“ nicht.
+- OBS Studio lässt sich vom Handy steuern: Im neuen Tab „OBS“ startest und beendest du Stream und Aufnahme (mit Laufzeit), pausierst die Aufnahme, startest den Replay-Puffer und speicherst ein Replay, schaltest die virtuelle Kamera, wechselst Szenen, blendest Quellen der aktuellen Szene ein und aus und regelst Lautstärke und Stummschaltung der Audioquellen. Der PC verbindet sich dafür selbst mit dem WebSocket-Server von OBS (ab OBS 28 eingebaut, unter Werkzeuge → WebSocket-Servereinstellungen einschalten) und liest Port und Passwort aus der OBS-Einstellung. Geräte mit „Nur Medien“ sehen den Tab nicht. Pausieren geht nur, wenn OBS es zulässt – bei der Aufnahmequalität „Wie Stream“ nicht.
 
 ## [2.64.1] - 2026-11-19
 

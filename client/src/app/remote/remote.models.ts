@@ -313,6 +313,40 @@ export interface ObsRecordAction {
   readonly mode?: 'start' | 'stop' | 'toggle' | 'pause' | 'resume' | 'togglePause';
 }
 
+/** Wiederholungspuffer in OBS; `save` speichert die letzten Sekunden. Ohne `mode` umschalten. */
+export interface ObsReplayAction {
+  readonly type: 'obsReplay';
+  readonly mode?: 'start' | 'stop' | 'toggle' | 'save';
+}
+
+/** Virtuelle Kamera in OBS. Ohne `mode` umschalten. */
+export interface ObsVirtualCamAction {
+  readonly type: 'obsVirtualCam';
+  readonly mode?: 'start' | 'stop' | 'toggle';
+}
+
+/** Lautstaerke einer Audioquelle in OBS, `value` in dB (-100 bis 26) wie ihr Fader. */
+export interface ObsVolumeAction {
+  readonly type: 'obsVolume';
+  readonly name: string;
+  readonly value: number;
+}
+
+/** Blendet eine Quelle der Szene `name` ein oder aus; `id` ist OBS' sceneItemId. */
+export interface ObsSourceAction {
+  readonly type: 'obsSource';
+  readonly name: string;
+  readonly id: string;
+  readonly enabled: boolean;
+}
+
+/** Eine Quelle der aktuellen Szene; `enabled` ist ihr Auge in der Quellenliste von OBS. */
+export interface ObsSceneItem {
+  readonly id: number;
+  readonly name: string;
+  readonly enabled: boolean;
+}
+
 /** Schaltet eine Audioquelle in OBS stumm (`muted`) oder ohne `muted` um. */
 export interface ObsMuteAction {
   readonly type: 'obsMute';
@@ -320,9 +354,11 @@ export interface ObsMuteAction {
   readonly muted?: boolean;
 }
 
+/** Eine Audioquelle in OBS; `volume` in dB wie ihr Fader (-100 = ganz unten). */
 export interface ObsInput {
   readonly name: string;
   readonly muted: boolean;
+  readonly volume: number;
 }
 
 /** Zustand von OBS, solange der Tab offen ist. `offline`: OBS laeuft nicht, `disabled`: der
@@ -336,6 +372,14 @@ export interface ObsMessage {
   readonly recording: boolean;
   readonly recordPaused: boolean;
   readonly inputs?: readonly ObsInput[];
+  /** Laufzeit in Sekunden, nur solange gesendet bzw. aufgenommen wird. */
+  readonly streamSeconds?: number;
+  readonly recordSeconds?: number;
+  /** Fehlen, wo OBS sie nicht anbietet (Wiederholungspuffer in den Einstellungen aus). */
+  readonly replayBuffer?: boolean;
+  readonly virtualCam?: boolean;
+  /** Quellen der aktuellen Szene, oben in OBS zuerst. */
+  readonly sources?: readonly ObsSceneItem[];
 }
 
 /** Ein Voicemeeter-Eingang ("Strip[n]") oder -Bus ("Bus[n]"); `gain` in dB. */
@@ -509,6 +553,10 @@ export type RemoteAction =
   | ObsSceneAction
   | ObsStreamAction
   | ObsRecordAction
+  | ObsReplayAction
+  | ObsVirtualCamAction
+  | ObsVolumeAction
+  | ObsSourceAction
   | ObsMuteAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */

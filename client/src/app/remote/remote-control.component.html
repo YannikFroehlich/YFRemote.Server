@@ -612,12 +612,15 @@
     <app-settings-dialog animate.leave="dialog-leave" (closed)="closeSettings()" />
   }
 
+  <!-- Erst beim ersten Oeffnen nachgeladen: der Editor mit allen Schritt-Arten ist gross. -->
   @if (editorOpen()) {
-    <app-button-editor-dialog
-      animate.leave="dialog-leave"
-      [targetId]="editorTargetId()"
-      [initialSteps]="editorInitialSteps()"
-      (closed)="closeButtonEditor()"
-    />
+    @defer (on immediate) {
+      <app-button-editor-dialog
+        animate.leave="dialog-leave"
+        [targetId]="editorTargetId()"
+        [initialSteps]="editorInitialSteps()"
+        (closed)="closeButtonEditor()"
+      />
+    }
   }
 </main>

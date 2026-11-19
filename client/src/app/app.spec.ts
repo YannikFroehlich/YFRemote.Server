@@ -446,6 +446,9 @@ describe('App', () => {
 
     queryButtonByText(compiled, 'Hinzufügen').click();
     fixture.detectChanges();
+    // Der Editor wird erst beim Oeffnen nachgeladen (@defer).
+    await fixture.whenStable();
+    fixture.detectChanges();
 
     const labelInput = queryInput(compiled, '#button-label');
     labelInput.value = 'Speichern';
@@ -481,6 +484,9 @@ describe('App', () => {
     fixture.detectChanges();
 
     queryButtonByText(compiled, 'Hinzufügen').click();
+    fixture.detectChanges();
+    // Der Editor wird erst beim Oeffnen nachgeladen (@defer).
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const labelInput = queryInput(compiled, '#button-label');

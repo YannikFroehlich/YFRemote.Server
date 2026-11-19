@@ -466,6 +466,10 @@ or set the recording path): `obsScene` (`name` → `SetCurrentProgramScene`), `o
 stream already running) becomes a `Fail` response with OBS's comment, or a short text for the
 codes 500-503 that come without one. Not allowed for "Nur Medien". The Client sends start/stop
 explicitly from the shown state instead of toggling and asks before stopping a live stream.
+Custom buttons can carry `obsScene`, `obsStream`, `obsRecord`, `obsReplay` (`save`) and `obsMute`
+steps (the button editor's "OBS" step type, offered with `/health` `obs: true`);
+`normalizeRemoteAction` in `button-layout.ts` mirrors the server's modes and the 256-character name
+limit, and also keeps `obsVirtualCam` for the macro recorder.
 Covered against a fake obs-websocket server in `ObsServiceTests`. Checked on the dev PC on
 2026-11-19 against a real OBS 33.0.0 (obs-websocket 5.7.6), through the handler and in the
 Client's tab: password read from `config.json`, scene order as in OBS, scene switch, recording

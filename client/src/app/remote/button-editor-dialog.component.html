@@ -214,6 +214,18 @@
                     {{ i18n.t('buttonEditor.tab.launch') }}
                   </button>
                 }
+                @if (obsAvailable()) {
+                  <button
+                    type="button"
+                    class="view-tab"
+                    role="tab"
+                    [class.view-tab--active]="stepType() === 'obs'"
+                    [attr.aria-selected]="stepType() === 'obs'"
+                    (click)="setStepType('obs')"
+                  >
+                    OBS
+                  </button>
+                }
               </div>
 
               @if (stepType() === 'keys') {
@@ -383,6 +395,44 @@
                       spellcheck="false"
                     />
                   </label>
+                }
+              } @else if (stepType() === 'obs') {
+                <div class="key-group__keys">
+                  @for (command of obsCommands; track command) {
+                    <button
+                      class="key-chip"
+                      type="button"
+                      [class.key-chip--active]="pendingObsCommand() === command"
+                      [attr.aria-pressed]="pendingObsCommand() === command"
+                      (click)="selectObsCommand(command)"
+                    >
+                      {{ i18n.t('buttonEditor.obs.' + command) }}
+                    </button>
+                  }
+                </div>
+                @if (pendingObsCommand() === 'scene' || pendingObsCommand() === 'mute') {
+                  <label class="field">
+                    <span>
+                      {{ i18n.t(pendingObsCommand() === 'scene' ? 'buttonEditor.obs.sceneField' : 'buttonEditor.obs.inputField') }}
+                    </span>
+                    <input
+                      type="text"
+                      list="button-editor-obs-names"
+                      [attr.maxlength]="maxObsNameLength"
+                      [value]="pendingObsName()"
+                      (input)="onObsNameInput($event)"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <datalist id="button-editor-obs-names">
+                      @for (name of obsNames(); track name) {
+                        <option [value]="name"></option>
+                      }
+                    </datalist>
+                  </label>
+                }
+                @if (pendingObsCommand() !== 'scene' && pendingObsCommand() !== 'replay') {
+                  <ng-container *ngTemplateOutlet="switchModePicker" />
                 }
               } @else {
                 <div class="mouse-click-picker">

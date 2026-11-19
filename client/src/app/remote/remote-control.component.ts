@@ -28,18 +28,20 @@ import { SystemStatsComponent } from './system-stats.component';
 import { TouchpadComponent } from './touchpad/touchpad.component';
 import { TranslationService } from './translation.service';
 import { MixerComponent } from './mixer.component';
+import { ObsComponent } from './obs.component';
 import { PresentationComponent } from './presentation.component';
 import { ScreenViewComponent } from './screen-view.component';
 import { RING_PLAYER } from './ring-player';
 
 type RemoteView = ProfileView;
-// "Nur Medien": Eingaben ausser Medientasten und den Bildschirm lehnt der PC ab.
+// "Nur Medien": Eingaben ausser Medientasten, den Bildschirm und OBS lehnt der PC ab.
 const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set([
   'touchpad',
   'screen',
   'keyboard',
   'presentation',
   'gamepad',
+  'obs',
 ]);
 
 // Etwas laenger als der Sekundentakt der Medienmeldung, damit die neue Position schon da ist.
@@ -56,6 +58,7 @@ const SEEK_SETTLE_MS = 1500;
     GamepadComponent,
     SystemStatsComponent,
     MixerComponent,
+    ObsComponent,
     PresentationComponent,
     ScreenViewComponent,
   ],
@@ -149,6 +152,7 @@ export class RemoteControlComponent {
   protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
   protected readonly mixerSupported = this.remote.mixerSupported;
+  protected readonly obsAvailable = this.remote.obsAvailable;
   // Bildschirmaufnahme kann nur der Windows-Server, und erst ab der Version mit GET /screen.
   protected readonly screenSupported = this.remote.screenAvailable;
   protected readonly systemTabKey = computed(() =>
@@ -173,6 +177,7 @@ export class RemoteControlComponent {
     if (
       (!this.systemStatsSupported() && view === 'system') ||
       (!this.mixerSupported() && view === 'mixer') ||
+      (!this.obsAvailable() && view === 'obs') ||
       (!this.screenSupported() && view === 'screen') ||
       (this.mediaOnly() && INPUT_VIEWS.has(view))
     ) {
@@ -321,6 +326,7 @@ export class RemoteControlComponent {
       (view === 'gamepad' && !this.gamepadAvailable()) ||
       (view === 'system' && !this.systemStatsSupported()) ||
       (view === 'mixer' && !this.mixerSupported()) ||
+      (view === 'obs' && !this.obsAvailable()) ||
       (view === 'screen' && !this.screenSupported())
     );
   }

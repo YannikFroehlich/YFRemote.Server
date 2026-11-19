@@ -12,6 +12,7 @@ namespace YFRemote.Server.Models;
 // /screen/audio gibt es, der Tab zeigt dann den Schalter "Ton". Touch: die Aktion "touch" gibt es,
 // der Tab zeigt den Schalter "Touch". HttpsPort: HTTPS ist eingeschaltet, der Client fuehrt ein
 // iPhone ueber HTTP damit zur Zertifikatsinstallation und zur https-Adresse; null bei nur HTTP.
+// Obs: OBS Studio ist eingerichtet (Konfigurationsordner gefunden), der Client zeigt den Tab "OBS".
 public sealed record HealthResponse(
     string Status,
     string Service,
@@ -24,4 +25,5 @@ public sealed record HealthResponse(
     bool Screen = false,
     bool Audio = false,
     bool Touch = false,
-    int? HttpsPort = null);
+    int? HttpsPort = null,
+    bool Obs = false);

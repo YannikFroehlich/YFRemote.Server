@@ -712,6 +712,151 @@ public sealed class RemoteActionHandlerTests
     }
 
     [TestMethod]
+    [DataRow("obsScene", null, "Live", null, "SetCurrentProgramScene {\"sceneName\":\"Live\"}")]
+    [DataRow("obsStream", null, null, null, "ToggleStream ")]
+    [DataRow("obsStream", "start", null, null, "StartStream ")]
+    [DataRow("obsStream", "stop", null, null, "StopStream ")]
+    [DataRow("obsRecord", "toggle", null, null, "ToggleRecord ")]
+    [DataRow("obsRecord", "pause", null, null, "PauseRecord ")]
+    [DataRow("obsRecord", "resume", null, null, "ResumeRecord ")]
+    [DataRow("obsRecord", "togglePause", null, null, "ToggleRecordPause ")]
+    [DataRow("obsMute", null, "Mic/Aux", null, "ToggleInputMute {\"inputName\":\"Mic/Aux\"}")]
+    [DataRow("obsMute", null, "Mic/Aux", true, "SetInputMute {\"inputName\":\"Mic/Aux\",\"inputMuted\":true}")]
+    [DataRow("obsReplay", "start", null, null, "StartReplayBuffer ")]
+    [DataRow("obsReplay", "save", null, null, "SaveReplayBuffer ")]
+    [DataRow("obsVirtualCam", null, null, null, "ToggleVirtualCam ")]
+    [DataRow("obsVirtualCam", "stop", null, null, "StopVirtualCam ")]
+    public void Handle_Obs_SendsOnlyFixedRequests(string type, string? mode, string? name, bool? muted, string expected)
+    {
+        var obs = new RecordingObsService();
+        var handler = CreateObsHandler(obs);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = type, Mode = mode, Name = name, Muted = muted });
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual(expected, obs.Requests.Single());
+    }
+
+    [TestMethod]
+    [DataRow("obsScene", null, null)]
+    [DataRow("obsScene", null, " ")]
+    [DataRow("obsStream", "pause", null)]
+    [DataRow("obsStream", "explode", null)]
+    [DataRow("obsRecord", "delete", null)]
+    [DataRow("obsMute", null, null)]
+    [DataRow("obsReplay", "pause", null)]
+    [DataRow("obsVirtualCam", "save", null)]
+    public void Handle_Obs_RejectsAnythingElse(string type, string? mode, string? name)
+    {
+        var obs = new RecordingObsService();
+        var handler = CreateObsHandler(obs);
+
+        var response = handler.Handle(new RemoteActionRequest { Type = type, Mode = mode, Name = name });
+
+        Assert.IsFalse(response.Success);
+        Assert.IsEmpty(obs.Requests);
+    }
+
+    [TestMethod]
+    public void Handle_ObsVolumeAndSource_ForwardValidValuesOnly()
+    {
+        var obs = new RecordingObsService();
+        var handler = CreateObsHandler(obs);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Name = "Mic/Aux", Value = -12.5 }).Success);
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "obsSource", Name = "Live", Id = "7", Enabled = false }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Name = "Mic/Aux", Value = 30 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Name = "Mic/Aux" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsVolume", Value = -6 }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsSource", Name = "Live", Id = "-1", Enabled = true }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsSource", Name = "Live", Id = "7" }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obsSource", Id = "7", Enabled = true }).Success);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "SetInputVolume {\"inputName\":\"Mic/Aux\",\"inputVolumeDb\":-12.5}",
+                "SetSceneItemEnabled {\"sceneName\":\"Live\",\"sceneItemId\":7,\"sceneItemEnabled\":false}"
+            },
+            obs.Requests);
+    }
+
+    [TestMethod]
+    public void Handle_Obs_NotAllowedForMediaOnlyAndReportsObsErrors()
+    {
+        var obs = new RecordingObsService();
+        var handler = CreateObsHandler(obs);
+
+        var mediaOnly = handler.Handle(
+            new RemoteActionRequest { Type = "obsStream", Mode = "start" },
+            new RemoteActionSession { MediaOnly = true });
+        obs.Error = "OBS is not reachable.";
+        var unreachable = handler.Handle(new RemoteActionRequest { Type = "obsRecord" });
+
+        Assert.AreEqual(RemoteActionHandler.MediaOnlyError, mediaOnly.Error);
+        Assert.AreEqual("OBS is not reachable.", unreachable.Error);
+        Assert.IsEmpty(obs.Requests);
+        Assert.IsFalse(CreateHandler().Handle(new RemoteActionRequest { Type = "obsStream" }).Success);
+    }
+
+    [TestMethod]
+    public async Task Handle_ObsWatch_PushesStatusUntilDisabled()
+    {
+        var status = new PollingBroadcaster<ObsMessage>(
+            () => Task.FromResult(new ObsMessage("offline")),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: true,
+            NullLogger.Instance);
+        var pushed = new List<ObsMessage>();
+        var session = new RemoteActionSession(onObs: pushed.Add);
+        var handler = new RemoteActionHandler(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            obs: new RecordingObsService(),
+            obsStatus: status);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "obs", Enabled = true }, session).Success);
+        await status.PollAsync();
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "obs", Enabled = false }, session).Success);
+        await status.PollAsync();
+
+        Assert.AreEqual(new ObsMessage("offline"), pushed.Single());
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obs" }, session).Success);
+    }
+
+    private static RemoteActionHandler CreateObsHandler(IObsService obs) =>
+        new(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            obs: obs);
+
+    private sealed class RecordingObsService : IObsService
+    {
+        public List<string> Requests { get; } = [];
+
+        public string? Error { get; set; }
+
+        public bool IsInstalled => true;
+
+        public Task<ObsMessage> ReadAsync() => Task.FromResult(new ObsMessage("offline"));
+
+        public Task SendAsync(string requestType, System.Text.Json.Nodes.JsonObject? requestData = null)
+        {
+            if (Error is not null)
+            {
+                throw new NotSupportedException(Error);
+            }
+
+            Requests.Add($"{requestType} {requestData?.ToJsonString()}");
+            return Task.CompletedTask;
+        }
+    }
+
+    [TestMethod]
     public void Handle_ShutdownTimer_SchedulesAndCancels()
     {
         using var shutdownTimer = new ShutdownTimer(new RecordingPowerService(), NullLogger<ShutdownTimer>.Instance);

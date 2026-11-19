@@ -12,7 +12,8 @@ public sealed class RemoteActionSession(
     Action<VoicemeeterMessage>? onVoicemeeter = null,
     Action<AppVolumesMessage>? onApps = null,
     Action<PcNotificationMessage>? onNotification = null,
-    Action<ForegroundAppMessage>? onForegroundApp = null) : IDisposable
+    Action<ForegroundAppMessage>? onForegroundApp = null,
+    Action<ObsMessage>? onObs = null) : IDisposable
 {
     public string DeviceName { get; init; } = "Unbekanntes Gerät";
 
@@ -36,6 +37,10 @@ public sealed class RemoteActionSession(
     internal IDisposable? NotificationsSubscription { get; set; }
 
     internal IDisposable? ForegroundAppSubscription { get; set; }
+
+    internal IDisposable? ObsSubscription { get; set; }
+
+    internal void PushObs(ObsMessage message) => onObs?.Invoke(message);
 
     internal void PushForegroundApp(ForegroundAppMessage message) => onForegroundApp?.Invoke(message);
 
@@ -89,5 +94,7 @@ public sealed class RemoteActionSession(
         NotificationsSubscription = null;
         ForegroundAppSubscription?.Dispose();
         ForegroundAppSubscription = null;
+        ObsSubscription?.Dispose();
+        ObsSubscription = null;
     }
 }

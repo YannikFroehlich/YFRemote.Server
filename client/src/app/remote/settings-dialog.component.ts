@@ -90,6 +90,7 @@ export class SettingsDialogComponent {
     { value: 'gamepad', label: 'shell.tabGamepad' },
     { value: 'system', label: 'shell.tabSystem' },
     { value: 'mixer', label: 'shell.tabMixer' },
+    { value: 'obs', label: 'OBS' },
   ];
   // Ueber die App-Bruecke, wo es eine gibt: im WebView der Android-App tut ein blob:-Link nichts.
   private readonly saveFile = inject(FILE_SAVER);

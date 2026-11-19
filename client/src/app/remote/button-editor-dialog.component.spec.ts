@@ -48,6 +48,17 @@ function pcWithAudio(): object {
     watchVoicemeeter: () => undefined,
     watchApps: () => undefined,
     readLaunchApps: () => Promise.resolve(['Steam']),
+    obsAvailable: signal(true),
+    obs: signal({
+      type: 'obs',
+      state: 'connected',
+      scenes: ['Live', 'Pause'],
+      streaming: false,
+      recording: false,
+      recordPaused: false,
+      inputs: [{ name: 'Mic/Aux', muted: false, volume: 0 }],
+    }),
+    watchObs: () => undefined,
   };
 }
 
@@ -304,6 +315,41 @@ describe('ButtonEditorDialogComponent', () => {
     fixture.detectChanges();
 
     expect(stepSummaries(root)).toEqual(['Öffnen: Steam', 'Öffnen: https://www.youtube.com']);
+  });
+
+  it('adds OBS steps: scene by name, recording start and replay', async () => {
+    const { root, fixture } = await setupDialog(null, pcWithAudio());
+
+    queryButtonByText(root, 'OBS').click();
+    fixture.detectChanges();
+    expect(
+      Array.from(root.querySelectorAll('#button-editor-obs-names option')).map((option) =>
+        option.getAttribute('value'),
+      ),
+    ).toEqual(['Live', 'Pause']);
+    expect(queryButtonByText(root, 'Schritt hinzufügen').disabled).toBe(true);
+    setField(root, 'Szene wie in OBS', 'Pause');
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    keyChip(root, 'Aufnahme').click();
+    fixture.detectChanges();
+    queryButtonByText(root, 'ein').click();
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    keyChip(root, 'Replay speichern').click();
+    fixture.detectChanges();
+    queryButtonByText(root, 'Schritt hinzufügen').click();
+    fixture.detectChanges();
+
+    expect(stepSummaries(root)).toEqual([
+      'OBS: Szene „Pause“',
+      'OBS: Aufnahme ein',
+      'OBS: Replay speichern',
+    ]);
   });
 
   it('offers launch steps but no app volume steps on the Android server', async () => {

@@ -30,6 +30,9 @@ export const VOICEMEETER_PARAMETER_PATTERN =
 export const VOICEMEETER_MIN_GAIN = -60;
 export const VOICEMEETER_MAX_GAIN = 12;
 export const MAX_APP_NAME_LENGTH = 100;
+/** Laenge von Szenen- und Quellennamen in OBS, wie die Pruefung im Server. */
+export const MAX_OBS_NAME_LENGTH = 256;
+const OBS_OUTPUT_MODES: ReadonlySet<unknown> = new Set(['start', 'stop', 'toggle']);
 export const MAX_LAUNCH_URL_LENGTH = 2000;
 
 /** Wie die Pruefung im Server: nur http- und https-Adressen, keine anderen Schemata. */
@@ -368,9 +371,61 @@ function normalizeRemoteAction(candidate: unknown): RemoteAction | null {
         : null;
     }
 
+    // OBS-Schritte wie im Tab "OBS": Szenen und Audioquellen per Name, Ausgaben mit festen Modi.
+    case 'obsScene': {
+      const name = (candidate as { readonly name?: unknown }).name;
+      return isObsName(name) ? { type: 'obsScene', name } : null;
+    }
+
+    case 'obsStream':
+    case 'obsVirtualCam': {
+      const mode = (candidate as { readonly mode?: unknown }).mode;
+      if (mode === undefined) {
+        return { type: value.type };
+      }
+      return OBS_OUTPUT_MODES.has(mode)
+        ? { type: value.type, mode: mode as 'start' | 'stop' | 'toggle' }
+        : null;
+    }
+
+    case 'obsRecord': {
+      const mode = (candidate as { readonly mode?: unknown }).mode;
+      if (mode === undefined) {
+        return { type: 'obsRecord' };
+      }
+      return OBS_OUTPUT_MODES.has(mode) || mode === 'pause' || mode === 'resume' || mode === 'togglePause'
+        ? { type: 'obsRecord', mode: mode as 'start' | 'stop' | 'toggle' | 'pause' | 'resume' | 'togglePause' }
+        : null;
+    }
+
+    case 'obsReplay': {
+      const mode = (candidate as { readonly mode?: unknown }).mode;
+      if (mode === undefined) {
+        return { type: 'obsReplay' };
+      }
+      return OBS_OUTPUT_MODES.has(mode) || mode === 'save'
+        ? { type: 'obsReplay', mode: mode as 'start' | 'stop' | 'toggle' | 'save' }
+        : null;
+    }
+
+    case 'obsMute': {
+      const { name, muted } = candidate as { readonly name?: unknown; readonly muted?: unknown };
+      if (!isObsName(name)) {
+        return null;
+      }
+      if (muted === undefined) {
+        return { type: 'obsMute', name };
+      }
+      return typeof muted === 'boolean' ? { type: 'obsMute', name, muted } : null;
+    }
+
     default:
       return null;
   }
+}
+
+function isObsName(name: unknown): name is string {
+  return typeof name === 'string' && name.trim() !== '' && name.length <= MAX_OBS_NAME_LENGTH;
 }
 
 /**

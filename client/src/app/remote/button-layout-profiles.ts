@@ -37,6 +37,7 @@ export const PROFILE_VIEWS = [
   'gamepad',
   'system',
   'mixer',
+  'obs',
 ] as const;
 export type ProfileView = (typeof PROFILE_VIEWS)[number];
 

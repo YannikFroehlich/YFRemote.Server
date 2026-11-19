@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- OBS Studio lässt sich vom Handy steuern: Im neuen Tab „OBS“ startest und beendest du Stream und Aufnahme (mit Laufzeit), pausierst die Aufnahme, startest den Replay-Puffer und speicherst ein Replay, schaltest die virtuelle Kamera, wechselst Szenen, blendest Quellen der aktuellen Szene ein und aus und regelst Lautstärke und Stummschaltung der Audioquellen. Eigene Buttons im Remote-Tab können OBS-Schritte haben (Szene wechseln, Stream oder Aufnahme starten/stoppen/umschalten, Replay speichern, Audioquelle stumm schalten), etwa ein Knopf pro Szene wie bei einem Stream Deck. Der PC verbindet sich dafür selbst mit dem WebSocket-Server von OBS (ab OBS 28 eingebaut, unter Werkzeuge → WebSocket-Servereinstellungen einschalten) und liest Port und Passwort aus der OBS-Einstellung. Geräte mit „Nur Medien“ sehen den Tab nicht. Pausieren geht nur, wenn OBS es zulässt – bei der Aufnahmequalität „Wie Stream“ nicht.
+
+### Fixed
+
+- Client: Im Vollbild der Bildschirm-Ansicht sind die Ränder neben oder über und unter dem PC-Bild jetzt schwarz statt in der Hintergrundfarbe der App.
+
+## [2.64.1] - 2026-11-19
+
 ### Fixed
 
 - Client: Die Bildschirm-Ansicht im Vollbild ist am Computer wieder scharf. Das Bild wurde in der Breite der Seite (höchstens 960 px) geholt und dann auf den ganzen Bildschirm hochgezogen, egal welche Qualität eingestellt war.

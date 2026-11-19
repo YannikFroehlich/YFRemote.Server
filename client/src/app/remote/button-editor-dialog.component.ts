@@ -17,6 +17,7 @@ import {
   MAX_LABEL_LENGTH,
   MAX_MACRO_DELAY_MS,
   MAX_MACRO_STEPS,
+  MAX_OBS_NAME_LENGTH,
   normalizeLaunchUrl,
   resolveButtonSteps,
   VOICEMEETER_MAX_GAIN,
@@ -33,8 +34,9 @@ import { TranslationService } from './translation.service';
 const MAX_TEXT_STEP_PREVIEW_LENGTH = 24;
 const DEFAULT_CUSTOM_COLOR = '#38bdf8';
 
-type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter' | 'app' | 'launch';
+type StepType = 'keys' | 'text' | 'mouseClick' | 'voicemeeter' | 'app' | 'launch' | 'obs';
 type SwitchMode = 'toggle' | 'on' | 'off';
+type ObsCommand = 'scene' | 'stream' | 'record' | 'replay' | 'mute';
 
 @Component({
   selector: 'app-button-editor-dialog',
@@ -116,7 +118,22 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
   protected readonly pendingLaunchName = signal('');
   protected readonly pendingLaunchUrl = signal('');
 
-  // Stumm-Schalter von Voicemeeter und Apps teilen sich die Auswahl.
+  // OBS-Schritte gibt es nur, wo /health OBS meldet; Szenen- und Quellennamen kommen aus derselben
+  // Meldung wie im Tab "OBS", solange der Editor offen ist. Getippt werden darf trotzdem, falls
+  // OBS gerade nicht laeuft.
+  protected readonly obsAvailable = this.remote.obsAvailable;
+  protected readonly obsCommands: readonly ObsCommand[] = ['scene', 'stream', 'record', 'replay', 'mute'];
+  protected readonly pendingObsCommand = signal<ObsCommand>('scene');
+  protected readonly pendingObsName = signal('');
+  protected readonly maxObsNameLength = MAX_OBS_NAME_LENGTH;
+  protected readonly obsNames = computed(() =>
+    this.pendingObsCommand() === 'scene'
+      ? (this.remote.obs()?.scenes ?? [])
+      : (this.remote.obs()?.inputs ?? []).map((input) => input.name),
+  );
+  private watchingObs = false;
+
+  // Stumm-Schalter von Voicemeeter, Apps und OBS teilen sich die Auswahl.
   protected readonly pendingSwitchMode = signal<SwitchMode>('toggle');
   protected readonly switchModes: readonly SwitchMode[] = ['toggle', 'on', 'off'];
 
@@ -142,6 +159,10 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     }
     if (this.launchSupported()) {
       void this.remote.readLaunchApps().then((apps) => this.launchApps.set(apps));
+    }
+    if (this.obsAvailable()) {
+      this.watchingObs = true;
+      this.remote.watchObs(true);
     }
 
     const id = this.targetId();
@@ -181,6 +202,9 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     if (this.watchingApps) {
       this.remote.watchApps(false);
     }
+    if (this.watchingObs) {
+      this.remote.watchObs(false);
+    }
   }
 
   protected setStepType(type: StepType): void {
@@ -203,6 +227,15 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     this.pendingVoicemeeterGain.set(
       Number.isFinite(raw) ? clamp(Math.round(raw * 2) / 2, this.minGain, this.maxGain) : 0,
     );
+  }
+
+  protected selectObsCommand(command: ObsCommand): void {
+    this.pendingObsCommand.set(command);
+    this.pendingObsName.set('');
+  }
+
+  protected onObsNameInput(event: Event): void {
+    this.pendingObsName.set((event.target as HTMLInputElement).value);
   }
 
   protected onAppNameInput(event: Event): void {
@@ -312,6 +345,33 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
         const name = this.pendingLaunchName().trim();
         return name === '' || name.length > this.maxAppNameLength ? null : { type: 'launch', name };
       }
+
+      case 'obs':
+        return this.pendingObsAction();
+    }
+  }
+
+  // An/Aus heisst bei Stream und Aufnahme Starten/Stoppen; Umschalten laesst den Modus weg.
+  private pendingObsAction(): RemoteAction | null {
+    const mode = this.pendingSwitchMode();
+    const outputMode = mode === 'toggle' ? undefined : mode === 'on' ? 'start' : 'stop';
+    const name = this.pendingObsName().trim();
+    const validName = name !== '' && name.length <= this.maxObsNameLength;
+
+    switch (this.pendingObsCommand()) {
+      case 'scene':
+        return validName ? { type: 'obsScene', name } : null;
+      case 'stream':
+        return outputMode === undefined ? { type: 'obsStream' } : { type: 'obsStream', mode: outputMode };
+      case 'record':
+        return outputMode === undefined ? { type: 'obsRecord' } : { type: 'obsRecord', mode: outputMode };
+      case 'replay':
+        return { type: 'obsReplay', mode: 'save' };
+      case 'mute':
+        if (!validName) {
+          return null;
+        }
+        return mode === 'toggle' ? { type: 'obsMute', name } : { type: 'obsMute', name, muted: mode === 'on' };
     }
   }
 
@@ -396,6 +456,36 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
           target: action.name ?? action.url ?? '',
         });
 
+      case 'obsScene':
+        return this.i18n.t('buttonEditor.describeStep.obsScene', { name: action.name });
+
+      case 'obsMute':
+        return this.i18n.t('buttonEditor.describeStep.obsMute', {
+          name: action.name,
+          mode: this.switchModeLabel(action.muted),
+        });
+
+      case 'obsReplay':
+        return action.mode === 'save'
+          ? this.i18n.t('buttonEditor.describeStep.obsReplaySave')
+          : this.i18n.t('buttonEditor.describeStep.obsOutput', {
+              output: this.i18n.t('obs.replay'),
+              mode: this.switchModeLabel(outputModeOn(action.mode)),
+            });
+
+      case 'obsStream':
+      case 'obsRecord':
+      case 'obsVirtualCam':
+        return this.i18n.t('buttonEditor.describeStep.obsOutput', {
+          output: this.i18n.t(
+            { obsStream: 'obs.live', obsRecord: 'obs.rec', obsVirtualCam: 'obs.virtualCam' }[action.type],
+          ),
+          mode:
+            action.mode === 'pause' || action.mode === 'resume' || action.mode === 'togglePause'
+              ? this.i18n.t(action.mode === 'resume' ? 'obs.resumeRecord' : 'obs.pauseRecord')
+              : this.switchModeLabel(outputModeOn(action.mode)),
+        });
+
       default:
         return '';
     }
@@ -471,6 +561,10 @@ export class ButtonEditorDialogComponent implements OnInit, OnDestroy {
     const control = this.form.controls.label;
     return control.invalid && (control.dirty || control.touched);
   }
+}
+
+function outputModeOn(mode: string | undefined): boolean | undefined {
+  return mode === 'start' ? true : mode === 'stop' ? false : undefined;
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -348,7 +348,99 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
-  it('moves the PC pointer while a pen hovers, also with the side button, but not for a hovering mouse', async () => {
+  function mouse(target: Element, type: string, clientX: number, buttons: number): void {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      clientX: { value: clientX },
+      clientY: { value: 100 },
+      pointerType: { value: 'mouse' },
+      button: { value: 0 },
+      buttons: { value: buttons },
+    });
+    target.dispatchEvent(event);
+  }
+
+  it('drives the PC pointer and buttons directly with a mouse', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    );
+
+    mouse(stage, 'pointermove', 100, 0);
+    frames.splice(0).forEach((callback) => callback(1000));
+    mouse(stage, 'pointerdown', 100, 1);
+    mouse(stage, 'pointermove', 200, 1);
+    mouse(stage, 'pointermove', 200, 5);
+    mouse(stage, 'pointerup', 300, 0);
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 300, clientY: 100, bubbles: true }));
+    stage.dispatchEvent(
+      new MouseEvent('contextmenu', { clientX: 300, clientY: 100, bubbles: true, cancelable: true }),
+    );
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenMove', x: 0.25, y: 0.5 }],
+      [{ type: 'screenMove', x: 0.25, y: 0.5 }],
+      [{ type: 'mouseDown', button: 'left' }],
+      [{ type: 'screenMove', x: 0.5, y: 0.5 }],
+      [{ type: 'mouseDown', button: 'middle' }],
+      [{ type: 'screenMove', x: 0.75, y: 0.5 }],
+      [{ type: 'mouseUp', button: 'left' }],
+      [{ type: 'mouseUp', button: 'middle' }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('scrolls and zooms the PC with the mouse wheel', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    );
+
+    stage.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, cancelable: true }));
+    stage.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, cancelable: true }));
+    frames.splice(0).forEach((callback) => callback(1000));
+    stage.dispatchEvent(new WheelEvent('wheel', { deltaY: -3, deltaMode: 1, ctrlKey: true }));
+    frames.splice(0).forEach((callback) => callback(1000));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'mouseScroll', delta: -240 }],
+      [{ type: 'mouseZoom', delta: 120 }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('sends keys of a real keyboard while the picture has the focus', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    const key = (type: string, init: KeyboardEventInit) => {
+      const event = new KeyboardEvent(type, { ...init, bubbles: true, cancelable: true });
+      stage.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+
+    expect(key('keydown', { key: 'ä' })).toBe(true);
+    key('keydown', { key: 'z', code: 'KeyY', ctrlKey: true });
+    key('keydown', { key: 'ArrowLeft', shiftKey: true });
+    key('keydown', { key: 'Shift', shiftKey: true });
+    key('keydown', { key: 'Meta' });
+    key('keyup', { key: 'Meta' });
+    key('keydown', { key: 'Meta', metaKey: true });
+    key('keydown', { key: 'e', metaKey: true });
+    key('keyup', { key: 'Meta' });
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'text', text: 'ä' }],
+      [{ type: 'hotkey', keys: ['CTRL', 'Z'] }],
+      [{ type: 'hotkey', keys: ['SHIFT', 'LEFT'] }],
+      [{ type: 'key', keys: ['WIN'] }],
+      [{ type: 'hotkey', keys: ['WIN', 'E'] }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('moves the PC pointer while a pen hovers, also with the side button', async () => {
     const { fixture, sendAction, stage } = await setupGestures();
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
@@ -366,7 +458,6 @@ describe('ScreenViewComponent', () => {
       stage.dispatchEvent(event);
     };
 
-    hover('mouse', 300);
     hover('pen', 100);
     hover('pen', 200, 2);
     frames.splice(0).forEach((callback) => callback(1000));

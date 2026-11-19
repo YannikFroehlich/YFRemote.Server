@@ -1254,7 +1254,9 @@ h2 {
   display: none;
 }
 
-.screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__toolbar .snap-switch[aria-checked='true'] {
+.screen-view:is(:fullscreen, .screen-view--fullscreen)
+  .screen-view__toolbar
+  .snap-switch[aria-checked='true'] {
   background: rgba(var(--accent-rgb), 0.3);
 }
 
@@ -1797,9 +1799,19 @@ a.secondary-button {
   text-decoration: none;
 }
 
+// Feste Hoehe statt nach Inhalt: sonst springt der Dialog und mit ihm die Reiter bei jedem Wechsel
+// des Bereichs. max-height begrenzt sie auf kleinen Bildschirmen.
+.settings-dialog--settings {
+  height: 760px;
+}
+
+.settings-dialog--settings .settings-form__scroll {
+  flex: 1;
+  align-content: start;
+}
+
 .settings-dialog__status {
-  align-self: flex-start;
-  margin-top: 12px;
+  justify-self: start;
   padding: 6px 10px;
   border-radius: var(--radius-pill);
   background: var(--surface-soft);
@@ -2744,7 +2756,8 @@ a.secondary-button {
 }
 
 // Gleich breit, solange alle in eine Zeile passen, aber nie schmaler als ihr Text; sonst Umbruch.
-.step-type-tabs {
+.step-type-tabs,
+.settings-categories {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -2754,7 +2767,8 @@ a.secondary-button {
   background: var(--surface-sunken);
 }
 
-.step-type-tabs .view-tab {
+.step-type-tabs .view-tab,
+.settings-categories .view-tab {
   min-width: max-content;
   min-height: 40px;
   flex: 1 1 0;
@@ -2826,6 +2840,59 @@ a.secondary-button {
   min-height: 46px;
   padding: 8px 13px;
   text-align: left;
+}
+
+// Ein Bereich mit falscher Eingabe (Host/Port) haelt "Speichern" gesperrt, auch wenn ein anderer
+// Bereich offen ist - deshalb sieht man es am Reiter.
+.settings-categories .view-tab--invalid {
+  color: var(--danger);
+}
+
+.tab-order {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tab-order__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-order__row .snap-switch svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: currentColor;
+}
+
+.tab-order__row .snap-switch:disabled {
+  cursor: default;
+}
+
+.tab-order__name {
+  display: grid;
+  gap: 2px;
+}
+
+.tab-order__name small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.tab-order__move svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tab-order__move:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .switch-indicator {

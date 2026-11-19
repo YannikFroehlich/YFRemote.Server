@@ -117,149 +117,19 @@
         role="tablist"
         [attr.aria-label]="i18n.t('shell.viewTabsAriaLabel')"
       >
-        <button
-          class="view-tab"
-          [class.view-tab--active]="activeView() === 'remote'"
-          type="button"
-          role="tab"
-          [attr.aria-selected]="activeView() === 'remote'"
-          (click)="selectView('remote')"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path
-              d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-5l1.5 2H8.5l1.5-2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v8h14V7H5Z"
-            />
-          </svg>
-          <span>Remote</span>
-        </button>
-        @if (!mediaOnly()) {
+        @for (tab of tabs(); track tab.view) {
           <button
             class="view-tab"
-            [class.view-tab--active]="activeView() === 'touchpad'"
+            [class.view-tab--active]="activeView() === tab.view"
             type="button"
             role="tab"
-            [attr.aria-selected]="activeView() === 'touchpad'"
-            (click)="selectView('touchpad')"
+            [attr.aria-selected]="activeView() === tab.view"
+            (click)="selectView(tab.view)"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M7 2h10a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4Zm0 2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H7Zm5 2a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0V7a1 1 0 0 1 1-1Z"
-              />
+              <path [attr.d]="tab.icon" />
             </svg>
-            <span>Touchpad</span>
-          </button>
-          @if (screenSupported()) {
-            <button
-              class="view-tab"
-              [class.view-tab--active]="activeView() === 'screen'"
-              type="button"
-              role="tab"
-              [attr.aria-selected]="activeView() === 'screen'"
-              (click)="selectView('screen')"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path
-                  d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm1 2v9h16V6H4Z"
-                />
-              </svg>
-              <span>{{ i18n.t('shell.tabScreen') }}</span>
-            </button>
-          }
-          <button
-            class="view-tab"
-            [class.view-tab--active]="activeView() === 'keyboard'"
-            type="button"
-            role="tab"
-            [attr.aria-selected]="activeView() === 'keyboard'"
-            (click)="selectView('keyboard')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h16V7H4Zm2 2h2v2H6V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9Zm4 0h1v2h-1V9ZM6 13h2v2H6v-2Zm4 0h8v2h-8v-2Z"
-              />
-            </svg>
-            <span>{{ i18n.t('shell.tabKeyboard') }}</span>
-          </button>
-          <button
-            class="view-tab"
-            [class.view-tab--active]="activeView() === 'presentation'"
-            type="button"
-            role="tab"
-            [attr.aria-selected]="activeView() === 'presentation'"
-            (click)="selectView('presentation')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M3 3h18v2h-1v10a2 2 0 0 1-2 2h-5v2.6l2.7 1.8-1.1 1.6-2.6-1.7-2.6 1.7-1.1-1.6 2.7-1.8V17H6a2 2 0 0 1-2-2V5H3V3Zm3 2v10h12V5H6Zm2 7 3-3 2 2 3-3 1.4 1.4L13 13.8l-2-2-1.6 1.6L8 12Z"
-              />
-            </svg>
-            <span>{{ i18n.t('shell.tabPresentation') }}</span>
-          </button>
-        }
-        @if (gamepadAvailable() && !mediaOnly()) {
-          <button
-            class="view-tab"
-            [class.view-tab--active]="activeView() === 'gamepad'"
-            type="button"
-            role="tab"
-            [attr.aria-selected]="activeView() === 'gamepad'"
-            (click)="selectView('gamepad')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M7 7h10a5 5 0 0 1 4.9 6l-.8 4a3 3 0 0 1-5.1 1.5L14.6 17H9.4L8 18.5A3 3 0 0 1 2.9 17l-.8-4A5 5 0 0 1 7 7Zm0 3v1.5H5.5v1H7V14h1v-1.5h1.5v-1H8V10H7Zm9 .5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm2 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"
-              />
-            </svg>
-            <span>{{ i18n.t('shell.tabGamepad') }}</span>
-          </button>
-        }
-        @if (systemStatsSupported()) {
-          <button
-            class="view-tab"
-            [class.view-tab--active]="activeView() === 'system'"
-            type="button"
-            role="tab"
-            [attr.aria-selected]="activeView() === 'system'"
-            (click)="selectView('system')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M4 19h16v2H4v-2Zm1-8h3v6H5v-6Zm5-6h3v12h-3V5Zm5 3h3v9h-3V8Z" />
-            </svg>
-            <span>{{ i18n.t(systemTabKey()) }}</span>
-          </button>
-        }
-        @if (mixerSupported()) {
-          <button
-            class="view-tab"
-            [class.view-tab--active]="activeView() === 'mixer'"
-            type="button"
-            role="tab"
-            [attr.aria-selected]="activeView() === 'mixer'"
-            (click)="selectView('mixer')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M6 3h2v6h2v4H8v8H6v-8H4V9h2V3Zm5 0h2v10h2v4h-2v4h-2v-4H9v-4h2V3Zm5 0h2v2h2v4h-2v12h-2V9h-2V5h2V3Z"
-              />
-            </svg>
-            <span>{{ i18n.t('shell.tabMixer') }}</span>
-          </button>
-        }
-        @if (obsAvailable() && !mediaOnly()) {
-          <button
-            class="view-tab"
-            [class.view-tab--active]="activeView() === 'obs'"
-            type="button"
-            role="tab"
-            [attr.aria-selected]="activeView() === 'obs'"
-            (click)="selectView('obs')"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm0 3a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
-              />
-            </svg>
-            <span>OBS</span>
+            <span>{{ i18n.t(tab.view === 'system' ? systemTabKey() : tab.label) }}</span>
           </button>
         }
       </div>

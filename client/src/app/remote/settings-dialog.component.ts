@@ -10,7 +10,7 @@ import { ClipboardSyncService } from './clipboard-sync.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonLayoutService } from './button-layout.service';
-import { normalizeProfileView, ProfileView } from './button-layout-profiles';
+import { normalizeProfileView, PROFILE_VIEWS, ProfileView } from './button-layout-profiles';
 import { FILE_SAVER } from './file-transfer.service';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ServerConfig } from './remote.models';
@@ -40,8 +40,11 @@ import { ThemeEditorDialogComponent } from './theme-editor-dialog.component';
 import { ThemeService } from './theme.service';
 import { Lang } from './translation';
 import { TranslationService } from './translation.service';
+import { DEFAULT_VIEW_TAB_SETTINGS, VIEW_TAB_DETAILS } from './view-tabs';
 
 const CUSTOM_STYLE_PREFIX = 'custom:';
+
+type SettingsCategory = 'connection' | 'controls' | 'tabs' | 'appearance' | 'layouts';
 
 @Component({
   selector: 'app-settings-dialog',
@@ -81,17 +84,28 @@ export class SettingsDialogComponent {
     () => this.activeProfile()?.apps?.join(', ') ?? '',
   );
   protected readonly activeProfileView = computed(() => this.activeProfile()?.view ?? '');
-  protected readonly profileViews: readonly { value: ProfileView; label: string }[] = [
-    { value: 'remote', label: 'Remote' },
-    { value: 'touchpad', label: 'Touchpad' },
-    { value: 'screen', label: 'shell.tabScreen' },
-    { value: 'keyboard', label: 'shell.tabKeyboard' },
-    { value: 'presentation', label: 'shell.tabPresentation' },
-    { value: 'gamepad', label: 'shell.tabGamepad' },
-    { value: 'system', label: 'shell.tabSystem' },
-    { value: 'mixer', label: 'shell.tabMixer' },
-    { value: 'obs', label: 'OBS' },
+  protected readonly profileViews: readonly { value: ProfileView; label: string }[] =
+    PROFILE_VIEWS.map((value) => ({ value, label: VIEW_TAB_DETAILS[value].label }));
+  /** label sind Keys ins Uebersetzungs-Dictionary. */
+  protected readonly categories: readonly { value: SettingsCategory; label: string }[] = [
+    { value: 'connection', label: 'settings.category.connection' },
+    { value: 'controls', label: 'settings.category.controls' },
+    { value: 'tabs', label: 'settings.category.tabs' },
+    { value: 'appearance', label: 'settings.category.appearance' },
+    { value: 'layouts', label: 'settings.category.layouts' },
   ];
+  protected readonly category = signal<SettingsCategory>('connection');
+  // Wie die anderen Schalter erst mit "Speichern" uebernommen.
+  protected readonly tabDraft = signal(this.remote.viewTabs());
+  protected readonly tabRows = computed(() => {
+    const { order, hidden } = this.tabDraft();
+    return order.map((view) => ({
+      view,
+      ...VIEW_TAB_DETAILS[view],
+      visible: !hidden.includes(view),
+      available: this.remote.viewAvailable(view),
+    }));
+  });
   // Ueber die App-Bruecke, wo es eine gibt: im WebView der Android-App tut ein blob:-Link nichts.
   private readonly saveFile = inject(FILE_SAVER);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
@@ -186,6 +200,7 @@ export class SettingsDialogComponent {
     this.i18n.setLanguage(this.form.controls.language.value);
     this.saveTheme();
     this.theme.saveAnimations(this.form.controls.animations.value);
+    this.remote.saveViewTabs(this.tabDraft());
 
     // saveConfig zuletzt: bei geändertem Host/Port navigiert es die Seite weg.
     const configSaved =
@@ -295,6 +310,30 @@ export class SettingsDialogComponent {
   private async exportJson(content: string, fileName: string, successKey: string): Promise<void> {
     const saved = await this.saveFile(new Blob([content], { type: 'application/json' }), fileName);
     this.showOperationMessage(this.i18n.t(saved ? successKey : 'settings.msg.exportFailed'), saved);
+  }
+
+  protected selectCategory(category: SettingsCategory, scroll: HTMLElement): void {
+    this.category.set(category);
+    scroll.scrollTop = 0;
+  }
+
+  protected toggleTab(view: ProfileView): void {
+    this.tabDraft.update(({ order, hidden }) => ({
+      order,
+      hidden: hidden.includes(view) ? hidden.filter((entry) => entry !== view) : [...hidden, view],
+    }));
+  }
+
+  protected moveTab(index: number, offset: -1 | 1): void {
+    this.tabDraft.update(({ order, hidden }) => {
+      const moved = [...order];
+      [moved[index], moved[index + offset]] = [moved[index + offset], moved[index]];
+      return { order: moved, hidden };
+    });
+  }
+
+  protected resetTabs(): void {
+    this.tabDraft.set(DEFAULT_VIEW_TAB_SETTINGS);
   }
 
   protected toggleSetting(

@@ -416,6 +416,24 @@ export const TRANSLATIONS = {
     de: 'Port muss zwischen 1 und 65535 liegen.',
     en: 'Port must be between 1 and 65535.',
   },
+  'settings.categoriesAriaLabel': { de: 'Bereiche der Einstellungen', en: 'Settings sections' },
+  'settings.category.connection': { de: 'Verbindung', en: 'Connection' },
+  'settings.category.controls': { de: 'Bedienung', en: 'Controls' },
+  'settings.category.tabs': { de: 'Tabs', en: 'Tabs' },
+  'settings.category.appearance': { de: 'Aussehen', en: 'Appearance' },
+  'settings.category.layouts': { de: 'Layouts', en: 'Layouts' },
+  'settings.tabs.hint': {
+    de: 'Welche Tabs oben in der Leiste stehen und in welcher Reihenfolge.',
+    en: 'Which tabs appear in the bar at the top, and in which order.',
+  },
+  'settings.tabs.alwaysOn': { de: 'Immer an', en: 'Always on' },
+  'settings.tabs.unavailable': {
+    de: 'Mit diesem Server gerade nicht verfügbar',
+    en: 'Not available with this server right now',
+  },
+  'settings.tabs.moveUp': { de: '{{name}} nach oben', en: 'Move {{name}} up' },
+  'settings.tabs.moveDown': { de: '{{name}} nach unten', en: 'Move {{name}} down' },
+  'settings.tabs.reset': { de: 'Standard wiederherstellen', en: 'Restore default' },
   'settings.recentServers.label': { de: 'Zuletzt verbunden', en: 'Recently connected' },
   'settings.recentServers.removeAriaLabel': {
     de: '{{host}} aus der Liste entfernen',
@@ -975,9 +993,18 @@ export const TRANSLATIONS = {
   'buttonEditor.app.placeholder': { de: 'z. B. Spotify', en: 'e.g. Spotify' },
   'buttonEditor.app.volumeField': { de: 'Lautstärke (%)', en: 'Volume (%)' },
   'buttonEditor.describeStep.launch': { de: 'Öffnen: {{target}}', en: 'Open: {{target}}' },
-  'buttonEditor.describeStep.obsScene': { de: 'OBS: Szene „{{name}}“', en: 'OBS: scene "{{name}}"' },
-  'buttonEditor.describeStep.obsOutput': { de: 'OBS: {{output}} {{mode}}', en: 'OBS: {{output}} {{mode}}' },
-  'buttonEditor.describeStep.obsReplaySave': { de: 'OBS: Replay speichern', en: 'OBS: save replay' },
+  'buttonEditor.describeStep.obsScene': {
+    de: 'OBS: Szene „{{name}}“',
+    en: 'OBS: scene "{{name}}"',
+  },
+  'buttonEditor.describeStep.obsOutput': {
+    de: 'OBS: {{output}} {{mode}}',
+    en: 'OBS: {{output}} {{mode}}',
+  },
+  'buttonEditor.describeStep.obsReplaySave': {
+    de: 'OBS: Replay speichern',
+    en: 'OBS: save replay',
+  },
   'buttonEditor.describeStep.obsMute': {
     de: 'OBS: {{name}} · Stumm {{mode}}',
     en: 'OBS: {{name}} · mute {{mode}}',

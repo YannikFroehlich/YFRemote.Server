@@ -10,7 +10,7 @@ import {
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
-import { PROFILE_VIEWS, ProfileView } from './button-layout-profiles';
+import { ProfileView } from './button-layout-profiles';
 import { ClipboardSyncService } from './clipboard-sync.service';
 import { MediaBridgeService } from './media-bridge.service';
 import { FileTransferService } from './file-transfer.service';
@@ -32,17 +32,9 @@ import { ObsComponent } from './obs.component';
 import { PresentationComponent } from './presentation.component';
 import { ScreenViewComponent } from './screen-view.component';
 import { RING_PLAYER } from './ring-player';
+import { VIEW_TAB_DETAILS } from './view-tabs';
 
 type RemoteView = ProfileView;
-// "Nur Medien": Eingaben ausser Medientasten, den Bildschirm und OBS lehnt der PC ab.
-const INPUT_VIEWS: ReadonlySet<RemoteView> = new Set([
-  'touchpad',
-  'screen',
-  'keyboard',
-  'presentation',
-  'gamepad',
-  'obs',
-]);
 
 // Etwas laenger als der Sekundentakt der Medienmeldung, damit die neue Position schon da ist.
 const SEEK_SETTLE_MS = 1500;
@@ -148,8 +140,6 @@ export class RemoteControlComponent {
   );
   protected readonly fileDownloading = this.fileTransfer.downloading;
   protected readonly fileOfferError = signal(false);
-  // Windows braucht dafuer den ViGEmBus-Treiber, Linux /dev/uinput; der Android-Server meldet es nie.
-  protected readonly gamepadAvailable = this.remote.gamepadAvailable;
   protected readonly systemStatsSupported = this.remote.systemStatsSupported;
   protected readonly mixerSupported = this.remote.mixerSupported;
   protected readonly obsAvailable = this.remote.obsAvailable;
@@ -166,21 +156,26 @@ export class RemoteControlComponent {
   protected readonly connectionMenuOpen = signal(false);
   protected readonly serverName = this.remote.serverName;
   protected readonly activeView = signal<RemoteView>('remote');
+  /** Tabs der Leiste: Reihenfolge aus den Einstellungen, ohne ausgeblendete und ohne die, die
+   *  dieser Server nicht hat (kein Controller-Treiber, kein OBS, "Nur Medien"). */
+  protected readonly tabs = computed(() => {
+    const { order, hidden } = this.remote.viewTabs();
+    return order
+      .filter((view) => !hidden.includes(view) && this.remote.viewAvailable(view))
+      .map((view) => ({ view, ...VIEW_TAB_DETAILS[view] }));
+  });
   /** Richtung des letzten Tabwechsels fuer die Einblendung; null bis zum ersten Wechsel, dann
    *  laufen die Remote-Tasten noch als Welle ein (nur beim Start, nicht bei jeder Rueckkehr). */
   protected readonly viewEnter = signal<'forward' | 'back' | null>(null);
   // Den Mixer gibt es nur auf PC-Servern, die Systemanzeige nur mit bekanntem Server. Fallen sie weg
-  // (Android-Server, /health fehlgeschlagen) oder sperrt der PC Eingaben, verschwinden Tabs - ohne
-  // Wechsel bliebe die Ansicht leer.
+  // (Android-Server, /health fehlgeschlagen), sperrt der PC Eingaben oder blendet man den Tab in den
+  // Einstellungen aus, verschwinden Tabs - ohne Wechsel bliebe die Ansicht leer. Den offenen
+  // Controller schliesst nur "Nur Medien", nicht ein kurz fehlender Treiber-Status.
   private readonly hiddenViewEffect = effect(() => {
     const view = this.activeView();
-    if (
-      (!this.systemStatsSupported() && view === 'system') ||
-      (!this.mixerSupported() && view === 'mixer') ||
-      (!this.obsAvailable() && view === 'obs') ||
-      (!this.screenSupported() && view === 'screen') ||
-      (this.mediaOnly() && INPUT_VIEWS.has(view))
-    ) {
+    const gone =
+      view === 'gamepad' ? this.mediaOnly() : !this.tabs().some((tab) => tab.view === view);
+    if (gone) {
       untracked(() => this.showView('remote'));
     }
   });
@@ -295,8 +290,9 @@ export class RemoteControlComponent {
 
   // Der neue Inhalt kommt von der Seite herein, auf der sein Tab liegt - wie beim Wischen.
   private showView(view: RemoteView): void {
-    const from = PROFILE_VIEWS.indexOf(this.activeView());
-    const to = PROFILE_VIEWS.indexOf(view);
+    const order = this.remote.viewTabs().order;
+    const from = order.indexOf(this.activeView());
+    const to = order.indexOf(view);
     if (from !== to) {
       this.viewEnter.set(to > from ? 'forward' : 'back');
     }
@@ -304,9 +300,9 @@ export class RemoteControlComponent {
   }
 
   // Wie beim Profil: Tab des passenden Profils, ohne einen zurueck zum Tab von vorher. Einen Tab, den
-  // dieses Geraet gerade nicht hat (kein Controller-Treiber, "Nur Medien"), laesst es aus.
+  // die Leiste gerade nicht zeigt (kein Controller-Treiber, "Nur Medien", ausgeblendet), laesst es aus.
   private applyProfileView(view: RemoteView | undefined): void {
-    if (view !== undefined && this.viewAvailable(view)) {
+    if (view !== undefined && this.tabs().some((tab) => tab.view === view)) {
       if (view !== this.activeView()) {
         this.viewBeforeAuto ??= this.activeView();
         this.showView(view);
@@ -318,17 +314,6 @@ export class RemoteControlComponent {
       this.showView(this.viewBeforeAuto);
       this.viewBeforeAuto = null;
     }
-  }
-
-  private viewAvailable(view: RemoteView): boolean {
-    return !(
-      (this.mediaOnly() && INPUT_VIEWS.has(view)) ||
-      (view === 'gamepad' && !this.gamepadAvailable()) ||
-      (view === 'system' && !this.systemStatsSupported()) ||
-      (view === 'mixer' && !this.mixerSupported()) ||
-      (view === 'obs' && !this.obsAvailable()) ||
-      (view === 'screen' && !this.screenSupported())
-    );
   }
 
   protected toggleEditMode(): void {

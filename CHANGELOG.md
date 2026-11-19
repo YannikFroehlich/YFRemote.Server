@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.61.0] - 2026-11-19
+
 ### Added
 
 - Client: In der Bildschirm-Ansicht folgt der Mauszeiger am PC einem schwebenden Stift (z. B. S Pen), ohne dass er das Display berührt. Antippen und Ziehen mit dem Stift klicken und ziehen wie bisher.

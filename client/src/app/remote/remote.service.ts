@@ -123,6 +123,10 @@ const HAPTIC_PULSE_MS = 10;
 /** Wortgleich mit InputBlockedException des Servers: Windows weist waehrend der
  *  Benutzerkontensteuerung und des Sperrbildschirms jede Eingabe ab. */
 const INPUT_BLOCKED_ERROR = 'Input is blocked by a secure desktop (UAC prompt or lock screen).';
+/** Wortgleich mit InputBlockedException.ElevatedWindowMessage: Windows verwirft Eingaben an ein
+ *  Admin-Fenster, ohne den Dienst fuer Sperrbildschirm und UAC kommt dort nichts an. */
+const ELEVATED_WINDOW_ERROR =
+  'Input to an administrator window needs the lock screen and UAC service.';
 /** Wortgleich mit RemoteActionHandler.MediaOnlyError: das Geraet steht im Tray auf "Nur Medien". */
 const MEDIA_ONLY_ERROR = 'Not allowed for this device.';
 // Nur für einzelne Tipp-Aktionen vibrieren, nicht für den Strom aus Bewegungen, Scrollen und
@@ -1142,9 +1146,11 @@ export class RemoteService implements OnDestroy {
     this.showError(
       error === INPUT_BLOCKED_ERROR
         ? this.i18n.t('remoteService.error.inputBlocked')
-        : error === MEDIA_ONLY_ERROR
-          ? this.i18n.t('remoteService.error.mediaOnly')
-          : error || this.i18n.t('remoteService.error.actionRejected'),
+        : error === ELEVATED_WINDOW_ERROR
+          ? this.i18n.t('remoteService.error.elevatedWindow')
+          : error === MEDIA_ONLY_ERROR
+            ? this.i18n.t('remoteService.error.mediaOnly')
+            : error || this.i18n.t('remoteService.error.actionRejected'),
     );
   }
 

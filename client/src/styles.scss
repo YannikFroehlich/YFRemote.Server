@@ -6,6 +6,8 @@
   background: var(--app-bg);
   color: var(--text);
   --app-bg: #0b1220;
+  /* Raender um das PC-Bild im Vollbild: schwarz wie bei einem Videoplayer, in jedem Stil. */
+  --screen-letterbox: #000;
   --surface: rgba(21, 31, 49, 0.94);
   --surface-solid: #151f31;
   --surface-raised: #1a2539;
@@ -1144,7 +1146,7 @@ h2 {
   --handle-top: clamp(30px, calc(var(--handle-y) * 100%), calc(100% - 30px));
   display: flex;
   flex-direction: column;
-  background: var(--app-bg);
+  background: var(--screen-letterbox);
 }
 
 // Ersatz-Vollbild fuer das iPhone, das kein Element-Vollbild kennt: die Ansicht fuellt den

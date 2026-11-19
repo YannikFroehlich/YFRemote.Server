@@ -23,6 +23,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Client: In der Bildschirm-Ansicht folgt der Mauszeiger am PC einem schwebenden Stift (z. B. S Pen), ohne dass er das Display berührt. Antippen und Ziehen mit dem Stift klicken und ziehen wie bisher.
+
+## [2.60.0] - 2026-11-18
+
+### Added
+
 - Client: Beim Senden einer Datei zeigt das Touchpad den Fortschritt in Prozent mit Balken ("Datei wird gesendet … 42 %"). Der Upload läuft dafür über `XMLHttpRequest` statt `fetch`, weil nur das den Upload-Fortschritt meldet.
 
 ### Changed

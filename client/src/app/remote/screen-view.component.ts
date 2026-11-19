@@ -454,6 +454,14 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onPointerMove(event: PointerEvent): void {
     if (!this.pointers.has(event.pointerId)) {
+      // Ein Stift (S Pen) meldet schon das Schweben ueber dem Display: der Zeiger am PC folgt ihm.
+      if (event.pointerType === 'pen' && event.buttons === 0 && this.pointers.size === 0) {
+        const position = this.toScreenPosition(event.clientX, event.clientY);
+        if (position !== null) {
+          this.pendingMove = position;
+          this.scheduleMove();
+        }
+      }
       return;
     }
 

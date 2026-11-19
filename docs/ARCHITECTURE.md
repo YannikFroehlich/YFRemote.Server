@@ -128,7 +128,10 @@ feature.
   `no-store` as `GET /windows`, refused for "Nur Medien" devices; `width` (320-3840, never upscaled)
   is the device's display width, `quality` (30-95, default 70) the JPEG quality. The tab's select
   (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
-  "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. `WindowsScreenCapture` uses DXGI
+  "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. The pixel ratio never exceeds
+  the device's `devicePixelRatio`, so on a desktop at 1x the levels differ only in quality/bitrate.
+  The width is that of the inner `.screen-view` (`viewWidth`), which is what goes fullscreen; the
+  host keeps the page width (at most 960 px on a desktop), and measuring it upscaled the picture. `WindowsScreenCapture` uses DXGI
   Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to
   100 ms for a change, the `Latest` texture keeps the last image, and the JPEG for an unchanged
   frame + cursor + width is cached. Only acquire and copy run under its lock, so two requests

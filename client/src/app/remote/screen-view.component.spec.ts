@@ -956,6 +956,16 @@ describe('ScreenViewComponent', () => {
 
     afterEach(leaveFullscreen);
 
+    it('fetches the picture as wide as the fullscreen view, not the page around it', async () => {
+      const { fixture, element, readScreen } = await setup(new Blob(['jpeg']));
+      const view = element.querySelector('.screen-view')!;
+      Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1600 });
+
+      await enterFullscreen(element);
+      await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[0]).toBe(1600));
+      fixture.destroy();
+    });
+
     it('hides the options behind the logo until it is tapped', async () => {
       const { fixture, element } = await setup(new Blob(['jpeg']));
       const toolbar = element.querySelector('.screen-view__toolbar')!;

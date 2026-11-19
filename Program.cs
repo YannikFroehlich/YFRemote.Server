@@ -47,13 +47,50 @@ internal static class Program
                 {
                     WindowsStartupService.SetEnabled(false);
                     WindowsExplorerSendMenu.Unregister();
+                    if (WindowsSecureDesktop.IsServiceInstalled())
+                    {
+                        WindowsSecureDesktop.Uninstall();
+                    }
                 }
                 catch
                 {
                     // Eine fehlgeschlagene Bereinigung darf die Deinstallation nicht blockieren.
                 }
             })
+            // Dienst und Helfer laufen aus "current", das Velopack beim Update ersetzt.
+            .OnBeforeUpdateFastCallback(_ =>
+            {
+                if (WindowsSecureDesktop.IsServiceInstalled())
+                {
+                    WindowsSecureDesktop.Stop();
+                }
+            })
+            .OnAfterUpdateFastCallback(_ =>
+            {
+                if (WindowsSecureDesktop.IsServiceInstalled())
+                {
+                    WindowsSecureDesktop.Start();
+                }
+            })
             .Run();
+
+        // Dienst, Helfer und das Einrichten (erhoeht) laufen vor der Einzelinstanz-Sperre: sie sind
+        // nicht das Tray-Programm.
+        switch (args)
+        {
+            case [WindowsSecureDesktop.ServiceArgument, var sid]:
+                System.ServiceProcess.ServiceBase.Run(new WindowsSecureDesktopService(sid));
+                return;
+            case [WindowsSecureDesktop.HelperArgument, var sid, var parent] when int.TryParse(parent, out var parentProcessId):
+                WindowsSecureDesktopHelper.Run(sid, parentProcessId);
+                return;
+            case [WindowsSecureDesktop.InstallArgument, var sid]:
+                Environment.ExitCode = WindowsSecureDesktop.Install(sid);
+                return;
+            case [WindowsSecureDesktop.UninstallArgument]:
+                Environment.ExitCode = WindowsSecureDesktop.Uninstall();
+                return;
+        }
 
         using var singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out var isFirstInstance);
 

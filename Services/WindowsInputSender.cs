@@ -76,20 +76,37 @@ public sealed class WindowsInputSender
         SendSingle(input, $"mouse flags 0x{flags:X}");
     }
 
+    internal static int InputSize => Marshal.SizeOf<Input>();
+
     private static void SendSingle(Input input, string description)
     {
-        var sent = SendInput(1, [input], Marshal.SizeOf<Input>());
-        if (sent != 1)
+        var sent = SendInput(1, [input], InputSize);
+        if (sent == 1)
         {
-            throw LastWin32Failure($"SendInput failed for {description}.");
+            return;
         }
+
+        var error = Marshal.GetLastWin32Error();
+        // Sperrbildschirm oder UAC-Abfrage: mit eingerichtetem Dienst tippt der SYSTEM-Helfer dort.
+        if (error == ErrorAccessDenied && WindowsSecureDesktop.TrySendInput(ToBytes(input)))
+        {
+            return;
+        }
+
+        throw Failure(error, $"SendInput failed for {description}.");
     }
 
-    internal static Exception LastWin32Failure(string message)
+    private static byte[] ToBytes(Input input)
     {
-        var error = Marshal.GetLastWin32Error();
-        return error == ErrorAccessDenied ? new InputBlockedException() : new Win32Exception(error, message);
+        var bytes = new byte[InputSize];
+        MemoryMarshal.Write(bytes, in input);
+        return bytes;
     }
+
+    internal static Exception LastWin32Failure(string message) => Failure(Marshal.GetLastWin32Error(), message);
+
+    private static Exception Failure(int error, string message) =>
+        error == ErrorAccessDenied ? new InputBlockedException() : new Win32Exception(error, message);
 
     private const int ErrorAccessDenied = 5;
 

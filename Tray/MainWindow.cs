@@ -26,6 +26,7 @@ internal sealed class MainWindow : Form
     private readonly PillButton unpairButton;
     private readonly ToggleSwitch httpsSwitch;
     private readonly ToggleSwitch startWithWindowsSwitch;
+    private readonly ToggleSwitch secureDesktopSwitch;
     private readonly PillButton gamepadDriverButton;
     private readonly PillButton updateButton;
     private readonly System.Windows.Forms.Timer refreshTimer;
@@ -171,6 +172,16 @@ internal sealed class MainWindow : Form
         };
         startWithWindowsSwitch.Click += (_, _) =>
             startWithWindowsSwitch.Checked = tray.ChangeStartWithWindows(startWithWindowsSwitch.Checked);
+        secureDesktopSwitch = new ToggleSwitch(
+            "Sperrbildschirm und UAC vom Handy bedienen",
+            WindowsSecureDesktop.IsAvailable
+                ? "Ein Windows-Dienst zeigt und bedient beides. Einrichten braucht einmal Adminrechte."
+                : "Nur bei Installation für alle Benutzer (MSI unter \"Program Files\") verfügbar.")
+        {
+            Enabled = WindowsSecureDesktop.IsAvailable
+        };
+        secureDesktopSwitch.Click += (_, _) =>
+            secureDesktopSwitch.Checked = tray.ChangeSecureDesktop(secureDesktopSwitch.Checked);
         var certificateButton = new PillButton("Zertifikat installieren...", ButtonKind.Secondary, tray.ShowCertificateInstallDialog)
         {
             Visible = tray.CertificateAvailable
@@ -208,6 +219,7 @@ internal sealed class MainWindow : Form
             new Card("Einstellungen",
                 httpsSwitch,
                 startWithWindowsSwitch,
+                secureDesktopSwitch,
                 Row(
                     certificateButton,
                     gamepadDriverButton,
@@ -367,6 +379,7 @@ internal sealed class MainWindow : Form
 
         httpsSwitch.Checked = tray.HttpsEnabled;
         startWithWindowsSwitch.Checked = WindowsStartupService.IsEnabled();
+        secureDesktopSwitch.Checked = WindowsSecureDesktop.IsServiceInstalled();
         gamepadDriverButton.Visible = tray.GamepadDriverMissing;
 
         var (updateText, updateEnabled) = tray.UpdateState;

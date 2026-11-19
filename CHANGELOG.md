@@ -23,6 +23,22 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Server: Neuer Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster (standardmäßig aus, nur bei Installation unter „Program Files“). Ein Windows-Dienst zeigt dann auch Sperrbildschirm und UAC-Abfragen in der Bildschirm-Ansicht und nimmt dort Maus und Tastatur an – zum Entsperren oder Bestätigen vom Handy aus.
+- Bildschirm-Ansicht mit „Touch“: Ein Stift kommt am PC als echter Windows-Stift an – mit Schweben, Druck, Neigung, Seitentaste und Radierer, z. B. zum Zeichnen in OneNote oder Krita.
+- Client: In der Bildschirm-Ansicht klickt Antippen mit gedrückter Seitentaste des Stifts rechts.
+
+### Changed
+
+- Android: Unter „Steuern“ trennt ein Umschalter „Unverschlüsselt | Verschlüsselt“ die Geräte nach HTTP und HTTPS, sodass derselbe PC nicht zweimal in einer Liste steht. Gibt es nur eine Sorte, bleibt die Liste wie bisher.
+
+### Fixed
+
+- Client: Der Mauszeiger folgt einem schwebenden Stift jetzt auch, solange dessen Seitentaste gedrückt ist (z. B. S Pen).
+
+## [2.61.0] - 2026-11-19
+
+### Added
+
 - Client: In der Bildschirm-Ansicht folgt der Mauszeiger am PC einem schwebenden Stift (z. B. S Pen), ohne dass er das Display berührt. Antippen und Ziehen mit dem Stift klicken und ziehen wie bisher.
 
 ## [2.60.0] - 2026-11-18

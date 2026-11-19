@@ -149,8 +149,11 @@ feature.
   Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
   image). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
   per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hovering pen (`pointerType: 'pen'`,
-  `buttons: 0`, e.g. the S Pen) sends the same throttled `screenMove` without a button, so the PC
-  pointer follows it. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
+  `buttons & 1` clear, so also with the side button held, e.g. the S Pen) sends the same
+  throttled `screenMove` without a button, so the PC pointer follows it. A pen tap with the side
+  button held (`buttons & 2` on `pointerdown`) sends a right `screenClick` and never drags; the
+  `click`/`contextmenu` the browser may add is swallowed. A hidden page sends
+  `mouseUp` right away; a `RemoteActionSession`
   releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
   how long a dead connection goes unnoticed). Two fingers work like a touchpad: their first move
   beyond 8 px decides between zoom and scroll for the rest of the gesture, because the finger
@@ -179,6 +182,18 @@ feature.
   Medien" devices are refused. Checked on the dev PC on 2026-11-16 with a temporary test window: a
   held contact arrived as `WM_POINTERDOWN`, three keep-alive `WM_POINTERUPDATE`s and `WM_POINTERUP`,
   promoted to a left click. Gestures in real apps and the phone side are unverified.
+  With the switch on, a pen (`pointerType: 'pen'`) is no finger but a real Windows pen: hover,
+  `pointerdown`/`pointerup` and moves (per frame and every 16 ms) send
+  `{"type":"pen","pen":{x,y,pressure,tiltX,tiltY,contact,barrel,eraser},"monitor"}` (`contact`:
+  `buttons` 1 = tip or 32 = eraser; `pressure` 0.5 when the browser reports 0 on contact), and
+  `pen: null` when it leaves the picture (`pointerleave`), on `pointercancel` and on a hidden page.
+  `WindowsTouchService.ApplyPen` injects it through a synthetic pen device
+  (`CreateSyntheticPointerDevice`/`InjectSyntheticPointerInput`, Windows 10 1809+): `INRANGE` plus
+  `DOWN`/`UPDATE`/`UP` from the contact change, pressure 0-1024, tilt, `PEN_FLAG_BARREL`, and
+  `PEN_FLAG_INVERTED`/`PEN_FLAG_ERASER` for the eraser; out of range is an `UPDATE` without
+  `INRANGE`. A held tip gets the same 100 ms keep-alive as the fingers, and the
+  `RemoteActionSession` takes the pen away when the connection ends. Unverified on a real PC and
+  with a real pen (pressure in Windows Ink apps, hover cursor, eraser).
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the
@@ -420,3 +435,45 @@ button/axis codes of a wired Xbox 360 pad under the kernel's `xpad` driver, so S
 without a custom mapping; available whenever `/dev/uinput` exists, no slot cap. Rumble comes from
 a reader thread per controller that answers the game's force-feedback uploads (unverified on a real
 kernel, see AGENTS.md).
+
+**Lock screen and UAC prompt (Windows, opt-in).** Both live on the secure desktop ("Winlogon"),
+where a normal process gets `ERROR_ACCESS_DENIED` for `SendInput`/`GetCursorPos` and no picture.
+The `MainWindow` switch "Sperrbildschirm und UAC vom Handy bedienen" (off by default, enabled only
+when `WindowsSecureDesktop.IsProtectedInstallPath` holds, i.e. the exe lies under `Program Files`:
+a SYSTEM service running a file the user can replace would be a privilege escalation) starts the
+same exe elevated (`runas`, one UAC prompt at the PC) with `--secure-desktop-install <user SID>`,
+which creates the LocalSystem service `YFRemoteSecureDesktop` through `sc.exe`
+(`--secure-desktop-service <SID>`, auto start). `--secure-desktop-uninstall` removes it, and so do
+switching off and the Velopack uninstall hook. Service and helper run from `current\`, which
+Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
+`OnAfterUpdateFastCallback` starts it again.
+- `WindowsSecureDesktopService` (session 0) keeps one helper alive in the active console session:
+  its own SYSTEM token with `TokenSessionId` set, `CreateProcessAsUser` with
+  `--secure-desktop-helper <SID> <service pid>`, restarted on session change, when it exits, and
+  every 2 s otherwise. The helper exits with the service process.
+- `WindowsSecureDesktopHelper` serves the named pipe `YFRemote.SecureDesktop` (ACL: SYSTEM and the
+  SID that installed it, `FirstPipeInstance`, a second instance always waiting so no request
+  finds the pipe missing, one request per connection: kind byte, length,
+  payload; answer: status, length, payload). It answers only clients whose image path is its own
+  exe, and acts only while `OpenInputDesktop` is the desktop "Winlogon" (else status `-1`): it
+  switches its thread there (`SetThreadDesktop`), then replays raw `INPUT` structs (at most 64) or
+  returns a BitBlt JPEG (`WindowsScreenCapture.CaptureCurrentDesktopJpeg`).
+- The server only uses it for what fails: `WindowsInputSender.SendSingle` forwards the `INPUT` on
+  `ERROR_ACCESS_DENIED`, `WindowsMouseService.MoveRelative` falls back to a relative move when
+  `GetCursorPos` is denied, and `WindowsScreenCapture.CaptureJpeg` asks the helper on
+  `Win32Exception`. Without the service `WaitNamedPipe` fails at once and everything behaves as
+  before (`InputBlockedException`, `503`). The server, too, checks the pipe's other end is its own
+  exe, so a squatting process gets no keystrokes (passwords). Touch and pen are not forwarded.
+- `/screen/video` stays `503` there; the Client then shows `/screen` stills in its video loop
+  until the video plays again.
+- Risks accepted with the opt-in: a typed Windows password travels over the network (plain over
+  HTTP), and malware already running as the user could drive the pipe (or YFRemote) to approve its
+  own UAC prompt.
+- Checked on the dev PC on 2026-11-19 with a phone (Chrome) on a test install under
+  `Program Files`: the UAC prompt showed on the phone and a tap on "Nein" closed it, and on the
+  lock screen the picture came and a tap opened the sign-in field. Install through
+  `--secure-desktop-install` worked, and `--secure-desktop-uninstall` removed the service and
+  ended the helper. Typing a password and the elevated Velopack hooks during a real update are
+  unverified. Found on the way: the helper must serve from
+  its own MTA thread (the `[STAThread]` main thread's COM window makes `SetThreadDesktop` fail), and
+  `GetUserObjectInformation` needs `CharSet.Unicode`, else the desktop name is never "Winlogon".

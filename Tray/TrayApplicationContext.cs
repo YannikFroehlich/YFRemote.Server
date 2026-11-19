@@ -886,6 +886,39 @@ internal sealed class TrayApplicationContext : ApplicationContext
         return startWithWindowsItem.Checked = WindowsStartupService.IsEnabled();
     }
 
+    // Rueckgabe ist der Zustand, der jetzt gilt. Einrichten und Entfernen laufen in einem erhoehten
+    // Prozess, Windows fragt dafuer einmal per UAC.
+    internal bool ChangeSecureDesktop(bool requestedState)
+    {
+        var question = requestedState
+            ? "Sperrbildschirm und UAC-Abfragen vom Handy bedienen?\n\n"
+                + "Dafür richtet YFRemote einen Windows-Dienst mit SYSTEM-Rechten ein. Gekoppelte Geräte mit "
+                + "Vollzugriff sehen dann auch den Sperrbildschirm und UAC-Abfragen und können sie bedienen - "
+                + "also den PC entsperren und Programmen Adminrechte geben.\n\n"
+                + "Bitte beachten:\n"
+                + "- Ein am Handy getipptes Windows-Passwort geht über das Netzwerk. Ohne HTTPS ist es im "
+                + "WLAN nicht verschlüsselt.\n"
+                + "- Schadsoftware, die schon unter deinem Benutzer läuft, könnte darüber ihre eigene "
+                + "UAC-Abfrage bestätigen.\n\n"
+                + "Windows fragt gleich nach Adminrechten."
+            : "Den Dienst für Sperrbildschirm und UAC-Abfragen entfernen?\n\nWindows fragt gleich nach Adminrechten.";
+        if (MessageDialog.Show(question, "YFRemote", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+        {
+            return !requestedState;
+        }
+
+        if (!WindowsSecureDesktop.ChangeServiceElevated(requestedState))
+        {
+            logger.LogWarning("Changing the secure desktop service to {State} failed or was cancelled.", requestedState);
+        }
+        else
+        {
+            logger.LogInformation("Secure desktop service {State}.", requestedState ? "installed" : "removed");
+        }
+
+        return WindowsSecureDesktop.IsServiceInstalled();
+    }
+
     // Wie ChangeStartWithWindows: Rueckgabe ist der Zustand, der jetzt gilt. Bei Erfolg startet
     // YFRemote neu, der Haken spielt dann keine Rolle mehr.
     internal bool ChangeHttps(bool requestedState)

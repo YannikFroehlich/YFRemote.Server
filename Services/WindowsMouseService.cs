@@ -5,6 +5,7 @@ namespace YFRemote.Server.Services;
 
 public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouseService
 {
+    private const int ErrorAccessDenied = 5;
     private const int SmXVirtualScreen = 76;
     private const int SmYVirtualScreen = 77;
     private const int SmCxVirtualScreen = 78;
@@ -26,6 +27,14 @@ public sealed class WindowsMouseService(WindowsInputSender inputSender) : IMouse
             {
                 if (!GetCursorPos(out var cursor))
                 {
+                    // Auf dem sicheren Desktop gibt es keine Position; relativ bewegt der Helfer dort
+                    // trotzdem (mit Windows' Mausbeschleunigung, fuer eine Abfrage genau genug).
+                    if (Marshal.GetLastWin32Error() == ErrorAccessDenied)
+                    {
+                        inputSender.SendMouseInput(deltaX, deltaY, mouseData: 0, WindowsInputFlags.MouseEventMove);
+                        return;
+                    }
+
                     throw WindowsInputSender.LastWin32Failure("GetCursorPos failed.");
                 }
 

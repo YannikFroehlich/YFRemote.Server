@@ -37,7 +37,10 @@ Windows/Linux server is — no `MediaProjection`/video-encoding screen capture i
 
 **The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
 this phone controls (`remote/RemoteDevices`, in `SharedPreferences`) with an online dot from
-polling their unauthenticated `GET /health`. Each entry shows its name, with address and
+polling their unauthenticated `GET /health`. When the list holds both `http://` and `https://`
+entries (often the same PC twice), a "Unverschlüsselt | Verschlüsselt" switch above it shows one
+kind at a time; the choice is the `deviceTabSecure` preference (default encrypted), and with only
+one kind there is no switch. Each entry shows its name, with address and
 "verschlüsselt" (HTTPS) as secondary text; the name is the `name` from `/health`
 (`Environment.MachineName` on the PC, `Settings.Global.DEVICE_NAME` on Android) unless the user set
 one under "Bearbeiten" (`RemoteDevice.named`; older entries count as named when their name differs

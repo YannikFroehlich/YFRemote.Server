@@ -158,7 +158,8 @@ While the secure desktop is active (UAC prompt, lock screen), `SendInput` and `G
 with `ERROR_ACCESS_DENIED` (measured on a real UAC prompt). `WindowsInputSender.LastWin32Failure`
 turns that into `InputBlockedException`. The Client recognizes its fixed message text and shows a
 translated hint, and the socket stays open. A non-SYSTEM process cannot answer the UAC prompt
-itself.
+itself; the opt-in service `YFRemoteSecureDesktop` (`WindowsSecureDesktop*.cs`) does that, see
+docs/ARCHITECTURE.md "Lock screen and UAC prompt".
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
 `NotifyIcon` context menu and owns the actions behind it; `MainWindow` (double-click on the tray

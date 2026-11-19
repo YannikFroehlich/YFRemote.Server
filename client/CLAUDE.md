@@ -300,7 +300,16 @@ new component the same, unless everything its template reads is a signal or an i
      validated with the shared validators from `server-config.ts`; only calls
      `RemoteService.saveConfig`/`saveMouseSensitivity` (which re-validate) and closes itself via an
      `output()` (`closed`) rather than owning any open/close state. Saving another host or port
-     performs a full-page navigation instead of attempting a cross-origin socket connection.
+     performs a full-page navigation instead of attempting a cross-origin socket connection. Its
+     content is split into categories (`category` signal, one `@case` each), so a control exists
+     in the DOM only while its category is open - a test has to click the category first.
+   - Tab bar: `view-tabs.ts` holds every tab's label and icon (`VIEW_TAB_DETAILS`) and the
+     per-device order and hidden tabs (`yfremote.viewTabs`; `normalizeViewTabSettings` appends tabs
+     a stored order doesn't know yet and never hides `remote`, the fallback tab).
+     `RemoteControlComponent.tabs` shows `RemoteService.viewTabs()` minus hidden tabs minus those
+     `RemoteService.viewAvailable` rules out for this server; a new tab needs an entry in
+     `PROFILE_VIEWS`, `VIEW_TAB_DETAILS` and, if a server can lack it, `viewAvailable`. The
+     settings' "Tabs" category edits a draft that "Speichern" stores via `saveViewTabs`.
 6. **`pairing.ts`**/**`pairing.service.ts`** (`PairingService`) — the app is gated behind a
    one-time PIN pairing step: a PIN shown in the server's tray menu is exchanged for a device
    token via `POST /pair`. `PairingService` exposes `token`/`isPaired`/`lastError` signals and

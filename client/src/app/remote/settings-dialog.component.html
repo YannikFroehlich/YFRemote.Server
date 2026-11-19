@@ -29,510 +29,605 @@
       </button>
     </header>
 
-    <p class="settings-dialog__status">Status: {{ status() }}</p>
-
     <form class="settings-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
-      <div class="settings-form__scroll">
-        <label class="field" for="server-host">
-          <span>Host/IP</span>
-          <input
-            id="server-host"
-            type="text"
-            formControlName="host"
-            autocomplete="off"
-            autocapitalize="off"
-            spellcheck="false"
-            inputmode="url"
-          />
-          @if (hasFieldError('host')) {
-            <small>{{ i18n.t('settings.host.error') }}</small>
-          }
-        </label>
+      <div
+        class="settings-categories"
+        role="tablist"
+        [attr.aria-label]="i18n.t('settings.categoriesAriaLabel')"
+      >
+        @for (entry of categories; track entry.value) {
+          <button
+            class="view-tab"
+            [class.view-tab--active]="category() === entry.value"
+            [class.view-tab--invalid]="
+              entry.value === 'connection' &&
+              (form.controls.host.invalid || form.controls.port.invalid)
+            "
+            type="button"
+            role="tab"
+            [attr.aria-selected]="category() === entry.value"
+            (click)="selectCategory(entry.value, scroll)"
+          >
+            {{ i18n.t(entry.label) }}
+          </button>
+        }
+      </div>
 
-        <label class="field" for="server-port">
-          <span>Port</span>
-          <input
-            id="server-port"
-            type="number"
-            formControlName="port"
-            min="1"
-            max="65535"
-            step="1"
-            inputmode="numeric"
-          />
-          @if (hasFieldError('port')) {
-            <small>{{ i18n.t('settings.port.error') }}</small>
-          }
-        </label>
+      <div #scroll class="settings-form__scroll">
+        @switch (category()) {
+          @case ('connection') {
+            <p class="settings-dialog__status">Status: {{ status() }}</p>
 
-        @if (serverProfiles().length > 0) {
-          <div class="field">
-            <span>{{ i18n.t('settings.recentServers.label') }}</span>
-            <div class="recent-servers">
-              @for (profile of serverProfiles(); track profile.host + ':' + profile.port) {
-                <div class="recent-server-chip">
+            <label class="field" for="server-host">
+              <span>Host/IP</span>
+              <input
+                id="server-host"
+                type="text"
+                formControlName="host"
+                autocomplete="off"
+                autocapitalize="off"
+                spellcheck="false"
+                inputmode="url"
+              />
+              @if (hasFieldError('host')) {
+                <small>{{ i18n.t('settings.host.error') }}</small>
+              }
+            </label>
+
+            <label class="field" for="server-port">
+              <span>Port</span>
+              <input
+                id="server-port"
+                type="number"
+                formControlName="port"
+                min="1"
+                max="65535"
+                step="1"
+                inputmode="numeric"
+              />
+              @if (hasFieldError('port')) {
+                <small>{{ i18n.t('settings.port.error') }}</small>
+              }
+            </label>
+
+            @if (serverProfiles().length > 0) {
+              <div class="field">
+                <span>{{ i18n.t('settings.recentServers.label') }}</span>
+                <div class="recent-servers">
+                  @for (profile of serverProfiles(); track profile.host + ':' + profile.port) {
+                    <div class="recent-server-chip">
+                      <button
+                        class="recent-server-chip__select"
+                        type="button"
+                        (click)="selectServerProfile(profile)"
+                      >
+                        {{ profile.host }}:{{ profile.port }}
+                      </button>
+                      <button
+                        class="recent-server-chip__remove"
+                        type="button"
+                        [attr.aria-label]="
+                          i18n.t('settings.recentServers.removeAriaLabel', {
+                            host: profile.host + ':' + profile.port,
+                          })
+                        "
+                        (click)="removeServerProfile(profile)"
+                      >
+                        <span aria-hidden="true">x</span>
+                      </button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (httpsGuide()) {
+              <section class="settings-section" aria-labelledby="https-title">
+                <div class="settings-section__heading">
+                  <div>
+                    <p class="eyebrow">iPhone</p>
+                    <h3 id="https-title">{{ i18n.t('settings.https.title') }}</h3>
+                  </div>
+                </div>
+                <p class="settings-hint">{{ i18n.t('settings.https.intro') }}</p>
+                @if (httpsUrl(); as url) {
+                  <ol class="settings-hint settings-steps">
+                    <li>{{ i18n.t('settings.https.step1') }}</li>
+                    <li>{{ i18n.t('settings.https.step2') }}</li>
+                    <li>{{ i18n.t('settings.https.step3') }}</li>
+                    <li>{{ i18n.t('settings.https.step4') }}</li>
+                  </ol>
+                  <div class="settings-actions">
+                    <a class="secondary-button" href="/ca.mobileconfig">
+                      {{ i18n.t('settings.https.profile') }}
+                    </a>
+                    <a class="primary-button" [href]="url">{{ i18n.t('settings.https.open') }}</a>
+                  </div>
+                } @else {
+                  <p class="settings-hint">{{ i18n.t('settings.https.off') }}</p>
+                }
+              </section>
+            }
+
+            <section
+              class="settings-section settings-section--danger"
+              aria-labelledby="device-title"
+            >
+              <div class="settings-section__heading">
+                <div>
+                  <p class="eyebrow">{{ i18n.t('settings.device.eyebrow') }}</p>
+                  <h3 id="device-title">{{ i18n.t('settings.device.title') }}</h3>
+                </div>
+              </div>
+              <p class="settings-hint">{{ i18n.t('settings.device.hint') }}</p>
+
+              @if (unpairPending()) {
+                <div class="confirm-row" role="alert">
+                  <span>{{ i18n.t('settings.device.confirmUnpair') }}</span>
                   <button
-                    class="recent-server-chip__select"
+                    class="danger-button"
                     type="button"
-                    (click)="selectServerProfile(profile)"
+                    [disabled]="unpairing()"
+                    (click)="confirmUnpair()"
                   >
-                    {{ profile.host }}:{{ profile.port }}
+                    {{
+                      unpairing()
+                        ? i18n.t('settings.device.unpairing')
+                        : i18n.t('settings.device.unpair')
+                    }}
                   </button>
                   <button
-                    class="recent-server-chip__remove"
+                    class="secondary-button"
                     type="button"
-                    [attr.aria-label]="
-                      i18n.t('settings.recentServers.removeAriaLabel', {
-                        host: profile.host + ':' + profile.port,
-                      })
-                    "
-                    (click)="removeServerProfile(profile)"
+                    [disabled]="unpairing()"
+                    (click)="cancelUnpair()"
                   >
-                    <span aria-hidden="true">x</span>
+                    {{ i18n.t('common.cancel') }}
                   </button>
                 </div>
-              }
-            </div>
-          </div>
-        }
-
-        <label class="field" for="mouse-sensitivity">
-          <span>{{ i18n.t('settings.mouseSensitivity.label') }}</span>
-          <div class="range-row">
-            <small>{{ i18n.t('settings.slow') }}</small>
-            <input
-              id="mouse-sensitivity"
-              type="range"
-              formControlName="mouseSensitivity"
-              [min]="mouseSensitivityMin"
-              [max]="mouseSensitivityMax"
-              [step]="mouseSensitivityStep"
-            />
-            <small>{{ i18n.t('settings.fast') }}</small>
-          </div>
-          <output>{{ sensitivityLabel() }}</output>
-          @if (hasFieldError('mouseSensitivity')) {
-            <small>
-              {{
-                i18n.t('settings.rangeError', {
-                  min: i18n.number(mouseSensitivityMin, 1),
-                  max: i18n.number(mouseSensitivityMax, 1),
-                })
-              }}
-            </small>
-          }
-        </label>
-
-        <button
-          class="snap-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="form.controls.pointerAcceleration.value"
-          (click)="toggleSetting('pointerAcceleration')"
-        >
-          <span class="switch-indicator" aria-hidden="true"></span>
-          <span>{{ i18n.t('settings.pointerAcceleration') }}</span>
-        </button>
-
-        <label class="field" for="scroll-speed">
-          <span>{{ i18n.t('settings.scrollSpeed.label') }}</span>
-          <div class="range-row">
-            <small>{{ i18n.t('settings.slow') }}</small>
-            <input
-              id="scroll-speed"
-              type="range"
-              formControlName="scrollSpeed"
-              [min]="scrollSpeedMin"
-              [max]="scrollSpeedMax"
-              [step]="scrollSpeedStep"
-            />
-            <small>{{ i18n.t('settings.fast') }}</small>
-          </div>
-          <output>{{ scrollSpeedLabel() }}</output>
-          @if (hasFieldError('scrollSpeed')) {
-            <small>
-              {{
-                i18n.t('settings.rangeError', {
-                  min: i18n.number(scrollSpeedMin, 2),
-                  max: i18n.number(scrollSpeedMax, 2),
-                })
-              }}
-            </small>
-          }
-        </label>
-
-        <button
-          class="snap-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="form.controls.invertScroll.value"
-          (click)="toggleSetting('invertScroll')"
-        >
-          <span class="switch-indicator" aria-hidden="true"></span>
-          <span>{{ i18n.t('settings.invertScroll') }}</span>
-        </button>
-
-        <button
-          class="snap-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="canVibrate && form.controls.haptics.value"
-          [disabled]="!canVibrate"
-          (click)="toggleSetting('haptics')"
-        >
-          <span class="switch-indicator" aria-hidden="true"></span>
-          <span>{{ i18n.t('settings.haptics') }}</span>
-        </button>
-        @if (!canVibrate) {
-          <p class="settings-hint">{{ i18n.t('settings.haptics.unsupported') }}</p>
-        }
-
-        <button
-          class="snap-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="form.controls.clipboardSync.value"
-          [disabled]="!clipboardSync.available()"
-          (click)="toggleSetting('clipboardSync')"
-        >
-          <span class="switch-indicator" aria-hidden="true"></span>
-          <span>{{ i18n.t('settings.clipboardSync') }}</span>
-        </button>
-        @if (!clipboardSync.secureContextAvailable) {
-          <p class="settings-hint">{{ i18n.t('settings.clipboardSync.httpsHint') }}</p>
-        } @else if (!clipboardSync.browserAllowsAutoSync()) {
-          <p class="settings-hint">{{ i18n.t('settings.clipboardSync.browserUnsupported') }}</p>
-        } @else if (!clipboardSync.available()) {
-          <p class="settings-hint">{{ i18n.t('settings.clipboardSync.unsupported') }}</p>
-        }
-
-        <button
-          class="snap-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="form.controls.pcNotifications.value"
-          [disabled]="!pcNotificationsSupported()"
-          (click)="toggleSetting('pcNotifications')"
-        >
-          <span class="switch-indicator" aria-hidden="true"></span>
-          <span>{{ i18n.t('settings.pcNotifications') }}</span>
-        </button>
-        @if (!pcNotificationsSupported()) {
-          <p class="settings-hint">{{ i18n.t('settings.pcNotifications.unsupported') }}</p>
-        }
-
-        <label class="field" for="settings-language">
-          <span>{{ i18n.t('settings.language.label') }}</span>
-          <select id="settings-language" formControlName="language">
-            <option value="de">Deutsch</option>
-            <option value="en">English</option>
-          </select>
-        </label>
-
-        <label class="field" for="theme-mode">
-          <span>{{ i18n.t('settings.themeMode.label') }}</span>
-          <select
-            id="theme-mode"
-            formControlName="themeMode"
-            [attr.disabled]="customStyleSelected() ? '' : null"
-          >
-            <option value="system">{{ i18n.t('settings.themeMode.system') }}</option>
-            <option value="light">{{ i18n.t('settings.themeMode.light') }}</option>
-            <option value="dark">{{ i18n.t('settings.themeMode.dark') }}</option>
-          </select>
-          @if (customStyleSelected()) {
-            <p class="settings-hint">{{ i18n.t('settings.themeMode.customHint') }}</p>
-          }
-        </label>
-
-        <button
-          class="snap-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="form.controls.animations.value"
-          (click)="toggleSetting('animations')"
-        >
-          <span class="switch-indicator" aria-hidden="true"></span>
-          <span>{{ i18n.t('settings.animations') }}</span>
-        </button>
-        <p class="settings-hint">{{ i18n.t('settings.animations.hint') }}</p>
-
-        <fieldset class="field style-picker">
-          <legend>{{ i18n.t('settings.style.legend') }}</legend>
-          <div class="style-picker__options">
-            @for (style of themeStyles; track style.value) {
-              <label class="style-option">
-                <input type="radio" formControlName="themeStyle" [value]="style.value" />
-                <span
-                  class="style-option__preview style-option__preview--{{ style.value }}"
-                  aria-hidden="true"
-                ></span>
-                <strong>{{ i18n.t(style.name) }}</strong>
-                <small>{{ i18n.t(style.hint) }}</small>
-              </label>
-            }
-            @for (custom of theme.customThemes(); track custom.id) {
-              <div class="style-option style-option--custom">
-                <label class="style-option__select">
-                  <input
-                    type="radio"
-                    formControlName="themeStyle"
-                    [value]="customStylePrefix + custom.id"
-                  />
-                  <span
-                    class="style-option__preview"
-                    aria-hidden="true"
-                    [style.background]="customThemePreview(custom)"
-                  ></span>
-                  <strong>{{ custom.name }}</strong>
-                </label>
-                <button
-                  class="style-option__edit"
-                  type="button"
-                  [attr.aria-label]="i18n.t('settings.style.editAriaLabel', { name: custom.name })"
-                  (click)="openThemeEditor(custom.id)"
-                >
-                  {{ i18n.t('common.edit') }}
+              } @else {
+                <button class="danger-button" type="button" (click)="requestUnpair()">
+                  {{ i18n.t('settings.device.requestUnpair') }}
                 </button>
-              </div>
-            }
-            <button
-              class="style-option style-option--new"
-              type="button"
-              (click)="openThemeEditor(null)"
-            >
-              <span aria-hidden="true">+</span>
-              <strong>{{ i18n.t('settings.style.new') }}</strong>
-            </button>
-          </div>
-          <div class="profile-actions">
-            <button
-              class="secondary-button"
-              type="button"
-              [disabled]="theme.customThemes().length === 0"
-              (click)="exportCustomThemes()"
-            >
-              {{ i18n.t('settings.style.export') }}
-            </button>
-            <button class="secondary-button" type="button" (click)="themeImport.click()">
-              {{ i18n.t('settings.style.import') }}
-            </button>
-            <input
-              #themeImport
-              class="visually-hidden"
-              type="file"
-              accept="application/json,.json"
-              (change)="importCustomThemes($event)"
-            />
-          </div>
-        </fieldset>
-
-        @if (httpsGuide()) {
-          <section class="settings-section" aria-labelledby="https-title">
-            <div class="settings-section__heading">
-              <div>
-                <p class="eyebrow">iPhone</p>
-                <h3 id="https-title">{{ i18n.t('settings.https.title') }}</h3>
-              </div>
-            </div>
-            <p class="settings-hint">{{ i18n.t('settings.https.intro') }}</p>
-            @if (httpsUrl(); as url) {
-              <ol class="settings-hint settings-steps">
-                <li>{{ i18n.t('settings.https.step1') }}</li>
-                <li>{{ i18n.t('settings.https.step2') }}</li>
-                <li>{{ i18n.t('settings.https.step3') }}</li>
-                <li>{{ i18n.t('settings.https.step4') }}</li>
-              </ol>
-              <div class="settings-actions">
-                <a class="secondary-button" href="/ca.mobileconfig">
-                  {{ i18n.t('settings.https.profile') }}
-                </a>
-                <a class="primary-button" [href]="url">{{ i18n.t('settings.https.open') }}</a>
-              </div>
-            } @else {
-              <p class="settings-hint">{{ i18n.t('settings.https.off') }}</p>
-            }
-          </section>
-        }
-
-        <section class="settings-section" aria-labelledby="profiles-title">
-          <div class="settings-section__heading">
-            <div>
-              <p class="eyebrow">Layouts</p>
-              <h3 id="profiles-title">{{ i18n.t('settings.profiles.title') }}</h3>
-            </div>
-            <span>{{ layout.profiles().length }}/20</span>
-          </div>
-
-          <label class="field" for="layout-profile">
-            <span>{{ i18n.t('settings.profiles.active.label') }}</span>
-            <select
-              id="layout-profile"
-              [value]="layout.activeProfileId()"
-              (change)="selectProfile($event)"
-            >
-              @for (profile of layout.profiles(); track profile.id) {
-                <option [value]="profile.id">{{ profile.name }}</option>
               }
-            </select>
-          </label>
-
-          <button
-            class="snap-switch"
-            type="button"
-            role="switch"
-            [attr.aria-checked]="autoProfile()"
-            [disabled]="!autoProfileSupported()"
-            (click)="toggleAutoProfile()"
-          >
-            <span class="switch-indicator" aria-hidden="true"></span>
-            <span>{{ i18n.t('settings.profiles.auto') }}</span>
-          </button>
-          @if (!autoProfileSupported()) {
-            <p class="settings-hint">{{ i18n.t('settings.profiles.auto.unsupported') }}</p>
-          } @else if (autoProfile()) {
-            <label class="field" for="profile-apps">
-              <span>{{ i18n.t('settings.profiles.apps.label') }}</span>
-              <input
-                id="profile-apps"
-                type="text"
-                autocomplete="off"
-                [placeholder]="i18n.t('settings.profiles.apps.placeholder')"
-                [value]="activeProfileApps()"
-                (change)="saveProfileApps($event)"
-              />
+            </section>
+          }
+          @case ('controls') {
+            <label class="field" for="mouse-sensitivity">
+              <span>{{ i18n.t('settings.mouseSensitivity.label') }}</span>
+              <div class="range-row">
+                <small>{{ i18n.t('settings.slow') }}</small>
+                <input
+                  id="mouse-sensitivity"
+                  type="range"
+                  formControlName="mouseSensitivity"
+                  [min]="mouseSensitivityMin"
+                  [max]="mouseSensitivityMax"
+                  [step]="mouseSensitivityStep"
+                />
+                <small>{{ i18n.t('settings.fast') }}</small>
+              </div>
+              <output>{{ sensitivityLabel() }}</output>
+              @if (hasFieldError('mouseSensitivity')) {
+                <small>
+                  {{
+                    i18n.t('settings.rangeError', {
+                      min: i18n.number(mouseSensitivityMin, 1),
+                      max: i18n.number(mouseSensitivityMax, 1),
+                    })
+                  }}
+                </small>
+              }
             </label>
-            <label class="field" for="profile-view">
-              <span>{{ i18n.t('settings.profiles.view.label') }}</span>
-              <select
-                id="profile-view"
-                [value]="activeProfileView()"
-                (change)="saveProfileView($event)"
-              >
-                <option value="">{{ i18n.t('settings.profiles.view.keep') }}</option>
-                @for (view of profileViews; track view.value) {
-                  <option [value]="view.value">{{ i18n.t(view.label) }}</option>
-                }
+
+            <button
+              class="snap-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="form.controls.pointerAcceleration.value"
+              (click)="toggleSetting('pointerAcceleration')"
+            >
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>{{ i18n.t('settings.pointerAcceleration') }}</span>
+            </button>
+
+            <label class="field" for="scroll-speed">
+              <span>{{ i18n.t('settings.scrollSpeed.label') }}</span>
+              <div class="range-row">
+                <small>{{ i18n.t('settings.slow') }}</small>
+                <input
+                  id="scroll-speed"
+                  type="range"
+                  formControlName="scrollSpeed"
+                  [min]="scrollSpeedMin"
+                  [max]="scrollSpeedMax"
+                  [step]="scrollSpeedStep"
+                />
+                <small>{{ i18n.t('settings.fast') }}</small>
+              </div>
+              <output>{{ scrollSpeedLabel() }}</output>
+              @if (hasFieldError('scrollSpeed')) {
+                <small>
+                  {{
+                    i18n.t('settings.rangeError', {
+                      min: i18n.number(scrollSpeedMin, 2),
+                      max: i18n.number(scrollSpeedMax, 2),
+                    })
+                  }}
+                </small>
+              }
+            </label>
+
+            <button
+              class="snap-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="form.controls.invertScroll.value"
+              (click)="toggleSetting('invertScroll')"
+            >
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>{{ i18n.t('settings.invertScroll') }}</span>
+            </button>
+
+            <button
+              class="snap-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="canVibrate && form.controls.haptics.value"
+              [disabled]="!canVibrate"
+              (click)="toggleSetting('haptics')"
+            >
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>{{ i18n.t('settings.haptics') }}</span>
+            </button>
+            @if (!canVibrate) {
+              <p class="settings-hint">{{ i18n.t('settings.haptics.unsupported') }}</p>
+            }
+
+            <button
+              class="snap-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="form.controls.clipboardSync.value"
+              [disabled]="!clipboardSync.available()"
+              (click)="toggleSetting('clipboardSync')"
+            >
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>{{ i18n.t('settings.clipboardSync') }}</span>
+            </button>
+            @if (!clipboardSync.secureContextAvailable) {
+              <p class="settings-hint">{{ i18n.t('settings.clipboardSync.httpsHint') }}</p>
+            } @else if (!clipboardSync.browserAllowsAutoSync()) {
+              <p class="settings-hint">{{ i18n.t('settings.clipboardSync.browserUnsupported') }}</p>
+            } @else if (!clipboardSync.available()) {
+              <p class="settings-hint">{{ i18n.t('settings.clipboardSync.unsupported') }}</p>
+            }
+
+            <button
+              class="snap-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="form.controls.pcNotifications.value"
+              [disabled]="!pcNotificationsSupported()"
+              (click)="toggleSetting('pcNotifications')"
+            >
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>{{ i18n.t('settings.pcNotifications') }}</span>
+            </button>
+            @if (!pcNotificationsSupported()) {
+              <p class="settings-hint">{{ i18n.t('settings.pcNotifications.unsupported') }}</p>
+            }
+          }
+          @case ('tabs') {
+            <p class="settings-hint">{{ i18n.t('settings.tabs.hint') }}</p>
+            <ul class="tab-order">
+              @for (
+                row of tabRows();
+                track row.view;
+                let index = $index, first = $first, last = $last
+              ) {
+                <li class="tab-order__row">
+                  <button
+                    class="snap-switch"
+                    type="button"
+                    role="switch"
+                    [attr.aria-checked]="row.visible"
+                    [disabled]="row.view === 'remote'"
+                    (click)="toggleTab(row.view)"
+                  >
+                    <span class="switch-indicator" aria-hidden="true"></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path [attr.d]="row.icon" />
+                    </svg>
+                    <span class="tab-order__name">
+                      {{ i18n.t(row.label) }}
+                      @if (row.view === 'remote') {
+                        <small>{{ i18n.t('settings.tabs.alwaysOn') }}</small>
+                      } @else if (!row.available) {
+                        <small>{{ i18n.t('settings.tabs.unavailable') }}</small>
+                      }
+                    </span>
+                  </button>
+                  <button
+                    class="round-button round-button--small tab-order__move"
+                    type="button"
+                    [disabled]="first"
+                    [attr.aria-label]="i18n.t('settings.tabs.moveUp', { name: i18n.t(row.label) })"
+                    (click)="moveTab(index, -1)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path [attr.d]="iconPaths['arrow-up']"></path>
+                    </svg>
+                  </button>
+                  <button
+                    class="round-button round-button--small tab-order__move"
+                    type="button"
+                    [disabled]="last"
+                    [attr.aria-label]="
+                      i18n.t('settings.tabs.moveDown', { name: i18n.t(row.label) })
+                    "
+                    (click)="moveTab(index, 1)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path [attr.d]="iconPaths['arrow-down']"></path>
+                    </svg>
+                  </button>
+                </li>
+              }
+            </ul>
+            <button class="secondary-button" type="button" (click)="resetTabs()">
+              {{ i18n.t('settings.tabs.reset') }}
+            </button>
+          }
+          @case ('appearance') {
+            <label class="field" for="settings-language">
+              <span>{{ i18n.t('settings.language.label') }}</span>
+              <select id="settings-language" formControlName="language">
+                <option value="de">Deutsch</option>
+                <option value="en">English</option>
               </select>
             </label>
-            @if (foregroundApp(); as app) {
-              <div class="profile-actions">
-                <span class="settings-hint">{{
-                  i18n.t('settings.profiles.apps.current', { app })
-                }}</span>
-                <button class="secondary-button" type="button" (click)="addForegroundApp(app)">
-                  {{ i18n.t('settings.profiles.apps.add') }}
-                </button>
-              </div>
-            }
-            <p class="settings-hint">{{ i18n.t('settings.profiles.apps.hint') }}</p>
-          }
 
-          <div class="profile-create-row">
-            <label class="field" for="profile-name">
-              <span>{{ i18n.t('settings.profiles.new.label') }}</span>
-              <input
-                id="profile-name"
-                type="text"
-                maxlength="40"
-                [placeholder]="i18n.t('settings.profiles.new.placeholder')"
-                autocomplete="off"
-                [formControl]="profileName"
-                (keydown.enter)="createProfile(); $event.preventDefault()"
-              />
-              @if (profileName.invalid && profileName.touched) {
-                <small>{{ i18n.t('settings.profiles.new.error') }}</small>
+            <label class="field" for="theme-mode">
+              <span>{{ i18n.t('settings.themeMode.label') }}</span>
+              <select
+                id="theme-mode"
+                formControlName="themeMode"
+                [attr.disabled]="customStyleSelected() ? '' : null"
+              >
+                <option value="system">{{ i18n.t('settings.themeMode.system') }}</option>
+                <option value="light">{{ i18n.t('settings.themeMode.light') }}</option>
+                <option value="dark">{{ i18n.t('settings.themeMode.dark') }}</option>
+              </select>
+              @if (customStyleSelected()) {
+                <p class="settings-hint">{{ i18n.t('settings.themeMode.customHint') }}</p>
               }
             </label>
+
             <button
-              class="secondary-button"
+              class="snap-switch"
               type="button"
-              [disabled]="profileName.invalid"
-              (click)="createProfile()"
+              role="switch"
+              [attr.aria-checked]="form.controls.animations.value"
+              (click)="toggleSetting('animations')"
             >
-              {{ i18n.t('settings.profiles.create') }}
+              <span class="switch-indicator" aria-hidden="true"></span>
+              <span>{{ i18n.t('settings.animations') }}</span>
             </button>
-          </div>
+            <p class="settings-hint">{{ i18n.t('settings.animations.hint') }}</p>
 
-          <div class="profile-actions">
-            <button class="secondary-button" type="button" (click)="exportProfiles()">
-              {{ i18n.t('settings.profiles.exportJson') }}
-            </button>
-            <button class="secondary-button" type="button" (click)="profileImport.click()">
-              {{ i18n.t('settings.profiles.importJson') }}
-            </button>
-            <input
-              #profileImport
-              class="visually-hidden"
-              type="file"
-              accept="application/json,.json"
-              (change)="importProfiles($event)"
-            />
-          </div>
-
-          <p class="settings-hint">{{ i18n.t('settings.profiles.importHint') }}</p>
-
-          @if (profileDeletePending()) {
-            <div class="confirm-row" role="alert">
-              <span>{{ i18n.t('settings.profiles.confirmDelete') }}</span>
-              <button class="danger-button" type="button" (click)="confirmProfileDeletion()">
-                {{ i18n.t('common.delete') }}
-              </button>
-              <button class="secondary-button" type="button" (click)="cancelProfileDeletion()">
-                {{ i18n.t('common.cancel') }}
-              </button>
-            </div>
-          } @else {
-            <button
-              class="text-danger-button"
-              type="button"
-              [disabled]="layout.profiles().length <= 1"
-              (click)="requestProfileDeletion()"
-            >
-              {{ i18n.t('settings.profiles.delete') }}
-            </button>
+            <fieldset class="field style-picker">
+              <legend>{{ i18n.t('settings.style.legend') }}</legend>
+              <div class="style-picker__options">
+                @for (style of themeStyles; track style.value) {
+                  <label class="style-option">
+                    <input type="radio" formControlName="themeStyle" [value]="style.value" />
+                    <span
+                      class="style-option__preview style-option__preview--{{ style.value }}"
+                      aria-hidden="true"
+                    ></span>
+                    <strong>{{ i18n.t(style.name) }}</strong>
+                    <small>{{ i18n.t(style.hint) }}</small>
+                  </label>
+                }
+                @for (custom of theme.customThemes(); track custom.id) {
+                  <div class="style-option style-option--custom">
+                    <label class="style-option__select">
+                      <input
+                        type="radio"
+                        formControlName="themeStyle"
+                        [value]="customStylePrefix + custom.id"
+                      />
+                      <span
+                        class="style-option__preview"
+                        aria-hidden="true"
+                        [style.background]="customThemePreview(custom)"
+                      ></span>
+                      <strong>{{ custom.name }}</strong>
+                    </label>
+                    <button
+                      class="style-option__edit"
+                      type="button"
+                      [attr.aria-label]="
+                        i18n.t('settings.style.editAriaLabel', { name: custom.name })
+                      "
+                      (click)="openThemeEditor(custom.id)"
+                    >
+                      {{ i18n.t('common.edit') }}
+                    </button>
+                  </div>
+                }
+                <button
+                  class="style-option style-option--new"
+                  type="button"
+                  (click)="openThemeEditor(null)"
+                >
+                  <span aria-hidden="true">+</span>
+                  <strong>{{ i18n.t('settings.style.new') }}</strong>
+                </button>
+              </div>
+              <div class="profile-actions">
+                <button
+                  class="secondary-button"
+                  type="button"
+                  [disabled]="theme.customThemes().length === 0"
+                  (click)="exportCustomThemes()"
+                >
+                  {{ i18n.t('settings.style.export') }}
+                </button>
+                <button class="secondary-button" type="button" (click)="themeImport.click()">
+                  {{ i18n.t('settings.style.import') }}
+                </button>
+                <input
+                  #themeImport
+                  class="visually-hidden"
+                  type="file"
+                  accept="application/json,.json"
+                  (change)="importCustomThemes($event)"
+                />
+              </div>
+            </fieldset>
           }
-        </section>
+          @case ('layouts') {
+            <section class="settings-section" aria-labelledby="profiles-title">
+              <div class="settings-section__heading">
+                <div>
+                  <h3 id="profiles-title">{{ i18n.t('settings.profiles.title') }}</h3>
+                </div>
+                <span>{{ layout.profiles().length }}/20</span>
+              </div>
 
-        <section class="settings-section settings-section--danger" aria-labelledby="device-title">
-          <div class="settings-section__heading">
-            <div>
-              <p class="eyebrow">{{ i18n.t('settings.device.eyebrow') }}</p>
-              <h3 id="device-title">{{ i18n.t('settings.device.title') }}</h3>
-            </div>
-          </div>
-          <p class="settings-hint">{{ i18n.t('settings.device.hint') }}</p>
+              <label class="field" for="layout-profile">
+                <span>{{ i18n.t('settings.profiles.active.label') }}</span>
+                <select
+                  id="layout-profile"
+                  [value]="layout.activeProfileId()"
+                  (change)="selectProfile($event)"
+                >
+                  @for (profile of layout.profiles(); track profile.id) {
+                    <option [value]="profile.id">{{ profile.name }}</option>
+                  }
+                </select>
+              </label>
 
-          @if (unpairPending()) {
-            <div class="confirm-row" role="alert">
-              <span>{{ i18n.t('settings.device.confirmUnpair') }}</span>
               <button
-                class="danger-button"
+                class="snap-switch"
                 type="button"
-                [disabled]="unpairing()"
-                (click)="confirmUnpair()"
+                role="switch"
+                [attr.aria-checked]="autoProfile()"
+                [disabled]="!autoProfileSupported()"
+                (click)="toggleAutoProfile()"
               >
-                {{
-                  unpairing()
-                    ? i18n.t('settings.device.unpairing')
-                    : i18n.t('settings.device.unpair')
-                }}
+                <span class="switch-indicator" aria-hidden="true"></span>
+                <span>{{ i18n.t('settings.profiles.auto') }}</span>
               </button>
-              <button
-                class="secondary-button"
-                type="button"
-                [disabled]="unpairing()"
-                (click)="cancelUnpair()"
-              >
-                {{ i18n.t('common.cancel') }}
-              </button>
-            </div>
-          } @else {
-            <button class="danger-button" type="button" (click)="requestUnpair()">
-              {{ i18n.t('settings.device.requestUnpair') }}
-            </button>
+              @if (!autoProfileSupported()) {
+                <p class="settings-hint">{{ i18n.t('settings.profiles.auto.unsupported') }}</p>
+              } @else if (autoProfile()) {
+                <label class="field" for="profile-apps">
+                  <span>{{ i18n.t('settings.profiles.apps.label') }}</span>
+                  <input
+                    id="profile-apps"
+                    type="text"
+                    autocomplete="off"
+                    [placeholder]="i18n.t('settings.profiles.apps.placeholder')"
+                    [value]="activeProfileApps()"
+                    (change)="saveProfileApps($event)"
+                  />
+                </label>
+                <label class="field" for="profile-view">
+                  <span>{{ i18n.t('settings.profiles.view.label') }}</span>
+                  <select
+                    id="profile-view"
+                    [value]="activeProfileView()"
+                    (change)="saveProfileView($event)"
+                  >
+                    <option value="">{{ i18n.t('settings.profiles.view.keep') }}</option>
+                    @for (view of profileViews; track view.value) {
+                      <option [value]="view.value">{{ i18n.t(view.label) }}</option>
+                    }
+                  </select>
+                </label>
+                @if (foregroundApp(); as app) {
+                  <div class="profile-actions">
+                    <span class="settings-hint">{{
+                      i18n.t('settings.profiles.apps.current', { app })
+                    }}</span>
+                    <button class="secondary-button" type="button" (click)="addForegroundApp(app)">
+                      {{ i18n.t('settings.profiles.apps.add') }}
+                    </button>
+                  </div>
+                }
+                <p class="settings-hint">{{ i18n.t('settings.profiles.apps.hint') }}</p>
+              }
+
+              <div class="profile-create-row">
+                <label class="field" for="profile-name">
+                  <span>{{ i18n.t('settings.profiles.new.label') }}</span>
+                  <input
+                    id="profile-name"
+                    type="text"
+                    maxlength="40"
+                    [placeholder]="i18n.t('settings.profiles.new.placeholder')"
+                    autocomplete="off"
+                    [formControl]="profileName"
+                    (keydown.enter)="createProfile(); $event.preventDefault()"
+                  />
+                  @if (profileName.invalid && profileName.touched) {
+                    <small>{{ i18n.t('settings.profiles.new.error') }}</small>
+                  }
+                </label>
+                <button
+                  class="secondary-button"
+                  type="button"
+                  [disabled]="profileName.invalid"
+                  (click)="createProfile()"
+                >
+                  {{ i18n.t('settings.profiles.create') }}
+                </button>
+              </div>
+
+              <div class="profile-actions">
+                <button class="secondary-button" type="button" (click)="exportProfiles()">
+                  {{ i18n.t('settings.profiles.exportJson') }}
+                </button>
+                <button class="secondary-button" type="button" (click)="profileImport.click()">
+                  {{ i18n.t('settings.profiles.importJson') }}
+                </button>
+                <input
+                  #profileImport
+                  class="visually-hidden"
+                  type="file"
+                  accept="application/json,.json"
+                  (change)="importProfiles($event)"
+                />
+              </div>
+
+              <p class="settings-hint">{{ i18n.t('settings.profiles.importHint') }}</p>
+
+              @if (profileDeletePending()) {
+                <div class="confirm-row" role="alert">
+                  <span>{{ i18n.t('settings.profiles.confirmDelete') }}</span>
+                  <button class="danger-button" type="button" (click)="confirmProfileDeletion()">
+                    {{ i18n.t('common.delete') }}
+                  </button>
+                  <button class="secondary-button" type="button" (click)="cancelProfileDeletion()">
+                    {{ i18n.t('common.cancel') }}
+                  </button>
+                </div>
+              } @else {
+                <button
+                  class="text-danger-button"
+                  type="button"
+                  [disabled]="layout.profiles().length <= 1"
+                  (click)="requestProfileDeletion()"
+                >
+                  {{ i18n.t('settings.profiles.delete') }}
+                </button>
+              }
+            </section>
           }
-        </section>
+        }
 
         @if (operationMessage(); as message) {
           <p

@@ -17,6 +17,7 @@ import { PAIRING_HISTORY, PAIRING_TOKEN_STORAGE_KEY, PairingHistory } from './re
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
 import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './remote/button-layout-profiles';
 import { ButtonLayoutService } from './remote/button-layout.service';
+import { VIEW_TABS_STORAGE_KEY } from './remote/view-tabs';
 import {
   MOUSE_SENSITIVITY_STORAGE_KEY,
   SERVER_LOCATION,
@@ -326,7 +327,6 @@ describe('App', () => {
 
     const hostInput = queryInput(compiled, '#server-host');
     const portInput = queryInput(compiled, '#server-port');
-    const sensitivityInput = queryInput(compiled, '#mouse-sensitivity');
     const saveButton = compiled.querySelector<HTMLButtonElement>('button[type="submit"]');
 
     expect(saveButton).not.toBeNull();
@@ -336,11 +336,15 @@ describe('App', () => {
     fixture.detectChanges();
 
     expect(saveButton?.disabled).toBe(true);
+    expect(queryButtonByText(compiled, 'Verbindung').classList).toContain('view-tab--invalid');
 
     hostInput.value = '192.168.1.20';
     hostInput.dispatchEvent(new Event('input'));
     portInput.value = '5050';
     portInput.dispatchEvent(new Event('input'));
+    queryButtonByText(compiled, 'Bedienung').click();
+    fixture.detectChanges();
+    const sensitivityInput = queryInput(compiled, '#mouse-sensitivity');
     sensitivityInput.value = '1.5';
     sensitivityInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -360,6 +364,8 @@ describe('App', () => {
 
     queryButton(compiled, 'Einstellungen').click();
     fixture.detectChanges();
+    queryButtonByText(compiled, 'Layouts').click();
+    fixture.detectChanges();
 
     const nameInput = queryInput(compiled, '#profile-name');
     nameInput.value = 'Präsentation';
@@ -373,6 +379,40 @@ describe('App', () => {
     ).map((option) => option.textContent?.trim());
     expect(profileNames).toEqual(['Standard', 'Präsentation']);
     expect(storage.getItem(BUTTON_LAYOUT_PROFILES_STORAGE_KEY)).toContain('Präsentation');
+  });
+
+  it('hides and reorders tabs from the settings dialog', async () => {
+    const { fixture, sockets, storage } = await setupApp({ autoConnect: true });
+    const compiled = fixture.nativeElement as HTMLElement;
+    sockets[0].open();
+    fixture.detectChanges();
+    const mainTabs = (): (string | undefined)[] =>
+      Array.from(compiled.querySelectorAll('.view-tabs--main .view-tab')).map((tab) =>
+        tab.textContent?.trim(),
+      );
+    const before = mainTabs();
+    queryButtonByText(compiled, 'Tastatur').click();
+    fixture.detectChanges();
+
+    queryButton(compiled, 'Einstellungen').click();
+    fixture.detectChanges();
+    queryButtonByText(compiled, 'Tabs').click();
+    fixture.detectChanges();
+    queryButtonByText(compiled.querySelector<HTMLElement>('.tab-order')!, 'Tastatur').click();
+    for (let step = 0; step < 3; step++) {
+      queryButton(compiled, 'Touchpad nach unten').click();
+      fixture.detectChanges();
+    }
+    queryButtonByText(compiled, 'Speichern').click();
+    fixture.detectChanges();
+
+    const expected = before.filter((name) => name !== 'Tastatur' && name !== 'Touchpad');
+    expected.splice(expected.indexOf('Folien') + 1, 0, 'Touchpad');
+    expect(mainTabs()).toEqual(expected);
+    expect(compiled.querySelector('.view-tabs--main .view-tab--active')?.textContent?.trim()).toBe(
+      'Remote',
+    );
+    expect(JSON.parse(storage.getItem(VIEW_TABS_STORAGE_KEY) ?? '{}').hidden).toEqual(['keyboard']);
   });
 
   it('opens the tab of the matching profile for the app in front and goes back without one', async () => {

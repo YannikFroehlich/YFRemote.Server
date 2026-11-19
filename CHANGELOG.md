@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Die Tab-Leiste lässt sich anpassen: In den Einstellungen unter „Tabs“ schaltest du jeden Tab an oder aus und verschiebst ihn mit den Pfeilen nach oben oder unten; „Standard wiederherstellen“ holt die ursprüngliche Reihenfolge zurück. Remote bleibt immer an. Tabs, die der Server gerade nicht hat (etwa OBS ohne OBS Studio am PC oder der Controller ohne Treiber), stehen trotzdem in der Liste und erscheinen, sobald es sie gibt. Die Einstellung gilt pro Gerät und Browser.
+
+### Changed
+
+- Die Einstellungen sind in Bereiche aufgeteilt – Verbindung, Bedienung, Tabs, Aussehen und Layouts – statt einer langen Liste. Ist Host oder Port ungültig, färbt sich der Reiter „Verbindung“, auch wenn gerade ein anderer Bereich offen ist.
+
 ## [2.65.0] - 2026-11-19
 
 ### Added

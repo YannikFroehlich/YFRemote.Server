@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.66.1] - 2026-11-19
+
 ### Changed
 
 - Folien, Controller und OBS sind in der Tab-Leiste anfangs aus und lassen sich in den Einstellungen unter „Tabs“ einschalten. Wer dort schon etwas gespeichert hat, behält seine Auswahl. Ein Layout-Profil, das beim Programmwechsel einen dieser Tabs öffnen soll, tut das erst, wenn der Tab eingeschaltet ist.

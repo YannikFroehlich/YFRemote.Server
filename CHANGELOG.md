@@ -23,7 +23,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Bildschirm-Ansicht mit „Touch“: Ein Stift kommt am PC als echter Windows-Stift an – mit Schweben, Druck, Neigung, Seitentaste und Radierer, z. B. zum Zeichnen in OneNote oder Krita.
+- Client: In der Bildschirm-Ansicht klickt Antippen mit gedrückter Seitentaste des Stifts rechts.
 - Server: Neuer Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster (standardmäßig aus, nur bei Installation unter „Program Files“). Ein Windows-Dienst zeigt dann auch Sperrbildschirm und UAC-Abfragen in der Bildschirm-Ansicht und nimmt dort Maus und Tastatur an – zum Entsperren oder Bestätigen vom Handy aus.
+
+### Fixed
+
+- Client: Der Mauszeiger folgt einem schwebenden Stift jetzt auch, solange dessen Seitentaste gedrückt ist (z. B. S Pen).
 
 ## [2.61.0] - 2026-11-19
 

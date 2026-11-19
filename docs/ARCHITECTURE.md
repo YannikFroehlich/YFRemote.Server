@@ -149,8 +149,11 @@ feature.
   Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
   image). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
   per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hovering pen (`pointerType: 'pen'`,
-  `buttons: 0`, e.g. the S Pen) sends the same throttled `screenMove` without a button, so the PC
-  pointer follows it. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
+  `buttons & 1` clear, so also with the side button held, e.g. the S Pen) sends the same
+  throttled `screenMove` without a button, so the PC pointer follows it. A pen tap with the side
+  button held (`buttons & 2` on `pointerdown`) sends a right `screenClick` and never drags; the
+  `click`/`contextmenu` the browser may add is swallowed. A hidden page sends
+  `mouseUp` right away; a `RemoteActionSession`
   releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
   how long a dead connection goes unnoticed). Two fingers work like a touchpad: their first move
   beyond 8 px decides between zoom and scroll for the rest of the gesture, because the finger
@@ -179,6 +182,18 @@ feature.
   Medien" devices are refused. Checked on the dev PC on 2026-11-16 with a temporary test window: a
   held contact arrived as `WM_POINTERDOWN`, three keep-alive `WM_POINTERUPDATE`s and `WM_POINTERUP`,
   promoted to a left click. Gestures in real apps and the phone side are unverified.
+  With the switch on, a pen (`pointerType: 'pen'`) is no finger but a real Windows pen: hover,
+  `pointerdown`/`pointerup` and moves (per frame and every 16 ms) send
+  `{"type":"pen","pen":{x,y,pressure,tiltX,tiltY,contact,barrel,eraser},"monitor"}` (`contact`:
+  `buttons` 1 = tip or 32 = eraser; `pressure` 0.5 when the browser reports 0 on contact), and
+  `pen: null` when it leaves the picture (`pointerleave`), on `pointercancel` and on a hidden page.
+  `WindowsTouchService.ApplyPen` injects it through a synthetic pen device
+  (`CreateSyntheticPointerDevice`/`InjectSyntheticPointerInput`, Windows 10 1809+): `INRANGE` plus
+  `DOWN`/`UPDATE`/`UP` from the contact change, pressure 0-1024, tilt, `PEN_FLAG_BARREL`, and
+  `PEN_FLAG_INVERTED`/`PEN_FLAG_ERASER` for the eraser; out of range is an `UPDATE` without
+  `INRANGE`. A held tip gets the same 100 ms keep-alive as the fingers, and the
+  `RemoteActionSession` takes the pen away when the connection ends. Unverified on a real PC and
+  with a real pen (pressure in Windows Ink apps, hover cursor, eraser).
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the

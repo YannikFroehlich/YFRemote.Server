@@ -58,6 +58,8 @@ const ZOOM_STEP = 1.15;
 const DRAG_MOVE_INTERVAL_MS = 16;
 // So viele Finger nimmt InjectTouchInput am PC (WindowsTouchService.MaxContacts).
 const MAX_TOUCH_POINTS = 10;
+// PointerEvent.buttons eines Stifts, der das Display beruehrt: Spitze (1) oder Radierer (32).
+const PEN_CONTACT = 1 | 32;
 
 // Auch ein stehender Bildschirm liefert mindestens ein Bild pro Sekunde. Kommt laenger nichts,
 // haengt die Verbindung und das sichtbare Bild ist alt.
@@ -138,6 +140,11 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly touchSlots = new Map<number, number>();
   private touchFrame: number | null = null;
   private lastTouchAt = 0;
+  // Der Stift mit "Touch": true, solange er am PC in Reichweite ist.
+  private penInRange = false;
+  private pendingPen: PointerEvent | null = null;
+  private penFrame: number | null = null;
+  private lastPenAt = 0;
   // Abstand der zwei Finger beim Aufsetzen, null ohne zwei Finger.
   private pinchStart: number | null = null;
   private pinchCenter: Point = { x: 0, y: 0 };
@@ -451,7 +458,18 @@ export class ScreenViewComponent implements OnDestroy {
     }
 
     if (this.touchMode()) {
-      this.touchDown(event);
+      if (event.pointerType === 'pen') {
+        this.sendPen(event);
+      } else {
+        this.touchDown(event);
+      }
+      return;
+    }
+
+    // Seitentaste + Tippen klickt rechts wie langes Druecken; dieser Stift zieht dann nicht.
+    if (event.pointerType === 'pen' && (event.buttons & 2) !== 0) {
+      this.swallowClick = true;
+      this.sendClick(event, 'right');
       return;
     }
 
@@ -473,9 +491,16 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected onPointerMove(event: PointerEvent): void {
+    if (event.pointerType === 'pen' && this.touchMode()) {
+      this.pendingPen = event;
+      this.schedulePen();
+      return;
+    }
+
     if (!this.pointers.has(event.pointerId)) {
-      // Ein Stift (S Pen) meldet schon das Schweben ueber dem Display: der Zeiger am PC folgt ihm.
-      if (event.pointerType === 'pen' && event.buttons === 0 && this.pointers.size === 0) {
+      // Ein Stift (S Pen) meldet schon das Schweben ueber dem Display, auch mit gedrueckter
+      // Seitentaste (buttons 2): der Zeiger am PC folgt ihm. Nur die aufgesetzte Spitze zieht.
+      if (event.pointerType === 'pen' && (event.buttons & 1) === 0 && this.pointers.size === 0) {
         const position = this.toScreenPosition(event.clientX, event.clientY);
         if (position !== null) {
           this.pendingMove = position;
@@ -546,6 +571,11 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected onPointerEnd(event: PointerEvent): void {
+    if (event.pointerType === 'pen' && this.touchMode()) {
+      this.sendPen(event.type === 'pointercancel' ? null : event);
+      return;
+    }
+
     if (!this.pointers.delete(event.pointerId)) {
       return;
     }
@@ -646,7 +676,68 @@ export class ScreenViewComponent implements OnDestroy {
     this.remote.sendAction({ type: 'touch', points, ...(monitor === null ? {} : { monitor }) });
   }
 
+  // Schwebt der Stift aus dem Bild, ist er auch am PC ausser Reichweite.
+  protected onPointerLeave(event: PointerEvent): void {
+    if (event.pointerType === 'pen' && this.touchMode() && (event.buttons & PEN_CONTACT) === 0) {
+      this.sendPen(null);
+    }
+  }
+
+  // "Touch": der Stift geht als echter Stift an den PC - Schweben, Druck, Neigung, Seitentaste
+  // (buttons 2) und Radierer (buttons 32). null nimmt ihn aus der Reichweite.
+  private sendPen(event: PointerEvent | null): void {
+    if (this.penFrame !== null) {
+      cancelAnimationFrame(this.penFrame);
+      this.penFrame = null;
+    }
+
+    this.pendingPen = null;
+    const contact = event !== null && (event.buttons & PEN_CONTACT) !== 0;
+    const position =
+      event === null ? null : this.toScreenPosition(event.clientX, event.clientY, contact);
+    if (position === null && !this.penInRange) {
+      return;
+    }
+
+    const pen =
+      event === null || position === null
+        ? null
+        : {
+            ...position,
+            // Ohne Drucksensor meldet der Browser 0.5 beim Beruehren, manche Geraete auch 0.
+            pressure: contact ? event.pressure || 0.5 : 0,
+            tiltX: event.tiltX ?? 0,
+            tiltY: event.tiltY ?? 0,
+            contact,
+            barrel: (event.buttons & 2) !== 0,
+            eraser: (event.buttons & 32) !== 0,
+          };
+    const monitor = this.remote.screenMonitor();
+    this.penInRange = pen !== null;
+    this.lastPenAt = performance.now();
+    this.remote.sendAction({ type: 'pen', pen, ...(monitor === null ? {} : { monitor }) });
+  }
+
+  private schedulePen(): void {
+    if (this.penFrame !== null) {
+      return;
+    }
+
+    this.penFrame = requestAnimationFrame(() => {
+      this.penFrame = null;
+      if (performance.now() - this.lastPenAt < DRAG_MOVE_INTERVAL_MS) {
+        this.schedulePen();
+      } else if (this.pendingPen !== null) {
+        this.sendPen(this.pendingPen);
+      }
+    });
+  }
+
   private liftAllTouches(): void {
+    if (this.penInRange) {
+      this.sendPen(null);
+    }
+
     if (this.touchSlots.size === 0) {
       return;
     }

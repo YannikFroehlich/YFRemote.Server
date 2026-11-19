@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.62.0] - 2026-11-19
+
 ### Added
 
 - Server: Neuer Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster (standardmäßig aus, nur bei Installation unter „Program Files“). Ein Windows-Dienst zeigt dann auch Sperrbildschirm und UAC-Abfragen in der Bildschirm-Ansicht und nimmt dort Maus und Tastatur an – zum Entsperren oder Bestätigen vom Handy aus.

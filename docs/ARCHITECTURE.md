@@ -148,7 +148,9 @@ feature.
   übertragen" balloon when a device starts viewing after more than a minute without frames.
   Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
   image). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one
-  per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
+  per frame and every 16 ms) around `mouseDown`/`mouseUp`. A hovering pen (`pointerType: 'pen'`,
+  `buttons: 0`, e.g. the S Pen) sends the same throttled `screenMove` without a button, so the PC
+  pointer follows it. A hidden page sends `mouseUp` right away; a `RemoteActionSession`
   releases buttons still held when it ends, also for the touchpad (`KeepAliveTimeout` of 30 s bounds
   how long a dead connection goes unnoticed). Two fingers work like a touchpad: their first move
   beyond 8 px decides between zoom and scroll for the rest of the gesture, because the finger

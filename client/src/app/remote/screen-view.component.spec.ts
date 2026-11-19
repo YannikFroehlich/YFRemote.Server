@@ -328,6 +328,33 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
+  it('moves the PC pointer while a pen hovers, but not for a hovering mouse', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    );
+    const hover = (pointerType: string, clientX: number) => {
+      const event = new Event('pointermove', { bubbles: true });
+      Object.defineProperties(event, {
+        pointerId: { value: 5 },
+        clientX: { value: clientX },
+        clientY: { value: 50 },
+        pointerType: { value: pointerType },
+        buttons: { value: 0 },
+      });
+      stage.dispatchEvent(event);
+    };
+
+    hover('mouse', 300);
+    hover('pen', 100);
+    hover('pen', 200);
+    frames.splice(0).forEach((callback) => callback(1000));
+
+    expect(sendAction.mock.calls).toEqual([[{ type: 'screenMove', x: 0.5, y: 0.25 }]]);
+    fixture.destroy();
+  });
+
   it('sends every finger as real touch with the switch on, and lifts them in the background', async () => {
     const { fixture, sendAction, stage, element, touchAvailable } = await setupGestures();
     touchAvailable.set(true);

@@ -23,6 +23,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Die Tab-Leiste lässt sich anpassen: In den Einstellungen unter „Tabs“ schaltest du jeden Tab an oder aus und verschiebst ihn mit den Pfeilen nach oben oder unten; „Standard wiederherstellen“ holt die ursprüngliche Reihenfolge zurück. Remote bleibt immer an. Tabs, die der Server gerade nicht hat (etwa OBS ohne OBS Studio am PC oder der Controller ohne Treiber), stehen trotzdem in der Liste und erscheinen, sobald es sie gibt. Die Einstellung gilt pro Gerät und Browser.
+
+### Changed
+
+- Die Einstellungen sind in Bereiche aufgeteilt – Verbindung, Bedienung, Tabs, Aussehen und Layouts – statt einer langen Liste. Ist Host oder Port ungültig, färbt sich der Reiter „Verbindung“, auch wenn gerade ein anderer Bereich offen ist.
+
+## [2.65.0] - 2026-11-19
+
+### Added
+
 - OBS Studio lässt sich vom Handy steuern: Im neuen Tab „OBS“ startest und beendest du Stream und Aufnahme (mit Laufzeit), pausierst die Aufnahme, startest den Replay-Puffer und speicherst ein Replay, schaltest die virtuelle Kamera, wechselst Szenen, blendest Quellen der aktuellen Szene ein und aus und regelst Lautstärke und Stummschaltung der Audioquellen. Eigene Buttons im Remote-Tab können OBS-Schritte haben (Szene wechseln, Stream oder Aufnahme starten/stoppen/umschalten, Replay speichern, Audioquelle stumm schalten), etwa ein Knopf pro Szene wie bei einem Stream Deck. Der PC verbindet sich dafür selbst mit dem WebSocket-Server von OBS (ab OBS 28 eingebaut, unter Werkzeuge → WebSocket-Servereinstellungen einschalten) und liest Port und Passwort aus der OBS-Einstellung. Geräte mit „Nur Medien“ sehen den Tab nicht. Pausieren geht nur, wenn OBS es zulässt – bei der Aufnahmequalität „Wie Stream“ nicht.
 
 ### Fixed

@@ -63,6 +63,14 @@ import {
   withServerProfile,
 } from './server-config';
 import { TranslationService } from './translation.service';
+import { ProfileView } from './button-layout-profiles';
+import {
+  INPUT_VIEWS,
+  normalizeViewTabSettings,
+  parseStoredViewTabSettings,
+  VIEW_TABS_STORAGE_KEY,
+  ViewTabSettings,
+} from './view-tabs';
 
 export interface RemoteSocket {
   readonly url: string;
@@ -207,6 +215,9 @@ export class RemoteService implements OnDestroy {
     parseStoredFlag(this.readStorage(AUTO_PROFILE_STORAGE_KEY), false),
   );
   private readonly foregroundAppSignal = signal<string | null>(null);
+  private readonly viewTabsSignal = signal(
+    parseStoredViewTabSettings(this.readStorage(VIEW_TABS_STORAGE_KEY)),
+  );
   private readonly pcNotificationSignal = signal<PcNotificationMessage | null>(null);
   private pcNotificationTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly systemStatsSignal = signal<SystemStatsMessage | null>(null);
@@ -347,6 +358,8 @@ export class RemoteService implements OnDestroy {
   readonly obsAvailable = this.obsAvailableSignal.asReadonly();
   /** Zuletzt gemeldeter Zustand von OBS; `null`, solange niemand zusieht oder nichts kam. */
   readonly obs = this.obsSignal.asReadonly();
+  /** Reihenfolge und ausgeblendete Tabs aus den Einstellungen. */
+  readonly viewTabs = this.viewTabsSignal.asReadonly();
   /** Bisher aufgenommene Makro-Schritte; `null`, solange keine Aufnahme laeuft. */
   readonly recordedSteps = this.recordedStepsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
@@ -499,6 +512,24 @@ export class RemoteService implements OnDestroy {
     this.sendPcNotifications();
   }
 
+  saveViewTabs(settings: ViewTabSettings): void {
+    const normalized = normalizeViewTabSettings(settings);
+    this.viewTabsSignal.set(normalized);
+    this.storage?.setItem(VIEW_TABS_STORAGE_KEY, JSON.stringify(normalized));
+  }
+
+  /** Ob dieser Server den Tab hat; ausgeblendete Tabs zaehlen hier mit. */
+  viewAvailable(view: ProfileView): boolean {
+    return !(
+      (this.mediaOnly() && INPUT_VIEWS.has(view)) ||
+      (view === 'gamepad' && !this.gamepadAvailable()) ||
+      (view === 'system' && !this.systemStatsSupported()) ||
+      (view === 'mixer' && !this.mixerSupported()) ||
+      (view === 'obs' && !this.obsAvailable()) ||
+      (view === 'screen' && !this.screenAvailable())
+    );
+  }
+
   saveAutoProfile(enabled: boolean): void {
     this.autoProfileSignal.set(enabled);
     this.storage?.setItem(AUTO_PROFILE_STORAGE_KEY, String(enabled));
@@ -625,7 +656,9 @@ export class RemoteService implements OnDestroy {
 
     this.obsSignal.set({
       ...state,
-      inputs: state.inputs.map((input) => (input.name === name ? { ...input, volume: value } : input)),
+      inputs: state.inputs.map((input) =>
+        input.name === name ? { ...input, volume: value } : input,
+      ),
     });
   }
 
@@ -636,9 +669,7 @@ export class RemoteService implements OnDestroy {
       return;
     }
 
-    if (
-      this.sendAction({ type: 'obsSource', name: state.currentScene, id: String(id), enabled })
-    ) {
+    if (this.sendAction({ type: 'obsSource', name: state.currentScene, id: String(id), enabled })) {
       this.obsSignal.set({
         ...state,
         sources: state.sources.map((source) =>
@@ -1694,7 +1725,12 @@ function isVoicemeeterMessage(value: unknown): value is VoicemeeterMessage {
   );
 }
 
-const OBS_STATES: ReadonlySet<unknown> = new Set(['connected', 'offline', 'disabled', 'authFailed']);
+const OBS_STATES: ReadonlySet<unknown> = new Set([
+  'connected',
+  'offline',
+  'disabled',
+  'authFailed',
+]);
 
 function isObsMessage(value: unknown): value is ObsMessage {
   const message = value as Partial<ObsMessage> | null;

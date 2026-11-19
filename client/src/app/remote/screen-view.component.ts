@@ -139,6 +139,7 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly handle = signal({ x: 0.95, y: 0.08 });
   // Vollbild bekommt das innere div, nicht der Host: nur dort greifen die :fullscreen-Regeln.
   private readonly view = viewChild.required<ElementRef<HTMLElement>>('view');
+  private readonly optionalView = viewChild<ElementRef<HTMLElement>>('view');
   private readonly video = viewChild.required<ElementRef<HTMLVideoElement>>('video');
   private readonly image = viewChild<ElementRef<HTMLImageElement>>('image');
   private readonly stage = viewChild.required<ElementRef<HTMLElement>>('stage');
@@ -281,7 +282,7 @@ export class ScreenViewComponent implements OnDestroy {
         profile.pixelRatio,
         this.document.defaultView?.devicePixelRatio ?? 1,
       );
-      const width = Math.min(MAX_VIDEO_WIDTH, this.host.nativeElement.clientWidth * pixelRatio);
+      const width = Math.min(MAX_VIDEO_WIDTH, this.viewWidth() * pixelRatio);
       const stream = await this.remote.openScreenVideo(
         width,
         profile.videoKbps,
@@ -353,6 +354,13 @@ export class ScreenViewComponent implements OnDestroy {
     return true;
   }
 
+  // Im Vollbild ist nur die innere Ansicht so breit wie der Bildschirm, der Host behaelt die Breite
+  // der Seite - nach ihm geholt, kam das Bild am Desktop in halber Breite und unscharf.
+  private viewWidth(): number {
+    // Der erste JPEG-Abruf startet schon im Konstruktor, vor der Ansicht.
+    return this.optionalView()?.nativeElement.clientWidth || this.host.nativeElement.clientWidth;
+  }
+
   private noteData(): void {
     this.lastDataAt = Date.now();
     this.stalled.set(false);
@@ -388,7 +396,7 @@ export class ScreenViewComponent implements OnDestroy {
       );
       const sequence = ++this.requested;
       const result = await this.remote.readScreen(
-        this.host.nativeElement.clientWidth * pixelRatio,
+        this.viewWidth() * pixelRatio,
         profile.jpegQuality,
         this.remote.screenMonitor(),
         this.jpegAbort.signal,

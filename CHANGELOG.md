@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Client: Die Bildschirm-Ansicht im Vollbild ist am Computer wieder scharf. Das Bild wurde in der Breite der Seite (höchstens 960 px) geholt und dann auf den ganzen Bildschirm hochgezogen, egal welche Qualität eingestellt war.
+
 ## [2.64.0] - 2026-11-19
 
 ### Added

@@ -26,6 +26,7 @@ import {
   VoicemeeterMessage,
   AppVolumesMessage,
   ForegroundAppMessage,
+  ObsMessage,
 } from './remote.models';
 import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
@@ -225,6 +226,9 @@ export class RemoteService implements OnDestroy {
   private voicemeeterWatched = false;
   private readonly appsSignal = signal<AppVolumesMessage | null>(null);
   private appsWatched = false;
+  private readonly obsAvailableSignal = signal(false);
+  private readonly obsSignal = signal<ObsMessage | null>(null);
+  private obsWatched = false;
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein angenommenes oder verworfenes
   // soll dann nicht wieder auftauchen, auch nicht nach einem Neuladen der Seite (die Android-App
   // baut sie bei jedem Oeffnen neu auf), solange es noch gilt.
@@ -339,6 +343,10 @@ export class RemoteService implements OnDestroy {
   readonly voicemeeter = this.voicemeeterSignal.asReadonly();
   /** Apps mit Ton am PC; `null`, solange niemand zusieht oder nichts kam. Nur PC-Server. */
   readonly apps = this.appsSignal.asReadonly();
+  /** Ob am PC OBS Studio eingerichtet ist (`GET /health`); dann gibt es den Tab "OBS". */
+  readonly obsAvailable = this.obsAvailableSignal.asReadonly();
+  /** Zuletzt gemeldeter Zustand von OBS; `null`, solange niemand zusieht oder nichts kam. */
+  readonly obs = this.obsSignal.asReadonly();
   /** Bisher aufgenommene Makro-Schritte; `null`, solange keine Aufnahme laeuft. */
   readonly recordedSteps = this.recordedStepsSignal.asReadonly();
   readonly lastError = this.lastErrorSignal.asReadonly();
@@ -587,6 +595,70 @@ export class RemoteService implements OnDestroy {
           : name === 'Gain'
             ? { ...channel, gain: value ?? channel.gain }
             : { ...channel, muted: value === undefined ? !channel.muted : value === 1 },
+      ),
+    });
+  }
+
+  /** Wie `watchVoicemeeter`: der PC fragt OBS nur, solange der Tab "OBS" offen ist. */
+  watchObs(enabled: boolean): void {
+    this.obsWatched = enabled;
+    if (!enabled) {
+      this.obsSignal.set(null);
+    }
+    this.sendObsWatch();
+  }
+
+  /** Wechselt die Szene und zeigt sie sofort an, die Bestaetigung kommt mit der naechsten Meldung. */
+  setObsScene(name: string): void {
+    const state = this.obsSignal();
+    if (this.sendAction({ type: 'obsScene', name }) && state !== null) {
+      this.obsSignal.set({ ...state, currentScene: name });
+    }
+  }
+
+  /** Setzt die Lautstaerke einer Audioquelle in OBS (dB), ebenfalls sofort angezeigt. */
+  setObsVolume(name: string, value: number): void {
+    const state = this.obsSignal();
+    if (!this.sendAction({ type: 'obsVolume', name, value }) || state?.inputs === undefined) {
+      return;
+    }
+
+    this.obsSignal.set({
+      ...state,
+      inputs: state.inputs.map((input) => (input.name === name ? { ...input, volume: value } : input)),
+    });
+  }
+
+  /** Blendet eine Quelle der aktuellen Szene ein oder aus, ebenfalls sofort angezeigt. */
+  setObsSource(id: number, enabled: boolean): void {
+    const state = this.obsSignal();
+    if (state?.currentScene === undefined || state.sources === undefined) {
+      return;
+    }
+
+    if (
+      this.sendAction({ type: 'obsSource', name: state.currentScene, id: String(id), enabled })
+    ) {
+      this.obsSignal.set({
+        ...state,
+        sources: state.sources.map((source) =>
+          source.id === id ? { ...source, enabled } : source,
+        ),
+      });
+    }
+  }
+
+  /** Schaltet eine Audioquelle in OBS um, ebenfalls sofort angezeigt. */
+  toggleObsMute(name: string): void {
+    const state = this.obsSignal();
+    if (!this.sendAction({ type: 'obsMute', name }) || state?.inputs === undefined) {
+      return;
+    }
+
+    this.obsSignal.set({
+      ...state,
+      inputs: state.inputs.map((input) =>
+        input.name === name ? { ...input, muted: !input.muted } : input,
       ),
     });
   }
@@ -1021,6 +1093,7 @@ export class RemoteService implements OnDestroy {
       this.systemStatsSignal.set(null);
       this.voicemeeterSignal.set(null);
       this.appsSignal.set(null);
+      this.obsSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -1118,6 +1191,13 @@ export class RemoteService implements OnDestroy {
       return;
     }
 
+    if (isObsMessage(message)) {
+      if (this.obsWatched) {
+        this.obsSignal.set(message);
+      }
+      return;
+    }
+
     if (isFileOfferMessage(message)) {
       if (message.id !== this.dismissedFileOfferId) {
         this.fileOfferSignal.set(message);
@@ -1194,6 +1274,7 @@ export class RemoteService implements OnDestroy {
         readonly touch?: unknown;
         readonly name?: unknown;
         readonly httpsPort?: unknown;
+        readonly obs?: unknown;
       };
       this.httpsPortSignal.set(
         Number.isInteger(body.httpsPort) && (body.httpsPort as number) > 0
@@ -1215,6 +1296,7 @@ export class RemoteService implements OnDestroy {
       this.screenAvailableSignal.set(body.screen === true);
       this.audioAvailableSignal.set(body.audio === true);
       this.touchAvailableSignal.set(body.touch === true);
+      this.obsAvailableSignal.set(body.obs === true);
     } catch {
       this.serverPlatformSignal.set(null);
       this.httpsPortSignal.set(null);
@@ -1223,6 +1305,7 @@ export class RemoteService implements OnDestroy {
       this.screenAvailableSignal.set(false);
       this.audioAvailableSignal.set(false);
       this.touchAvailableSignal.set(false);
+      this.obsAvailableSignal.set(false);
     }
 
     // Der Server vergisst den Abgleich mit jeder Verbindung; er wird erst hier eingeschaltet,
@@ -1241,6 +1324,9 @@ export class RemoteService implements OnDestroy {
     }
     if (this.appsWatched) {
       this.sendAppsWatch();
+    }
+    if (this.obsWatched) {
+      this.sendObsWatch();
     }
     if (this.autoProfileSignal()) {
       this.sendForegroundAppWatch();
@@ -1311,6 +1397,12 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  private sendObsWatch(): void {
+    if (this.obsAvailableSignal() && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'obs', enabled: this.obsWatched });
+    }
+  }
+
   private sendVoicemeeterWatch(): void {
     if (this.voicemeeterAvailableSignal() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'voicemeeter', enabled: this.voicemeeterWatched });
@@ -1349,6 +1441,7 @@ export class RemoteService implements OnDestroy {
     this.systemStatsSignal.set(null);
     this.voicemeeterSignal.set(null);
     this.appsSignal.set(null);
+    this.obsSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -1598,6 +1691,47 @@ function isVoicemeeterMessage(value: unknown): value is VoicemeeterMessage {
         ))) &&
     (routes === undefined ||
       (Array.isArray(routes) && routes.every((route) => typeof route === 'string')))
+  );
+}
+
+const OBS_STATES: ReadonlySet<unknown> = new Set(['connected', 'offline', 'disabled', 'authFailed']);
+
+function isObsMessage(value: unknown): value is ObsMessage {
+  const message = value as Partial<ObsMessage> | null;
+  const scenes = message?.scenes as unknown;
+  const inputs = message?.inputs as unknown;
+  const sources = message?.sources as unknown;
+  return (
+    message?.type === 'obs' &&
+    OBS_STATES.has(message.state) &&
+    typeof message.streaming === 'boolean' &&
+    typeof message.recording === 'boolean' &&
+    typeof message.recordPaused === 'boolean' &&
+    (message.currentScene === undefined || typeof message.currentScene === 'string') &&
+    [message.streamSeconds, message.recordSeconds].every(
+      (seconds) => seconds === undefined || typeof seconds === 'number',
+    ) &&
+    [message.replayBuffer, message.virtualCam].every(
+      (active) => active === undefined || typeof active === 'boolean',
+    ) &&
+    (scenes === undefined ||
+      (Array.isArray(scenes) && scenes.every((scene) => typeof scene === 'string'))) &&
+    (inputs === undefined ||
+      (Array.isArray(inputs) &&
+        inputs.every(
+          (input) =>
+            typeof input?.name === 'string' &&
+            typeof input.muted === 'boolean' &&
+            typeof input.volume === 'number',
+        ))) &&
+    (sources === undefined ||
+      (Array.isArray(sources) &&
+        sources.every(
+          (source) =>
+            typeof source?.id === 'number' &&
+            typeof source.name === 'string' &&
+            typeof source.enabled === 'boolean',
+        )))
   );
 }
 

@@ -116,7 +116,19 @@ new component the same, unless everything its template reads is a signal or an i
      `setAudioOutput(id)` does the same with `audioOutput` for the push's `outputs` (the Mixer's
      "Ausgabegerät" select, shown with more than one device).
      `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
-     reports `voicemeeter: true` (`voicemeeterAvailable`). `MixerComponent`
+     reports `voicemeeter: true` (`voicemeeterAvailable`). `obs` pushes work the same via
+     `watchObs`/`obsAvailable` (`/health` `obs: true`): `ObsComponent` (`obs.component.ts`, the
+     "OBS" tab, hidden for "Nur Medien", lazy like the Mixer, with its own
+     `obs.component.scss` so its styles stay out of the initial bundle) shows stream/record with
+     their running time and explicit `start`/`stop`/`pause`/`resume` modes (stopping a stream asks
+     first), replay buffer and virtual camera cards only when the push carries them, the scenes
+     (`setObsScene`), the current scene's sources (`setObsSource`) and the audio inputs
+     (`toggleObsMute`, `setObsVolume` with a -60...0 dB fader); the setters patch the signal at once.
+     The button editor offers "OBS" steps (scene by name, stream/record with toggle/on/off, replay
+     save, mute by input name) and watches `obs` while open for the name suggestions; the OBS tab and
+     the editor are never open at once. The editor renders inside `@defer (on immediate)` in
+     `RemoteControlComponent`, so it is a lazy chunk like the tabs: a test that opens it has to
+     `await fixture.whenStable()` first. `MixerComponent`
      (`mixer.component.ts`, the "Mixer" tab, shown where `mixerSupported()`, i.e. windows/linux: an
      Apps/Inputs/Outputs switch, the Voicemeeter groups only with Voicemeeter installed; one row
      shape for both, apps in %, Voicemeeter in dB with a 0 dB tick and "0 dB" reset) and the

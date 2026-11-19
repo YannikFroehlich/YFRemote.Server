@@ -406,6 +406,37 @@ describe('button-layout', () => {
     });
   });
 
+  describe('normalizeMacroStep (OBS)', () => {
+    it('keeps scene, output and mute steps as the server allows them', () => {
+      for (const action of [
+        { type: 'obsScene', name: 'Live' },
+        { type: 'obsStream' },
+        { type: 'obsStream', mode: 'stop' },
+        { type: 'obsRecord', mode: 'togglePause' },
+        { type: 'obsReplay', mode: 'save' },
+        { type: 'obsVirtualCam', mode: 'start' },
+        { type: 'obsMute', name: 'Mic/Aux' },
+        { type: 'obsMute', name: 'Mic/Aux', muted: false },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toEqual({ action, delayMs: 0 });
+      }
+    });
+
+    it('drops steps without a name or with modes the output does not have', () => {
+      for (const action of [
+        { type: 'obsScene', name: '  ' },
+        { type: 'obsScene', name: 'x'.repeat(257) },
+        { type: 'obsStream', mode: 'pause' },
+        { type: 'obsReplay', mode: 'pause' },
+        { type: 'obsVirtualCam', mode: 'save' },
+        { type: 'obsMute', name: 'Mic/Aux', muted: 'yes' },
+        { type: 'obsMute' },
+      ]) {
+        expect(normalizeMacroStep({ action, delayMs: 0 })).toBeNull();
+      }
+    });
+  });
+
   describe('normalizeMacroStep (launch)', () => {
     it('keeps app names and http(s) addresses', () => {
       for (const action of [

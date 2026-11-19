@@ -393,6 +393,11 @@ internal static class Program
             .Get<VoicemeeterOptions>() ?? new VoicemeeterOptions();
         voicemeeterOptions.Validate();
 
+        var obsOptions = builder.Configuration
+            .GetSection(ObsOptions.SectionName)
+            .Get<ObsOptions>() ?? new ObsOptions();
+        obsOptions.Validate();
+
         if (httpsOptions.Enabled)
         {
             if (!IPAddress.TryParse(serverOptions.Host, out var bindAddress))
@@ -532,6 +537,14 @@ internal static class Program
                 announceCurrent: false,
                 services.GetRequiredService<ILogger<PollingBroadcaster<ClipboardMessage?>>>());
         });
+        // OBS laeuft auf Windows und Linux gleich; obs-websocket ist plattformunabhaengig.
+        builder.Services.AddSingleton(obsOptions);
+        builder.Services.AddSingleton<IObsService, ObsService>();
+        builder.Services.AddSingleton(services => new PollingBroadcaster<ObsMessage>(
+            services.GetRequiredService<IObsService>().ReadAsync,
+            BroadcastPollInterval,
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<ObsMessage>>>()));
         builder.Services.AddSingleton<ShutdownTimer>();
         builder.Services.AddSingleton<RemoteActionHandler>();
         builder.Services.AddSingleton<YFRemoteWebSocketHandler>();
@@ -559,6 +572,7 @@ internal static class Program
 
         var gamepadService = app.Services.GetService<IGamepadService>();
         var voicemeeterService = app.Services.GetService<IVoicemeeterService>();
+        var obsService = app.Services.GetService<IObsService>();
         var screenSupported = app.Services.GetService<IScreenCapture>() is not null;
         var audioSupported = app.Services.GetService<IAudioCapture>() is not null;
         var touchSupported = app.Services.GetService<ITouchService>() is not null;
@@ -577,7 +591,8 @@ internal static class Program
                 screenSupported,
                 audioSupported,
                 touchSupported,
-                httpsOptions.Enabled ? httpsOptions.Port : null);
+                httpsOptions.Enabled ? httpsOptions.Port : null,
+                obsService?.IsInstalled ?? false);
         });
 
         if (httpsOptions.Enabled)

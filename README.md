@@ -54,6 +54,12 @@ flowchart LR
   Windows needs the free [ViGEmBus](https://github.com/nefarius/ViGEmBus/releases/latest)
   driver once; the tray menu links to it while it is missing. Linux needs no
   driver, only the same `/dev/uinput` access as keyboard and mouse (rumble included, not yet verified on a real kernel).
+- **OBS Studio** — an "OBS" tab starts and stops streaming and recording,
+  pauses the recording, runs the replay buffer and saves replays, toggles the
+  virtual camera, switches scenes, shows and hides sources of the current
+  scene, and sets volume and mute of audio sources. Turn on OBS's
+  built-in WebSocket server once (Tools → WebSocket Server Settings, OBS 28 or
+  newer); YFRemote reads its port and password from OBS itself.
 - **Wake-on-LAN (Android app)** — the YFRemote Android app remembers each PC's
   network adapter and can wake it from sleep with "Aufwecken" while it is
   offline. The PC must allow it once: in Device Manager, on the network

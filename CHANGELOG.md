@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- Android: Unter „Steuern“ trennt ein Umschalter „Unverschlüsselt | Verschlüsselt“ die Geräte nach HTTP und HTTPS, sodass derselbe PC nicht zweimal in einer Liste steht. Gibt es nur eine Sorte, bleibt die Liste wie bisher.
+
 ## [2.61.0] - 2026-11-19
 
 ### Added

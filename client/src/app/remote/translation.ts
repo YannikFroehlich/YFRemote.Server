@@ -423,8 +423,8 @@ export const TRANSLATIONS = {
   'settings.category.appearance': { de: 'Aussehen', en: 'Appearance' },
   'settings.category.layouts': { de: 'Layouts', en: 'Layouts' },
   'settings.tabs.hint': {
-    de: 'Welche Tabs oben in der Leiste stehen und in welcher Reihenfolge.',
-    en: 'Which tabs appear in the bar at the top, and in which order.',
+    de: 'Welche Tabs oben in der Leiste stehen und in welcher Reihenfolge. Folien, Controller und OBS sind anfangs aus.',
+    en: 'Which tabs appear in the bar at the top, and in which order. Slides, Controller and OBS start switched off.',
   },
   'settings.tabs.alwaysOn': { de: 'Immer an', en: 'Always on' },
   'settings.tabs.unavailable': {

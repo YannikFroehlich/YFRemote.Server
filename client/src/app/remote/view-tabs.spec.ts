@@ -9,7 +9,8 @@ describe('view tab settings', () => {
   it('falls back to the default order for missing or broken storage', () => {
     expect(parseStoredViewTabSettings(null)).toBe(DEFAULT_VIEW_TAB_SETTINGS);
     expect(parseStoredViewTabSettings('{kaputt')).toBe(DEFAULT_VIEW_TAB_SETTINGS);
-    expect(parseStoredViewTabSettings('"text"')).toEqual(DEFAULT_VIEW_TAB_SETTINGS);
+    expect(parseStoredViewTabSettings('"text"')).toBe(DEFAULT_VIEW_TAB_SETTINGS);
+    expect(DEFAULT_VIEW_TAB_SETTINGS.hidden).toEqual(['presentation', 'gamepad', 'obs']);
   });
 
   it('keeps the stored order, drops unknown and duplicate tabs and appends missing ones', () => {

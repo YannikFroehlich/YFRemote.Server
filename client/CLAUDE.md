@@ -305,7 +305,8 @@ new component the same, unless everything its template reads is a signal or an i
      in the DOM only while its category is open - a test has to click the category first.
    - Tab bar: `view-tabs.ts` holds every tab's label and icon (`VIEW_TAB_DETAILS`) and the
      per-device order and hidden tabs (`yfremote.viewTabs`; `normalizeViewTabSettings` appends tabs
-     a stored order doesn't know yet and never hides `remote`, the fallback tab).
+     a stored order doesn't know yet and never hides `remote`, the fallback tab). Without a stored
+     value `DEFAULT_VIEW_TAB_SETTINGS` hides `presentation`, `gamepad` and `obs`.
      `RemoteControlComponent.tabs` shows `RemoteService.viewTabs()` minus hidden tabs minus those
      `RemoteService.viewAvailable` rules out for this server; a new tab needs an entry in
      `PROFILE_VIEWS`, `VIEW_TAB_DETAILS` and, if a server can lack it, `viewAvailable`. The

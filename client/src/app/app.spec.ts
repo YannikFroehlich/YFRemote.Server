@@ -15,7 +15,7 @@ import { DEVICE_NAME_BRIDGE } from './remote/pairing-gate.component';
 import { PAIRING_FETCH } from './remote/pairing.service';
 import { PAIRING_HISTORY, PAIRING_TOKEN_STORAGE_KEY, PairingHistory } from './remote/pairing';
 import { BUTTON_LAYOUT_STORAGE_KEY } from './remote/button-layout';
-import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY } from './remote/button-layout-profiles';
+import { BUTTON_LAYOUT_PROFILES_STORAGE_KEY, PROFILE_VIEWS } from './remote/button-layout-profiles';
 import { ButtonLayoutService } from './remote/button-layout.service';
 import { VIEW_TABS_STORAGE_KEY } from './remote/view-tabs';
 import {
@@ -391,6 +391,8 @@ describe('App', () => {
         tab.textContent?.trim(),
       );
     const before = mainTabs();
+    // Folien, Controller und OBS sind ohne eigene Einstellung aus.
+    expect(before).not.toContain('Folien');
     queryButtonByText(compiled, 'Tastatur').click();
     fixture.detectChanges();
 
@@ -398,21 +400,29 @@ describe('App', () => {
     fixture.detectChanges();
     queryButtonByText(compiled, 'Tabs').click();
     fixture.detectChanges();
-    queryButtonByText(compiled.querySelector<HTMLElement>('.tab-order')!, 'Tastatur').click();
+    const tabOrder = compiled.querySelector<HTMLElement>('.tab-order')!;
+    queryButtonByText(tabOrder, 'Tastatur').click();
+    queryButtonByText(tabOrder, 'Folien').click();
     for (let step = 0; step < 3; step++) {
-      queryButton(compiled, 'Touchpad nach unten').click();
+      queryButton(compiled, 'Folien nach oben').click();
       fixture.detectChanges();
     }
     queryButtonByText(compiled, 'Speichern').click();
     fixture.detectChanges();
 
-    const expected = before.filter((name) => name !== 'Tastatur' && name !== 'Touchpad');
-    expected.splice(expected.indexOf('Folien') + 1, 0, 'Touchpad');
-    expect(mainTabs()).toEqual(expected);
+    expect(mainTabs()).toEqual([
+      'Remote',
+      'Folien',
+      ...before.filter((name) => name !== 'Remote' && name !== 'Tastatur'),
+    ]);
     expect(compiled.querySelector('.view-tabs--main .view-tab--active')?.textContent?.trim()).toBe(
       'Remote',
     );
-    expect(JSON.parse(storage.getItem(VIEW_TABS_STORAGE_KEY) ?? '{}').hidden).toEqual(['keyboard']);
+    expect(JSON.parse(storage.getItem(VIEW_TABS_STORAGE_KEY) ?? '{}').hidden).toEqual([
+      'gamepad',
+      'obs',
+      'keyboard',
+    ]);
   });
 
   it('opens the tab of the matching profile for the app in front and goes back without one', async () => {
@@ -424,6 +434,7 @@ describe('App', () => {
     layout.setProfileApps(slides, ['PowerPoint']);
     layout.setProfileView(slides, 'presentation');
     layout.switchProfile('profile:standard');
+    TestBed.inject(RemoteService).saveViewTabs({ order: PROFILE_VIEWS, hidden: [] });
     TestBed.inject(RemoteService).saveAutoProfile(true);
     sockets[0].open();
     const activeTab = (): string | undefined =>

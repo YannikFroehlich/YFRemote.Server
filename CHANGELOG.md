@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Client: Im Vollbild der Bildschirm-Ansicht sind die Ränder neben oder über und unter dem PC-Bild jetzt schwarz statt in der Hintergrundfarbe der App.
+
 ## [2.64.1] - 2026-11-19
 
 ### Fixed

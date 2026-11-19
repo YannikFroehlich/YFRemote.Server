@@ -18,7 +18,8 @@ feature.
   tab - an older server would answer `GET /screen` with the SPA's `index.html`, and `audio` (an
   `IAudioCapture` is registered), without which the tab hides its "Ton" switch, and `httpsPort`
   (`Https:Port` while `Https:Enabled`, otherwise `null`), from which the Client's iPhone guide
-  builds the `https://` address.
+  builds the `https://` address, and `obs` (`IObsService.IsInstalled`: the OBS Studio config
+  folder exists or `Obs:Port` is set), without which the Client hides the "OBS" tab.
 - `/ws` → upgraded to a WebSocket and handed to `YFRemoteWebSocketHandler`, but only after both
   an `Origin` check and a `?token=` pairing-token check (`PairingService.IsValidToken`) pass.
 - `POST /pair` → exchanges a PIN for a device token (`PairingService.TryPair`).
@@ -431,6 +432,40 @@ channel's `Gain`/`Mute`; percent maps linearly to -60...0 dB like Voicemeeter's 
 (regex in `RemoteActionHandler`, no free Voicemeeter script that could load files or quit it);
 without `value` a switch toggles. The owner confirmed it works on their PC with a real Voicemeeter
 on 2026-10-23 (v2.37.0).
+
+**OBS Studio.** `ObsService` talks obs-websocket v5 (built into OBS 28+) on
+`ws://127.0.0.1:<port>` with `ClientWebSocket`, so neither the phone nor the LAN ever reaches OBS
+or its password. One connection, opened on first use and dropped on any failure, `rpcVersion` 1
+and `eventSubscriptions: 0` (no events: the tab polls like Voicemeeter, a command waits for its own
+response); a `SemaphoreSlim` serializes poll and commands, each with a 3 s timeout. Authentication
+is the protocol's `base64(sha256(base64(sha256(password + salt)) + challenge))`; a wrong password
+ends in close code 4009. Port and password come from OBS itself on every connect
+(`ObsOptions.Resolve`: `<ApplicationData>/obs-studio/plugin_config/obs-websocket/config.json`,
+keys `server_enabled`/`server_port`/`auth_required`/`server_password`), so a changed password works
+without a restart; `Obs:Port`/`Obs:Password` in `settings.json` override it, which OBS 28/29 needs,
+since those kept it in `global.ini`. The "OBS" tab subscribes `{"type":"obs","enabled"}` and gets
+`{"type":"obs","state","scenes","currentScene","streaming","recording","recordPaused","inputs":[{name,muted}]}`
+from a `PollingBroadcaster` (one `RequestBatch` for scene list, stream/record status and input
+list, a second one with `GetInputMute` per input; inputs without audio fail that and drop out).
+`state` is `connected`, `offline`, `disabled` (`server_enabled` false, nothing is tried) or
+`authFailed`, which the Client turns into hints. `GetSceneList` lists the bottom scene first, so
+`scenes` is sorted by `sceneIndex` descending, the order of OBS's own list. Commands are a fixed
+allowlist in `RemoteActionHandler`, never a free obs-websocket request (that could delete profiles
+or set the recording path): `obsScene` (`name` → `SetCurrentProgramScene`), `obsStream` and
+`obsRecord` (`mode` `start`/`stop`/`toggle`, default toggle; `obsRecord` also `pause`/`resume`/
+`togglePause`) and `obsMute` (`name`, `muted` or toggle). OBS rejecting a request (unknown scene,
+stream already running) becomes a `Fail` response with OBS's comment, or a short text for the
+codes 500-503 that come without one. Not allowed for "Nur Medien". The Client sends start/stop
+explicitly from the shown state instead of toggling and asks before stopping a live stream.
+Covered against a fake obs-websocket server in `ObsServiceTests`. Checked on the dev PC on
+2026-11-19 against a real OBS 33.0.0 (obs-websocket 5.7.6), through the handler and in the
+Client's tab: password read from `config.json`, scene order as in OBS, scene switch, recording
+start/pause/resume/stop, mute toggle and set, wrong password, unknown scene, "Nur Medien"
+rejected. Starting a stream is unverified. Found on the way: OBS answers `PauseRecord` with
+success and does nothing while the recording quality is "Same as stream" (the default in simple
+mode), so the tab keeps showing the recording as running; and while OBS's first-start wizard is
+open, `StartRecord` also succeeds without recording. OBS listens on `::`, which accepts the
+`127.0.0.1` connection.
 
 **Controller mode.** A `gamepad` action carries the full controller state
 (`GamepadState`: XInput button bitmask, stick axes, triggers) instead of single button events, so a

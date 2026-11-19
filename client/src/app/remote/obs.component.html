@@ -1,0 +1,84 @@
+<div class="obs">
+  @if (hintKey(); as key) {
+    <p class="stats-waiting">{{ i18n.t(key) }}</p>
+  }
+
+  @if (status(); as current) {
+    @if (current.state === 'connected') {
+      <div class="obs-outputs">
+        <div class="obs-output" [class.obs-output--live]="current.streaming">
+          <span class="obs-output__badge">
+            <span class="obs-output__dot" aria-hidden="true"></span>
+            {{ i18n.t('obs.live') }}
+          </span>
+          <button
+            [class]="current.streaming ? 'secondary-button' : 'primary-button'"
+            type="button"
+            (click)="toggleStream(current)"
+          >
+            {{ i18n.t(current.streaming ? 'obs.stopStream' : 'obs.startStream') }}
+          </button>
+        </div>
+        <div class="obs-output" [class.obs-output--live]="current.recording">
+          <span class="obs-output__badge">
+            <span class="obs-output__dot" aria-hidden="true"></span>
+            {{ i18n.t(current.recordPaused ? 'obs.paused' : 'obs.rec') }}
+          </span>
+          <button
+            [class]="current.recording ? 'secondary-button' : 'primary-button'"
+            type="button"
+            (click)="toggleRecord(current)"
+          >
+            {{ i18n.t(current.recording ? 'obs.stopRecord' : 'obs.startRecord') }}
+          </button>
+          @if (current.recording) {
+            <button class="secondary-button" type="button" (click)="togglePause(current)">
+              {{ i18n.t(current.recordPaused ? 'obs.resumeRecord' : 'obs.pauseRecord') }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <h3 class="obs-heading">{{ i18n.t('obs.scenes') }}</h3>
+      @if (current.scenes?.length) {
+        <div class="obs-scenes">
+          @for (scene of current.scenes; track scene) {
+            <button
+              class="obs-scene"
+              type="button"
+              [class.obs-scene--active]="scene === current.currentScene"
+              [attr.aria-pressed]="scene === current.currentScene"
+              (click)="selectScene(scene)"
+            >
+              {{ scene }}
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="stats-waiting">{{ i18n.t('obs.noScenes') }}</p>
+      }
+
+      @if (current.inputs?.length) {
+        <h3 class="obs-heading">{{ i18n.t('obs.audio') }}</h3>
+        @for (input of current.inputs; track input.name) {
+          <div class="mixer-channel" [class.mixer-channel--muted]="input.muted">
+            <div class="mixer-channel__head">
+              <span class="mixer-channel__name">{{ input.name }}</span>
+              <button
+                class="mixer-channel__button mixer-channel__mute"
+                type="button"
+                [attr.aria-pressed]="input.muted"
+                [attr.aria-label]="i18n.t('mixer.mute', { name: input.name })"
+                (click)="toggleMute(input.name)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path [attr.d]="iconPaths[input.muted ? 'volume-mute' : 'volume-plus']"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        }
+      }
+    }
+  }
+</div>

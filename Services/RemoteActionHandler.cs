@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Services;
@@ -26,7 +27,9 @@ public sealed partial class RemoteActionHandler(
     IBrightnessService? brightness = null,
     IProcessService? processes = null,
     ITouchService? touch = null,
-    PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null)
+    PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null,
+    IObsService? obs = null,
+    PollingBroadcaster<ObsMessage>? obsStatus = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -37,6 +40,7 @@ public sealed partial class RemoteActionHandler(
     private const int MaxTextLength = 500;
     private const int MaxAppNameLength = 100;
     private const int MaxUrlLength = 2000;
+    private const int MaxObsNameLength = 256;
 
     // Wortgleich im Client, der dafuer einen uebersetzten Hinweis zeigt.
     internal const string MediaOnlyError = "Not allowed for this device.";
@@ -104,6 +108,11 @@ public sealed partial class RemoteActionHandler(
                 "dismissnotification" => HandleDismissNotification(request),
                 "powermode" => HandlePowerMode(request),
                 "brightness" => HandleBrightness(request),
+                "obs" => HandleObsWatch(request, session),
+                "obsscene" => HandleObsScene(request),
+                "obsstream" => HandleObsOutput(request, "Stream"),
+                "obsrecord" => HandleObsOutput(request, "Record"),
+                "obsmute" => HandleObsMute(request),
                 null or "" => Fail("Missing action type."),
                 _ => Fail($"Unsupported action type: {request.Type}")
             };
@@ -793,6 +802,91 @@ public sealed partial class RemoteActionHandler(
 
     [GeneratedRegex(@"^(Strip\[[0-7]\]\.(Mute|Gain|A[1-5]|B[1-3])|Bus\[[0-7]\]\.(Mute|Gain))$")]
     private static partial Regex VoicemeeterParameterPattern();
+
+    // Wie Voicemeeter: OBS wird nur gefragt, solange ein Geraet den Tab "OBS" offen hat.
+    private RemoteActionResponse HandleObsWatch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (obsStatus is null || session is null)
+        {
+            return Fail("OBS is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'obs' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.ObsSubscription?.Dispose();
+            session.ObsSubscription = null;
+        }
+        else
+        {
+            session.ObsSubscription ??= obsStatus.Subscribe(session.PushObs);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Nur diese festen Anfragen, keine freie obs-websocket-Anfrage: die koennte Profile und
+    // Szenensammlungen loeschen, Aufnahmepfade setzen oder OBS-Einstellungen aendern.
+    private RemoteActionResponse HandleObsScene(RemoteActionRequest request)
+    {
+        if (!IsObsName(request.Name))
+        {
+            return Fail("Action 'obsScene' requires a scene name.");
+        }
+
+        return SendObs("SetCurrentProgramScene", new JsonObject { ["sceneName"] = request.Name });
+    }
+
+    // Ohne mode wird umgeschaltet. Pausieren gibt es nur fuer die Aufnahme.
+    private RemoteActionResponse HandleObsOutput(RemoteActionRequest request, string output)
+    {
+        var requestType = (request.Mode?.Trim().ToLowerInvariant(), output) switch
+        {
+            (null or "toggle", _) => $"Toggle{output}",
+            ("start", _) => $"Start{output}",
+            ("stop", _) => $"Stop{output}",
+            ("pause", "Record") => "PauseRecord",
+            ("resume", "Record") => "ResumeRecord",
+            ("togglepause", "Record") => "ToggleRecordPause",
+            _ => null
+        };
+
+        return requestType is null
+            ? Fail($"Unsupported OBS {output.ToLowerInvariant()} mode: {request.Mode}")
+            : SendObs(requestType, null);
+    }
+
+    // Ohne muted wird umgeschaltet.
+    private RemoteActionResponse HandleObsMute(RemoteActionRequest request)
+    {
+        if (!IsObsName(request.Name))
+        {
+            return Fail("Action 'obsMute' requires an input name.");
+        }
+
+        return request.Muted is { } muted
+            ? SendObs("SetInputMute", new JsonObject { ["inputName"] = request.Name, ["inputMuted"] = muted })
+            : SendObs("ToggleInputMute", new JsonObject { ["inputName"] = request.Name });
+    }
+
+    private RemoteActionResponse SendObs(string requestType, JsonObject? requestData)
+    {
+        if (obs is null)
+        {
+            return Fail("OBS is not supported.");
+        }
+
+        logger.LogDebug("Sending OBS request {RequestType}.", requestType);
+        obs.SendAsync(requestType, requestData).GetAwaiter().GetResult();
+        return RemoteActionResponse.Ok();
+    }
+
+    private static bool IsObsName(string? name) =>
+        !string.IsNullOrWhiteSpace(name) && name.Length <= MaxObsNameLength;
 
     // Wie Systemanzeige und Mixer: die Audio-Sitzungen werden nur gelesen, solange ein Geraet zusieht.
     private RemoteActionResponse HandleAppsWatch(RemoteActionRequest request, RemoteActionSession? session)

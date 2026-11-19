@@ -128,7 +128,8 @@ Every endpoint with its gate, limits and status codes is described in
 (16 KB) framed text message, deserializes it as `RemoteActionRequest`, and passes it to
 `RemoteActionHandler.Handle`, which dispatches on `request.Type` (`key`, `hotkey`, `text`,
 `mouseMove`, `mouseClick`, `mouseDown`, `mouseUp`, `mouseScroll`, `mouseZoom`, `shutdown`, `restart`,
-`sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, `launch`, ...) into `IInputService` /
+`sleep`, `lock`, `displayOff`, `volume`, `mediaSeek`, `shutdownTimer`, `voicemeeterParameter`, `launch`,
+`obsScene`/`obsStream`/`obsRecord`/`obsMute`, ...) into `IInputService` /
 `IMouseService` / `IPowerService` / `IVolumeService` (implemented by the media status readers;
 it also unmutes, like the Windows volume slider), validates
 ranges/argument shape per action, and always returns a `RemoteActionResponse` (never throws
@@ -141,7 +142,7 @@ backstop against a flooding bug or a misbehaving already-paired device — legit
 move/scroll traffic tops out around one message per animation frame.
 
 **Features in detail.** Volume per app, launching apps and websites, the media timeline, the
-shutdown timer, the server pushes (`media`, `clipboard`, `systemStats`, ...), Voicemeeter and the
+shutdown timer, the server pushes (`media`, `clipboard`, `systemStats`, ...), Voicemeeter, OBS Studio and the
 controller mode (virtual Xbox pad, rumble) each have a section in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#features) - read the one you are about to touch, and
 keep it up to date in the same change.

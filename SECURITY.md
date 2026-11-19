@@ -52,7 +52,7 @@ In scope, for example:
 - bypassing the `Origin` checks (e.g. a website in the device's browser driving the server),
 - path traversal or overwriting files through `POST /files` or `GET /files/{id}`,
 - the `launch` action starting anything other than a listed app or an `http`/`https` URL,
-- reaching Voicemeeter or `pactl` beyond the allowed parameters,
+- reaching Voicemeeter, OBS (obs-websocket) or `pactl` beyond the allowed parameters,
 - exposure of the local certificate authority's private key or of `devices.json`,
 - tampering with the update path (GitHub Releases / Velopack feed).
 

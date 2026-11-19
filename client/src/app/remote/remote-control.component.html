@@ -245,6 +245,23 @@
             <span>{{ i18n.t('shell.tabMixer') }}</span>
           </button>
         }
+        @if (obsAvailable() && !mediaOnly()) {
+          <button
+            class="view-tab"
+            [class.view-tab--active]="activeView() === 'obs'"
+            type="button"
+            role="tab"
+            [attr.aria-selected]="activeView() === 'obs'"
+            (click)="selectView('obs')"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16Zm0 3a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"
+              />
+            </svg>
+            <span>OBS</span>
+          </button>
+        }
       </div>
     </div>
 
@@ -576,6 +593,10 @@
       } @else if (activeView() === 'mixer' && mixerSupported()) {
         @defer (on immediate) {
           <app-mixer />
+        }
+      } @else if (activeView() === 'obs' && obsAvailable()) {
+        @defer (on immediate) {
+          <app-obs />
         }
       }
     </section>

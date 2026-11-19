@@ -116,7 +116,11 @@ new component the same, unless everything its template reads is a signal or an i
      `setAudioOutput(id)` does the same with `audioOutput` for the push's `outputs` (the Mixer's
      "Ausgabegerät" select, shown with more than one device).
      `voicemeeter` pushes via `watchVoicemeeter` are sent only where `/health`
-     reports `voicemeeter: true` (`voicemeeterAvailable`). `MixerComponent`
+     reports `voicemeeter: true` (`voicemeeterAvailable`). `obs` pushes work the same via
+     `watchObs`/`obsAvailable` (`/health` `obs: true`): `ObsComponent` (`obs.component.ts`, the
+     "OBS" tab, hidden for "Nur Medien", lazy like the Mixer) shows stream/record with explicit
+     `start`/`stop`/`pause`/`resume` modes (stopping a stream asks first), the scenes
+     (`setObsScene`) and the audio inputs (`toggleObsMute`); both setters patch the signal at once. `MixerComponent`
      (`mixer.component.ts`, the "Mixer" tab, shown where `mixerSupported()`, i.e. windows/linux: an
      Apps/Inputs/Outputs switch, the Voicemeeter groups only with Voicemeeter installed; one row
      shape for both, apps in %, Voicemeeter in dB with a 0 dB tick and "0 dB" reset) and the

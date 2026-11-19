@@ -54,7 +54,8 @@ public sealed class YFRemoteWebSocketHandler(
             voicemeeter => _ = SendPushAsync(socket, sendLock, voicemeeter, client, cancellationToken),
             apps => _ = SendPushAsync(socket, sendLock, apps, client, cancellationToken),
             notification => _ = SendPushAsync(socket, sendLock, notification, client, cancellationToken),
-            foreground => _ = SendPushAsync(socket, sendLock, foreground, client, cancellationToken))
+            foreground => _ = SendPushAsync(socket, sendLock, foreground, client, cancellationToken),
+            obs => _ = SendPushAsync(socket, sendLock, obs, client, cancellationToken))
         {
             DeviceName = deviceName ?? client,
             MediaOnly = mediaOnly

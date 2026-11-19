@@ -288,6 +288,56 @@ export interface VoicemeeterParameterAction {
   readonly value?: number;
 }
 
+/** Schaltet fuer diese Verbindung den Tab "OBS" ein oder aus; der PC fragt OBS nur, solange
+ *  ein Geraet zusieht. */
+export interface ObsWatchAction {
+  readonly type: 'obs';
+  readonly enabled: boolean;
+}
+
+/** Wechselt in OBS auf die Szene `name`. */
+export interface ObsSceneAction {
+  readonly type: 'obsScene';
+  readonly name: string;
+}
+
+/** Stream in OBS starten, stoppen oder (ohne `mode`) umschalten. */
+export interface ObsStreamAction {
+  readonly type: 'obsStream';
+  readonly mode?: 'start' | 'stop' | 'toggle';
+}
+
+/** Aufnahme in OBS; zusaetzlich pausieren und fortsetzen. Ohne `mode` umschalten. */
+export interface ObsRecordAction {
+  readonly type: 'obsRecord';
+  readonly mode?: 'start' | 'stop' | 'toggle' | 'pause' | 'resume' | 'togglePause';
+}
+
+/** Schaltet eine Audioquelle in OBS stumm (`muted`) oder ohne `muted` um. */
+export interface ObsMuteAction {
+  readonly type: 'obsMute';
+  readonly name: string;
+  readonly muted?: boolean;
+}
+
+export interface ObsInput {
+  readonly name: string;
+  readonly muted: boolean;
+}
+
+/** Zustand von OBS, solange der Tab offen ist. `offline`: OBS laeuft nicht, `disabled`: der
+ *  WebSocket-Server ist in OBS aus, `authFailed`: das Passwort passt nicht. */
+export interface ObsMessage {
+  readonly type: 'obs';
+  readonly state: 'connected' | 'offline' | 'disabled' | 'authFailed';
+  readonly scenes?: readonly string[];
+  readonly currentScene?: string;
+  readonly streaming: boolean;
+  readonly recording: boolean;
+  readonly recordPaused: boolean;
+  readonly inputs?: readonly ObsInput[];
+}
+
 /** Ein Voicemeeter-Eingang ("Strip[n]") oder -Bus ("Bus[n]"); `gain` in dB. */
 export interface VoicemeeterChannel {
   readonly id: string;
@@ -454,7 +504,12 @@ export type RemoteAction =
   | KillProcessAction
   | MicMuteAction
   | DismissNotificationAction
-  | BrightnessAction;
+  | BrightnessAction
+  | ObsWatchAction
+  | ObsSceneAction
+  | ObsStreamAction
+  | ObsRecordAction
+  | ObsMuteAction;
 
 /** Ein Schritt in einer Aktionskette (Makro): eine Aktion plus Wartezeit davor. */
 export interface MacroStep {

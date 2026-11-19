@@ -52,6 +52,32 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
             var screen = WindowsMonitors.Find(monitor);
             return TryCaptureDuplicated(screen, maxWidth, quality) ?? CaptureWithBitBlt(screen, maxWidth, quality);
         }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Mit eingerichtetem Dienst nimmt der SYSTEM-Helfer Sperrbildschirm und UAC-Abfrage auf.
+            var jpeg = WindowsSecureDesktop.TryCaptureJpeg(maxWidth, quality, monitor);
+            if (jpeg is null)
+            {
+                throw;
+            }
+
+            return jpeg;
+        }
+        finally
+        {
+            SetThreadDpiAwarenessContext(previousDpiContext);
+        }
+    }
+
+    // Fuer den Helfer auf dem sicheren Desktop: BitBlt auf dem Desktop des aufrufenden Threads.
+    // ponytail: BitBlt statt Desktop Duplication (~38 ms pro Bild bei 1080p), fuer eine Abfrage genug.
+    internal static byte[] CaptureCurrentDesktopJpeg(int maxWidth, int quality, string? monitor)
+    {
+        var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
+        try
+        {
+            return CaptureWithBitBlt(WindowsMonitors.Find(monitor), maxWidth, quality);
+        }
         finally
         {
             SetThreadDpiAwarenessContext(previousDpiContext);

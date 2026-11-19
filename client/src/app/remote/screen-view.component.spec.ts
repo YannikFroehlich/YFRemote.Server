@@ -375,7 +375,15 @@ describe('ScreenViewComponent', () => {
 
     expect(sendAction.mock.calls).toEqual([
       [{ type: 'touch', points: [{ id: 0, x: 0.25, y: 0.5 }] }],
-      [{ type: 'touch', points: [{ id: 0, x: 0.25, y: 0.5 }, { id: 1, x: 0.75, y: 0.25 }] }],
+      [
+        {
+          type: 'touch',
+          points: [
+            { id: 0, x: 0.25, y: 0.5 },
+            { id: 1, x: 0.75, y: 0.25 },
+          ],
+        },
+      ],
       [{ type: 'touch', points: [{ id: 1, x: 0.75, y: 0.25 }] }],
       [{ type: 'touch', points: [] }],
     ]);
@@ -550,16 +558,14 @@ describe('ScreenViewComponent', () => {
         return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
       },
     );
-    const { fixture, readScreen, openScreenVideo, element } = await setup(
-      new Blob(['jpeg']),
-      null,
-      { player: { play }, stream: 'blocked' },
-    );
+    const { fixture, openScreenVideo, element } = await setup('blocked', null, {
+      player: { play },
+      stream: 'blocked',
+    });
     await vi.waitFor(() => {
       fixture.detectChanges();
       expect(element.textContent).toContain('Sperrbildschirm');
     });
-    expect(readScreen).not.toHaveBeenCalled();
     openScreenVideo.mockResolvedValue({
       body: new ReadableStream(),
       codec: 'avc1.4d002a',
@@ -569,7 +575,47 @@ describe('ScreenViewComponent', () => {
     fixture.detectChanges();
 
     expect(element.textContent).not.toContain('Sperrbildschirm');
-    expect(readScreen).not.toHaveBeenCalled();
+    fixture.destroy();
+  });
+
+  it('shows still pictures while the PC service serves the lock screen, and drops them for the video', async () => {
+    const play = vi.fn(
+      (
+        _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+        _video: HTMLVideoElement,
+        _codec: string,
+        abort: AbortSignal,
+        onFrame: () => void,
+      ) => {
+        onFrame();
+        return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+      },
+    );
+    const { fixture, readScreen, openScreenVideo, element } = await setup(
+      new Blob(['jpeg']),
+      null,
+      {
+        player: { play },
+        stream: 'blocked',
+      },
+    );
+
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(element.querySelector('img')?.getAttribute('src')).toBeTruthy();
+    });
+    expect(readScreen).toHaveBeenCalled();
+    expect(play).not.toHaveBeenCalled();
+    expect(element.textContent).not.toContain('Sperrbildschirm');
+
+    openScreenVideo.mockResolvedValue({
+      body: new ReadableStream(),
+      codec: 'avc1.4d002a',
+    } as never);
+    await vi.waitFor(() => expect(play).toHaveBeenCalled(), { timeout: 3000 });
+    fixture.detectChanges();
+
+    expect(element.querySelector('img')).toBeNull();
     fixture.destroy();
   });
 

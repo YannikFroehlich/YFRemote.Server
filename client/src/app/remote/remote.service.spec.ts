@@ -340,6 +340,21 @@ describe('RemoteService', () => {
     expect(remote.status()).toBe('connected');
   });
 
+  it('explains input dropped by an administrator window', () => {
+    const { remote, sockets } = setupRemoteService();
+    remote.connect();
+    sockets[0].open();
+
+    sockets[0].receive(
+      JSON.stringify({
+        success: false,
+        error: 'Input to an administrator window needs the lock screen and UAC service.',
+      }),
+    );
+
+    expect(remote.lastError()).toContain('läuft als Administrator');
+  });
+
   it('takes the access push out of the response path and keeps it across reconnects', () => {
     const { remote, sockets } = setupRemoteService();
     remote.connect();

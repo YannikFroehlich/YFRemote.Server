@@ -23,6 +23,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- Server: Mit dem Schalter „Sperrbildschirm und UAC vom Handy bedienen“ kommen Klicks und Tasten jetzt auch in Fenstern an, die als Administrator laufen, z. B. im Task-Manager. Ohne den Schalter zeigt das Handy dort einen Hinweis, statt Klicks stillschweigend zu verlieren.
+
+## [2.62.0] - 2026-11-19
+
+### Added
+
 - Server: Neuer Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster (standardmäßig aus, nur bei Installation unter „Program Files“). Ein Windows-Dienst zeigt dann auch Sperrbildschirm und UAC-Abfragen in der Bildschirm-Ansicht und nimmt dort Maus und Tastatur an – zum Entsperren oder Bestätigen vom Handy aus.
 - Bildschirm-Ansicht mit „Touch“: Ein Stift kommt am PC als echter Windows-Stift an – mit Schweben, Druck, Neigung, Seitentaste und Radierer, z. B. zum Zeichnen in OneNote oder Krita.
 - Client: In der Bildschirm-Ansicht klickt Antippen mit gedrückter Seitentaste des Stifts rechts.

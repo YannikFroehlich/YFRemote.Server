@@ -175,7 +175,7 @@ internal sealed class MainWindow : Form
         secureDesktopSwitch = new ToggleSwitch(
             "Sperrbildschirm und UAC vom Handy bedienen",
             WindowsSecureDesktop.IsAvailable
-                ? "Ein Windows-Dienst zeigt und bedient beides. Einrichten braucht einmal Adminrechte."
+                ? "Ein Windows-Dienst zeigt und bedient beides, dazu Admin-Fenster wie den Task-Manager. Einrichten braucht einmal Adminrechte."
                 : "Nur bei Installation für alle Benutzer (MSI unter \"Program Files\") verfügbar.")
         {
             Enabled = WindowsSecureDesktop.IsAvailable

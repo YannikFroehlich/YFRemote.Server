@@ -455,20 +455,32 @@ Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
   SID that installed it, `FirstPipeInstance`, a second instance always waiting so no request
   finds the pipe missing, one request per connection: kind byte, length,
   payload; answer: status, length, payload). It answers only clients whose image path is its own
-  exe, and acts only while `OpenInputDesktop` is the desktop "Winlogon" (else status `-1`): it
-  switches its thread there (`SetThreadDesktop`), then replays raw `INPUT` structs (at most 64) or
-  returns a BitBlt JPEG (`WindowsScreenCapture.CaptureCurrentDesktopJpeg`).
+  exe, and acts only while `OpenInputDesktop` is the desktop "Winlogon", or on "Default" for input
+  to an administrator window (below); else status `-1`. It switches its thread there
+  (`SetThreadDesktop`), then replays raw `INPUT` structs (at most 64) or returns a BitBlt JPEG
+  (`WindowsScreenCapture.CaptureCurrentDesktopJpeg`, "Winlogon" only).
+- Administrator windows (Task Manager, regedit, an admin terminal): Windows drops input from a
+  lower-integrity process to them without any error (UIPI), so `SendInput` "succeeds" and nothing
+  happens. Before every click, wheel or key (not pure moves, which move the pointer anyway)
+  `WindowsInputSender.SendSingle` checks `WindowsSecureDesktop.TargetIntegrityAbove(OwnIntegrity)`:
+  the foreground window and the window under the pointer, read through `OpenProcess`
+  (query-limited) and `TokenIntegrityLevel` (an elevated process reads as `S-1-16-12288`; SYSTEM
+  processes cannot be opened and count as not elevated). On a hit the `INPUT` goes to the helper,
+  which repeats the check (`> Medium`) before acting. Without the service the action fails with
+  `InputBlockedException.ElevatedWindowMessage`, which the Client shows as
+  `remoteService.error.elevatedWindow` instead of losing the click silently.
 - The server only uses it for what fails: `WindowsInputSender.SendSingle` forwards the `INPUT` on
   `ERROR_ACCESS_DENIED`, `WindowsMouseService.MoveRelative` falls back to a relative move when
   `GetCursorPos` is denied, and `WindowsScreenCapture.CaptureJpeg` asks the helper on
   `Win32Exception`. Without the service `WaitNamedPipe` fails at once and everything behaves as
-  before (`InputBlockedException`, `503`). The server, too, checks the pipe's other end is its own
-  exe, so a squatting process gets no keystrokes (passwords). Touch and pen are not forwarded.
+  before (`InputBlockedException`, `503`). The server only talks to a pipe owned by SYSTEM or
+  Administrators (the helper's default owner), which no non-elevated process can create, so a
+  squatting process gets no keystrokes (passwords). Touch and pen are not forwarded.
 - `/screen/video` stays `503` there; the Client then shows `/screen` stills in its video loop
   until the video plays again.
 - Risks accepted with the opt-in: a typed Windows password travels over the network (plain over
   HTTP), and malware already running as the user could drive the pipe (or YFRemote) to approve its
-  own UAC prompt.
+  own UAC prompt or to operate an administrator window.
 - Checked on the dev PC on 2026-11-19 with a phone (Chrome) on a test install under
   `Program Files`: the UAC prompt showed on the phone and a tap on "Nein" closed it, and on the
   lock screen the picture came and a tap opened the sign-in field. Install through
@@ -477,3 +489,6 @@ Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
   unverified. Found on the way: the helper must serve from
   its own MTA thread (the `[STAThread]` main thread's COM window makes `SetThreadDesktop` fail), and
   `GetUserObjectInformation` needs `CharSet.Unicode`, else the desktop name is never "Winlogon".
+  Administrator windows, checked the same way with the Task Manager in front: without the service a
+  click came back with `ElevatedWindowMessage` and the phone showed the hint while mouse moves still
+  went through; with the service a right click opened its system menu and `ESC` closed it.

@@ -80,6 +80,19 @@ public sealed class WindowsInputSender
 
     private static void SendSingle(Input input, string description)
     {
+        // Klicks, Rad und Tasten an ein Admin-Fenster verwirft Windows ohne Fehler (UIPI); mit
+        // eingerichtetem Dienst gibt sie der SYSTEM-Helfer ein. Reine Bewegungen setzen den Zeiger
+        // auch so.
+        if (!IsMoveOnly(input) && WindowsSecureDesktop.TargetIntegrityAbove(WindowsSecureDesktop.OwnIntegrity))
+        {
+            if (WindowsSecureDesktop.TrySendInput(ToBytes(input)))
+            {
+                return;
+            }
+
+            throw new InputBlockedException(InputBlockedException.ElevatedWindowMessage);
+        }
+
         var sent = SendInput(1, [input], InputSize);
         if (sent == 1)
         {
@@ -95,6 +108,10 @@ public sealed class WindowsInputSender
 
         throw Failure(error, $"SendInput failed for {description}.");
     }
+
+    private static bool IsMoveOnly(Input input) =>
+        input.Type == InputMouse
+        && (input.Data.Mouse.Flags & ~(WindowsInputFlags.MouseEventMove | WindowsInputFlags.MouseEventAbsolute | WindowsInputFlags.MouseEventVirtualDesk)) == 0;
 
     private static byte[] ToBytes(Input input)
     {

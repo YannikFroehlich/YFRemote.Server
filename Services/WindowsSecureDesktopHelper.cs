@@ -148,7 +148,17 @@ internal static class WindowsSecureDesktopHelper
 
     private static (int Status, byte[] Response) Handle(byte kind, byte[] payload)
     {
-        if (!FollowInputDesktop())
+        // Auf dem sicheren Desktop alles; auf dem normalen nur Eingaben an ein Admin-Fenster, die der
+        // Server wegen UIPI nicht selbst zustellen kann.
+        var desktop = FollowInputDesktop();
+        var allowed = desktop switch
+        {
+            "Winlogon" => true,
+            "Default" => kind == WindowsSecureDesktop.RequestInput
+                && WindowsSecureDesktop.TargetIntegrityAbove(WindowsSecureDesktop.MediumIntegrity),
+            _ => false,
+        };
+        if (!allowed)
         {
             return (WindowsSecureDesktop.StatusNotSecureDesktop, []);
         }
@@ -200,33 +210,35 @@ internal static class WindowsSecureDesktopHelper
         }
     }
 
-    // Der Thread wechselt auf den aktuellen Eingabe-Desktop, aber nur, wenn das "Winlogon" ist.
-    private static bool FollowInputDesktop()
+    // Der Thread wechselt auf den aktuellen Eingabe-Desktop ("Winlogon" oder "Default"); null, wenn
+    // das nicht geht oder es ein anderer ist.
+    private static string? FollowInputDesktop()
     {
         var desktop = OpenInputDesktop(0, false, DesktopGenericAll);
         if (desktop == IntPtr.Zero)
         {
             Log($"OpenInputDesktop failed: {Marshal.GetLastWin32Error()}.");
-            return false;
+            return null;
         }
 
-        var name = DesktopName(desktop);
-        if (!string.Equals(name, "Winlogon", StringComparison.OrdinalIgnoreCase))
+        var name = DesktopName(desktop) switch
         {
-            if (!string.Equals(name, "Default", StringComparison.OrdinalIgnoreCase))
-            {
-                Log($"Input desktop is \"{name}\", not acting.");
-            }
-
+            var known when string.Equals(known, "Winlogon", StringComparison.OrdinalIgnoreCase) => "Winlogon",
+            var known when string.Equals(known, "Default", StringComparison.OrdinalIgnoreCase) => "Default",
+            var other => other,
+        };
+        if (name is not ("Winlogon" or "Default"))
+        {
+            Log($"Input desktop is \"{name}\", not acting.");
             CloseDesktop(desktop);
-            return false;
+            return null;
         }
 
         if (!SetThreadDesktop(desktop))
         {
             Log($"SetThreadDesktop failed: {Marshal.GetLastWin32Error()}.");
             CloseDesktop(desktop);
-            return false;
+            return null;
         }
 
         if (currentDesktop != IntPtr.Zero)
@@ -235,7 +247,7 @@ internal static class WindowsSecureDesktopHelper
         }
 
         currentDesktop = desktop;
-        return true;
+        return name;
     }
 
     internal static string DesktopName(IntPtr desktop)

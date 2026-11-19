@@ -268,7 +268,83 @@ public static class WindowsSecureDesktop
         }
     }
 
+    // Admin-Fenster (Task-Manager, regedit, ...): Windows verwirft Eingaben eines Prozesses mit
+    // niedrigerer Integritaet ohne Fehler (UIPI). true, wenn das Vordergrundfenster oder das Fenster
+    // unter dem Zeiger zu einem Prozess ueber level gehoert. Nicht lesbare Prozesse (SYSTEM) zaehlen
+    // nicht: ein normaler Prozess darf sie nicht oeffnen, und ihre Fenster sind auf dem normalen
+    // Desktop selten.
+    internal static bool TargetIntegrityAbove(int level)
+    {
+        IntPtr[] windows = [GetForegroundWindow(), GetCursorPos(out var cursor) ? WindowFromPoint(cursor) : IntPtr.Zero];
+        return windows.Any(window =>
+            window != IntPtr.Zero
+            && GetWindowThreadProcessId(window, out var processId) != 0
+            && ProcessIntegrity(processId) > level);
+    }
+
+    internal static readonly int OwnIntegrity = ProcessIntegrity((uint)Environment.ProcessId) ?? MediumIntegrity;
+    internal const int MediumIntegrity = 0x2000;
+
+    // Die RID der Integritaets-SID (S-1-16-8192 = Medium, 12288 = High, 16384 = System); null, wenn
+    // sich der Prozess nicht lesen laesst.
+    internal static int? ProcessIntegrity(uint processId)
+    {
+        var process = OpenProcess(ProcessQueryLimitedInformation, false, processId);
+        if (process == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (!OpenProcessToken(process, TokenQuery, out var token))
+            {
+                return null;
+            }
+
+            var buffer = Marshal.AllocHGlobal(256);
+            try
+            {
+                return GetTokenInformation(token, TokenIntegrityLevel, buffer, 256, out _)
+                    ? int.Parse(new SecurityIdentifier(Marshal.ReadIntPtr(buffer)).Value.Split('-')[^1], System.Globalization.CultureInfo.InvariantCulture)
+                    : null;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+                CloseHandle(token);
+            }
+        }
+        finally
+        {
+            CloseHandle(process);
+        }
+    }
+
     private const uint ProcessQueryLimitedInformation = 0x1000;
+    private const uint TokenQuery = 0x8;
+    private const int TokenIntegrityLevel = 25;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct Point(int X, int Y);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out Point point);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(Point point);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool GetTokenInformation(IntPtr token, int informationClass, IntPtr information, int length, out int returnLength);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr OpenProcess(uint access, bool inheritHandle, uint processId);

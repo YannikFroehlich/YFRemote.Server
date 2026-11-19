@@ -33,19 +33,32 @@ public class WindowsSecureDesktopTests
         Assert.IsNull(WindowsSecureDesktop.TryCaptureJpeg(800, 70, null));
         Assert.IsLessThan(500, stopwatch.ElapsedMilliseconds);
 
-        // Ohne SYSTEM-Rechte ist der Eingabe-Desktop nie "Winlogon": der Helfer antwortet, handelt aber nicht.
+        // Ohne SYSTEM-Rechte ist der Eingabe-Desktop nie "Winlogon", und ein Bild gibt der Helfer nur
+        // dort: er antwortet, handelt aber nicht. (Eine Eingabe gaebe er ein, waere gerade ein
+        // Admin-Fenster vorne.)
         var sid = System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value;
         new Thread(() => WindowsSecureDesktopHelper.Run(sid, Environment.ProcessId)) { IsBackground = true }.Start();
         (int Status, byte[] Payload)? response = null;
         for (var attempt = 0; attempt < 50 && response is null; attempt++)
         {
             Thread.Sleep(50);
-            response = WindowsSecureDesktop.Request(WindowsSecureDesktop.RequestInput, new byte[WindowsInputSender.InputSize]);
+            response = WindowsSecureDesktop.Request(WindowsSecureDesktop.RequestCapture, [.. BitConverter.GetBytes(800), .. BitConverter.GetBytes(70), 0]);
         }
 
         Assert.IsNotNull(response);
         Assert.AreEqual(WindowsSecureDesktop.StatusNotSecureDesktop, response.Value.Status);
         Assert.IsEmpty(response.Value.Payload);
+    }
+
+    [TestMethod]
+    public void ProcessIntegrity_ReadsTheOwnLevel_AndNullForUnknownProcesses()
+    {
+        var own = WindowsSecureDesktop.ProcessIntegrity((uint)Environment.ProcessId);
+
+        Assert.IsNotNull(own);
+        Assert.AreEqual(own, WindowsSecureDesktop.OwnIntegrity);
+        Assert.IsGreaterThanOrEqualTo(WindowsSecureDesktop.MediumIntegrity, own.Value);
+        Assert.IsNull(WindowsSecureDesktop.ProcessIntegrity(uint.MaxValue - 3));
     }
 
     [TestMethod]

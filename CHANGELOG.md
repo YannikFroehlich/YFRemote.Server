@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.63.0] - 2026-11-19
+
 ### Added
 
 - Server: Mit dem Schalter „Sperrbildschirm und UAC vom Handy bedienen“ kommen Klicks und Tasten jetzt auch in Fenstern an, die als Administrator laufen, z. B. im Task-Manager. Ohne den Schalter zeigt das Handy dort einen Hinweis, statt Klicks stillschweigend zu verlieren.

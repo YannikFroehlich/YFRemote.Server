@@ -39,6 +39,22 @@ export interface TouchAction {
   readonly monitor?: string;
 }
 
+/** Der Stift als echter Windows-Stift (Schalter "Touch"); `null` nimmt ihn aus der Reichweite. */
+export interface PenAction {
+  readonly type: 'pen';
+  readonly pen: {
+    readonly x: number;
+    readonly y: number;
+    readonly pressure: number;
+    readonly tiltX: number;
+    readonly tiltY: number;
+    readonly contact: boolean;
+    readonly barrel: boolean;
+    readonly eraser: boolean;
+  } | null;
+  readonly monitor?: string;
+}
+
 /** Ein Monitor des PCs aus `GET /screen/monitors`. */
 export interface ScreenMonitor {
   readonly id: string;
@@ -411,6 +427,7 @@ export type RemoteAction =
   | ScreenClickAction
   | ScreenMoveAction
   | TouchAction
+  | PenAction
   | MouseButtonAction
   | MouseScrollAction
   | MouseZoomAction

@@ -21,9 +21,18 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Bildschirm-Ansicht mit „Touch“: Ein Stift kommt am PC als echter Windows-Stift an – mit Schweben, Druck, Neigung, Seitentaste und Radierer, z. B. zum Zeichnen in OneNote oder Krita.
+- Client: In der Bildschirm-Ansicht klickt Antippen mit gedrückter Seitentaste des Stifts rechts.
+
 ### Changed
 
 - Android: Unter „Steuern“ trennt ein Umschalter „Unverschlüsselt | Verschlüsselt“ die Geräte nach HTTP und HTTPS, sodass derselbe PC nicht zweimal in einer Liste steht. Gibt es nur eine Sorte, bleibt die Liste wie bisher.
+
+### Fixed
+
+- Client: Der Mauszeiger folgt einem schwebenden Stift jetzt auch, solange dessen Seitentaste gedrückt ist (z. B. S Pen).
 
 ## [2.61.0] - 2026-11-19
 

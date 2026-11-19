@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Services;
@@ -69,6 +69,7 @@ public sealed partial class RemoteActionHandler(
                 "screenclick" => HandleScreenClick(request),
                 "screenmove" => HandleScreenMove(request),
                 "touch" => HandleTouch(request, session),
+                "pen" => HandlePen(request, session),
                 "mousedown" => HandleMouseButton(request, isDown: true, session),
                 "mouseup" => HandleMouseButton(request, isDown: false, session),
                 "mousescroll" => HandleMouseScroll(request),
@@ -296,6 +297,37 @@ public sealed partial class RemoteActionHandler(
 
     private const int MaxTouchPoints = 10;
     private const string TouchHoldKey = "touch";
+    private const string PenHoldKey = "pen";
+
+    // Der Stift mit "Touch": wie bei den Fingern nimmt ein Abbruch der Verbindung ihn vom Bildschirm.
+    private RemoteActionResponse HandlePen(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (touch is null)
+        {
+            return Fail("Touch input is not supported on this server.");
+        }
+
+        var pen = request.Pen;
+        if (pen is not null
+            && (!(pen.X is >= 0 and <= 1) || !(pen.Y is >= 0 and <= 1) || !(pen.Pressure is >= 0 and <= 1)
+                || !(pen.TiltX is >= -90 and <= 90) || !(pen.TiltY is >= -90 and <= 90)))
+        {
+            return Fail("Action 'pen' requires x, y and pressure between 0 and 1 and tiltX and tiltY between -90 and 90.");
+        }
+
+        var monitor = request.Monitor;
+        touch.ApplyPen(pen, monitor);
+        if (pen is null)
+        {
+            session?.ReleaseMouseButton(PenHoldKey);
+        }
+        else
+        {
+            session?.HoldMouseButton(PenHoldKey, () => touch.ApplyPen(null, monitor));
+        }
+
+        return RemoteActionResponse.Ok();
+    }
 
     private RemoteActionResponse HandleMouseClick(RemoteActionRequest request)
     {

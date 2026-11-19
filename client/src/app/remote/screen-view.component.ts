@@ -277,6 +277,24 @@ export class ScreenViewComponent implements OnDestroy {
       this.blocked.set(stream === 'blocked');
       if (stream === 'blocked') {
         this.videoShown.set(false);
+        // Sperrbildschirm oder UAC-Abfrage: mit dem Dienst am PC gibt es dort Standbilder statt Video.
+        const still = await this.remote.readScreen(
+          width,
+          profile.jpegQuality,
+          this.remote.screenMonitor(),
+          this.jpegAbort.signal,
+        );
+        if (this.stopped) {
+          return true;
+        }
+
+        if (still instanceof Blob) {
+          this.blocked.set(false);
+          this.noteData();
+          this.show(URL.createObjectURL(still));
+          await delay(FRAME_INTERVAL_MS);
+          continue;
+        }
       }
 
       if (!abort.signal.aborted && (stream === 'unsupported' || (stream === null && !played))) {
@@ -294,6 +312,8 @@ export class ScreenViewComponent implements OnDestroy {
             () => {
               played = true;
               this.videoShown.set(true);
+              // Das Standbild vom Sperrbildschirm darf nicht unter dem Video stehen bleiben.
+              this.show(null);
               this.noteData();
             },
           );

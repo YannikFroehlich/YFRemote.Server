@@ -435,3 +435,45 @@ button/axis codes of a wired Xbox 360 pad under the kernel's `xpad` driver, so S
 without a custom mapping; available whenever `/dev/uinput` exists, no slot cap. Rumble comes from
 a reader thread per controller that answers the game's force-feedback uploads (unverified on a real
 kernel, see AGENTS.md).
+
+**Lock screen and UAC prompt (Windows, opt-in).** Both live on the secure desktop ("Winlogon"),
+where a normal process gets `ERROR_ACCESS_DENIED` for `SendInput`/`GetCursorPos` and no picture.
+The `MainWindow` switch "Sperrbildschirm und UAC vom Handy bedienen" (off by default, enabled only
+when `WindowsSecureDesktop.IsProtectedInstallPath` holds, i.e. the exe lies under `Program Files`:
+a SYSTEM service running a file the user can replace would be a privilege escalation) starts the
+same exe elevated (`runas`, one UAC prompt at the PC) with `--secure-desktop-install <user SID>`,
+which creates the LocalSystem service `YFRemoteSecureDesktop` through `sc.exe`
+(`--secure-desktop-service <SID>`, auto start). `--secure-desktop-uninstall` removes it, and so do
+switching off and the Velopack uninstall hook. Service and helper run from `current\`, which
+Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
+`OnAfterUpdateFastCallback` starts it again.
+- `WindowsSecureDesktopService` (session 0) keeps one helper alive in the active console session:
+  its own SYSTEM token with `TokenSessionId` set, `CreateProcessAsUser` with
+  `--secure-desktop-helper <SID> <service pid>`, restarted on session change, when it exits, and
+  every 2 s otherwise. The helper exits with the service process.
+- `WindowsSecureDesktopHelper` serves the named pipe `YFRemote.SecureDesktop` (ACL: SYSTEM and the
+  SID that installed it, `FirstPipeInstance`, a second instance always waiting so no request
+  finds the pipe missing, one request per connection: kind byte, length,
+  payload; answer: status, length, payload). It answers only clients whose image path is its own
+  exe, and acts only while `OpenInputDesktop` is the desktop "Winlogon" (else status `-1`): it
+  switches its thread there (`SetThreadDesktop`), then replays raw `INPUT` structs (at most 64) or
+  returns a BitBlt JPEG (`WindowsScreenCapture.CaptureCurrentDesktopJpeg`).
+- The server only uses it for what fails: `WindowsInputSender.SendSingle` forwards the `INPUT` on
+  `ERROR_ACCESS_DENIED`, `WindowsMouseService.MoveRelative` falls back to a relative move when
+  `GetCursorPos` is denied, and `WindowsScreenCapture.CaptureJpeg` asks the helper on
+  `Win32Exception`. Without the service `WaitNamedPipe` fails at once and everything behaves as
+  before (`InputBlockedException`, `503`). The server, too, checks the pipe's other end is its own
+  exe, so a squatting process gets no keystrokes (passwords). Touch and pen are not forwarded.
+- `/screen/video` stays `503` there; the Client then shows `/screen` stills in its video loop
+  until the video plays again.
+- Risks accepted with the opt-in: a typed Windows password travels over the network (plain over
+  HTTP), and malware already running as the user could drive the pipe (or YFRemote) to approve its
+  own UAC prompt.
+- Checked on the dev PC on 2026-11-19 with a phone (Chrome) on a test install under
+  `Program Files`: the UAC prompt showed on the phone and a tap on "Nein" closed it, and on the
+  lock screen the picture came and a tap opened the sign-in field. Install through
+  `--secure-desktop-install` worked, and `--secure-desktop-uninstall` removed the service and
+  ended the helper. Typing a password and the elevated Velopack hooks during a real update are
+  unverified. Found on the way: the helper must serve from
+  its own MTA thread (the `[STAThread]` main thread's COM window makes `SetThreadDesktop` fail), and
+  `GetUserObjectInformation` needs `CharSet.Unicode`, else the desktop name is never "Winlogon".

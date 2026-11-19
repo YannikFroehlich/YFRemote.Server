@@ -162,7 +162,22 @@ feature.
   after one `screenMove` to where the fingers landed, so the wheel hits the window under them.
   Spreading sends `mouseZoom` (`delta` ±120 per 15 % change of the finger distance), which the
   server turns into Ctrl + wheel, the same input a real touchpad pinch gives Chrome, Office or
-  Explorer. The picture itself never zooms. In fullscreen the toolbar collapses behind a logo button
+  Explorer. The picture itself never zooms.
+  A mouse on the device (`pointerType: 'mouse'`, not with "Touch") skips all of that and drives the
+  PC directly: every move inside the picture sends the throttled `screenMove`, also without a
+  button, and each change of `buttons` (left 1, right 2, middle 4) flushes the move and sends its own
+  `mouseDown`/`mouseUp`, so double clicks, dragging and the middle button behave like at the PC; the
+  browser's `click`/`contextmenu` after it are swallowed (`lastPointerType`). The wheel sends
+  `mouseScroll` (deltaY × 1.2 per pixel, × 40 per line, times the scroll speed), Ctrl + wheel (also a
+  touchpad pinch, which browsers report that way) `mouseZoom`, both batched per frame. The stage is
+  focusable (`tabindex="0"`, accent border with a fine pointer): while it has the focus,
+  `physicalKeyAction` turns `keydown` into actions. Characters without Ctrl/Alt/Win (AltGr counts as
+  none) go as `text`, so the device's layout decides what is typed; everything else is `key`/`hotkey`
+  with the server's names, letters taken from `key` so Ctrl+Z stays undo on QWERTZ. Win alone goes on
+  its `keyup` if no other key came in between. Keys are sent as whole combinations, not as separate
+  down/up, so holding Shift while clicking does not reach the PC. Fullscreen also calls
+  `navigator.keyboard.lock()` (Chrome/Edge), so Esc (held: leaves fullscreen), Alt+Tab and Win reach
+  the PC instead of the device. In fullscreen the toolbar collapses behind a logo button
   (`.screen-view__handle`): a tap opens it towards the free side, dragging moves the logo (fraction of
   the view, kept only until the tab closes), and a tap on the picture closes it without clicking the PC.
   A tap into the image sends `screenClick` (`x`/`y` 0-1 on the monitor, `button`

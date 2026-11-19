@@ -156,11 +156,16 @@
       }
     </div>
   }
-  <!-- Ein Finger klickt und zieht am PC, zwei zoomen und verschieben das Bild. -->
+  <!-- Ein Finger klickt und zieht am PC, zwei zoomen und verschieben das Bild. Eine Maus steuert
+       den Zeiger direkt; nach einem Klick hinein gehen Tasten der echten Tastatur an den PC. -->
   <div
     #stage
     class="screen-view__stage"
+    tabindex="0"
     [hidden]="!videoShown() && frame() === null"
+    (keydown)="onStageKeydown($event)"
+    (keyup)="onStageKeyup($event)"
+    (wheel)="onWheel($event)"
     (pointerdown)="onPointerDown($event)"
     (pointermove)="onPointerMove($event)"
     (pointerup)="onPointerEnd($event)"

@@ -21,6 +21,10 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Client: Die Bildschirm-Ansicht lässt sich am Computer wie ein Remote-Desktop bedienen. Der Zeiger am PC folgt der Maus, linke, rechte und mittlere Taste gehen einzeln durch (Doppelklick, Ziehen), das Mausrad scrollt und Strg + Rad zoomt. Nach einem Klick ins Bild gehen Tasten und Kürzel der echten Tastatur an den PC. Im Vollbild fangen Chrome und Edge dafür auch Esc, Alt+Tab und die Windows-Taste ab.
+
 ## [2.63.0] - 2026-11-19
 
 ### Added

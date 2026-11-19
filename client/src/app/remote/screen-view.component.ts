@@ -11,7 +11,7 @@ import {
 import { DOCUMENT } from '@angular/common';
 import { keepScreenAwake } from './device';
 import { FILE_SAVER } from './file-transfer.service';
-import { keyLabel, liveTextActions } from './keyboard-keys';
+import { keyLabel, liveTextActions, physicalKeyAction } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
 import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
@@ -60,6 +60,15 @@ const DRAG_MOVE_INTERVAL_MS = 16;
 const MAX_TOUCH_POINTS = 10;
 // PointerEvent.buttons eines Stifts, der das Display beruehrt: Spitze (1) oder Radierer (32).
 const PEN_CONTACT = 1 | 32;
+// PointerEvent.buttons einer Maus am Geraet -> Taste am PC.
+const MOUSE_BUTTONS = [
+  [1, 'left'],
+  [2, 'right'],
+  [4, 'middle'],
+] as const;
+// Mausrad am Geraet -> Raddelta am PC (120 je Raste) je deltaMode: Pixel (Chrome: 100 je Raste),
+// Zeilen (Firefox: 3 je Raste), Seiten.
+const WHEEL_UNITS = [1.2, 40, 400];
 
 // Auch ein stehender Bildschirm liefert mindestens ein Bild pro Sekunde. Kommt laenger nichts,
 // haengt die Verbindung und das sichtbare Bild ist alt.
@@ -160,7 +169,15 @@ export class ScreenViewComponent implements OnDestroy {
   private scrollTarget: { x: number; y: number } | null = null;
   private pendingScrollX = 0;
   private pendingScrollY = 0;
+  private pendingZoom = 0;
   private scrollFrame: number | null = null;
+  // Eine Maus am Geraet klickt ueber mouseDown/mouseUp; click und contextmenu des Browsers
+  // gehen dann nicht noch einmal an den PC.
+  private lastPointerType = '';
+  // Die am PC gedrueckten Tasten der Maus am Geraet, als Bits wie PointerEvent.buttons.
+  private mouseButtons = 0;
+  // Win allein oeffnet am PC das Startmenue, als Teil eines Kuerzels nicht.
+  private winAlone = false;
   // Der erste Finger, solange er noch Tipp oder Ziehen werden kann.
   private dragOrigin: Point | null = null;
   private dragging = false;
@@ -198,6 +215,7 @@ export class ScreenViewComponent implements OnDestroy {
     this.videoAbort?.abort();
     this.jpegAbort.abort();
     this.endDrag();
+    this.releaseMouse();
     this.liftAllTouches();
     if (this.scrollFrame !== null) {
       cancelAnimationFrame(this.scrollFrame);
@@ -445,8 +463,10 @@ export class ScreenViewComponent implements OnDestroy {
       return;
     }
 
-    // Die rechte Maustaste laeuft ueber das Kontextmenue.
-    if (event.pointerType === 'mouse' && event.button !== 0) {
+    this.lastPointerType = event.pointerType;
+    const isMouse = event.pointerType === 'mouse';
+    // Mit "Touch" laeuft die rechte Maustaste ueber das Kontextmenue.
+    if (isMouse && this.touchMode() && event.button !== 0) {
       return;
     }
 
@@ -455,6 +475,11 @@ export class ScreenViewComponent implements OnDestroy {
       stage.setPointerCapture?.(event.pointerId);
     } catch {
       // Der Finger ist schon wieder weg - dann kommt auch kein weiteres Ereignis.
+    }
+
+    if (isMouse && !this.touchMode()) {
+      this.mouseInput(event);
+      return;
     }
 
     if (this.touchMode()) {
@@ -491,6 +516,11 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected onPointerMove(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && !this.touchMode()) {
+      this.mouseInput(event);
+      return;
+    }
+
     if (event.pointerType === 'pen' && this.touchMode()) {
       this.pendingPen = event;
       this.schedulePen();
@@ -571,6 +601,15 @@ export class ScreenViewComponent implements OnDestroy {
   }
 
   protected onPointerEnd(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && !this.touchMode()) {
+      if (event.type === 'pointercancel') {
+        this.releaseMouse();
+      } else {
+        this.mouseInput(event);
+      }
+      return;
+    }
+
     if (event.pointerType === 'pen' && this.touchMode()) {
       this.sendPen(event.type === 'pointercancel' ? null : event);
       return;
@@ -597,8 +636,9 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected onClick(event: MouseEvent): void {
     event.preventDefault();
-    // Mit "Touch" tippt der Finger selbst; der Klick des Browsers waere ein zweiter.
-    if (this.swallowClick || this.touchMode()) {
+    // Mit "Touch" tippt der Finger selbst, die Maus klickt ueber mouseDown/mouseUp; der Klick des
+    // Browsers waere ein zweiter.
+    if (this.swallowClick || this.touchMode() || this.lastPointerType === 'mouse') {
       this.swallowClick = false;
       return;
     }
@@ -610,12 +650,111 @@ export class ScreenViewComponent implements OnDestroy {
   protected onContextMenu(event: MouseEvent): void {
     event.preventDefault();
     // Mit "Touch" erkennt Windows langes Druecken selbst.
-    if (this.dragging || this.pointers.size > 1 || this.swallowClick || this.touchMode()) {
+    if (
+      this.dragging ||
+      this.pointers.size > 1 ||
+      this.swallowClick ||
+      this.touchMode() ||
+      this.lastPointerType === 'mouse'
+    ) {
       return;
     }
 
     this.dragOrigin = null;
     this.sendClick(event, 'right');
+  }
+
+  // Maus am Geraet: der Zeiger am PC folgt ihr auch ohne gedrueckte Taste, und jede Taste geht
+  // einzeln an den PC - so klappen Doppelklick, Ziehen und die mittlere Taste wie direkt am PC.
+  private mouseInput(event: PointerEvent): void {
+    const pressed = event.buttons & 7;
+    // Gedrueckt bleibt der Zeiger am Bildrand; ausserhalb des Bildes beginnt kein Klick.
+    const position = this.toScreenPosition(event.clientX, event.clientY, this.mouseButtons !== 0);
+    if (position === null && this.mouseButtons === 0) {
+      return;
+    }
+
+    if (position !== null) {
+      this.pendingMove = position;
+    }
+
+    if (pressed === this.mouseButtons) {
+      this.scheduleMove();
+      return;
+    }
+
+    this.flushMove();
+    this.setMouseButtons(pressed);
+  }
+
+  private setMouseButtons(pressed: number): void {
+    for (const [bit, button] of MOUSE_BUTTONS) {
+      if ((pressed & bit) !== (this.mouseButtons & bit)) {
+        this.remote.sendAction({ type: pressed & bit ? 'mouseDown' : 'mouseUp', button });
+      }
+    }
+
+    this.mouseButtons = pressed;
+  }
+
+  private releaseMouse(): void {
+    if (this.mouseButtons !== 0) {
+      this.flushMove();
+      this.setMouseButtons(0);
+    }
+  }
+
+  private flushMove(): void {
+    if (this.moveFrame !== null) {
+      cancelAnimationFrame(this.moveFrame);
+      this.moveFrame = null;
+    }
+
+    if (this.pendingMove !== null) {
+      this.sendMove(this.pendingMove);
+      this.pendingMove = null;
+    }
+  }
+
+  // Mausrad und Touchpad am Geraet scrollen am PC; Strg + Rad (auch Spreizen auf dem Touchpad,
+  // das der Browser so meldet) zoomt.
+  protected onWheel(event: WheelEvent): void {
+    event.preventDefault();
+    this.flushMove();
+    const unit = (WHEEL_UNITS[event.deltaMode] ?? WHEEL_UNITS[0]) * this.remote.scrollSpeed();
+    if (event.ctrlKey) {
+      this.pendingZoom -= event.deltaY * unit;
+    } else {
+      this.pendingScrollX += event.deltaX * unit;
+      this.pendingScrollY -= event.deltaY * unit;
+    }
+    this.scheduleScroll();
+  }
+
+  // Echte Tastatur am Geraet, solange das Bild den Fokus hat (nach einem Klick hinein).
+  protected onStageKeydown(event: KeyboardEvent): void {
+    if (event.isComposing) {
+      return;
+    }
+
+    if (event.key === 'Meta' || event.key === 'OS') {
+      this.winAlone = true;
+      return;
+    }
+
+    this.winAlone = false;
+    const action = physicalKeyAction(event);
+    if (action !== null) {
+      event.preventDefault();
+      this.remote.sendAction(action);
+    }
+  }
+
+  protected onStageKeyup(event: KeyboardEvent): void {
+    if ((event.key === 'Meta' || event.key === 'OS') && this.winAlone) {
+      this.winAlone = false;
+      this.remote.sendAction({ type: 'key', keys: ['WIN'] });
+    }
   }
 
   private sendClick(event: MouseEvent, button: 'left' | 'right'): void {
@@ -812,20 +951,29 @@ export class ScreenViewComponent implements OnDestroy {
     const scale = SCROLL_SCALE * this.remote.scrollSpeed() * (this.remote.invertScroll() ? -1 : 1);
     this.pendingScrollX -= deltaX * scale;
     this.pendingScrollY += deltaY * scale;
+    this.scheduleScroll();
+  }
+
+  private scheduleScroll(): void {
     this.scrollFrame ??= requestAnimationFrame(() => {
       this.scrollFrame = null;
       const clamp = (value: number) =>
         Math.max(-MAX_SCROLL_DELTA, Math.min(MAX_SCROLL_DELTA, Math.round(value)));
       const x = clamp(this.pendingScrollX);
       const y = clamp(this.pendingScrollY);
+      const zoom = clamp(this.pendingZoom);
       this.pendingScrollX -= x;
       this.pendingScrollY -= y;
+      this.pendingZoom -= zoom;
       if (x !== 0 || y !== 0) {
         this.remote.sendAction({
           type: 'mouseScroll',
           ...(y !== 0 ? { delta: y } : {}),
           ...(x !== 0 ? { deltaX: x } : {}),
         });
+      }
+      if (zoom !== 0) {
+        this.remote.sendAction({ type: 'mouseZoom', delta: zoom });
       }
     });
   }
@@ -1056,6 +1204,12 @@ export class ScreenViewComponent implements OnDestroy {
 
     try {
       await this.view().nativeElement.requestFullscreen();
+      // Am Desktop gehen Tasten im Bild an den PC. Im Vollbild faengt Chrome/Edge dafuer auch Esc
+      // (gehalten beendet es das Vollbild), Alt+Tab und Win ab, statt sie selbst auszufuehren.
+      this.stage().nativeElement.focus({ preventScroll: true });
+      const navigator = this.document.defaultView?.navigator as
+        { keyboard?: { lock?: () => Promise<void> } } | undefined;
+      await navigator?.keyboard?.lock?.().catch(() => undefined);
       // Der PC-Bildschirm ist quer. Die Android-App dreht im Vollbild selbst; Browser ohne
       // Ausrichtungssperre (Desktop, iOS) bleiben einfach, wie sie sind.
       const orientation = this.document.defaultView?.screen.orientation as
@@ -1078,6 +1232,7 @@ export class ScreenViewComponent implements OnDestroy {
       this.videoAbort?.abort();
       // Im Hintergrund kommt kein pointerup mehr; die Maustaste am PC darf nicht haengen bleiben.
       this.endDrag();
+      this.releaseMouse();
       this.liftAllTouches();
       this.pointers.clear();
       this.dragOrigin = null;

@@ -60,13 +60,19 @@ export interface ViewTabSettings {
   readonly hidden: readonly ProfileView[];
 }
 
-export const DEFAULT_VIEW_TAB_SETTINGS: ViewTabSettings = { order: PROFILE_VIEWS, hidden: [] };
+// Selten gebraucht: Folien, Controller und OBS kommen erst nach dem Einschalten unter "Tabs" in die
+// Leiste. Wer schon eigene Tab-Einstellungen gespeichert hat, behaelt sie.
+export const DEFAULT_VIEW_TAB_SETTINGS: ViewTabSettings = {
+  order: PROFILE_VIEWS,
+  hidden: ['presentation', 'gamepad', 'obs'],
+};
 
 export function normalizeViewTabSettings(candidate: unknown): ViewTabSettings {
-  const value = (typeof candidate === 'object' && candidate !== null ? candidate : {}) as {
-    readonly order?: unknown;
-    readonly hidden?: unknown;
-  };
+  if (typeof candidate !== 'object' || candidate === null) {
+    return DEFAULT_VIEW_TAB_SETTINGS;
+  }
+
+  const value = candidate as { readonly order?: unknown; readonly hidden?: unknown };
   const order = uniqueViews(value.order);
   // Ein Tab aus einer neueren Version haengt sich hinten an, statt zu fehlen.
   order.push(...PROFILE_VIEWS.filter((view) => !order.includes(view)));

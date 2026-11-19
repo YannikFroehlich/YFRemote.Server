@@ -457,7 +457,8 @@ Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
 - Checked on the dev PC on 2026-11-19 with a phone (Chrome) on a test install under
   `Program Files`: the UAC prompt showed on the phone and a tap on "Nein" closed it, and on the
   lock screen the picture came and a tap opened the sign-in field. Install through
-  `--secure-desktop-install` worked. Typing a password, removing the service and the elevated
-  Velopack hooks during a real update are unverified. Found on the way: the helper must serve from
+  `--secure-desktop-install` worked, and `--secure-desktop-uninstall` removed the service and
+  ended the helper. Typing a password and the elevated Velopack hooks during a real update are
+  unverified. Found on the way: the helper must serve from
   its own MTA thread (the `[STAThread]` main thread's COM window makes `SetThreadDesktop` fail), and
   `GetUserObjectInformation` needs `CharSet.Unicode`, else the desktop name is never "Winlogon".

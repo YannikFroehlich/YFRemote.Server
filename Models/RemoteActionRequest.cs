@@ -50,6 +50,9 @@ public sealed record RemoteActionRequest
     // touch: alle Finger, die gerade das Bild beruehren; eine leere Liste hebt alle ab.
     public IReadOnlyList<TouchPoint>? Points { get; init; }
 
+    // pen: der Stift ueber oder auf dem Bild; null nimmt ihn aus der Reichweite.
+    public PenState? Pen { get; init; }
+
     // shutdownTimer: was bei Ablauf passiert ("shutdown", "sleep", "displayOff"), ohne Angabe "shutdown".
     public string? Power { get; init; }
 

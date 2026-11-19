@@ -6,7 +6,8 @@ namespace YFRemote.Server.Services;
 // InjectTouchInput (ab Windows 8, auch ohne Touchscreen): bis zu 10 Finger in physischen Pixeln wie
 // die Bildschirmaufnahme. Jede Meldung ist der ganze Zustand; neue Ids gehen als DOWN, bekannte als
 // UPDATE, fehlende als UP hinaus. Ein still liegender Finger braucht trotzdem laufend UPDATE-Frames,
-// sonst bricht Windows den Kontakt ab - das uebernimmt der Takt alle 100 ms.
+// sonst bricht Windows den Kontakt ab - das uebernimmt der Takt alle 100 ms. Der Stift laeuft ueber ein
+// synthetisches Stiftgeraet (InjectSyntheticPointerInput, ab Windows 10 1809) mit Druck und Neigung.
 public sealed class WindowsTouchService : ITouchService, IDisposable
 {
     internal const int MaxContacts = 10;
@@ -18,6 +19,8 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
     private readonly Dictionary<int, (int X, int Y)> contacts = [];
     private readonly System.Threading.Timer keepAlive;
     private bool initialized;
+    private IntPtr penDevice;
+    private (int X, int Y, PenState State)? pen;
     private long lastInjectTicks;
 
     public WindowsTouchService(WindowsInputSender inputSender)
@@ -69,6 +72,40 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
         }
     }
 
+    public void ApplyPen(PenState? state, string? monitor)
+    {
+        lock (gate)
+        {
+            var previousDpiContext = SetThreadDpiAwarenessContext(DpiAwarenessContextPerMonitorAwareV2);
+            try
+            {
+                if (state is null)
+                {
+                    LiftPen();
+                    return;
+                }
+
+                var screen = WindowsMonitors.Find(monitor);
+                var x = screen.Left + Math.Min((int)(state.X * screen.Width), screen.Width - 1);
+                var y = screen.Top + Math.Min((int)(state.Y * screen.Height), screen.Height - 1);
+                var wasInContact = pen?.State.Contact == true;
+                var flags = (state.Contact, wasInContact) switch
+                {
+                    (true, true) => PointerFlagInContact | PointerFlagUpdate,
+                    (true, false) => PointerFlagInContact | PointerFlagDown,
+                    (false, true) => PointerFlagUp,
+                    (false, false) => PointerFlagUpdate,
+                };
+                InjectPen(x, y, state, PointerFlagInRange | flags);
+                pen = (x, y, state);
+            }
+            finally
+            {
+                SetThreadDpiAwarenessContext(previousDpiContext);
+            }
+        }
+    }
+
     public void Dispose()
     {
         keepAlive.Dispose();
@@ -80,12 +117,40 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
                 {
                     Inject([.. contacts.Select(contact => Contact(contact.Key, contact.Value, PointerFlagUp))]);
                 }
+
+                LiftPen();
             }
         }
         catch (Exception exception) when (exception is InputBlockedException or System.ComponentModel.Win32Exception)
         {
             // Beim Beenden egal.
         }
+        finally
+        {
+            if (penDevice != IntPtr.Zero)
+            {
+                DestroySyntheticPointerDevice(penDevice);
+                penDevice = IntPtr.Zero;
+            }
+        }
+    }
+
+    // Erst die Spitze abheben, dann den Stift aus der Reichweite nehmen (UPDATE ohne INRANGE).
+    private void LiftPen()
+    {
+        if (pen is not { } last)
+        {
+            return;
+        }
+
+        pen = null;
+        var hovering = last.State with { Contact = false, Pressure = 0 };
+        if (last.State.Contact)
+        {
+            InjectPen(last.X, last.Y, hovering, PointerFlagInRange | PointerFlagUp);
+        }
+
+        InjectPen(last.X, last.Y, hovering, PointerFlagUpdate);
     }
 
     private void KeepAlive()
@@ -94,12 +159,21 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
         {
             lock (gate)
             {
-                if (contacts.Count == 0 || Environment.TickCount64 - lastInjectTicks < KeepAliveInterval.TotalMilliseconds * 0.8)
+                if ((contacts.Count == 0 && pen?.State.Contact != true)
+                    || Environment.TickCount64 - lastInjectTicks < KeepAliveInterval.TotalMilliseconds * 0.8)
                 {
                     return;
                 }
 
-                Inject([.. contacts.Select(contact => Contact(contact.Key, contact.Value, HeldFlags | PointerFlagUpdate))]);
+                if (contacts.Count > 0)
+                {
+                    Inject([.. contacts.Select(contact => Contact(contact.Key, contact.Value, HeldFlags | PointerFlagUpdate))]);
+                }
+
+                if (pen is { State.Contact: true } held)
+                {
+                    InjectPen(held.X, held.Y, held.State, HeldFlags | PointerFlagUpdate);
+                }
             }
         }
         catch (Exception exception) when (exception is InputBlockedException or System.ComponentModel.Win32Exception)
@@ -141,6 +215,64 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
         }
     }
 
+    private void InjectPen(int x, int y, PenState state, uint flags)
+    {
+        if (penDevice == IntPtr.Zero)
+        {
+            penDevice = CreateSyntheticPointerDevice(PointerTypePen, 1, PointerFeedbackDefault);
+            if (penDevice == IntPtr.Zero)
+            {
+                throw WindowsInputSender.LastWin32Failure("CreateSyntheticPointerDevice failed.");
+            }
+        }
+
+        flags |= PointerFlagPrimary;
+        if (state.Contact)
+        {
+            flags |= PointerFlagFirstButton;
+        }
+
+        if (state.Barrel)
+        {
+            flags |= PointerFlagSecondButton;
+        }
+
+        var penFlags = (state.Barrel ? PenFlagBarrel : 0)
+            | (state.Eraser ? PenFlagInverted : 0)
+            | (state.Eraser && state.Contact ? PenFlagEraser : 0);
+        var info = new PointerTypeInfo
+        {
+            Type = PointerTypePen,
+            Info = new PointerUnion
+            {
+                Pen = new PointerPenInfo
+                {
+                    PointerInfo = new PointerInfo
+                    {
+                        PointerType = PointerTypePen,
+                        PointerFlags = flags,
+                        PixelLocation = new Point(x, y),
+                    },
+                    PenFlags = penFlags,
+                    PenMask = PenMaskPressure | PenMaskTiltX | PenMaskTiltY,
+                    Pressure = (uint)Math.Round(state.Pressure * 1024),
+                    TiltX = (int)Math.Round(state.TiltX),
+                    TiltY = (int)Math.Round(state.TiltY),
+                },
+            },
+        };
+
+        var ok = false;
+        inputSender.ExecuteSynchronized(() => ok = InjectSyntheticPointerInput(penDevice, [info], 1));
+        lastInjectTicks = Environment.TickCount64;
+        if (!ok)
+        {
+            // Wie bei den Fingern: nach einem Fehler beginnt der Stift neu.
+            pen = null;
+            throw WindowsInputSender.LastWin32Failure("InjectSyntheticPointerInput failed.");
+        }
+    }
+
     private static PointerTouchInfo Contact(int id, (int X, int Y) position, uint flags) => new()
     {
         PointerInfo = new PointerInfo
@@ -157,6 +289,17 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
     };
 
     private const uint PointerTypeTouch = 2;
+    private const uint PointerTypePen = 3;
+    private const uint PointerFlagPrimary = 0x2000;
+    private const uint PointerFlagFirstButton = 0x10;
+    private const uint PointerFlagSecondButton = 0x20;
+    private const uint PointerFeedbackDefault = 0x1;
+    private const uint PenFlagBarrel = 0x1;
+    private const uint PenFlagInverted = 0x2;
+    private const uint PenFlagEraser = 0x4;
+    private const uint PenMaskPressure = 0x1;
+    private const uint PenMaskTiltX = 0x4;
+    private const uint PenMaskTiltY = 0x8;
     private const uint PointerFlagInRange = 0x2;
     private const uint PointerFlagInContact = 0x4;
     private const uint PointerFlagDown = 0x10000;
@@ -206,6 +349,45 @@ public sealed class WindowsTouchService : ITouchService, IDisposable
         public uint Orientation;
         public uint Pressure;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PointerPenInfo
+    {
+        public PointerInfo PointerInfo;
+        public uint PenFlags;
+        public uint PenMask;
+        public uint Pressure;
+        public uint Rotation;
+        public int TiltX;
+        public int TiltY;
+    }
+
+    // POINTER_TYPE_INFO: die Union ist so gross wie ihr groesstes Mitglied, POINTER_TOUCH_INFO.
+    [StructLayout(LayoutKind.Explicit)]
+    private struct PointerUnion
+    {
+        [FieldOffset(0)]
+        public PointerTouchInfo Touch;
+
+        [FieldOffset(0)]
+        public PointerPenInfo Pen;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PointerTypeInfo
+    {
+        public uint Type;
+        public PointerUnion Info;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr CreateSyntheticPointerDevice(uint pointerType, uint maxCount, uint mode);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool InjectSyntheticPointerInput(IntPtr device, [In] PointerTypeInfo[] pointerInfo, uint count);
+
+    [DllImport("user32.dll")]
+    private static extern void DestroySyntheticPointerDevice(IntPtr device);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool InitializeTouchInjection(uint maxCount, uint feedbackMode);

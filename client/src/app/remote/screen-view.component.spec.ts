@@ -295,6 +295,26 @@ describe('ScreenViewComponent', () => {
     target.dispatchEvent(event);
   }
 
+  function penEvent(
+    target: Element,
+    type: string,
+    init: { clientX: number; buttons?: number; pressure?: number; tiltX?: number; tiltY?: number },
+  ): void {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 9 },
+      clientX: { value: init.clientX },
+      clientY: { value: 100 },
+      pointerType: { value: 'pen' },
+      button: { value: 0 },
+      buttons: { value: init.buttons ?? 0 },
+      pressure: { value: init.pressure ?? 0 },
+      tiltX: { value: init.tiltX ?? 0 },
+      tiltY: { value: init.tiltY ?? 0 },
+    });
+    target.dispatchEvent(event);
+  }
+
   async function setupGestures() {
     vi.stubGlobal('requestAnimationFrame', () => 1);
     vi.stubGlobal('cancelAnimationFrame', () => undefined);
@@ -328,30 +348,112 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
-  it('moves the PC pointer while a pen hovers, but not for a hovering mouse', async () => {
+  it('moves the PC pointer while a pen hovers, also with the side button, but not for a hovering mouse', async () => {
     const { fixture, sendAction, stage } = await setupGestures();
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
       frames.push(callback),
     );
-    const hover = (pointerType: string, clientX: number) => {
+    const hover = (pointerType: string, clientX: number, buttons = 0) => {
       const event = new Event('pointermove', { bubbles: true });
       Object.defineProperties(event, {
         pointerId: { value: 5 },
         clientX: { value: clientX },
         clientY: { value: 50 },
         pointerType: { value: pointerType },
-        buttons: { value: 0 },
+        buttons: { value: buttons },
       });
       stage.dispatchEvent(event);
     };
 
     hover('mouse', 300);
     hover('pen', 100);
-    hover('pen', 200);
+    hover('pen', 200, 2);
     frames.splice(0).forEach((callback) => callback(1000));
 
     expect(sendAction.mock.calls).toEqual([[{ type: 'screenMove', x: 0.5, y: 0.25 }]]);
+    fixture.destroy();
+  });
+
+  it('right-clicks for a pen tap with the side button held, without dragging', async () => {
+    const { fixture, sendAction, stage } = await setupGestures();
+
+    penEvent(stage, 'pointerdown', { clientX: 100, buttons: 3 });
+    penEvent(stage, 'pointermove', { clientX: 200, buttons: 3 });
+    stage.dispatchEvent(
+      new MouseEvent('contextmenu', {
+        clientX: 100,
+        clientY: 100,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    penEvent(stage, 'pointerup', { clientX: 200, buttons: 2 });
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 200, clientY: 100, bubbles: true }));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'screenClick', x: 0.25, y: 0.5, button: 'right' }],
+    ]);
+    fixture.destroy();
+  });
+
+  it('sends a pen as a real pen with the switch on, and takes it away in the background', async () => {
+    const { fixture, sendAction, stage, element, touchAvailable } = await setupGestures();
+    touchAvailable.set(true);
+    fixture.detectChanges();
+    [...element.querySelectorAll<HTMLButtonElement>('.snap-switch')]
+      .find((button) => button.textContent?.includes('Touch'))!
+      .click();
+    fixture.detectChanges();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    );
+    const hovering = { x: 0.25, y: 0.5, pressure: 0, tiltX: 0, tiltY: 0, contact: false };
+
+    penEvent(stage, 'pointermove', { clientX: 100 });
+    frames.splice(0).forEach((callback) => callback(1000));
+    penEvent(stage, 'pointerdown', {
+      clientX: 100,
+      buttons: 1,
+      pressure: 0.6,
+      tiltX: 20,
+      tiltY: -10,
+    });
+    penEvent(stage, 'pointerup', { clientX: 100, buttons: 2 });
+    stage.dispatchEvent(new MouseEvent('click', { clientX: 100, clientY: 100, bubbles: true }));
+    penEvent(stage, 'pointerleave', { clientX: 100 });
+    penEvent(stage, 'pointerleave', { clientX: 100 });
+    penEvent(stage, 'pointerdown', { clientX: 100, buttons: 32 });
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(sendAction.mock.calls).toEqual([
+      [{ type: 'pen', pen: { ...hovering, barrel: false, eraser: false } }],
+      [
+        {
+          type: 'pen',
+          pen: {
+            ...hovering,
+            pressure: 0.6,
+            tiltX: 20,
+            tiltY: -10,
+            contact: true,
+            barrel: false,
+            eraser: false,
+          },
+        },
+      ],
+      [{ type: 'pen', pen: { ...hovering, barrel: true, eraser: false } }],
+      [{ type: 'pen', pen: null }],
+      [
+        {
+          type: 'pen',
+          pen: { ...hovering, pressure: 0.5, contact: true, barrel: false, eraser: true },
+        },
+      ],
+      [{ type: 'pen', pen: null }],
+    ]);
     fixture.destroy();
   });
 
@@ -375,7 +477,15 @@ describe('ScreenViewComponent', () => {
 
     expect(sendAction.mock.calls).toEqual([
       [{ type: 'touch', points: [{ id: 0, x: 0.25, y: 0.5 }] }],
-      [{ type: 'touch', points: [{ id: 0, x: 0.25, y: 0.5 }, { id: 1, x: 0.75, y: 0.25 }] }],
+      [
+        {
+          type: 'touch',
+          points: [
+            { id: 0, x: 0.25, y: 0.5 },
+            { id: 1, x: 0.75, y: 0.25 },
+          ],
+        },
+      ],
       [{ type: 'touch', points: [{ id: 1, x: 0.75, y: 0.25 }] }],
       [{ type: 'touch', points: [] }],
     ]);

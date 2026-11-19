@@ -54,12 +54,65 @@ public sealed class RemoteActionHandlerTests
         Assert.IsFalse(unsupported.Handle(new RemoteActionRequest { Type = "touch", Points = [] }).Success);
     }
 
+    [TestMethod]
+    public void Handle_Pen_AppliesStateAndTakesThePenAwayWhenTheConnectionEnds()
+    {
+        var touch = new RecordingTouchService();
+        var handler = new RemoteActionHandler(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            touch: touch);
+        var session = new RemoteActionSession();
+
+        var response = handler.Handle(
+            new RemoteActionRequest { Type = "pen", Monitor = "M", Pen = new PenState(0.5, 0.25, 0.75, -30, 45, Contact: true, Barrel: true) },
+            session);
+
+        Assert.IsTrue(response.Success, response.Error);
+        Assert.AreEqual("pen 0.5,0.25 p0.75 t-30,45 contact barrel @M", touch.Calls.Single());
+
+        session.Dispose();
+
+        Assert.AreEqual("pen - @M", touch.Calls[^1]);
+    }
+
+    [TestMethod]
+    public void Handle_Pen_RejectsBadStateMediaOnlyAndMissingTouch()
+    {
+        var touch = new RecordingTouchService();
+        var handler = new RemoteActionHandler(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            touch: touch);
+
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "pen", Pen = new PenState(1.5, 0) }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "pen", Pen = new PenState(0, 0, Pressure: 2) }).Success);
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "pen", Pen = new PenState(0, 0, TiltX: 91) }).Success);
+        Assert.IsFalse(handler.Handle(
+            new RemoteActionRequest { Type = "pen", Pen = new PenState(0, 0) },
+            new RemoteActionSession { MediaOnly = true }).Success);
+        Assert.IsEmpty(touch.Calls);
+
+        var unsupported = new RemoteActionHandler(new RecordingInputService(), new RecordingMouseService(), new RecordingPowerService(), NullLogger<RemoteActionHandler>.Instance);
+        Assert.IsFalse(unsupported.Handle(new RemoteActionRequest { Type = "pen" }).Success);
+    }
+
     private sealed class RecordingTouchService : ITouchService
     {
         public List<string> Calls { get; } = [];
 
         public void Apply(IReadOnlyList<TouchPoint> points, string? monitor) =>
             Calls.Add(string.Join(" ", points.Select(point => FormattableString.Invariant($"{point.Id}:{point.X},{point.Y}"))) + " @" + monitor);
+
+        public void ApplyPen(PenState? pen, string? monitor) =>
+            Calls.Add(pen is null
+                ? "pen - @" + monitor
+                : FormattableString.Invariant($"pen {pen.X},{pen.Y} p{pen.Pressure} t{pen.TiltX},{pen.TiltY}")
+                    + (pen.Contact ? " contact" : "") + (pen.Barrel ? " barrel" : "") + (pen.Eraser ? " eraser" : "") + " @" + monitor);
     }
 
     [TestMethod]

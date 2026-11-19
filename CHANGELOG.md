@@ -21,6 +21,15 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Bildschirm-Ansicht mit „Touch“: Ein Stift kommt am PC als echter Windows-Stift an – mit Schweben, Druck, Neigung, Seitentaste und Radierer, z. B. zum Zeichnen in OneNote oder Krita.
+- Client: In der Bildschirm-Ansicht klickt Antippen mit gedrückter Seitentaste des Stifts rechts.
+
+### Fixed
+
+- Client: Der Mauszeiger folgt einem schwebenden Stift jetzt auch, solange dessen Seitentaste gedrückt ist (z. B. S Pen).
+
 ## [2.61.0] - 2026-11-19
 
 ### Added

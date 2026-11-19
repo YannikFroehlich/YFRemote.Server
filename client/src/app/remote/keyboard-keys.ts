@@ -166,6 +166,63 @@ export const keySelectionValidator: ValidatorFn = (
   return keysToAction(keys) === null ? { keys: true } : null;
 };
 
+// KeyboardEvent.key -> Tastenname des Servers, fuer Tasten ohne Zeichen.
+const NAMED_KEYS: Readonly<Record<string, string>> = {
+  Enter: 'ENTER',
+  Escape: 'ESC',
+  Tab: 'TAB',
+  ' ': 'SPACE',
+  Backspace: 'BACKSPACE',
+  Delete: 'DELETE',
+  ArrowUp: 'UP',
+  ArrowDown: 'DOWN',
+  ArrowLeft: 'LEFT',
+  ArrowRight: 'RIGHT',
+  Home: 'HOME',
+  End: 'END',
+  PageUp: 'PAGE_UP',
+  PageDown: 'PAGE_DOWN',
+  PrintScreen: 'PRINT_SCREEN',
+};
+
+/** Eine Taste der echten Tastatur am Geraet als Aktion fuer den PC, null fuer reine
+ *  Umschalttasten und Tasten, die der Server nicht kennt. Zeichen ohne Strg/Alt/Win gehen als
+ *  Text, so stimmen Umlaute, Grossbuchstaben und AltGr-Zeichen unabhaengig vom Tastaturlayout. */
+export function physicalKeyAction(
+  event: Pick<
+    KeyboardEvent,
+    'key' | 'code' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey' | 'getModifierState'
+  >,
+): KeyboardAction | TextAction | null {
+  const altGraph = event.getModifierState('AltGraph');
+  const ctrl = event.ctrlKey && !altGraph;
+  const alt = event.altKey && !altGraph;
+  if (Array.from(event.key).length === 1 && event.key !== ' ' && !ctrl && !alt && !event.metaKey) {
+    return { type: 'text', text: event.key };
+  }
+
+  // Kuerzel nach dem Buchstaben auf der Taste (Strg+Z bleibt auf QWERTZ Rueckgaengig), mit
+  // Umschalt zaehlt die Taste selbst (Strg+Umschalt+1 statt "!").
+  const name =
+    NAMED_KEYS[event.key] ??
+    (/^F([1-9]|1[0-2])$/.test(event.key) ? event.key : null) ??
+    (/^[a-z0-9]$/i.test(event.key) ? event.key.toUpperCase() : null) ??
+    /^(?:Key([A-Z])|Digit([0-9]))$/.exec(event.code)?.slice(1).find(Boolean) ??
+    null;
+  if (name === null) {
+    return null;
+  }
+
+  const keys = [
+    ...(ctrl ? ['CTRL'] : []),
+    ...(alt ? ['ALT'] : []),
+    ...(event.shiftKey ? ['SHIFT'] : []),
+    ...(event.metaKey ? ['WIN'] : []),
+    name,
+  ];
+  return keysToAction(keys);
+}
+
 /** Live-Eingabe: vergleicht das Feld mit dem zuletzt gesendeten Stand und liefert nur die
  *  Differenz (Rücktasten + neuer Text). So funktionieren auch Autokorrektur und
  *  Wortvorschläge der Handy-Tastatur, die ganze Wörter auf einmal ersetzen. */

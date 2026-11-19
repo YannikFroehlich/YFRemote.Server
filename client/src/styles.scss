@@ -1277,6 +1277,14 @@ h2 {
   user-select: none;
   // Alle Gesten gehoeren der Komponente: ziehen am PC, zoomen im Bild.
   touch-action: none;
+  outline: none;
+}
+
+// Mit Fokus gehen Tasten der echten Tastatur an den PC (nur mit Maus sichtbar, am Handy egal).
+@media (hover: hover) and (pointer: fine) {
+  .screen-view__stage:focus {
+    border-color: var(--accent);
+  }
 }
 
 .screen-view__image {

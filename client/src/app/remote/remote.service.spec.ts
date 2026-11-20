@@ -335,7 +335,7 @@ describe('RemoteService', () => {
     );
 
     expect(remote.lastError()).toBe(
-      'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bitte am PC bestätigen, danach geht die Steuerung wieder.',
+      'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bedienen lässt sich das mit dem Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster am PC, sonst bitte am PC bestätigen.',
     );
     expect(remote.status()).toBe('connected');
   });

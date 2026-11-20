@@ -26,6 +26,9 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
     private const uint FrameWaitMs = 100;
     private static readonly TimeSpan IdleRelease = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan NoFramesRetry = TimeSpan.FromSeconds(5);
+    private const long WakeIntervalMs = 2000;
+    private const uint EsSystemRequired = 0x00000001;
+    private const uint EsDisplayRequired = 0x00000002;
     private static readonly IntPtr DpiAwarenessContextPerMonitorAwareV2 = -4;
     private static readonly ImageCodecInfo JpegCodec =
         ImageCodecInfo.GetImageEncoders().First(codec => codec.FormatID == ImageFormat.Jpeg.Guid);
@@ -33,10 +36,13 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
     // Je Monitor eine eigene Sperre: das Warten auf ein neues Bild soll Zuschauer eines anderen
     // Monitors nicht aufhalten.
     private readonly ConcurrentDictionary<string, MonitorCapture> captures = new();
+    private readonly WindowsInputSender inputSender;
     private readonly System.Threading.Timer idleTimer;
+    private long lastWake = long.MinValue / 2;
 
-    public WindowsScreenCapture()
+    public WindowsScreenCapture(WindowsInputSender inputSender)
     {
+        this.inputSender = inputSender;
         idleTimer = new System.Threading.Timer(_ => ReleaseWhenIdle(), null, IdleRelease, IdleRelease);
     }
 
@@ -54,6 +60,7 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
         }
         catch (System.ComponentModel.Win32Exception)
         {
+            WakeDisplay();
             // Mit eingerichtetem Dienst nimmt der SYSTEM-Helfer Sperrbildschirm und UAC-Abfrage auf.
             var jpeg = WindowsSecureDesktop.TryCaptureJpeg(maxWidth, quality, monitor);
             if (jpeg is null)
@@ -182,18 +189,53 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
         return Encode(scaled ?? image, quality);
     }
 
+    // Den per Energieeinstellung ausgeschalteten Bildschirm liefert DXGI nicht (AccessDenied).
+    // ES_DISPLAY_REQUIRED weckt ihn nicht wieder (gemessen), eine Mausbewegung um 0 Pixel schon -
+    // auch auf dem Sperrbildschirm, dort ueber den SYSTEM-Helfer. Hoechstens alle 2 s, weil jeder
+    // Abruf auf dem sicheren Desktop hier vorbeikommt.
+    private void WakeDisplay()
+    {
+        var now = Environment.TickCount64;
+        if (now - Interlocked.Read(ref lastWake) < WakeIntervalMs)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref lastWake, now);
+        try
+        {
+            inputSender.SendMouseInput(0, 0, mouseData: 0, WindowsInputFlags.MouseEventMove);
+        }
+        catch (Exception exception) when (exception is InputBlockedException or System.ComponentModel.Win32Exception)
+        {
+            // Sperrbildschirm ohne Dienst: dann bleibt es beim Hinweis im Client.
+        }
+    }
+
     private void ReleaseWhenIdle()
     {
+        var watched = false;
         // Eine offene Duplication laesst den DWM jedes Bild bereitstellen - ohne Zuschauer zuruecklegen.
         foreach (var capture in captures.Values)
         {
             lock (capture.Gate)
             {
-                if (capture.Duplication is not null && DateTime.UtcNow - capture.LastUse > IdleRelease)
+                if (DateTime.UtcNow - capture.LastUse <= IdleRelease)
+                {
+                    watched = true;
+                }
+                else if (capture.Duplication is not null)
                 {
                     capture.Reset();
                 }
             }
+        }
+
+        // Wer nur zusieht, gibt am PC keine Eingaben - ohne das schaltete Windows nach der Zeit aus
+        // den Energieeinstellungen den Bildschirm ab (und sperrte danach evtl.) oder legte den PC schlafen.
+        if (watched)
+        {
+            SetThreadExecutionState(EsDisplayRequired | EsSystemRequired);
         }
     }
 
@@ -495,4 +537,7 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint SetThreadExecutionState(uint flags);
 }

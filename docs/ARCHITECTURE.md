@@ -147,8 +147,14 @@ feature.
   (`DXGI_ERROR_WAIT_TIMEOUT`, cause unknown), so after that timeout `/screen` goes straight to GDI for 5 s
   (`NoFramesUntil`; measured 2026-11-09 at 2244x1080: ~93 ms per frame instead of ~650 ms). Both run in physical pixels (per-monitor DPI context,
   like `WindowsMouseService`), draw the cursor themselves and encode at quality 70. On the dev PC on
-  2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop makes it throw `Win32Exception` → `503`,
-  without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
+  2026-11-03 two parallel requests at 1350 px took 18 ms per frame (BitBlt: 61-80 ms). The secure desktop and a display switched off by the power settings make it throw `Win32Exception` → `503`.
+  On that exception `WakeDisplay` sends a mouse move of 0 px (at most every 2 s; on the secure desktop
+  through the helper, without the service the `InputBlockedException` is swallowed): the next request
+  gets a picture again. `ES_DISPLAY_REQUIRED` alone does not wake a display that is already off
+  (measured on the dev PC on 2026-11-20; the 0 px move did, the next frame came about 0.7 s later).
+  While any monitor was captured in the last 10 s, the idle timer calls
+  `SetThreadExecutionState(ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED)`, so someone only watching keeps
+  the display on and the PC awake. Without `IScreenCapture` (Linux) → `501`. `ScreenViewNotifier` raises the tray's "Bildschirm wird
   übertragen" balloon when a device starts viewing after more than a minute without frames.
   Gestures on `.screen-view__stage` (`touch-action: none`, so the page does not scroll over the
   image). One finger beyond 8 px drags: `screenMove` (`x`/`y` like `screenClick`, at most one

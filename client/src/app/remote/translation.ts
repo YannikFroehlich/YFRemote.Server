@@ -602,8 +602,8 @@ export const TRANSLATIONS = {
   'screen.alt': { de: 'Bildschirm des PCs', en: 'PC screen' },
   'screen.waiting': { de: 'Bildschirm wird geladen…', en: 'Loading screen…' },
   'screen.blocked': {
-    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm, oder sein Bildschirm ist aus.',
-    en: 'The PC is showing a security prompt or the lock screen, or its display is off.',
+    de: 'Der PC zeigt gerade eine Sicherheitsabfrage oder den Sperrbildschirm. Sehen und bedienen lässt sich das mit dem Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster am PC.',
+    en: 'The PC is showing a security prompt or the lock screen. To see and operate it, turn on the switch "Sperrbildschirm und UAC vom Handy bedienen" in the YFRemote window on the PC.',
   },
   'screen.stalled': {
     de: 'Verbindung hängt, das Bild ist nicht aktuell. Neuer Versuch läuft…',
@@ -1133,8 +1133,8 @@ export const TRANSLATIONS = {
     en: 'The server rejected the action.',
   },
   'remoteService.error.inputBlocked': {
-    de: 'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bitte am PC bestätigen, danach geht die Steuerung wieder.',
-    en: 'The PC is showing a UAC prompt or the lock screen. Confirm it at the PC, then remote control works again.',
+    de: 'Der PC zeigt gerade die Benutzerkontensteuerung oder den Sperrbildschirm. Bedienen lässt sich das mit dem Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster am PC, sonst bitte am PC bestätigen.',
+    en: 'The PC is showing a UAC prompt or the lock screen. It can be operated with the switch "Sperrbildschirm und UAC vom Handy bedienen" in the YFRemote window on the PC, otherwise confirm it at the PC.',
   },
   'remoteService.error.elevatedWindow': {
     de: 'Das Fenster am PC läuft als Administrator (z. B. Task-Manager), dort kommen Klicks und Tasten nur mit dem Schalter „Sperrbildschirm und UAC vom Handy bedienen“ im YFRemote-Fenster an.',

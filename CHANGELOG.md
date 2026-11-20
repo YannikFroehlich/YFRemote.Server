@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- The "Bildschirm" tab wakes a display that the Windows power settings switched off, instead of only
+  showing the hint, and keeps the display on and the PC awake while a device is watching.
+- The hints for the lock screen and the UAC prompt now point to the switch "Sperrbildschirm und UAC
+  vom Handy bedienen" in the YFRemote window, which makes both (and administrator windows such as
+  the Task Manager) usable from the device.
+
 ## [2.66.1] - 2026-11-19
 
 ### Changed

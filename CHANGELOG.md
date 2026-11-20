@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.66.2] - 2026-11-20
+
 ### Fixed
 
 - The "Bildschirm" tab wakes a display that the Windows power settings switched off, instead of only

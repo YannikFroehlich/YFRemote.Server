@@ -21,6 +21,15 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Desktop use of the "Bildschirm" tab: with the new "Zwischenablage" switch in its toolbar (the
+  same setting as "Zwischenablage automatisch abgleichen", HTTPS and a Chromium browser needed),
+  the clipboard is shared with the PC like in a remote desktop app, now also for images in both
+  directions. Ctrl+V in the picture first sends what this device copied, including files copied
+  in the Explorer, which are uploaded and pasted on the PC. Files dragged onto the picture are
+  uploaded and put on the PC's clipboard, so Ctrl+V pastes them into any folder or chat there.
+
 ## [2.66.4] - 2026-11-21
 
 ### Fixed

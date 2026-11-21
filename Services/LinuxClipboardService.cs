@@ -39,6 +39,13 @@ public sealed class LinuxClipboardService : IClipboardService
     // Bietet die Quell-App kein PNG an, melden wl-paste/xclip das wie eine leere Zwischenablage.
     public Task<byte[]?> GetImageAsync() => ReadAsync("image/png");
 
+    // ponytail: kein Bild-Abgleich unter Linux (keine billige Aenderungskennung wie unter Windows);
+    // erst ergaenzen, wenn ihn dort jemand braucht.
+    public Task<string?> GetImageIdAsync() => Task.FromResult<string?>(null);
+
+    public Task SetFilesAsync(IReadOnlyList<string> paths) =>
+        Task.FromException(new NotSupportedException("Copying files to the clipboard is not supported on Linux."));
+
     private static async Task<byte[]?> ReadAsync(string? mimeType)
     {
         var backend = await GetBackendAsync();

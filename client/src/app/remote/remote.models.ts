@@ -500,9 +500,11 @@ export interface MediaSeekAction {
 }
 
 /** Neuer Text in der PC-Zwischenablage, nur bei eingeschaltetem Abgleich. */
+/** Neu Kopiertes am PC: Text, oder ohne Text die Kennung eines Bilds (`GET /clipboard/image`). */
 export interface ClipboardPushMessage {
   readonly type: 'clipboard';
-  readonly text: string;
+  readonly text?: string;
+  readonly imageId?: string;
 }
 
 /** Eine neue Windows-Benachrichtigung; `title` ist ihre erste Zeile, `text` der Rest. */

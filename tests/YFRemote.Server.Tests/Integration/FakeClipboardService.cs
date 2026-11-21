@@ -21,6 +21,10 @@ public sealed class FakeClipboardService : IClipboardService
 
     public IReadOnlyList<string>? LastFiles { get; private set; }
 
+    public long? ChangeCount { get; set; }
+
+    public int TextReads { get; private set; }
+
     public Task<string?> GetImageIdAsync() => Task.FromResult(ImageIdToReturn);
 
     public Task SetFilesAsync(IReadOnlyList<string> paths)
@@ -43,6 +47,7 @@ public sealed class FakeClipboardService : IClipboardService
             throw exception;
         }
 
+        TextReads++;
         return Task.FromResult(TextToReturn);
     }
 

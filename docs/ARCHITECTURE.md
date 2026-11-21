@@ -385,7 +385,13 @@ Core Audio over COM and the WinRT media session manager; for a Voicemeeter devic
 image and no text (Windows only: `IClipboardService.GetImageIdAsync` is the
 `GetClipboardSequenceNumber` while `Clipboard.ContainsImage`, so the poll never encodes a PNG; Linux
 returns `null`). Both come from a `PollingBroadcaster<T>`, which polls its source
-once per second only while at least one connection subscribes and reports only changes. Media is
+once per second only while at least one connection subscribes and reports only changes. The
+Windows clipboard is the exception at every 100 ms (`ClipboardPoll`): it reads the content only
+after `IClipboardService.ChangeCount` (`GetClipboardSequenceNumber`) moved, so a quick switch from
+copying on the PC to pasting on the device mostly finds the text already there. The browser only
+writes while the page has focus, so a push that arrives after leaving it still waits for the return.
+Linux has no such counter, and every poll starts `wl-paste`/`xclip`, so it keeps the 1 s interval.
+Until v2.68.1 it was 1 s everywhere. Media is
 subscribed for every connection and announces the current state on subscribe; the clipboard
 broadcaster is subscribed only after the device sends `{"type":"clipboardSync","enabled":true}`
 (kept in the connection's `RemoteActionSession`), and it never sends content that was already in

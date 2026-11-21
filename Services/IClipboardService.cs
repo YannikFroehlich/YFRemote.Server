@@ -11,10 +11,14 @@ public interface IClipboardService
     // Als PNG; null, wenn die Zwischenablage kein Bild enthaelt.
     Task<byte[]?> GetImageAsync();
 
-    // Aendert sich mit jedem neu kopierten Bild; null ohne Bild. Der Abgleich fragt sie jede
-    // Sekunde ab, statt jedes Mal ein PNG zu erzeugen.
+    // Aendert sich mit jedem neu kopierten Bild; null ohne Bild. Der Abgleich fragt sie ab, statt
+    // jedes Mal ein PNG zu erzeugen.
     Task<string?> GetImageIdAsync();
 
     // Wie "Kopieren" im Explorer: Strg+V fuegt die Dateien danach in einen Ordner oder Chat ein.
     Task SetFilesAsync(IReadOnlyList<string> paths);
+
+    // Steigt mit jeder Aenderung der Zwischenablage und kostet fast nichts; null, wo es so etwas
+    // nicht gibt (Linux) - dann liest der Abgleich jedes Mal den Inhalt.
+    long? ChangeCount => null;
 }

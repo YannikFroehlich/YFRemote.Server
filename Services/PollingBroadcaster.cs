@@ -3,8 +3,9 @@ namespace YFRemote.Server.Services;
 // Fragt eine Quelle (Zwischenablage, Medienstatus) im festen Takt ab, solange mindestens eine
 // Verbindung zuhoert, und meldet nur Aenderungen. Ohne Zuhoerer laeuft kein Timer - die
 // Zwischenablage wird dann gar nicht gelesen.
-// ponytail: Abfrage im Sekundentakt statt Systemereignissen; reicht fuer Anzeige und Abgleich,
-// Ereignisse (AddClipboardFormatListener, GSMTC-Events) erst, wenn die Verzoegerung stoert.
+// ponytail: Abfrage im festen Takt statt Systemereignissen; reicht fuer Anzeige und Abgleich (die
+// Zwischenablage unter Windows fragt guenstig alle 100 ms, siehe ClipboardPoll). Ereignisse
+// (AddClipboardFormatListener, GSMTC-Events) erst, wenn die Verzoegerung stoert.
 public sealed class PollingBroadcaster<T>(
     Func<Task<T>> poll,
     TimeSpan interval,

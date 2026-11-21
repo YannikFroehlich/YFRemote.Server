@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- Clipboard sharing from a Windows PC: something copied on the PC now reaches your device within a
+  tenth of a second instead of up to a second, so pasting right after switching over finds it.
+  The PC checks a cheap change counter that often and reads the clipboard only when it moved.
+
 ## [2.68.1] - 2026-11-21
 
 ### Fixed

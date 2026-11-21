@@ -27,6 +27,7 @@ import {
   AppVolumesMessage,
   ForegroundAppMessage,
   ObsMessage,
+  ScreenCursorMessage,
 } from './remote.models';
 import { MAX_MACRO_STEPS, normalizeMacroStep } from './button-layout';
 import { PAIRING_FETCH, PairingService } from './pairing.service';
@@ -240,6 +241,8 @@ export class RemoteService implements OnDestroy {
   private readonly obsAvailableSignal = signal(false);
   private readonly obsSignal = signal<ObsMessage | null>(null);
   private obsWatched = false;
+  private readonly screenCursorSignal = signal<string | null>(null);
+  private screenCursorWatched = false;
   // Der Server schickt das Angebot bei jedem Verbinden erneut - ein angenommenes oder verworfenes
   // soll dann nicht wieder auftauchen, auch nicht nach einem Neuladen der Seite (die Android-App
   // baut sie bei jedem Oeffnen neu auf), solange es noch gilt.
@@ -358,6 +361,8 @@ export class RemoteService implements OnDestroy {
   readonly obsAvailable = this.obsAvailableSignal.asReadonly();
   /** Zuletzt gemeldeter Zustand von OBS; `null`, solange niemand zusieht oder nichts kam. */
   readonly obs = this.obsSignal.asReadonly();
+  /** CSS-Form des PC-Zeigers, solange `watchScreenCursor(true)` gilt; sonst `null`. */
+  readonly screenCursor = this.screenCursorSignal.asReadonly();
   /** Reihenfolge und ausgeblendete Tabs aus den Einstellungen. */
   readonly viewTabs = this.viewTabsSignal.asReadonly();
   /** Bisher aufgenommene Makro-Schritte; `null`, solange keine Aufnahme laeuft. */
@@ -637,6 +642,21 @@ export class RemoteService implements OnDestroy {
       this.obsSignal.set(null);
     }
     this.sendObsWatch();
+  }
+
+  /** Mit der Maus ueber dem Bild im Tab "Bildschirm": der PC laesst seinen Zeiger aus dem Bild weg
+   *  und meldet dessen Form, die das Bild dann dem eigenen Zeiger gibt. Wird bei jeder Mausbewegung
+   *  gerufen, schickt aber nur Wechsel. */
+  watchScreenCursor(enabled: boolean): void {
+    if (enabled === this.screenCursorWatched) {
+      return;
+    }
+
+    this.screenCursorWatched = enabled;
+    if (!enabled) {
+      this.screenCursorSignal.set(null);
+    }
+    this.sendScreenCursorWatch();
   }
 
   /** Wechselt die Szene und zeigt sie sofort an, die Bestaetigung kommt mit der naechsten Meldung. */
@@ -1125,6 +1145,7 @@ export class RemoteService implements OnDestroy {
       this.voicemeeterSignal.set(null);
       this.appsSignal.set(null);
       this.obsSignal.set(null);
+      this.screenCursorSignal.set(null);
       this.failPendingActions(this.i18n.t('remoteService.error.disconnected'));
       this.statusSignal.set('disconnected');
       this.scheduleReconnect();
@@ -1227,6 +1248,13 @@ export class RemoteService implements OnDestroy {
     if (isObsMessage(message)) {
       if (this.obsWatched) {
         this.obsSignal.set(message);
+      }
+      return;
+    }
+
+    if (isScreenCursorMessage(message)) {
+      if (this.screenCursorWatched) {
+        this.screenCursorSignal.set(message.shape);
       }
       return;
     }
@@ -1361,6 +1389,9 @@ export class RemoteService implements OnDestroy {
     if (this.obsWatched) {
       this.sendObsWatch();
     }
+    if (this.screenCursorWatched) {
+      this.sendScreenCursorWatch();
+    }
     if (this.autoProfileSignal()) {
       this.sendForegroundAppWatch();
     }
@@ -1436,6 +1467,13 @@ export class RemoteService implements OnDestroy {
     }
   }
 
+  // Nur ein Windows-PC kennt die Form; ohne Abfrage zeichnet jeder Server den Zeiger wie bisher ins Bild.
+  private sendScreenCursorWatch(): void {
+    if (this.serverPlatform() === 'windows' && this.socket?.readyState === SOCKET_OPEN) {
+      this.sendActionRequest({ type: 'screenCursor', enabled: this.screenCursorWatched });
+    }
+  }
+
   private sendVoicemeeterWatch(): void {
     if (this.voicemeeterAvailableSignal() && this.socket?.readyState === SOCKET_OPEN) {
       this.sendActionRequest({ type: 'voicemeeter', enabled: this.voicemeeterWatched });
@@ -1475,6 +1513,7 @@ export class RemoteService implements OnDestroy {
     this.voicemeeterSignal.set(null);
     this.appsSignal.set(null);
     this.obsSignal.set(null);
+    this.screenCursorSignal.set(null);
 
     if (this.socket === null) {
       return;
@@ -1736,6 +1775,33 @@ const OBS_STATES: ReadonlySet<unknown> = new Set([
   'disabled',
   'authFailed',
 ]);
+
+// Die Formen, die der Windows-Server meldet (WindowsScreenCapture.CursorShapes); nur sie landen in
+// `cursor`, nichts wie url(...).
+const SCREEN_CURSOR_SHAPES: ReadonlySet<string> = new Set([
+  'default',
+  'text',
+  'wait',
+  'crosshair',
+  'nwse-resize',
+  'nesw-resize',
+  'ew-resize',
+  'ns-resize',
+  'move',
+  'not-allowed',
+  'pointer',
+  'progress',
+  'help',
+]);
+
+function isScreenCursorMessage(value: unknown): value is ScreenCursorMessage {
+  const message = value as Partial<ScreenCursorMessage> | null;
+  return (
+    message?.type === 'screenCursor' &&
+    typeof message.shape === 'string' &&
+    SCREEN_CURSOR_SHAPES.has(message.shape)
+  );
+}
 
 function isObsMessage(value: unknown): value is ObsMessage {
   const message = value as Partial<ObsMessage> | null;

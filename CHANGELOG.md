@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- "Bildschirm" tab with a mouse: only one pointer, like Parsec. While the mouse is over the
+  picture, the PC leaves its pointer out of the picture, and your own pointer takes the PC
+  pointer's shape (text cursor, hand, resize arrows, ...), so it moves without delay. Outside the
+  picture the PC pointer shows again. Windows PCs only.
+
 ### Fixed
 
 - "Bildschirm" tab on a desktop: a PC with a 4K monitor or TV looked blocky at "Qualität". The

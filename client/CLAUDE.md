@@ -104,6 +104,9 @@ new component the same, unless everything its template reads is a signal or an i
      it: a "Zwischenablage" toolbar switch, Ctrl+V in the picture that lets the browser's `paste`
      event through to `syncPasted` (or uploads pasted files) before sending the hotkey, and file
      drag & drop onto the view (`POST /files`, then `ClipboardService.sendFiles`).
+     A mouse over the picture calls `RemoteService.watchScreenCursor(true)` (`false` on
+     `pointerleave`): the PC drops its cursor from the picture and pushes its shape
+     (`screenCursor` signal, known CSS keywords only), which the stage uses as its `cursor`.
    - A handshake without answer is abandoned after `CONNECT_TIMEOUT_MS` and retried, and
      `visibilitychange` back to visible reconnects at once: iOS can leave a new socket to a LAN IP
      hanging forever after the background (WebKit bug 308073).

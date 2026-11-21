@@ -154,6 +154,60 @@ describe('ScreenViewComponent', () => {
     expect(signal!.aborted).toBe(true);
   });
 
+  describe('video width per quality', () => {
+    async function widthsFor(desktop: boolean) {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: desktop && query === '(pointer: fine)',
+      }));
+      const play = vi.fn(
+        (
+          _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+          _video: HTMLVideoElement,
+          _codec: string,
+          abort: AbortSignal,
+          onFrame: () => void,
+        ) => {
+          onFrame();
+          return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+        },
+      );
+      const { fixture, openScreenVideo, element } = await setup(null, null, {
+        player: { play },
+        stream: { body: new ReadableStream(), codec: 'avc1.4d002a' },
+      });
+      const view = element.querySelector('.screen-view')!;
+      Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1000 });
+      const select = element.querySelector<HTMLSelectElement>('.screen-view__quality')!;
+      const requests: [number, number][] = [];
+      for (const quality of ['performance', 'balanced', 'quality']) {
+        const calls = openScreenVideo.mock.calls.length;
+        select.value = quality;
+        select.dispatchEvent(new Event('change'));
+        await vi.waitFor(() => expect(openScreenVideo.mock.calls.length).toBeGreaterThan(calls));
+        const [width, kbps] = openScreenVideo.mock.calls.at(-1)!;
+        requests.push([width, kbps]);
+      }
+      fixture.destroy();
+      return requests;
+    }
+
+    it('differs per setting on a desktop and goes beyond 1080p there', async () => {
+      expect(await widthsFor(true)).toEqual([
+        [1000, 4000],
+        [1500, 8000],
+        [3000, 39063],
+      ]);
+    });
+
+    it('stays at 1080p on a phone', async () => {
+      expect(await widthsFor(false)).toEqual([
+        [1000, 4000],
+        [1500, 8000],
+        [1920, 16000],
+      ]);
+    });
+  });
+
   it('falls back to JPEG when the server sends no video', async () => {
     const play = vi.fn(async () => undefined);
     const { fixture, readScreen, openScreenVideo, element } = await setup(
@@ -962,7 +1016,8 @@ describe('ScreenViewComponent', () => {
       Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1600 });
 
       await enterFullscreen(element);
-      await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[0]).toBe(1600));
+      // "Ausgeglichen": anderthalbfach, auch an einem Bildschirm mit Pixeldichte 1.
+      await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[0]).toBe(2400));
       fixture.destroy();
     });
 

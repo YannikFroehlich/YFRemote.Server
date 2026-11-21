@@ -98,7 +98,12 @@ new component the same, unless everything its template reads is a signal or an i
      with `ClipboardService.sendText`. The first read only sets the baseline, and the PC's echo of
      sent text is skipped. It stays off unless `CLIPBOARD_AUTO_SYNC_PROBE` resolves `true` (the
      browser knows the `clipboard-read` permission, i.e. Chromium): Safari needs a tap for every
-     clipboard access, so automatic sync could never land there.
+     clipboard access, so automatic sync could never land there. It syncs images too (an
+     `imageId` push → `ClipboardService.readImage`; device images via `navigator.clipboard.read()`),
+     comparing both sides by key and running every step in one queue. `ScreenViewComponent` reuses
+     it: a "Zwischenablage" toolbar switch, Ctrl+V in the picture that lets the browser's `paste`
+     event through to `syncPasted` (or uploads pasted files) before sending the hotkey, and file
+     drag & drop onto the view (`POST /files`, then `ClipboardService.sendFiles`).
    - A handshake without answer is abandoned after `CONNECT_TIMEOUT_MS` and retried, and
      `visibilitychange` back to visible reconnects at once: iOS can leave a new socket to a LAN IP
      hanging forever after the background (WebKit bug 308073).

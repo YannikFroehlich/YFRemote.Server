@@ -8,6 +8,8 @@ namespace YFRemote.Server.Endpoints;
 
 internal static class ClipboardEndpoints
 {
+    private const int MaxClipboardFiles = 100;
+
     internal static void MapClipboardEndpoints(this WebApplication app)
     {
         app.MapPost("/clipboard/text", async context =>
@@ -116,7 +118,55 @@ internal static class ClipboardEndpoints
             }
             imageStream.Position = 0;
 
-            await TrySetClipboardAsync(context, app.Logger, () => clipboardService.SetImageAsync(imageStream));
+            await RunClipboardOperationAsync(context, app.Logger, async () =>
+            {
+                await clipboardService.SetImageAsync(imageStream);
+                // Daran erkennt der Abgleich des Geraets das Echo seines eigenen Bilds.
+                return ClipboardResponse.WithImageId(await clipboardService.GetImageIdAsync());
+            });
+        });
+
+        // Legt schon empfangene Dateien (POST /files) wie "Kopieren" im Explorer in die
+        // Zwischenablage. Nur Namen aus dem Empfangsordner, nachgeschlagen statt als Pfad gebaut.
+        app.MapPost("/clipboard/files", async context =>
+        {
+            if (await RequestGuards.AuthorizePairedDeviceAsync(context) is null)
+            {
+                return;
+            }
+
+            ClipboardFilesRequest? request;
+            try
+            {
+                request = await context.Request.ReadFromJsonAsync<ClipboardFilesRequest>(context.RequestAborted);
+            }
+            catch (JsonException)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(ClipboardResponse.Fail("Invalid JSON."), context.RequestAborted);
+                return;
+            }
+
+            if (request?.Names is not { Count: > 0 and <= MaxClipboardFiles } names)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    ClipboardResponse.Fail($"Names must list 1 to {MaxClipboardFiles} files."),
+                    context.RequestAborted);
+                return;
+            }
+
+            var fileTransferService = context.RequestServices.GetRequiredService<FileTransferService>();
+            var paths = names.Select(name => fileTransferService.TryGetPath(name)).ToList();
+            if (paths.Any(path => path is null))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                await context.Response.WriteAsJsonAsync(ClipboardResponse.Fail("File not found."), context.RequestAborted);
+                return;
+            }
+
+            var clipboardService = context.RequestServices.GetRequiredService<IClipboardService>();
+            await TrySetClipboardAsync(context, app.Logger, () => clipboardService.SetFilesAsync(paths!));
         });
 
         // Origin nur pruefen, wenn einer mitkommt: Browser senden bei einem Same-Origin-GET-fetch()

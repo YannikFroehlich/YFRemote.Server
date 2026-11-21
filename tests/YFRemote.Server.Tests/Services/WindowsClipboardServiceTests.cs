@@ -43,6 +43,43 @@ public sealed class WindowsClipboardServiceTests
     });
 
     [TestMethod]
+    public Task GetImageIdAsync_ChangesWithEveryNewImageAndIsNullForText() => WithRealClipboardAsync(async () =>
+    {
+        using var service = new WindowsClipboardService();
+        using var originalImage = new Bitmap(4, 4);
+
+        RunOnSta(() => { Clipboard.SetImage(originalImage); return true; });
+        var first = await service.GetImageIdAsync();
+        RunOnSta(() => { Clipboard.SetImage(originalImage); return true; });
+        var second = await service.GetImageIdAsync();
+        await service.SetTextAsync("kein Bild");
+
+        Assert.IsNotNull(first);
+        Assert.AreNotEqual(first, second);
+        Assert.IsNull(await service.GetImageIdAsync());
+    });
+
+    [TestMethod]
+    public Task SetFilesAsync_PutsAFileDropListOnTheRealClipboard() => WithRealClipboardAsync(async () =>
+    {
+        using var service = new WindowsClipboardService();
+        var path = Path.Combine(Path.GetTempPath(), $"YFRemote-Test-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(path, "x");
+        try
+        {
+            await service.SetFilesAsync([path]);
+
+            CollectionAssert.AreEqual(
+                new[] { path },
+                RunOnSta(() => Clipboard.GetFileDropList().Cast<string>().ToArray()));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    });
+
+    [TestMethod]
     public Task SetTextAsync_CalledConcurrently_CompletesAllWithoutThreadStateException() => WithRealClipboardAsync(async () =>
     {
         using var service = new WindowsClipboardService();

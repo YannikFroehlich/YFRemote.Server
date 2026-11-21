@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
+using System.Collections.Specialized;
 using System.Drawing.Imaging;
+using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace YFRemote.Server.Services;
 
@@ -45,7 +48,21 @@ public sealed class WindowsClipboardService : IClipboardService, IDisposable
         return (byte[]?)stream.ToArray();
     });
 
+    public Task<string?> GetImageIdAsync() => RunOnStaThread(() => Clipboard.ContainsImage()
+        ? GetClipboardSequenceNumber().ToString(CultureInfo.InvariantCulture)
+        : null);
+
+    public Task SetFilesAsync(IReadOnlyList<string> paths) => RunOnStaThread(() =>
+    {
+        var files = new StringCollection();
+        files.AddRange([.. paths]);
+        Clipboard.SetFileDropList(files);
+    });
+
     public void Dispose() => workItems.CompleteAdding();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetClipboardSequenceNumber();
 
     private Task RunOnStaThread(Action action) => RunOnStaThread<object?>(() =>
     {

@@ -87,6 +87,11 @@ export class ClipboardSyncService {
         if (key !== this.deviceKey) {
           this.deviceKey = key;
           await this.send(content);
+          // Das paste-Ereignis kodiert ein Bild anders, als es spaeter ausgelesen wird; ohne den
+          // ausgelesenen Schluessel ginge es beim naechsten Zurueckkehren noch einmal hoch.
+          if (content instanceof Blob) {
+            this.deviceKey = await contentKey((await this.tryReadDevice()) ?? content);
+          }
         }
       }
     });

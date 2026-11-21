@@ -444,12 +444,15 @@ the browser re-encodes it, and every step runs in one queue, so the `imageId` of
 known before the PC's push of it is checked.
 
 In the "Bildschirm" tab the toolbar's "Zwischenablage" switch is that same setting. While it is on,
-Ctrl+V / Shift+Insert in the picture are not intercepted: the browser's `paste` event (on any
+Ctrl+V / Ctrl+Shift+V in the picture are not intercepted: the browser's `paste` event (on any
 focused element, no permission prompt) delivers the device's content, which goes to the PC first
 if it is new (`syncPasted`), then the hotkey follows; keys typed meanwhile wait behind it. Files in
 the paste (copied in the Explorer) are uploaded through `POST /files` and put on the PC clipboard
-with `POST /clipboard/files` before Ctrl+V. Chrome names a pasted bitmap `image.png`, which is sent
-as an image instead. Without a `paste` event the hotkey goes out unchanged after a `setTimeout`.
+with `POST /clipboard/files` before Ctrl+V, only with a Windows server (elsewhere every Ctrl+V would
+be another upload that pastes nothing); the same files are not uploaded again. Chrome names a
+pasted bitmap `image.png`, which is sent as an image instead. A pasted image's key is taken from
+reading the clipboard back, like after writing one, because `paste` and `clipboard.read()` encode
+it differently and it would otherwise go up again on the next return to the app. Without a `paste` event the hotkey goes out unchanged after a `setTimeout`.
 Files dropped onto the view are uploaded the same way (`.screen-view--dropping` while dragging) and
 put on the clipboard on a Windows server, with a hint to paste them with Ctrl+V. Covered by unit
 tests; checked in the real app only by `ng build`, not between two PCs.

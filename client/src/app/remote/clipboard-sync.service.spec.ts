@@ -95,6 +95,11 @@ describe('ClipboardSyncService', () => {
   }
 
   const settle = () => new Promise((resolve) => setTimeout(resolve));
+  // Wartet, bis alles Eingereihte durch ist: crypto.subtle endet erst nach einem setTimeout.
+  const drain = async (service: ClipboardSyncService) => {
+    await settle();
+    await service.syncPasted('');
+  };
 
   it('sends text copied on the device when returning to the app, but not the old content', async () => {
     const { sent, device, document } = await setup();
@@ -157,32 +162,46 @@ describe('ClipboardSyncService', () => {
   });
 
   it('writes a PC image to the device and does not send it back', async () => {
-    const { remote, sent, written, document, pcImage } = await setup();
-    await settle();
+    const { remote, sent, written, document, pcImage, service } = await setup();
+    await drain(service);
 
     remote.pcClipboard.set({ type: 'clipboard', imageId: '7' });
     TestBed.tick();
-    await settle();
+    await drain(service);
     document.returnToApp();
-    await settle();
+    await drain(service);
 
     expect(written).toEqual([pcImage.blob]);
     expect(sent).toEqual([]);
   });
 
   it('sends an image copied on the device and skips the PC echo of it', async () => {
-    const { remote, sent, device, document, pcImage } = await setup();
-    await settle();
+    const { remote, sent, device, document, pcImage, service } = await setup();
+    await drain(service);
     const image = new Blob(['bildschirmfoto'], { type: 'image/png' });
     device.text = image;
     document.returnToApp();
     // Die Meldung des PCs kommt, bevor die Antwort auf das Senden da ist.
     remote.pcClipboard.set({ type: 'clipboard', imageId: '9' });
     TestBed.tick();
-    await settle();
+    await drain(service);
 
     expect(sent).toEqual([image]);
     expect(pcImage.reads).toBe(0);
+  });
+
+  it('does not send a pasted image again when returning to the app', async () => {
+    const { sent, device, document, service } = await setup();
+    await drain(service);
+    const pasted = new Blob(['aus dem paste-Ereignis'], { type: 'image/png' });
+    // Dasselbe Bild, wie es clipboard.read() kodiert liefert.
+    device.text = new Blob(['aus clipboard.read'], { type: 'image/png' });
+
+    await service.syncPasted(pasted);
+    document.returnToApp();
+    await drain(service);
+
+    expect(sent).toEqual([pasted]);
   });
 
   it('sends pasted content once, also right after connecting', async () => {

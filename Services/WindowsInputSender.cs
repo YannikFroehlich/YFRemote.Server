@@ -80,17 +80,22 @@ public sealed class WindowsInputSender
 
     private static void SendSingle(Input input, string description)
     {
-        // Klicks, Rad und Tasten an ein Admin-Fenster verwirft Windows ohne Fehler (UIPI); mit
-        // eingerichtetem Dienst gibt sie der SYSTEM-Helfer ein. Reine Bewegungen setzen den Zeiger
-        // auch so.
-        if (!IsMoveOnly(input) && WindowsSecureDesktop.TargetIntegrityAbove(WindowsSecureDesktop.OwnIntegrity))
+        // Eingaben an ein Admin-Fenster verwirft Windows ohne Fehler (UIPI) - auch Bewegungen, solange
+        // es im Vordergrund ist (gemessen mit dem Task-Manager: der Zeiger blieb stehen, der Klick
+        // ueber den Helfer traf dann die alte Stelle). Mit eingerichtetem Dienst gibt sie der
+        // SYSTEM-Helfer ein. Ohne ihn melden nur Klicks, Rad und Tasten den Hinweis; Bewegungen
+        // gehen wie bisher direkt raus, sonst kaeme der Hinweis bei jeder Bewegung.
+        if (WindowsSecureDesktop.TargetIntegrityAbove(WindowsSecureDesktop.OwnIntegrity))
         {
             if (WindowsSecureDesktop.TrySendInput(ToBytes(input)))
             {
                 return;
             }
 
-            throw new InputBlockedException(InputBlockedException.ElevatedWindowMessage);
+            if (!IsMoveOnly(input))
+            {
+                throw new InputBlockedException(InputBlockedException.ElevatedWindowMessage);
+            }
         }
 
         var sent = SendInput(1, [input], InputSize);

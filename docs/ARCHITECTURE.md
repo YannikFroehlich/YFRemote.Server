@@ -535,14 +535,18 @@ Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
   (`WindowsScreenCapture.CaptureCurrentDesktopJpeg`, "Winlogon" only).
 - Administrator windows (Task Manager, regedit, an admin terminal): Windows drops input from a
   lower-integrity process to them without any error (UIPI), so `SendInput` "succeeds" and nothing
-  happens. Before every click, wheel or key (not pure moves, which move the pointer anyway)
+  happens. That includes pure moves while such a window is in front: with the Task Manager in front
+  the pointer did not move at all (measured 2026-11-21), so a click through the helper hit the old
+  position, e.g. the Task Manager's taskbar button, which minimized it. Before every input
   `WindowsInputSender.SendSingle` checks `WindowsSecureDesktop.TargetIntegrityAbove(OwnIntegrity)`:
   the foreground window and the window under the pointer, read through `OpenProcess`
   (query-limited) and `TokenIntegrityLevel` (an elevated process reads as `S-1-16-12288`; SYSTEM
   processes cannot be opened and count as not elevated). On a hit the `INPUT` goes to the helper,
-  which repeats the check (`> Medium`) before acting. Without the service the action fails with
-  `InputBlockedException.ElevatedWindowMessage`, which the Client shows as
-  `remoteService.error.elevatedWindow` instead of losing the click silently.
+  which repeats the check (`> Medium`) before acting. Without the service a click, wheel or key fails
+  with `InputBlockedException.ElevatedWindowMessage`, which the Client shows as
+  `remoteService.error.elevatedWindow` instead of losing the click silently; a move then still goes
+  out directly (no hint on every move). Moves through the helper checked on 2026-11-21 with the
+  phone and the Task Manager in front on v2.66.2 plus this change: pointer and click worked.
 - The server only uses it for what fails: `WindowsInputSender.SendSingle` forwards the `INPUT` on
   `ERROR_ACCESS_DENIED`, `WindowsMouseService.MoveRelative` falls back to a relative move when
   `GetCursorPos` is denied, and `WindowsScreenCapture.CaptureJpeg` asks the helper on

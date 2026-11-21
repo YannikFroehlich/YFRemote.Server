@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- With the lock-screen/UAC service set up, the mouse can now be moved over administrator windows such
+  as the Task Manager. Before, the pointer stood still, and a click hit the old position, which often
+  minimized the Task Manager through its taskbar button.
+
 ## [2.66.2] - 2026-11-20
 
 ### Fixed

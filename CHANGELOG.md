@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.68.2] - 2026-11-21
+
 ### Fixed
 
 - Clipboard sharing from a Windows PC: something copied on the PC now reaches your device within a

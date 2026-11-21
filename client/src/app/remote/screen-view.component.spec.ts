@@ -59,6 +59,7 @@ describe('ScreenViewComponent', () => {
     const sendFiles = vi.fn(async (_names: readonly string[]) => ({ success: true }));
     const sendFile = vi.fn(async (file: File) => ({ success: true, fileName: file.name }));
     const clipboardSyncSetting = signal(false);
+    const serverPlatform = signal<'windows' | 'linux'>('windows');
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
@@ -87,7 +88,7 @@ describe('ScreenViewComponent', () => {
             clipboardSyncSupported: signal(true),
             clipboardSync: clipboardSyncSetting,
             saveClipboardSync: (enabled: boolean) => clipboardSyncSetting.set(enabled),
-            serverPlatform: signal('windows'),
+            serverPlatform,
           },
         },
         { provide: ClipboardSyncService, useValue: clipboardSync },
@@ -118,6 +119,7 @@ describe('ScreenViewComponent', () => {
       screenTouch,
       clipboardSync,
       clipboardSyncSetting,
+      serverPlatform,
       sendFiles,
       sendFile,
       element: fixture.nativeElement as HTMLElement,
@@ -602,6 +604,44 @@ describe('ScreenViewComponent', () => {
       expect(sendFile).toHaveBeenCalledWith(file);
       expect(sendFiles).toHaveBeenCalledWith(['bericht.pdf']);
       expect(clipboardSync.noteDeviceFiles).toHaveBeenCalledWith([file]);
+      expect(clipboardSync.syncPasted).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('syncs before Ctrl+Shift+V too', async () => {
+      const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
+      clipboardSync.active.set(true);
+      const event = new KeyboardEvent('keydown', {
+        key: 'V',
+        code: 'KeyV',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      stage.dispatchEvent(event);
+      paste('ohne Format');
+
+      expect(event.defaultPrevented).toBe(false);
+      await vi.waitFor(() =>
+        expect(sendAction.mock.calls).toEqual([[{ type: 'hotkey', keys: ['CTRL', 'SHIFT', 'V'] }]]),
+      );
+      expect(clipboardSync.syncPasted).toHaveBeenCalledWith('ohne Format');
+      fixture.destroy();
+    });
+
+    it('pastes copied files only through a Windows server, without uploading them elsewhere', async () => {
+      const { fixture, sendAction, stage, clipboardSync, sendFile, serverPlatform } =
+        await setupGestures();
+      clipboardSync.active.set(true);
+      serverPlatform.set('linux');
+
+      pressCtrlV(stage);
+      paste('', [new File(['x'], 'bericht.pdf')]);
+
+      await vi.waitFor(() => expect(sendAction.mock.calls).toEqual([[ctrlV]]));
+      expect(sendFile).not.toHaveBeenCalled();
       expect(clipboardSync.syncPasted).not.toHaveBeenCalled();
       fixture.destroy();
     });

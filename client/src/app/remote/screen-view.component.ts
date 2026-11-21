@@ -96,7 +96,8 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 // So lange bleibt ein Hinweis zu Dateien oder Zwischenablage stehen.
 const STATUS_MS = 5000;
-const PASTE_SHORTCUTS = ['CTRL+V', 'SHIFT+INSERT'];
+// Strg+Umschalt+V fuegt in vielen Programmen ohne Formatierung ein.
+const PASTE_SHORTCUTS = ['CTRL+V', 'CTRL+SHIFT+V'];
 
 function isPasteShortcut(action: RemoteAction): action is KeyboardAction {
   return action.type === 'hotkey' && PASTE_SHORTCUTS.includes(action.keys.join('+'));
@@ -857,8 +858,12 @@ export class ScreenViewComponent implements OnDestroy {
     const files = Array.from(event.clipboardData?.files ?? []);
     this.queueKeys(async () => {
       if (text === '' && files.length > 0 && !isPastedBitmap(files)) {
-        // Im Explorer kopierte Dateien: hochladen und am PC in die Zwischenablage legen.
-        if (this.clipboardSync.deviceFilesChanged(files)) {
+        // Im Explorer kopierte Dateien: hochladen und am PC in die Zwischenablage legen. Das kann
+        // nur der Windows-Server; sonst bliebe jedes Strg+V ein neuer Upload ohne Einfuegen.
+        if (
+          this.remote.serverPlatform() === 'windows' &&
+          this.clipboardSync.deviceFilesChanged(files)
+        ) {
           if (!(await this.queueFiles(files, true))) {
             return;
           }

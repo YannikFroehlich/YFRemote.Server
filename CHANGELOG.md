@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- "Bildschirm" tab on a desktop: a PC with a 4K monitor or TV looked blocky at "Qualität". The
+  picture is four times the pixels of 1080p, but the video bitrate stopped at 40 Mbit/s; it may
+  now go up to 64 Mbit/s and still drops on its own when the Wi-Fi cannot keep up.
+
 ## [2.67.0] - 2026-11-21
 
 ### Added

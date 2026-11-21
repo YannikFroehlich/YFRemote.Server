@@ -56,8 +56,6 @@ const SCREEN_PROFILES: Readonly<
 // ponytail: Maus = Desktop; ein Handy mit Maus bekaeme auch die volle Breite.
 const MAX_PHONE_VIDEO_WIDTH = 1920;
 const MAX_DESKTOP_VIDEO_WIDTH = 3840;
-// Obergrenze des Servers (ScreenEndpoints.MaxBitrateKbps).
-const MAX_VIDEO_KBPS = 40000;
 
 // Ab dieser Strecke wird aus einem Tipp ein Ziehen.
 const DRAG_THRESHOLD_PX = 8;
@@ -327,11 +325,9 @@ export class ScreenViewComponent implements OnDestroy {
       this.videoAbort = abort;
       const profile = SCREEN_PROFILES[this.quality()];
       const width = Math.min(this.maxVideoWidth, this.viewWidth() * profile.pixelRatio);
-      // Die Bitraten gelten fuer bis zu 1080p; mehr Pixel brauchen beim Scrollen mehr Bitrate.
-      const kbps = Math.min(
-        MAX_VIDEO_KBPS,
-        Math.round(profile.videoKbps * Math.max(1, (width / MAX_PHONE_VIDEO_WIDTH) ** 2)),
-      );
+      // Die Bitraten gelten fuer bis zu 1080p; mehr Pixel brauchen beim Scrollen mehr Bitrate. Bei
+      // 4K sind das 64 Mbit/s, die Obergrenze des Servers (ScreenEndpoints.MaxBitrateKbps).
+      const kbps = Math.round(profile.videoKbps * Math.max(1, (width / MAX_PHONE_VIDEO_WIDTH) ** 2));
       const stream = await this.remote.openScreenVideo(
         width,
         kbps,

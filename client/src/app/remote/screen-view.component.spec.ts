@@ -185,7 +185,7 @@ describe('ScreenViewComponent', () => {
   });
 
   describe('video width per quality', () => {
-    async function widthsFor(desktop: boolean) {
+    async function widthsFor(desktop: boolean, viewWidth = 1000) {
       vi.stubGlobal('matchMedia', (query: string) => ({
         matches: desktop && query === '(pointer: fine)',
       }));
@@ -206,7 +206,7 @@ describe('ScreenViewComponent', () => {
         stream: { body: new ReadableStream(), codec: 'avc1.4d002a' },
       });
       const view = element.querySelector('.screen-view')!;
-      Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1000 });
+      Object.defineProperty(view, 'clientWidth', { configurable: true, value: viewWidth });
       const select = element.querySelector<HTMLSelectElement>('.screen-view__quality')!;
       const requests: [number, number][] = [];
       for (const quality of ['performance', 'balanced', 'quality']) {
@@ -227,6 +227,10 @@ describe('ScreenViewComponent', () => {
         [1500, 8000],
         [3000, 39063],
       ]);
+    });
+
+    it('asks for the full 4K bitrate at the widest picture', async () => {
+      expect((await widthsFor(true, 1300)).at(-1)).toEqual([3840, 64000]);
     });
 
     it('stays at 1080p on a phone', async () => {

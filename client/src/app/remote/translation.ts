@@ -586,6 +586,14 @@ export const TRANSLATIONS = {
   },
   'screen.screenshot': { de: 'Foto', en: 'Photo' },
   'screen.clipboard': { de: 'Zwischenablage', en: 'Clipboard' },
+  'screen.clipboardPasteOnlyHttps': {
+    de: 'Strg+V im Bild fügt hier Kopiertes am PC ein. Am PC Kopiertes kommt nur über HTTPS hierher (im Infobereich "HTTPS verwenden").',
+    en: 'Ctrl+V in the picture pastes what you copied here on the PC. What you copy on the PC only arrives here over HTTPS ("HTTPS verwenden" in the tray menu).',
+  },
+  'screen.clipboardPasteOnly': {
+    de: 'Strg+V im Bild fügt hier Kopiertes am PC ein. Am PC Kopiertes kommt in diesem Browser nicht automatisch hierher.',
+    en: 'Ctrl+V in the picture pastes what you copied here on the PC. What you copy on the PC does not arrive here automatically in this browser.',
+  },
   'screen.clipboardTitle': {
     de: 'Zwischenablage mit dem PC teilen: Kopiertes, auch Bilder, gibt es auf beiden Seiten, Strg+V im Bild fügt auch hier kopierte Dateien ein',
     en: 'Share the clipboard with the PC: copied text and images are on both sides, Ctrl+V in the picture also pastes files copied here',

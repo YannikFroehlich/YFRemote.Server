@@ -466,6 +466,14 @@ be another upload that pastes nothing); the same files are not uploaded again. C
 pasted bitmap `image.png`, which is sent as an image instead. A pasted image's key is taken from
 reading the clipboard back, like after writing one, because `paste` and `clipboard.read()` encode
 it differently and it would otherwise go up again on the next return to the app. Without a `paste` event the hotkey goes out unchanged after a `setTimeout`.
+This paste path (`ClipboardSyncService.pasteActive`) only needs the setting and a server with a
+clipboard, not HTTPS, the Clipboard API or a Chromium browser, because the `paste` event carries the
+content itself. So the tab's switch can be turned on over plain `http://` and in Safari as well
+(the settings' switch stays disabled there). It then shows that only the PC-to-device direction
+needs HTTPS (`screen.clipboardPasteOnlyHttps`, or `screen.clipboardPasteOnly` in such a browser).
+Content that has not changed on the device since the last paste is not sent again, so text copied
+on the PC itself is not overwritten with older device content. Without `crypto.subtle` (plain HTTP)
+an image's key is its size and type. Until v2.68.0, Ctrl+V over HTTP pasted the PC's old clipboard.
 Files dropped onto the view are uploaded the same way (`.screen-view--dropping` while dragging) and
 put on the clipboard on a Windows server, with a hint to paste them with Ctrl+V. Covered by unit
 tests; checked in the real app only by `ng build`, not between two PCs.

@@ -44,6 +44,14 @@ export class ClipboardSyncService {
   readonly active = computed(
     () => this.available() && this.remote.clipboardSync() && this.remote.status() === 'connected',
   );
+  /** Strg+V im Tab "Bildschirm" nimmt den Inhalt aus dem paste-Ereignis: das geht auch ohne HTTPS
+   *  und ohne Clipboard-API, nur die Richtung PC -> Gerät braucht sie. */
+  readonly pasteActive = computed(
+    () =>
+      this.remote.clipboardSyncSupported() &&
+      this.remote.clipboardSync() &&
+      this.remote.status() === 'connected',
+  );
 
   // Was jede Seite zuletzt hatte, als Schluessel (contentKey). Weicht die Gerätezwischenablage
   // davon ab, wurde dort neu kopiert; so schickt auch das Echo des PCs nichts zurück.
@@ -82,7 +90,9 @@ export class ClipboardSyncService {
    *  falls es neu ist. Wirkt nur bei eingeschaltetem Abgleich. */
   syncPasted(content: DeviceClipboardContent): Promise<void> {
     return this.enqueue(async () => {
-      if (content !== '' && this.active()) {
+      // Unverändert seit dem letzten Mal: dann hat der PC womöglich Neueres, etwa dort Kopiertes,
+      // das ohne HTTPS nie hierher kam - das bleibt stehen.
+      if (content !== '' && this.pasteActive()) {
         const key = await contentKey(content);
         if (key !== this.deviceKey) {
           this.deviceKey = key;
@@ -236,6 +246,12 @@ function textKey(text: string): string {
 async function contentKey(content: DeviceClipboardContent): Promise<string> {
   if (typeof content === 'string') {
     return textKey(content);
+  }
+
+  // crypto.subtle gibt es nur im sicheren Kontext; ohne HTTPS kommen Bilder nur per Strg+V.
+  // ponytail: dort zaehlen Groesse und Typ, ein gleich grosses neues Bild ginge nicht noch einmal hoch.
+  if (globalThis.crypto?.subtle === undefined) {
+    return `i:${content.size}:${content.type}`;
   }
 
   const digest = await crypto.subtle.digest('SHA-256', await content.arrayBuffer());

@@ -243,4 +243,15 @@ describe('ClipboardSyncService', () => {
     expect(written).toEqual([]);
     expect(sent).toEqual([]);
   });
+
+  it('still sends what Ctrl+V pastes where automatic sync is impossible (Safari, plain HTTP)', async () => {
+    const { remote, sent, service } = await setup(false);
+
+    await service.syncPasted('eingefügt');
+    remote.clipboardSync.set(false);
+    await service.syncPasted('nicht geteilt');
+
+    expect(service.active()).toBe(false);
+    expect(sent).toEqual(['eingefügt']);
+  });
 });

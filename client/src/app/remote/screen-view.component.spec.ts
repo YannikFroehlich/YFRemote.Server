@@ -49,7 +49,7 @@ describe('ScreenViewComponent', () => {
       createBufferSource: vi.fn(),
     };
     const clipboardSync = {
-      active: signal(false),
+      pasteActive: signal(false),
       available: signal(true),
       secureContextAvailable: true,
       syncPasted: vi.fn(async (_content: string | Blob) => undefined),
@@ -575,7 +575,7 @@ describe('ScreenViewComponent', () => {
 
     it('sends what the device copied before Ctrl+V, and later keys after it', async () => {
       const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
-      clipboardSync.active.set(true);
+      clipboardSync.pasteActive.set(true);
       let finishSync = () => {};
       clipboardSync.syncPasted.mockImplementation(
         () => new Promise<undefined>((resolve) => (finishSync = () => resolve(undefined))),
@@ -597,7 +597,7 @@ describe('ScreenViewComponent', () => {
 
     it('sends Ctrl+V on its own when the browser fires no paste event', async () => {
       const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
-      clipboardSync.active.set(true);
+      clipboardSync.pasteActive.set(true);
 
       pressCtrlV(stage);
       await vi.waitFor(() => expect(sendAction.mock.calls).toEqual([[ctrlV]]));
@@ -618,7 +618,7 @@ describe('ScreenViewComponent', () => {
     it('uploads files copied on the device and pastes them on the PC', async () => {
       const { fixture, sendAction, stage, clipboardSync, sendFile, sendFiles } =
         await setupGestures();
-      clipboardSync.active.set(true);
+      clipboardSync.pasteActive.set(true);
       const file = new File(['x'], 'bericht.pdf');
 
       pressCtrlV(stage);
@@ -634,7 +634,7 @@ describe('ScreenViewComponent', () => {
 
     it('syncs before Ctrl+Shift+V too', async () => {
       const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
-      clipboardSync.active.set(true);
+      clipboardSync.pasteActive.set(true);
       const event = new KeyboardEvent('keydown', {
         key: 'V',
         code: 'KeyV',
@@ -658,7 +658,7 @@ describe('ScreenViewComponent', () => {
     it('pastes copied files only through a Windows server, without uploading them elsewhere', async () => {
       const { fixture, sendAction, stage, clipboardSync, sendFile, serverPlatform } =
         await setupGestures();
-      clipboardSync.active.set(true);
+      clipboardSync.pasteActive.set(true);
       serverPlatform.set('linux');
 
       pressCtrlV(stage);
@@ -672,7 +672,7 @@ describe('ScreenViewComponent', () => {
 
     it('sends a pasted screenshot as an image, not as a file', async () => {
       const { fixture, stage, clipboardSync, sendFile } = await setupGestures();
-      clipboardSync.active.set(true);
+      clipboardSync.pasteActive.set(true);
       const image = new File(['png'], 'image.png', { type: 'image/png' });
 
       pressCtrlV(stage);
@@ -718,6 +718,23 @@ describe('ScreenViewComponent', () => {
       button.click();
 
       expect(clipboardSyncSetting()).toBe(true);
+      fixture.destroy();
+    });
+
+    it('turns the shared clipboard on over plain HTTP too, for Ctrl+V in the picture', async () => {
+      const { fixture, element, clipboardSyncSetting, clipboardSync } = await setupGestures();
+      clipboardSync.available.set(false);
+      clipboardSync.secureContextAvailable = false;
+      const button = [...element.querySelectorAll<HTMLButtonElement>('.snap-switch')].find(
+        (candidate) => candidate.textContent?.includes('Zwischenablage'),
+      )!;
+
+      button.click();
+      fixture.detectChanges();
+
+      expect(clipboardSyncSetting()).toBe(true);
+      expect(button.getAttribute('aria-checked')).toBe('true');
+      expect(element.textContent).toContain('nur über HTTPS hierher');
       fixture.destroy();
     });
   });

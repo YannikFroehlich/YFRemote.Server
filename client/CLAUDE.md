@@ -103,7 +103,9 @@ new component the same, unless everything its template reads is a signal or an i
      comparing both sides by key and running every step in one queue. `ScreenViewComponent` reuses
      it: a "Zwischenablage" toolbar switch, Ctrl+V in the picture that lets the browser's `paste`
      event through to `syncPasted` (or uploads pasted files) before sending the hotkey, and file
-     drag & drop onto the view (`POST /files`, then `ClipboardService.sendFiles`).
+     drag & drop onto the view (`POST /files`, then `ClipboardService.sendFiles`). That paste path
+     is `ClipboardSyncService.pasteActive` and works without HTTPS or the Clipboard API, so the
+     tab's switch can be turned on over plain HTTP and in Safari too.
      A mouse over the picture calls `RemoteService.watchScreenCursor(true)` (`false` on
      `pointerleave`): the PC drops its cursor from the picture and pushes its shape
      (`screenCursor` signal, known CSS keywords only), which the stage uses as its `cursor`.

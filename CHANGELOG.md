@@ -21,6 +21,16 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- "Bildschirm" tab over plain HTTP (and in Safari): Ctrl+V in the picture pasted the PC's old
+  clipboard instead of what was copied on your own device, because the "Zwischenablage" switch
+  needed HTTPS. Ctrl+V takes what you copied from the browser's paste event, which needs no HTTPS,
+  so the switch now works there too. Only text copied on the PC reaching your device still needs
+  HTTPS.
+
+## [2.68.0] - 2026-11-21
+
 ### Added
 
 - "Bildschirm" tab with a mouse: only one pointer, like Parsec. While the mouse is over the

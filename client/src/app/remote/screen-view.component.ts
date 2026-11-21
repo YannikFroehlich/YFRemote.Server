@@ -40,8 +40,10 @@ const SCREENSHOT_QUALITY = 95;
 const PARALLEL_REQUESTS = 2;
 const FRAME_INTERVAL_MS = 33;
 const RETRY_MS = 1000;
-// Pixeldichte (hoechstens so viel wie das Geraet hat), JPEG-Qualitaet und Video-Bitrate je
-// Einstellung; mehr als 1,5-fach sieht man auf dem Handy kaum, es kostet aber WLAN.
+// Bildpixel je Pixel der Ansicht, JPEG-Qualitaet und Video-Bitrate je Einstellung. Bewusst nicht
+// auf die Pixeldichte des Geraets begrenzt: H.264 und JPEG speichern Farbe nur in halber
+// Aufloesung, erst mit mehr Pixeln als die Ansicht bleibt farbige Schrift scharf. Mit der Grenze
+// lieferten alle drei Einstellungen am Desktop (Pixeldichte 1) dasselbe unscharfe Bild.
 const SCREEN_PROFILES: Readonly<
   Record<ScreenQuality, { pixelRatio: number; jpegQuality: number; videoKbps: number }>
 > = {
@@ -49,8 +51,13 @@ const SCREEN_PROFILES: Readonly<
   balanced: { pixelRatio: 1.5, jpegQuality: 70, videoKbps: 8000 },
   quality: { pixelRatio: 3, jpegQuality: 85, videoKbps: 16000 },
 };
-// Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2).
-const MAX_VIDEO_WIDTH = 1920;
+// Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2). Ein Rechner
+// mit Maus schafft die volle Breite des PCs, die der Server ohnehin auf dessen Monitor begrenzt.
+// ponytail: Maus = Desktop; ein Handy mit Maus bekaeme auch die volle Breite.
+const MAX_PHONE_VIDEO_WIDTH = 1920;
+const MAX_DESKTOP_VIDEO_WIDTH = 3840;
+// Obergrenze des Servers (ScreenEndpoints.MaxBitrateKbps).
+const MAX_VIDEO_KBPS = 40000;
 
 // Ab dieser Strecke wird aus einem Tipp ein Ziehen.
 const DRAG_THRESHOLD_PX = 8;
@@ -155,6 +162,10 @@ export class ScreenViewComponent implements OnDestroy {
   // Auf dem iPhone gibt es kein Element-Vollbild; dort fuellt die Ansicht per CSS den sichtbaren
   // Bereich (.screen-view--fullscreen), und fullscreen() steht fuer beides.
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
+  private readonly maxVideoWidth =
+    this.document.defaultView?.matchMedia?.('(pointer: fine)').matches === true
+      ? MAX_DESKTOP_VIDEO_WIDTH
+      : MAX_PHONE_VIDEO_WIDTH;
   protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
@@ -314,14 +325,15 @@ export class ScreenViewComponent implements OnDestroy {
       const abort = new AbortController();
       this.videoAbort = abort;
       const profile = SCREEN_PROFILES[this.quality()];
-      const pixelRatio = Math.min(
-        profile.pixelRatio,
-        this.document.defaultView?.devicePixelRatio ?? 1,
+      const width = Math.min(this.maxVideoWidth, this.viewWidth() * profile.pixelRatio);
+      // Die Bitraten gelten fuer bis zu 1080p; mehr Pixel brauchen beim Scrollen mehr Bitrate.
+      const kbps = Math.min(
+        MAX_VIDEO_KBPS,
+        Math.round(profile.videoKbps * Math.max(1, (width / MAX_PHONE_VIDEO_WIDTH) ** 2)),
       );
-      const width = Math.min(MAX_VIDEO_WIDTH, this.viewWidth() * pixelRatio);
       const stream = await this.remote.openScreenVideo(
         width,
-        profile.videoKbps,
+        kbps,
         abort.signal,
         this.remote.screenMonitor(),
       );
@@ -426,13 +438,9 @@ export class ScreenViewComponent implements OnDestroy {
       }
 
       const profile = SCREEN_PROFILES[this.quality()];
-      const pixelRatio = Math.min(
-        profile.pixelRatio,
-        this.document.defaultView?.devicePixelRatio ?? 1,
-      );
       const sequence = ++this.requested;
       const result = await this.remote.readScreen(
-        this.viewWidth() * pixelRatio,
+        this.viewWidth() * profile.pixelRatio,
         profile.jpegQuality,
         this.remote.screenMonitor(),
         this.jpegAbort.signal,

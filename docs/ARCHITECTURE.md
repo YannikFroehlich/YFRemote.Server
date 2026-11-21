@@ -137,8 +137,13 @@ feature.
   `no-store` as `GET /windows`, refused for "Nur Medien" devices; `width` (320-3840, never upscaled)
   is the device's display width, `quality` (30-95, default 70) the JPEG quality. The tab's select
   (`RemoteService.screenQuality`, `yfremote.screenQuality`) picks pixel ratio and quality:
-  "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" up to 3x/85. The pixel ratio never exceeds
-  the device's `devicePixelRatio`, so on a desktop at 1x the levels differ only in quality/bitrate.
+  "Leistung" 1x/50, "Ausgeglichen" 1.5x/70, "Qualität" 3x/85 (video 4/8/16 Mbit/s). The pixel
+  ratio is deliberately not capped at the device's `devicePixelRatio`: H.264 and JPEG keep color at
+  half resolution, so colored text only stays sharp with more pixels than the view. With that cap
+  (up to v2.66.4) all three levels gave the same blurry picture on a desktop at 1x. The video width
+  is capped at 1920 on phones (some decode H.264 above level 4.2 badly) and at 3840 where
+  `(pointer: fine)` matches; above 1920 the bitrate grows with the pixel count, up to the server's
+  40 Mbit/s. The server never upscales beyond the monitor.
   The width is that of the inner `.screen-view` (`viewWidth`), which is what goes fullscreen; the
   host keeps the page width (at most 960 px on a desktop), and measuring it upscaled the picture. `WindowsScreenCapture` uses DXGI
   Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to

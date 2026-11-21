@@ -30,6 +30,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
   in the Explorer, which are uploaded and pasted on the PC. Files dragged onto the picture are
   uploaded and put on the PC's clipboard, so Ctrl+V pastes them into any folder or chat there.
 
+### Fixed
+
+- The "Bildschirm" tab on a desktop: "Leistung", "Ausgeglichen" and "Qualität" gave the same
+  blurry picture, because the resolution was capped at the screen's pixel density (1 on most
+  monitors) and the video at 1080p. Each level now asks for more pixels than the view, and a
+  computer with a mouse gets up to the PC's full resolution with a matching bitrate.
+
 ## [2.66.4] - 2026-11-21
 
 ### Fixed

@@ -132,7 +132,7 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly iconPaths = REMOTE_ICON_PATHS;
   protected readonly clipboardSyncSupported = this.remote.clipboardSyncSupported;
   protected readonly clipboardSyncOn = computed(
-    () => this.remote.clipboardSync() && this.clipboardSync.available(),
+    () => this.remote.clipboardSync() && this.clipboardSyncSupported(),
   );
   protected readonly uploadProgress = this.fileTransfer.uploadProgress;
   protected readonly dropping = signal(false);
@@ -804,7 +804,7 @@ export class ScreenViewComponent implements OnDestroy {
 
     // Mit Abgleich nicht abfangen: erst das paste-Ereignis liefert, was am Geraet kopiert ist,
     // auch Bilder und Dateien, ohne Rueckfrage. Kommt keins, geht Strg+V gleich so raus.
-    if (isPasteShortcut(action) && this.clipboardSync.active()) {
+    if (isPasteShortcut(action) && this.clipboardSync.pasteActive()) {
       this.pendingPaste = action;
       setTimeout(() => {
         if (this.pendingPaste === action) {
@@ -877,14 +877,16 @@ export class ScreenViewComponent implements OnDestroy {
     });
   }
 
+  // Strg+V im Bild geht ueberall; was am PC kopiert wird, kommt nur mit dem automatischen Abgleich
+  // hierher, und den kann nicht jeder Browser - darauf weist das Einschalten dann hin.
   protected toggleClipboardSync(): void {
-    if (this.clipboardSync.available()) {
-      this.remote.saveClipboardSync(!this.remote.clipboardSync());
-    } else {
+    const enabled = !this.remote.clipboardSync();
+    this.remote.saveClipboardSync(enabled);
+    if (enabled && !this.clipboardSync.available()) {
       this.showStatus(
         this.clipboardSync.secureContextAvailable
-          ? 'settings.clipboardSync.browserUnsupported'
-          : 'settings.clipboardSync.httpsHint',
+          ? 'screen.clipboardPasteOnly'
+          : 'screen.clipboardPasteOnlyHttps',
       );
     }
   }

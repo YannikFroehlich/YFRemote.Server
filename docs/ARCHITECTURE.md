@@ -64,7 +64,13 @@ feature.
   no such endpoint; an older server answers with `index.html`, the section is then hidden).
 - `POST /clipboard/text` (JSON, `Clipboard:MaxTextLength` 200 000) and `POST /clipboard/image`
   (multipart, `Clipboard:MaxImageSizeBytes` 20 MB) → write the PC clipboard via
-  `IClipboardService`.
+  `IClipboardService`. The image answer carries `imageId` (`GetImageIdAsync`, see clipboard sync
+  below), from which the device's sync recognizes the PC's echo of its own image.
+- `POST /clipboard/files` (JSON `{ names: [...] }`, 1-100 names) → puts files already received
+  through `POST /files` on the clipboard like "Kopieren" in the Explorer
+  (`Clipboard.SetFileDropList`), so Ctrl+V pastes them into a folder or chat. Each name is looked
+  up with `FileTransferService.TryGetPath` like `GET /folder/{name}` (`404` for any unknown one),
+  so no path outside the receive folder gets in. Not for "Nur Medien"; Linux answers `501`.
 - `GET /clipboard/text` → reads the PC clipboard's text back (`{ text: null }` when it holds
   none, `422` beyond `Clipboard:MaxTextLength`), sent with `Cache-Control: no-store`. Unlike the
   POST endpoints it only rejects a *mismatching* `Origin`: browsers send none on a same-origin
@@ -75,7 +81,9 @@ feature.
   the YFRemote keyboard is the selected IME - Android 10+ only lets that IME read the
   clipboard). Every successful
   read calls `ClipboardReadNotifier.NotifyRead(deviceName)`, which the tray turns into a
-  "Zwischenablage gesendet" balloon so an unexpected read is visible at the PC.
+  "Zwischenablage gesendet" balloon so an unexpected read is visible at the PC - except for a
+  device whose clipboard sync was already announced this run: it gets every new content anyway,
+  and it fetches every copied image this way.
 - `GET /clipboard/image` → the same gate and `no-store`, but the clipboard image as `image/png`
   in the body (`204` without one, `422` beyond `Clipboard:MaxImageSizeBytes`). The Client asks for
   it only when `GET /clipboard/text` found no text, and never on the Android server, which has no
@@ -360,7 +368,10 @@ pushes, so it never keeps the media poll running; it still counts as connected i
 Core Audio over COM and the WinRT media session manager; for a Voicemeeter device see below;
 `LinuxMediaStatusReader` shells out to
 `pactl` and `playerctl`, leaving a part empty when its tool is missing) and
-`{"type":"clipboard","text"}`. Both come from a `PollingBroadcaster<T>`, which polls its source
+`{"type":"clipboard","text"}`, or `{"type":"clipboard","imageId"}` when the clipboard holds an
+image and no text (Windows only: `IClipboardService.GetImageIdAsync` is the
+`GetClipboardSequenceNumber` while `Clipboard.ContainsImage`, so the poll never encodes a PNG; Linux
+returns `null`). Both come from a `PollingBroadcaster<T>`, which polls its source
 once per second only while at least one connection subscribes and reports only changes. Media is
 subscribed for every connection and announces the current state on subscribe; the clipboard
 broadcaster is subscribed only after the device sends `{"type":"clipboardSync","enabled":true}`
@@ -424,7 +435,24 @@ of reporting the average over the whole pause. `LinuxSystemStatsReader` reads `/
 hwmon (`coretemp`/`k10temp`/..., `amdgpu`/...) and amdgpu's `gpu_busy_percent`. A missing value is
 `null` and the Client shows it as unavailable. In the Client, `ClipboardSyncService` writes pushed text into the
 device clipboard and, when the app regains focus, sends newly copied device text via
-`POST /clipboard/text`. That needs the Async Clipboard API, so it works over HTTPS only.
+`POST /clipboard/text`. That needs the Async Clipboard API, so it works over HTTPS only. Images go
+the same way: an `imageId` push makes it fetch `GET /clipboard/image` and write it with
+`ClipboardItem`; a device image (`navigator.clipboard.read()`, text first) goes to
+`POST /clipboard/image`. Both sides are compared by key (`t:` text, `i:` SHA-256 of the device's
+PNG, `p:` the PC's `imageId`); after writing an image the device reads it back for its key, because
+the browser re-encodes it, and every step runs in one queue, so the `imageId` of a sent image is
+known before the PC's push of it is checked.
+
+In the "Bildschirm" tab the toolbar's "Zwischenablage" switch is that same setting. While it is on,
+Ctrl+V / Shift+Insert in the picture are not intercepted: the browser's `paste` event (on any
+focused element, no permission prompt) delivers the device's content, which goes to the PC first
+if it is new (`syncPasted`), then the hotkey follows; keys typed meanwhile wait behind it. Files in
+the paste (copied in the Explorer) are uploaded through `POST /files` and put on the PC clipboard
+with `POST /clipboard/files` before Ctrl+V. Chrome names a pasted bitmap `image.png`, which is sent
+as an image instead. Without a `paste` event the hotkey goes out unchanged after a `setTimeout`.
+Files dropped onto the view are uploaded the same way (`.screen-view--dropping` while dragging) and
+put on the clipboard on a Windows server, with a hint to paste them with Ctrl+V. Covered by unit
+tests; checked in the real app only by `ng build`, not between two PCs.
 
 **Voicemeeter (Windows).** Voicemeeter ignores Windows volume and mute on its virtual playback
 devices, so `WindowsVoicemeeter` talks to the Voicemeeter Remote API (`VoicemeeterRemote64.dll`

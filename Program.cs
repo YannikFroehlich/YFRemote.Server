@@ -532,8 +532,9 @@ internal static class Program
             var clipboardService = services.GetRequiredService<IClipboardService>();
             return new PollingBroadcaster<ClipboardMessage?>(
                 async () => await clipboardService.GetTextAsync() is { Length: > 0 } text
-                    && text.Length <= clipboardOptions.MaxTextLength
-                        ? new ClipboardMessage(text)
+                    ? text.Length <= clipboardOptions.MaxTextLength ? new ClipboardMessage(text) : null
+                    : await clipboardService.GetImageIdAsync() is { } imageId
+                        ? new ClipboardMessage(null, imageId)
                         : null,
                 BroadcastPollInterval,
                 announceCurrent: false,

@@ -17,6 +17,24 @@ public sealed class FakeClipboardService : IClipboardService
 
     public byte[]? ImageToReturn { get; set; }
 
+    public string? ImageIdToReturn { get; set; }
+
+    public IReadOnlyList<string>? LastFiles { get; private set; }
+
+    public Task<string?> GetImageIdAsync() => Task.FromResult(ImageIdToReturn);
+
+    public Task SetFilesAsync(IReadOnlyList<string> paths)
+    {
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        LastFiles = paths;
+        return Task.CompletedTask;
+    }
+
     public Task<string?> GetTextAsync()
     {
         if (ThrowOnNextCall is { } exception)

@@ -18,7 +18,15 @@ public sealed class ClipboardReadNotifier
 
     public event Action<string>? NotificationsEnabled;
 
-    public void NotifyRead(string deviceName) => Read?.Invoke(deviceName);
+    // Ein Geraet mit Abgleich bekommt ohnehin alles Neue, und das wurde schon einmal angezeigt;
+    // sonst kaeme fuer jedes am PC kopierte Bild, das es holt, eine Sprechblase.
+    public void NotifyRead(string deviceName)
+    {
+        if (!syncAnnounced.ContainsKey(deviceName))
+        {
+            Read?.Invoke(deviceName);
+        }
+    }
 
     public void NotifySyncEnabled(string deviceName)
     {

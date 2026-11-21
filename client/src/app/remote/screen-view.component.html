@@ -2,8 +2,12 @@
   #view
   class="screen-view"
   [class.screen-view--fullscreen]="fullscreen() && !fullscreenSupported"
+  [class.screen-view--dropping]="dropping()"
   [style.--handle-x]="handle().x"
   [style.--handle-y]="handle().y"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
 >
   <!-- Im Vollbild bleibt nur das Logo uebers Bild: Tippen klappt die Optionen auf, Ziehen verschiebt es. -->
   @if (fullscreen()) {
@@ -76,6 +80,22 @@
       </svg>
       <span>{{ i18n.t('screen.keyboard') }}</span>
     </button>
+    @if (clipboardSyncSupported()) {
+      <button
+        class="snap-switch"
+        type="button"
+        role="switch"
+        [attr.title]="i18n.t('screen.clipboardTitle')"
+        [attr.aria-label]="i18n.t('screen.clipboard')"
+        [attr.aria-checked]="clipboardSyncOn()"
+        (click)="toggleClipboardSync()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.clipboard"></path>
+        </svg>
+        <span>{{ i18n.t('screen.clipboard') }}</span>
+      </button>
+    }
     <button
       class="snap-switch"
       type="button"
@@ -216,6 +236,14 @@
     <p class="stats-waiting" role="status">{{ i18n.t('screen.stalled') }}</p>
   } @else if (frame() === null && !videoShown()) {
     <p class="stats-waiting">{{ i18n.t('screen.waiting') }}</p>
+  }
+  @if (status(); as text) {
+    <p class="stats-waiting" role="status">
+      {{ text }}
+      @if (uploadProgress(); as progress) {
+        {{ (progress * 100).toFixed(0) }} %
+      }
+    </p>
   }
   @if (soundFailed()) {
     <p class="stats-waiting">{{ i18n.t('screen.soundFailed') }}</p>

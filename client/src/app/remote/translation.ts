@@ -585,6 +585,27 @@ export const TRANSLATIONS = {
     en: 'End {{app}} now? Unsaved changes are lost.',
   },
   'screen.screenshot': { de: 'Foto', en: 'Photo' },
+  'screen.clipboard': { de: 'Zwischenablage', en: 'Clipboard' },
+  'screen.clipboardTitle': {
+    de: 'Zwischenablage mit dem PC teilen: Kopiertes, auch Bilder, gibt es auf beiden Seiten, Strg+V im Bild fügt auch hier kopierte Dateien ein',
+    en: 'Share the clipboard with the PC: copied text and images are on both sides, Ctrl+V in the picture also pastes files copied here',
+  },
+  'screen.files.sending': {
+    de: '„{{name}}“ wird gesendet ({{current}}/{{total}})…',
+    en: 'Sending "{{name}}" ({{current}}/{{total}})…',
+  },
+  'screen.files.failed': {
+    de: '„{{name}}“ konnte nicht gesendet werden.',
+    en: 'Could not send "{{name}}".',
+  },
+  'screen.files.ready': {
+    de: 'Am PC gespeichert und kopiert: Strg+V fügt es dort ein, wo du es brauchst.',
+    en: 'Saved and copied on the PC: Ctrl+V pastes it wherever you need it.',
+  },
+  'screen.files.saved': {
+    de: 'Im Empfangsordner des PCs gespeichert.',
+    en: "Saved in the PC's receive folder.",
+  },
   'screen.screenshotTitle': {
     de: 'Bildschirmfoto auf diesem Gerät speichern',
     en: 'Save a screenshot on this device',

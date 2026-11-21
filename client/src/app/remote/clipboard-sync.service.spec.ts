@@ -5,6 +5,7 @@ import { ClipboardSyncService } from './clipboard-sync.service';
 import {
   CLIPBOARD_AUTO_SYNC_PROBE,
   ClipboardService,
+  DEVICE_CLIPBOARD_IMAGE_WRITER,
   DEVICE_CLIPBOARD_READER,
   DEVICE_CLIPBOARD_WRITER,
 } from './clipboard.service';
@@ -42,9 +43,10 @@ describe('ClipboardSyncService', () => {
       status: signal<ConnectionStatus>('connected'),
       pcClipboard: signal<ClipboardPushMessage | null>(null),
     };
-    const sent: string[] = [];
-    const written: string[] = [];
-    const device = { text: 'alt' };
+    const sent: (string | Blob)[] = [];
+    const written: (string | Blob)[] = [];
+    const device: { text: string | Blob } = { text: 'alt' };
+    const pcImage = { blob: new Blob(['png vom PC'], { type: 'image/png' }), reads: 0 };
     const document = new FakeDocument();
 
     TestBed.configureTestingModule({
@@ -52,7 +54,22 @@ describe('ClipboardSyncService', () => {
         { provide: RemoteService, useValue: remote },
         {
           provide: ClipboardService,
-          useValue: { sendText: async (text: string) => sent.push(text) && { success: true } },
+          useValue: {
+            sendText: async (text: string) => sent.push(text) && { success: true },
+            sendImage: async (image: Blob) => sent.push(image) && { success: true, imageId: '9' },
+            readImage: async () => {
+              pcImage.reads++;
+              return { success: true, image: pcImage.blob };
+            },
+          },
+        },
+        {
+          provide: DEVICE_CLIPBOARD_IMAGE_WRITER,
+          useValue: async (image: Blob) => {
+            written.push(image);
+            // Der Browser kodiert das Bild beim Ablegen neu.
+            device.text = new Blob(['neu kodiert'], { type: 'image/png' });
+          },
         },
         {
           provide: DEVICE_CLIPBOARD_WRITER,
@@ -74,10 +91,15 @@ describe('ClipboardSyncService', () => {
     TestBed.tick();
     await settle();
     TestBed.tick();
-    return { remote, sent, written, device, document, service };
+    return { remote, sent, written, device, document, service, pcImage };
   }
 
   const settle = () => new Promise((resolve) => setTimeout(resolve));
+  // Wartet, bis alles Eingereihte durch ist: crypto.subtle endet erst nach einem setTimeout.
+  const drain = async (service: ClipboardSyncService) => {
+    await settle();
+    await service.syncPasted('');
+  };
 
   it('sends text copied on the device when returning to the app, but not the old content', async () => {
     const { sent, device, document } = await setup();
@@ -137,6 +159,59 @@ describe('ClipboardSyncService', () => {
     await settle();
 
     expect(written).toEqual(['später']);
+  });
+
+  it('writes a PC image to the device and does not send it back', async () => {
+    const { remote, sent, written, document, pcImage, service } = await setup();
+    await drain(service);
+
+    remote.pcClipboard.set({ type: 'clipboard', imageId: '7' });
+    TestBed.tick();
+    await drain(service);
+    document.returnToApp();
+    await drain(service);
+
+    expect(written).toEqual([pcImage.blob]);
+    expect(sent).toEqual([]);
+  });
+
+  it('sends an image copied on the device and skips the PC echo of it', async () => {
+    const { remote, sent, device, document, pcImage, service } = await setup();
+    await drain(service);
+    const image = new Blob(['bildschirmfoto'], { type: 'image/png' });
+    device.text = image;
+    document.returnToApp();
+    // Die Meldung des PCs kommt, bevor die Antwort auf das Senden da ist.
+    remote.pcClipboard.set({ type: 'clipboard', imageId: '9' });
+    TestBed.tick();
+    await drain(service);
+
+    expect(sent).toEqual([image]);
+    expect(pcImage.reads).toBe(0);
+  });
+
+  it('does not send a pasted image again when returning to the app', async () => {
+    const { sent, device, document, service } = await setup();
+    await drain(service);
+    const pasted = new Blob(['aus dem paste-Ereignis'], { type: 'image/png' });
+    // Dasselbe Bild, wie es clipboard.read() kodiert liefert.
+    device.text = new Blob(['aus clipboard.read'], { type: 'image/png' });
+
+    await service.syncPasted(pasted);
+    document.returnToApp();
+    await drain(service);
+
+    expect(sent).toEqual([pasted]);
+  });
+
+  it('sends pasted content once, also right after connecting', async () => {
+    const { sent, service } = await setup();
+    await settle();
+
+    await service.syncPasted('eingefügt');
+    await service.syncPasted('eingefügt');
+
+    expect(sent).toEqual(['eingefügt']);
   });
 
   it('does nothing while sync is switched off', async () => {

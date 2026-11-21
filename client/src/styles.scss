@@ -1284,6 +1284,11 @@ h2 {
   outline: none;
 }
 
+.screen-view--dropping .screen-view__stage {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
 // Mit Fokus gehen Tasten der echten Tastatur an den PC (nur mit Maus sichtbar, am Handy egal).
 @media (hover: hover) and (pointer: fine) {
   .screen-view__stage:focus {

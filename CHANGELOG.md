@@ -21,6 +21,24 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Desktop use of the "Bildschirm" tab: with the new "Zwischenablage" switch in its toolbar (the
+  same setting as "Zwischenablage automatisch abgleichen", HTTPS and a Chromium browser needed),
+  the clipboard is shared with the PC like in a remote desktop app, now also for images in both
+  directions. Ctrl+V (and Ctrl+Shift+V) in the picture first sends what this device copied,
+  including files copied in the Explorer, which are uploaded and pasted on a Windows PC. Files dragged onto the picture are
+  uploaded and put on the PC's clipboard, so Ctrl+V pastes them into any folder or chat there.
+
+### Fixed
+
+- The "Bildschirm" tab on a desktop: "Leistung", "Ausgeglichen" and "Qualität" gave the same
+  blurry picture, because the resolution was capped at the screen's pixel density (1 on most
+  monitors) and the video at 1080p. Each level now asks for more pixels than the view, and a
+  computer with a mouse gets up to the PC's full resolution with a matching bitrate.
+
+## [2.66.4] - 2026-11-21
+
 ### Fixed
 
 - The lock-screen/UAC service now comes back after an app update. Velopack ended it right after

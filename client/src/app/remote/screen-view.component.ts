@@ -9,11 +9,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
+import { ClipboardSyncService } from './clipboard-sync.service';
+import { ClipboardService } from './clipboard.service';
 import { keepScreenAwake } from './device';
-import { FILE_SAVER } from './file-transfer.service';
+import { FILE_SAVER, FileTransferService } from './file-transfer.service';
 import { keyLabel, liveTextActions, physicalKeyAction } from './keyboard-keys';
 import { REMOTE_ICON_PATHS } from './remote-icons';
-import { ScreenMonitor } from './remote.models';
+import { KeyboardAction, RemoteAction, ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_QUALITIES, ScreenQuality } from './server-config';
 import { distance, Point } from './screen-gestures';
@@ -38,8 +40,10 @@ const SCREENSHOT_QUALITY = 95;
 const PARALLEL_REQUESTS = 2;
 const FRAME_INTERVAL_MS = 33;
 const RETRY_MS = 1000;
-// Pixeldichte (hoechstens so viel wie das Geraet hat), JPEG-Qualitaet und Video-Bitrate je
-// Einstellung; mehr als 1,5-fach sieht man auf dem Handy kaum, es kostet aber WLAN.
+// Bildpixel je Pixel der Ansicht, JPEG-Qualitaet und Video-Bitrate je Einstellung. Bewusst nicht
+// auf die Pixeldichte des Geraets begrenzt: H.264 und JPEG speichern Farbe nur in halber
+// Aufloesung, erst mit mehr Pixeln als die Ansicht bleibt farbige Schrift scharf. Mit der Grenze
+// lieferten alle drei Einstellungen am Desktop (Pixeldichte 1) dasselbe unscharfe Bild.
 const SCREEN_PROFILES: Readonly<
   Record<ScreenQuality, { pixelRatio: number; jpegQuality: number; videoKbps: number }>
 > = {
@@ -47,8 +51,13 @@ const SCREEN_PROFILES: Readonly<
   balanced: { pixelRatio: 1.5, jpegQuality: 70, videoKbps: 8000 },
   quality: { pixelRatio: 3, jpegQuality: 85, videoKbps: 16000 },
 };
-// Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2).
-const MAX_VIDEO_WIDTH = 1920;
+// Breiter als 1080p dekodieren manche Handys H.264 nicht mehr fluessig (Level 4.2). Ein Rechner
+// mit Maus schafft die volle Breite des PCs, die der Server ohnehin auf dessen Monitor begrenzt.
+// ponytail: Maus = Desktop; ein Handy mit Maus bekaeme auch die volle Breite.
+const MAX_PHONE_VIDEO_WIDTH = 1920;
+const MAX_DESKTOP_VIDEO_WIDTH = 3840;
+// Obergrenze des Servers (ScreenEndpoints.MaxBitrateKbps).
+const MAX_VIDEO_KBPS = 40000;
 
 // Ab dieser Strecke wird aus einem Tipp ein Ziehen.
 const DRAG_THRESHOLD_PX = 8;
@@ -85,6 +94,21 @@ const ARROWS: Readonly<Record<string, string>> = { LEFT: '←', UP: '↑', DOWN:
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// So lange bleibt ein Hinweis zu Dateien oder Zwischenablage stehen.
+const STATUS_MS = 5000;
+// Strg+Umschalt+V fuegt in vielen Programmen ohne Formatierung ein.
+const PASTE_SHORTCUTS = ['CTRL+V', 'CTRL+SHIFT+V'];
+
+function isPasteShortcut(action: RemoteAction): action is KeyboardAction {
+  return action.type === 'hotkey' && PASTE_SHORTCUTS.includes(action.keys.join('+'));
+}
+
+// ponytail: Chrome nennt ein eingefuegtes Bild (Bildschirmfoto, "Bild kopieren") "image.png";
+// eine kopierte Datei gleichen Namens geht deshalb als Bild statt als Datei an den PC.
+function isPastedBitmap(files: readonly File[]): boolean {
+  return files.length === 1 && files[0].type === 'image/png' && files[0].name === 'image.png';
+}
+
 @Component({
   selector: 'app-screen-view',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -92,6 +116,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
   host: {
     '(document:fullscreenchange)': 'onFullscreenChange()',
     '(document:visibilitychange)': 'onVisibilityChange()',
+    '(document:paste)': 'onPaste($event)',
   },
 })
 export class ScreenViewComponent implements OnDestroy {
@@ -102,7 +127,23 @@ export class ScreenViewComponent implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly createAudioContext = inject(SCREEN_AUDIO_CONTEXT_FACTORY);
   private readonly videoPlayer = inject(SCREEN_VIDEO_PLAYER);
+  private readonly clipboardSync = inject(ClipboardSyncService);
+  private readonly clipboard = inject(ClipboardService);
+  private readonly fileTransfer = inject(FileTransferService);
   protected readonly iconPaths = REMOTE_ICON_PATHS;
+  protected readonly clipboardSyncSupported = this.remote.clipboardSyncSupported;
+  protected readonly clipboardSyncOn = computed(
+    () => this.remote.clipboardSync() && this.clipboardSync.available(),
+  );
+  protected readonly uploadProgress = this.fileTransfer.uploadProgress;
+  protected readonly dropping = signal(false);
+  protected readonly status = signal<string | null>(null);
+  private statusTimer: ReturnType<typeof setTimeout> | null = null;
+  // Strg+V, bis das paste-Ereignis des Browsers zeigt, was am Geraet kopiert ist.
+  private pendingPaste: KeyboardAction | null = null;
+  // Solange Strg+V erst abgleicht, warten spaetere Tasten dahinter; sonst gehen sie sofort raus.
+  private keysBehind: Promise<void> | null = null;
+  private fileQueue: Promise<unknown> = Promise.resolve();
 
   // Ein eigenes Standbild in voller Breite und hoher Qualitaet, unabhaengig vom laufenden Strom.
   protected async saveScreenshot(): Promise<void> {
@@ -122,6 +163,10 @@ export class ScreenViewComponent implements OnDestroy {
   // Auf dem iPhone gibt es kein Element-Vollbild; dort fuellt die Ansicht per CSS den sichtbaren
   // Bereich (.screen-view--fullscreen), und fullscreen() steht fuer beides.
   protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
+  private readonly maxVideoWidth =
+    this.document.defaultView?.matchMedia?.('(pointer: fine)').matches === true
+      ? MAX_DESKTOP_VIDEO_WIDTH
+      : MAX_PHONE_VIDEO_WIDTH;
   protected readonly monitors = signal<readonly ScreenMonitor[]>([]);
   protected readonly frame = signal<string | null>(null);
   protected readonly videoShown = signal(false);
@@ -210,6 +255,9 @@ export class ScreenViewComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.stopped = true;
     clearInterval(this.stallTimer);
+    if (this.statusTimer !== null) {
+      clearTimeout(this.statusTimer);
+    }
     const video = this.video().nativeElement;
     video.removeAttribute('src');
     video.load();
@@ -278,14 +326,15 @@ export class ScreenViewComponent implements OnDestroy {
       const abort = new AbortController();
       this.videoAbort = abort;
       const profile = SCREEN_PROFILES[this.quality()];
-      const pixelRatio = Math.min(
-        profile.pixelRatio,
-        this.document.defaultView?.devicePixelRatio ?? 1,
+      const width = Math.min(this.maxVideoWidth, this.viewWidth() * profile.pixelRatio);
+      // Die Bitraten gelten fuer bis zu 1080p; mehr Pixel brauchen beim Scrollen mehr Bitrate.
+      const kbps = Math.min(
+        MAX_VIDEO_KBPS,
+        Math.round(profile.videoKbps * Math.max(1, (width / MAX_PHONE_VIDEO_WIDTH) ** 2)),
       );
-      const width = Math.min(MAX_VIDEO_WIDTH, this.viewWidth() * pixelRatio);
       const stream = await this.remote.openScreenVideo(
         width,
-        profile.videoKbps,
+        kbps,
         abort.signal,
         this.remote.screenMonitor(),
       );
@@ -390,13 +439,9 @@ export class ScreenViewComponent implements OnDestroy {
       }
 
       const profile = SCREEN_PROFILES[this.quality()];
-      const pixelRatio = Math.min(
-        profile.pixelRatio,
-        this.document.defaultView?.devicePixelRatio ?? 1,
-      );
       const sequence = ++this.requested;
       const result = await this.remote.readScreen(
-        this.viewWidth() * pixelRatio,
+        this.viewWidth() * profile.pixelRatio,
         profile.jpegQuality,
         this.remote.screenMonitor(),
         this.jpegAbort.signal,
@@ -752,16 +797,174 @@ export class ScreenViewComponent implements OnDestroy {
 
     this.winAlone = false;
     const action = physicalKeyAction(event);
-    if (action !== null) {
-      event.preventDefault();
-      this.remote.sendAction(action);
+    if (action === null) {
+      return;
     }
+
+    // Mit Abgleich nicht abfangen: erst das paste-Ereignis liefert, was am Geraet kopiert ist,
+    // auch Bilder und Dateien, ohne Rueckfrage. Kommt keins, geht Strg+V gleich so raus.
+    if (isPasteShortcut(action) && this.clipboardSync.active()) {
+      this.pendingPaste = action;
+      setTimeout(() => {
+        if (this.pendingPaste === action) {
+          this.pendingPaste = null;
+          this.sendKeys(action);
+        }
+      });
+      return;
+    }
+
+    event.preventDefault();
+    this.sendKeys(action);
   }
 
   protected onStageKeyup(event: KeyboardEvent): void {
     if ((event.key === 'Meta' || event.key === 'OS') && this.winAlone) {
       this.winAlone = false;
-      this.remote.sendAction({ type: 'key', keys: ['WIN'] });
+      this.sendKeys({ type: 'key', keys: ['WIN'] });
+    }
+  }
+
+  private sendKeys(action: RemoteAction): void {
+    if (this.keysBehind === null) {
+      this.remote.sendAction(action);
+    } else {
+      this.queueKeys(async () => {
+        this.remote.sendAction(action);
+      });
+    }
+  }
+
+  private queueKeys(task: () => Promise<void>): void {
+    const run = (this.keysBehind ?? Promise.resolve()).then(task).catch(() => undefined);
+    this.keysBehind = run;
+    void run.then(() => {
+      if (this.keysBehind === run) {
+        this.keysBehind = null;
+      }
+    });
+  }
+
+  // Erst den Inhalt des Geraets an den PC, dann Strg+V - wie eine gemeinsame Zwischenablage.
+  protected onPaste(event: ClipboardEvent): void {
+    const action = this.pendingPaste;
+    if (action === null) {
+      return;
+    }
+
+    this.pendingPaste = null;
+    event.preventDefault();
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    const files = Array.from(event.clipboardData?.files ?? []);
+    this.queueKeys(async () => {
+      if (text === '' && files.length > 0 && !isPastedBitmap(files)) {
+        // Im Explorer kopierte Dateien: hochladen und am PC in die Zwischenablage legen. Das kann
+        // nur der Windows-Server; sonst bliebe jedes Strg+V ein neuer Upload ohne Einfuegen.
+        if (
+          this.remote.serverPlatform() === 'windows' &&
+          this.clipboardSync.deviceFilesChanged(files)
+        ) {
+          if (!(await this.queueFiles(files, true))) {
+            return;
+          }
+          this.clipboardSync.noteDeviceFiles(files);
+        }
+      } else {
+        await this.clipboardSync.syncPasted(text || (files[0] ?? ''));
+      }
+      this.remote.sendAction(action);
+    });
+  }
+
+  protected toggleClipboardSync(): void {
+    if (this.clipboardSync.available()) {
+      this.remote.saveClipboardSync(!this.remote.clipboardSync());
+    } else {
+      this.showStatus(
+        this.clipboardSync.secureContextAvailable
+          ? 'settings.clipboardSync.browserUnsupported'
+          : 'settings.clipboardSync.httpsHint',
+      );
+    }
+  }
+
+  // Ohne preventDefault oeffnet der Browser eine fallengelassene Datei selbst und verlaesst die App.
+  protected onDragOver(event: DragEvent): void {
+    if (event.dataTransfer?.types.includes('Files')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+      this.dropping.set(true);
+    }
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    if (!this.view().nativeElement.contains(event.relatedTarget as Node | null)) {
+      this.dropping.set(false);
+    }
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.dropping.set(false);
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length > 0) {
+      void this.queueFiles(files, false);
+    }
+  }
+
+  private queueFiles(files: readonly File[], paste: boolean): Promise<boolean> {
+    const run = this.fileQueue.then(() => this.sendFiles(files, paste));
+    this.fileQueue = run;
+    return run;
+  }
+
+  // In den Empfangsordner des PCs und dort in die Zwischenablage, so fuegt Strg+V sie in jeden
+  // Ordner oder Chat ein. Nur der Windows-Server kann Dateien in die Zwischenablage legen.
+  private async sendFiles(files: readonly File[], paste: boolean): Promise<boolean> {
+    const names: string[] = [];
+    for (const [index, file] of files.entries()) {
+      this.showStatus(
+        'screen.files.sending',
+        { name: file.name, current: index + 1, total: files.length },
+        false,
+      );
+      const result = await this.fileTransfer.sendFile(file);
+      if (!result.success || !result.fileName) {
+        this.showStatus('screen.files.failed', { name: file.name });
+        return false;
+      }
+      names.push(result.fileName);
+    }
+
+    const copied =
+      this.remote.serverPlatform() === 'windows' &&
+      (await this.clipboard.sendFiles(names)).success;
+    if (paste && copied) {
+      this.showStatus(null);
+    } else {
+      this.showStatus(copied ? 'screen.files.ready' : 'screen.files.saved', {
+        count: names.length,
+      });
+    }
+    return copied;
+  }
+
+  private showStatus(
+    key: string | null,
+    params?: Record<string, string | number>,
+    autoHide = true,
+  ): void {
+    if (this.statusTimer !== null) {
+      clearTimeout(this.statusTimer);
+      this.statusTimer = null;
+    }
+
+    this.status.set(key === null ? null : this.i18n.t(key, params));
+    if (key !== null && autoHide) {
+      this.statusTimer = setTimeout(() => {
+        this.statusTimer = null;
+        this.status.set(null);
+      }, STATUS_MS);
     }
   }
 

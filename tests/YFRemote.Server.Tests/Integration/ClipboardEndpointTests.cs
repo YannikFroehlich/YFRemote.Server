@@ -45,6 +45,7 @@ public sealed class ClipboardEndpointTests
                 $"PairingStorage:DevicesFilePath={Path.Combine(testDirectory, "devices.json")}",
                 $"Diagnostics:LogDirectory={Path.Combine(testDirectory, "Logs")}",
                 $"UserSettings:FilePath={Path.Combine(testDirectory, "settings.json")}",
+                $"FileTransfer:TargetDirectory={Path.Combine(testDirectory, "Empfangen")}",
                 "Clipboard:MaxTextLength=20",
                 "Clipboard:MaxImageSizeBytes=1024"
             ],
@@ -142,6 +143,54 @@ public sealed class ClipboardEndpointTests
     }
 
     [TestMethod]
+    public async Task SendImage_ReturnsTheImageIdTheSyncPushWillCarry()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.ImageIdToReturn = "42";
+
+        var response = await PostImageAsync([1, 2, 3], token);
+        var body = await response.Content.ReadFromJsonAsync<ClipboardResponse>(JsonOptions);
+
+        Assert.AreEqual("42", body!.ImageId);
+    }
+
+    [TestMethod]
+    public async Task SendFiles_WithReceivedFile_PutsItsPathOnTheClipboard()
+    {
+        var token = await PairAndGetTokenAsync();
+        var folder = Directory.CreateDirectory(Path.Combine(testDirectory, "Empfangen")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(folder, "bericht.pdf"), "x");
+
+        var response = await PostFilesAsync("""{"names":["bericht.pdf"]}""", token);
+
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        CollectionAssert.AreEqual(new[] { Path.Combine(folder, "bericht.pdf") }, fakeClipboard.LastFiles!.ToArray());
+    }
+
+    [TestMethod]
+    public async Task SendFiles_WithNameOutsideTheReceiveFolder_IsNotFound()
+    {
+        var token = await PairAndGetTokenAsync();
+        Directory.CreateDirectory(Path.Combine(testDirectory, "Empfangen"));
+        await File.WriteAllTextAsync(Path.Combine(testDirectory, "devices-kopie.json"), "x");
+
+        var response = await PostFilesAsync("""{"names":["..\\devices-kopie.json"]}""", token);
+
+        Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.IsNull(fakeClipboard.LastFiles);
+    }
+
+    [TestMethod]
+    public async Task SendFiles_WithoutNames_ReturnsBadRequest()
+    {
+        var token = await PairAndGetTokenAsync();
+
+        var response = await PostFilesAsync("""{"names":[]}""", token);
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [TestMethod]
     public async Task SendImage_ExceedingConfiguredMaxSize_ReturnsPayloadTooLarge()
     {
         var token = await PairAndGetTokenAsync();
@@ -213,6 +262,21 @@ public sealed class ClipboardEndpointTests
         await GetTextAsync(token);
 
         CollectionAssert.AreEqual(new[] { "Testgerät" }, notifiedDevices);
+    }
+
+    [TestMethod]
+    public async Task ReadText_FromDeviceWithSyncAnnounced_DoesNotNotifyAgain()
+    {
+        var token = await PairAndGetTokenAsync();
+        fakeClipboard.TextToReturn = "Hallo vom PC";
+        var notifier = app.Services.GetRequiredService<ClipboardReadNotifier>();
+        var notifiedDevices = new List<string>();
+        notifier.Read += notifiedDevices.Add;
+        notifier.NotifySyncEnabled("Testgerät");
+
+        await GetTextAsync(token);
+
+        Assert.AreEqual(0, notifiedDevices.Count);
     }
 
     [TestMethod]
@@ -402,6 +466,18 @@ public sealed class ClipboardEndpointTests
         form.Add(filePart, "file", "bild.png");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/clipboard/image") { Content = form };
+        request.Headers.Add("Origin", baseUrl);
+        if (token is not null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
+        return await httpClient.SendAsync(request);
+    }
+
+    private async Task<HttpResponseMessage> PostFilesAsync(string json, string? token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/clipboard/files") { Content = JsonBody(json) };
         request.Headers.Add("Origin", baseUrl);
         if (token is not null)
         {

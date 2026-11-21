@@ -1,6 +1,9 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ClipboardSyncService } from './clipboard-sync.service';
+import { ClipboardService } from './clipboard.service';
+import { FileTransferService } from './file-transfer.service';
 import { ScreenMonitor } from './remote.models';
 import { RemoteService } from './remote.service';
 import { SCREEN_AUDIO_CONTEXT_FACTORY } from './screen-audio';
@@ -45,6 +48,18 @@ describe('ScreenViewComponent', () => {
       createBuffer: vi.fn(),
       createBufferSource: vi.fn(),
     };
+    const clipboardSync = {
+      active: signal(false),
+      available: signal(true),
+      secureContextAvailable: true,
+      syncPasted: vi.fn(async (_content: string | Blob) => undefined),
+      deviceFilesChanged: vi.fn(() => true),
+      noteDeviceFiles: vi.fn(),
+    };
+    const sendFiles = vi.fn(async (_names: readonly string[]) => ({ success: true }));
+    const sendFile = vi.fn(async (file: File) => ({ success: true, fileName: file.name }));
+    const clipboardSyncSetting = signal(false);
+    const serverPlatform = signal<'windows' | 'linux'>('windows');
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
@@ -70,7 +85,17 @@ describe('ScreenViewComponent', () => {
             touchAvailable,
             screenTouch,
             saveScreenTouch: (enabled: boolean) => screenTouch.set(enabled),
+            clipboardSyncSupported: signal(true),
+            clipboardSync: clipboardSyncSetting,
+            saveClipboardSync: (enabled: boolean) => clipboardSyncSetting.set(enabled),
+            serverPlatform,
           },
+        },
+        { provide: ClipboardSyncService, useValue: clipboardSync },
+        { provide: ClipboardService, useValue: { sendFiles } },
+        {
+          provide: FileTransferService,
+          useValue: { sendFile, uploadProgress: signal<number | null>(null) },
         },
         { provide: SCREEN_AUDIO_CONTEXT_FACTORY, useValue: () => context },
         { provide: SCREEN_VIDEO_PLAYER, useValue: video?.player ?? null },
@@ -92,6 +117,11 @@ describe('ScreenViewComponent', () => {
       context,
       touchAvailable,
       screenTouch,
+      clipboardSync,
+      clipboardSyncSetting,
+      serverPlatform,
+      sendFiles,
+      sendFile,
       element: fixture.nativeElement as HTMLElement,
     };
   }
@@ -152,6 +182,60 @@ describe('ScreenViewComponent', () => {
     expect(readScreen).not.toHaveBeenCalled();
     fixture.destroy();
     expect(signal!.aborted).toBe(true);
+  });
+
+  describe('video width per quality', () => {
+    async function widthsFor(desktop: boolean) {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: desktop && query === '(pointer: fine)',
+      }));
+      const play = vi.fn(
+        (
+          _body: ReadableStream<Uint8Array<ArrayBuffer>>,
+          _video: HTMLVideoElement,
+          _codec: string,
+          abort: AbortSignal,
+          onFrame: () => void,
+        ) => {
+          onFrame();
+          return new Promise<void>((resolve) => abort.addEventListener('abort', () => resolve()));
+        },
+      );
+      const { fixture, openScreenVideo, element } = await setup(null, null, {
+        player: { play },
+        stream: { body: new ReadableStream(), codec: 'avc1.4d002a' },
+      });
+      const view = element.querySelector('.screen-view')!;
+      Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1000 });
+      const select = element.querySelector<HTMLSelectElement>('.screen-view__quality')!;
+      const requests: [number, number][] = [];
+      for (const quality of ['performance', 'balanced', 'quality']) {
+        const calls = openScreenVideo.mock.calls.length;
+        select.value = quality;
+        select.dispatchEvent(new Event('change'));
+        await vi.waitFor(() => expect(openScreenVideo.mock.calls.length).toBeGreaterThan(calls));
+        const [width, kbps] = openScreenVideo.mock.calls.at(-1)!;
+        requests.push([width, kbps]);
+      }
+      fixture.destroy();
+      return requests;
+    }
+
+    it('differs per setting on a desktop and goes beyond 1080p there', async () => {
+      expect(await widthsFor(true)).toEqual([
+        [1000, 4000],
+        [1500, 8000],
+        [3000, 39063],
+      ]);
+    });
+
+    it('stays at 1080p on a phone', async () => {
+      expect(await widthsFor(false)).toEqual([
+        [1000, 4000],
+        [1500, 8000],
+        [1920, 16000],
+      ]);
+    });
   });
 
   it('falls back to JPEG when the server sends no video', async () => {
@@ -438,6 +522,180 @@ describe('ScreenViewComponent', () => {
       [{ type: 'hotkey', keys: ['WIN', 'E'] }],
     ]);
     fixture.destroy();
+  });
+
+  describe('clipboard and files', () => {
+    const ctrlV = { type: 'hotkey', keys: ['CTRL', 'V'] };
+
+    function pressCtrlV(stage: HTMLElement): boolean {
+      const event = new KeyboardEvent('keydown', {
+        key: 'v',
+        code: 'KeyV',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      stage.dispatchEvent(event);
+      return event.defaultPrevented;
+    }
+
+    // jsdom kennt weder ClipboardEvent noch DataTransfer.
+    function paste(text: string, files: File[] = []): Event {
+      const event = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', {
+        value: { getData: () => text, files },
+      });
+      document.dispatchEvent(event);
+      return event;
+    }
+
+    it('sends what the device copied before Ctrl+V, and later keys after it', async () => {
+      const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
+      clipboardSync.active.set(true);
+      let finishSync = () => {};
+      clipboardSync.syncPasted.mockImplementation(
+        () => new Promise<undefined>((resolve) => (finishSync = () => resolve(undefined))),
+      );
+
+      expect(pressCtrlV(stage)).toBe(false);
+      expect(paste('vom Gerät').defaultPrevented).toBe(true);
+      stage.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await Promise.resolve();
+      expect(sendAction).not.toHaveBeenCalled();
+
+      finishSync();
+      await vi.waitFor(() =>
+        expect(sendAction.mock.calls).toEqual([[ctrlV], [{ type: 'key', keys: ['ENTER'] }]]),
+      );
+      expect(clipboardSync.syncPasted).toHaveBeenCalledWith('vom Gerät');
+      fixture.destroy();
+    });
+
+    it('sends Ctrl+V on its own when the browser fires no paste event', async () => {
+      const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
+      clipboardSync.active.set(true);
+
+      pressCtrlV(stage);
+      await vi.waitFor(() => expect(sendAction.mock.calls).toEqual([[ctrlV]]));
+      expect(clipboardSync.syncPasted).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('leaves Ctrl+V alone while the clipboard is not shared', async () => {
+      const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
+
+      expect(pressCtrlV(stage)).toBe(true);
+      expect(sendAction.mock.calls).toEqual([[ctrlV]]);
+      expect(paste('vom Gerät').defaultPrevented).toBe(false);
+      expect(clipboardSync.syncPasted).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('uploads files copied on the device and pastes them on the PC', async () => {
+      const { fixture, sendAction, stage, clipboardSync, sendFile, sendFiles } =
+        await setupGestures();
+      clipboardSync.active.set(true);
+      const file = new File(['x'], 'bericht.pdf');
+
+      pressCtrlV(stage);
+      paste('', [file]);
+
+      await vi.waitFor(() => expect(sendAction.mock.calls).toEqual([[ctrlV]]));
+      expect(sendFile).toHaveBeenCalledWith(file);
+      expect(sendFiles).toHaveBeenCalledWith(['bericht.pdf']);
+      expect(clipboardSync.noteDeviceFiles).toHaveBeenCalledWith([file]);
+      expect(clipboardSync.syncPasted).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('syncs before Ctrl+Shift+V too', async () => {
+      const { fixture, sendAction, stage, clipboardSync } = await setupGestures();
+      clipboardSync.active.set(true);
+      const event = new KeyboardEvent('keydown', {
+        key: 'V',
+        code: 'KeyV',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      stage.dispatchEvent(event);
+      paste('ohne Format');
+
+      expect(event.defaultPrevented).toBe(false);
+      await vi.waitFor(() =>
+        expect(sendAction.mock.calls).toEqual([[{ type: 'hotkey', keys: ['CTRL', 'SHIFT', 'V'] }]]),
+      );
+      expect(clipboardSync.syncPasted).toHaveBeenCalledWith('ohne Format');
+      fixture.destroy();
+    });
+
+    it('pastes copied files only through a Windows server, without uploading them elsewhere', async () => {
+      const { fixture, sendAction, stage, clipboardSync, sendFile, serverPlatform } =
+        await setupGestures();
+      clipboardSync.active.set(true);
+      serverPlatform.set('linux');
+
+      pressCtrlV(stage);
+      paste('', [new File(['x'], 'bericht.pdf')]);
+
+      await vi.waitFor(() => expect(sendAction.mock.calls).toEqual([[ctrlV]]));
+      expect(sendFile).not.toHaveBeenCalled();
+      expect(clipboardSync.syncPasted).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('sends a pasted screenshot as an image, not as a file', async () => {
+      const { fixture, stage, clipboardSync, sendFile } = await setupGestures();
+      clipboardSync.active.set(true);
+      const image = new File(['png'], 'image.png', { type: 'image/png' });
+
+      pressCtrlV(stage);
+      paste('', [image]);
+
+      await vi.waitFor(() => expect(clipboardSync.syncPasted).toHaveBeenCalledWith(image));
+      expect(sendFile).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
+
+    it('uploads dropped files and puts them on the PC clipboard', async () => {
+      const { fixture, element, sendFile, sendFiles } = await setupGestures();
+      const view = element.querySelector<HTMLElement>('.screen-view')!;
+      const file = new File(['x'], 'foto.jpg');
+      const drag = (type: string) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'dataTransfer', {
+          value: { types: ['Files'], files: [file], dropEffect: 'none' },
+        });
+        view.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+
+      expect(drag('dragover')).toBe(true);
+      fixture.detectChanges();
+      expect(view.classList).toContain('screen-view--dropping');
+      expect(drag('drop')).toBe(true);
+
+      await vi.waitFor(() => expect(sendFiles).toHaveBeenCalledWith(['foto.jpg']));
+      expect(sendFile).toHaveBeenCalledWith(file);
+      fixture.detectChanges();
+      expect(view.classList).not.toContain('screen-view--dropping');
+      expect(element.textContent).toContain('Strg+V');
+      fixture.destroy();
+    });
+
+    it('switches the shared clipboard from the toolbar', async () => {
+      const { fixture, element, clipboardSyncSetting } = await setupGestures();
+      const button = [...element.querySelectorAll<HTMLButtonElement>('.snap-switch')].find(
+        (candidate) => candidate.textContent?.includes('Zwischenablage'),
+      )!;
+
+      button.click();
+
+      expect(clipboardSyncSetting()).toBe(true);
+      fixture.destroy();
+    });
   });
 
   it('moves the PC pointer while a pen hovers, also with the side button', async () => {
@@ -962,7 +1220,8 @@ describe('ScreenViewComponent', () => {
       Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1600 });
 
       await enterFullscreen(element);
-      await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[0]).toBe(1600));
+      // "Ausgeglichen": anderthalbfach, auch an einem Bildschirm mit Pixeldichte 1.
+      await vi.waitFor(() => expect(readScreen.mock.calls.at(-1)?.[0]).toBe(2400));
       fixture.destroy();
     });
 

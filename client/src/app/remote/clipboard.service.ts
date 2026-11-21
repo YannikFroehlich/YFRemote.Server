@@ -56,10 +56,14 @@ export const CLIPBOARD_AUTO_SYNC_PROBE = new InjectionToken<() => Promise<boolea
   },
 );
 
-export type DeviceClipboardReader = () => Promise<string>;
+/** Text, oder ein Bild als PNG; `''` bei leerer Zwischenablage. */
+export type DeviceClipboardContent = string | Blob;
+
+export type DeviceClipboardReader = () => Promise<DeviceClipboardContent>;
 
 /** `null` wie beim Schreiben. Safari und Firefox kennen die Berechtigung `clipboard-read` nicht;
- *  dort scheitert das Lesen bewusst, statt bei jeder Rückkehr in die App nachzufragen. */
+ *  dort scheitert das Lesen bewusst, statt bei jeder Rückkehr in die App nachzufragen. Text geht
+ *  vor, wie am PC (`GET /clipboard/text` vor `/clipboard/image`). */
 export const DEVICE_CLIPBOARD_READER = new InjectionToken<DeviceClipboardReader | null>(
   'DEVICE_CLIPBOARD_READER',
   {
@@ -78,7 +82,19 @@ export const DEVICE_CLIPBOARD_READER = new InjectionToken<DeviceClipboardReader 
         if (permission.state === 'denied') {
           throw new Error('clipboard-read denied');
         }
-        return clipboard.readText();
+        if (!clipboard.read) {
+          return clipboard.readText();
+        }
+
+        for (const item of await clipboard.read()) {
+          if (item.types.includes('text/plain')) {
+            return (await item.getType('text/plain')).text();
+          }
+          if (item.types.includes('image/png')) {
+            return item.getType('image/png');
+          }
+        }
+        return '';
       };
     },
   },
@@ -87,6 +103,8 @@ export const DEVICE_CLIPBOARD_READER = new InjectionToken<DeviceClipboardReader 
 export interface ClipboardSendResult {
   readonly success: boolean;
   readonly error?: string;
+  /** Nach `sendImage`: die Kennung, mit der der Abgleich des PCs das Bild zurückmeldet. */
+  readonly imageId?: string;
 }
 
 export interface ClipboardReadResult {
@@ -107,6 +125,7 @@ interface ClipboardResponseBody {
   readonly success: boolean;
   readonly error?: string | null;
   readonly text?: string | null;
+  readonly imageId?: string | null;
 }
 
 @Injectable({
@@ -127,11 +146,23 @@ export class ClipboardService {
     );
   }
 
-  async sendImage(file: File): Promise<ClipboardSendResult> {
+  async sendImage(image: Blob): Promise<ClipboardSendResult> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', image, image instanceof File ? image.name : 'clipboard.png');
 
-    return toSendResult(await this.request('/clipboard/image', { method: 'POST', body: formData }));
+    const body = await this.request('/clipboard/image', { method: 'POST', body: formData });
+    return body.success && body.imageId ? { success: true, imageId: body.imageId } : toSendResult(body);
+  }
+
+  /** Legt schon gesendete Dateien (Namen aus `POST /files`) in die PC-Zwischenablage. */
+  async sendFiles(names: readonly string[]): Promise<ClipboardSendResult> {
+    return toSendResult(
+      await this.request('/clipboard/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names }),
+      }),
+    );
   }
 
   async readText(): Promise<ClipboardReadResult> {

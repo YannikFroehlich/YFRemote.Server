@@ -147,6 +147,28 @@ describe('ClipboardService', () => {
     expect(fakeFetch.calls[0].init?.body).toBeInstanceOf(FormData);
   });
 
+  it('returns the image id the PC answers for a sent image', async () => {
+    const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
+    fakeFetch.queueJson({ success: true, imageId: '42' });
+
+    const result = await clipboard.sendImage(new Blob(['x'], { type: 'image/png' }));
+
+    expect(result).toEqual({ success: true, imageId: '42' });
+    const file = (fakeFetch.calls[0].init?.body as FormData).get('file') as File;
+    expect(file.name).toBe('clipboard.png');
+  });
+
+  it('puts received files on the PC clipboard by name', async () => {
+    const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
+    fakeFetch.queueJson({ success: true });
+
+    const result = await clipboard.sendFiles(['bericht.pdf']);
+
+    expect(result).toEqual({ success: true });
+    expect(fakeFetch.calls[0].url).toBe('http://192.168.1.44:5050/clipboard/files');
+    expect(fakeFetch.calls[0].init?.body).toBe(JSON.stringify({ names: ['bericht.pdf'] }));
+  });
+
   it('surfaces the server error when the request is rejected', async () => {
     const { clipboard, fakeFetch } = setupClipboardService({ storedToken: 'tok-123' });
     fakeFetch.queueJson({ success: false, error: 'Text must not be empty.' }, 400);

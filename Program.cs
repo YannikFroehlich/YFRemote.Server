@@ -69,6 +69,8 @@ internal static class Program
             {
                 if (WindowsSecureDesktop.IsServiceInstalled())
                 {
+                    // Auch fuer Dienste, die vor dieser Einstellung eingerichtet wurden.
+                    WindowsSecureDesktop.ConfigureRestartOnFailure();
                     WindowsSecureDesktop.Start();
                 }
             })

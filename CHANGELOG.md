@@ -23,6 +23,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- The lock-screen/UAC service now comes back after an app update. Velopack ended it right after
+  the update, and it stayed off until the next restart of Windows.
+
+## [2.66.3] - 2026-11-21
+
+### Fixed
+
 - With the lock-screen/UAC service set up, the mouse can now be moved over administrator windows such
   as the Task Manager. Before, the pointer stood still, and a click hit the old position, which often
   minimized the Task Manager through its taskbar button.

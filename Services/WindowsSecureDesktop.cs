@@ -110,6 +110,7 @@ public static class WindowsSecureDesktop
         var binaryPath = $"\\\"{ExecutablePath}\\\" {ServiceArgument} {allowedSid}";
         return RunServiceControl($"create {ServiceName} binPath= \"{binaryPath}\" start= auto DisplayName= \"YFRemote Sperrbildschirm und UAC\"") == 0
             && RunServiceControl($"description {ServiceName} \"Zeigt und bedient Sperrbildschirm und UAC-Abfragen fuer gekoppelte YFRemote-Geraete.\"") == 0
+            && ConfigureRestartOnFailure()
             && Start()
             ? 0
             : 1;
@@ -140,6 +141,11 @@ public static class WindowsSecureDesktop
             return false;
         }
     }
+
+    // Velopack beendet nach dem Update-Hook alle Prozesse aus dem Installationsordner, also auch den
+    // gerade gestarteten Dienst (gemessen beim Update auf 2.66.3). Windows startet ihn danach neu.
+    internal static bool ConfigureRestartOnFailure() =>
+        RunServiceControl($"failure {ServiceName} reset= 86400 actions= restart/5000/restart/5000/restart/5000") == 0;
 
     internal static bool Start()
     {

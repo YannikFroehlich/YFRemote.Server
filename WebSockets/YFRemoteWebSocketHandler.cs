@@ -55,7 +55,8 @@ public sealed class YFRemoteWebSocketHandler(
             apps => _ = SendPushAsync(socket, sendLock, apps, client, cancellationToken),
             notification => _ = SendPushAsync(socket, sendLock, notification, client, cancellationToken),
             foreground => _ = SendPushAsync(socket, sendLock, foreground, client, cancellationToken),
-            obs => _ = SendPushAsync(socket, sendLock, obs, client, cancellationToken))
+            obs => _ = SendPushAsync(socket, sendLock, obs, client, cancellationToken),
+            cursor => _ = SendPushAsync(socket, sendLock, cursor, client, cancellationToken))
         {
             DeviceName = deviceName ?? client,
             MediaOnly = mediaOnly

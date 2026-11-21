@@ -29,7 +29,8 @@ public sealed partial class RemoteActionHandler(
     ITouchService? touch = null,
     PollingBroadcaster<ForegroundAppMessage>? foregroundApp = null,
     IObsService? obs = null,
-    PollingBroadcaster<ObsMessage>? obsStatus = null)
+    PollingBroadcaster<ObsMessage>? obsStatus = null,
+    PollingBroadcaster<ScreenCursorMessage>? screenCursor = null)
 {
     private const int MaxShutdownTimerMinutes = 24 * 60;
     private const double MaxSeekSeconds = 24 * 60 * 60;
@@ -109,6 +110,7 @@ public sealed partial class RemoteActionHandler(
                 "powermode" => HandlePowerMode(request),
                 "brightness" => HandleBrightness(request),
                 "obs" => HandleObsWatch(request, session),
+                "screencursor" => HandleScreenCursorWatch(request, session),
                 "obsscene" => HandleObsScene(request),
                 "obsstream" => HandleObsOutput(request, "Stream"),
                 "obsrecord" => HandleObsOutput(request, "Record"),
@@ -828,6 +830,33 @@ public sealed partial class RemoteActionHandler(
         else
         {
             session.ObsSubscription ??= obsStatus.Subscribe(session.PushObs);
+        }
+
+        return RemoteActionResponse.Ok();
+    }
+
+    // Solange die Maus des Geraets ueber dem Bild ist: es bekommt die Zeigerform, und das Bild
+    // laesst den Zeiger weg (WindowsScreenCapture.ReadCursorShape).
+    private RemoteActionResponse HandleScreenCursorWatch(RemoteActionRequest request, RemoteActionSession? session)
+    {
+        if (screenCursor is null || session is null)
+        {
+            return Fail("Screen cursor is not supported.");
+        }
+
+        if (request.Enabled is not { } enabled)
+        {
+            return Fail("Action 'screenCursor' requires enabled.");
+        }
+
+        if (!enabled)
+        {
+            session.ScreenCursorSubscription?.Dispose();
+            session.ScreenCursorSubscription = null;
+        }
+        else
+        {
+            session.ScreenCursorSubscription ??= screenCursor.Subscribe(session.PushScreenCursor);
         }
 
         return RemoteActionResponse.Ok();

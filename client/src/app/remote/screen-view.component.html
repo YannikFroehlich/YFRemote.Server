@@ -183,6 +183,7 @@
     class="screen-view__stage"
     tabindex="0"
     [hidden]="!videoShown() && frame() === null"
+    [style.cursor]="screenCursor()"
     (keydown)="onStageKeydown($event)"
     (keyup)="onStageKeyup($event)"
     (wheel)="onWheel($event)"

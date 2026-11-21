@@ -119,6 +119,7 @@ function isPastedBitmap(files: readonly File[]): boolean {
 })
 export class ScreenViewComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  protected readonly screenCursor = this.remote.screenCursor;
   private readonly saveFile = inject(FILE_SAVER);
   protected readonly i18n = inject(TranslationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -263,6 +264,7 @@ export class ScreenViewComponent implements OnDestroy {
     this.jpegAbort.abort();
     this.endDrag();
     this.releaseMouse();
+    this.remote.watchScreenCursor(false);
     this.liftAllTouches();
     if (this.scrollFrame !== null) {
       cancelAnimationFrame(this.scrollFrame);
@@ -716,6 +718,9 @@ export class ScreenViewComponent implements OnDestroy {
   // Maus am Geraet: der Zeiger am PC folgt ihr auch ohne gedrueckte Taste, und jede Taste geht
   // einzeln an den PC - so klappen Doppelklick, Ziehen und die mittlere Taste wie direkt am PC.
   private mouseInput(event: PointerEvent): void {
+    // Wie Parsec: ueber dem Bild nur ein Zeiger - der eigene in der Form des PC-Zeigers, der PC
+    // laesst seinen weg. Bis onPointerLeave.
+    this.remote.watchScreenCursor(true);
     const pressed = event.buttons & 7;
     // Gedrueckt bleibt der Zeiger am Bildrand; ausserhalb des Bildes beginnt kein Klick.
     const position = this.toScreenPosition(event.clientX, event.clientY, this.mouseButtons !== 0);
@@ -1024,6 +1029,10 @@ export class ScreenViewComponent implements OnDestroy {
 
   // Schwebt der Stift aus dem Bild, ist er auch am PC ausser Reichweite.
   protected onPointerLeave(event: PointerEvent): void {
+    if (event.pointerType === 'mouse') {
+      this.remote.watchScreenCursor(false);
+    }
+
     if (event.pointerType === 'pen' && this.touchMode() && (event.buttons & PEN_CONTACT) === 0) {
       this.sendPen(null);
     }
@@ -1094,6 +1103,7 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected toggleTouch(): void {
     this.liftAllTouches();
+    this.remote.watchScreenCursor(false);
     this.remote.saveScreenTouch(!this.remote.screenTouch());
   }
 

@@ -826,6 +826,33 @@ public sealed class RemoteActionHandlerTests
         Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "obs" }, session).Success);
     }
 
+    [TestMethod]
+    public async Task Handle_ScreenCursorWatch_PushesShapeUntilDisabled()
+    {
+        var cursor = new PollingBroadcaster<ScreenCursorMessage>(
+            () => Task.FromResult(new ScreenCursorMessage("text")),
+            Timeout.InfiniteTimeSpan,
+            announceCurrent: true,
+            NullLogger.Instance);
+        var pushed = new List<ScreenCursorMessage>();
+        var session = new RemoteActionSession(onScreenCursor: pushed.Add);
+        var handler = new RemoteActionHandler(
+            new RecordingInputService(),
+            new RecordingMouseService(),
+            new RecordingPowerService(),
+            NullLogger<RemoteActionHandler>.Instance,
+            screenCursor: cursor);
+
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "screenCursor", Enabled = true }, session).Success);
+        await cursor.PollAsync();
+        Assert.IsTrue(handler.Handle(new RemoteActionRequest { Type = "screenCursor", Enabled = false }, session).Success);
+        await cursor.PollAsync();
+
+        Assert.AreEqual(new ScreenCursorMessage("text"), pushed.Single());
+        Assert.IsFalse(handler.Handle(new RemoteActionRequest { Type = "screenCursor" }, session).Success);
+        Assert.IsFalse(CreateHandler().Handle(new RemoteActionRequest { Type = "screenCursor", Enabled = true }, session).Success);
+    }
+
     private static RemoteActionHandler CreateObsHandler(IObsService obs) =>
         new(
             new RecordingInputService(),

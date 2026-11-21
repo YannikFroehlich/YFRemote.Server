@@ -494,6 +494,13 @@ internal static class Program
             BroadcastPollInterval,
             announceCurrent: true,
             services.GetRequiredService<ILogger<PollingBroadcaster<ForegroundAppMessage>>>()));
+        // Alle 50 ms: die Zeigerform soll mit dem Zeiger wechseln, und jede Abfrage haelt ihn aus
+        // dem Bild (WindowsScreenCapture.ReadCursorShape).
+        builder.Services.AddSingleton(services => new PollingBroadcaster<ScreenCursorMessage>(
+            () => Task.FromResult(WindowsScreenCapture.ReadCursorShape()),
+            TimeSpan.FromMilliseconds(50),
+            announceCurrent: true,
+            services.GetRequiredService<ILogger<PollingBroadcaster<ScreenCursorMessage>>>()));
 #else
         builder.Services.AddSingleton<LinuxInputSender>();
         builder.Services.AddSingleton<IInputService, LinuxInputService>();

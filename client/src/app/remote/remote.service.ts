@@ -1170,7 +1170,9 @@ export class RemoteService implements OnDestroy {
 
     if (isClipboardPushMessage(message)) {
       this.pcClipboardSignal.set(message);
-      this.rememberClipboardText(message.text);
+      if (message.text !== undefined) {
+        this.rememberClipboardText(message.text);
+      }
       return;
     }
 
@@ -1661,7 +1663,10 @@ function isShutdownTimerMessage(value: unknown): value is ShutdownTimerMessage {
 
 function isClipboardPushMessage(value: unknown): value is ClipboardPushMessage {
   const message = value as Partial<ClipboardPushMessage> | null;
-  return message?.type === 'clipboard' && typeof message.text === 'string';
+  return (
+    message?.type === 'clipboard' &&
+    (typeof message.text === 'string' || typeof message.imageId === 'string')
+  );
 }
 
 function isForegroundAppMessage(value: unknown): value is ForegroundAppMessage {

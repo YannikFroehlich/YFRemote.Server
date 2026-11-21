@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.66.3] - 2026-11-21
+
 ### Fixed
 
 - With the lock-screen/UAC service set up, the mouse can now be moved over administrator windows such

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.68.0] - 2026-11-21
+
 ### Added
 
 - "Bildschirm" tab with a mouse: only one pointer, like Parsec. While the mouse is over the

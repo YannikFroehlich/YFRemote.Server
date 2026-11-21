@@ -23,6 +23,21 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Added
 
+- "Bildschirm" tab with a mouse: only one pointer, like Parsec. While the mouse is over the
+  picture, the PC leaves its pointer out of the picture, and your own pointer takes the PC
+  pointer's shape (text cursor, hand, resize arrows, ...), so it moves without delay. Outside the
+  picture the PC pointer shows again. Windows PCs only.
+
+### Fixed
+
+- "Bildschirm" tab on a desktop: a PC with a 4K monitor or TV looked blocky at "Qualität". The
+  picture is four times the pixels of 1080p, but the video bitrate stopped at 40 Mbit/s; it may
+  now go up to 64 Mbit/s and still drops on its own when the Wi-Fi cannot keep up.
+
+## [2.67.0] - 2026-11-21
+
+### Added
+
 - Desktop use of the "Bildschirm" tab: with the new "Zwischenablage" switch in its toolbar (the
   same setting as "Zwischenablage automatisch abgleichen", HTTPS and a Chromium browser needed),
   the clipboard is shared with the PC like in a remote desktop app, now also for images in both

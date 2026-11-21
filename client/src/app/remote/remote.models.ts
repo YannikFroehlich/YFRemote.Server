@@ -295,6 +295,19 @@ export interface ObsWatchAction {
   readonly enabled: boolean;
 }
 
+/** Solange die Maus ueber dem Bild im Tab "Bildschirm" ist: der PC meldet die Form seines Zeigers
+ *  und laesst ihn aus dem Bild weg, damit man nur einen sieht. */
+export interface ScreenCursorAction {
+  readonly type: 'screenCursor';
+  readonly enabled: boolean;
+}
+
+/** Form des PC-Zeigers als CSS-Wert fuer `cursor`. */
+export interface ScreenCursorMessage {
+  readonly type: 'screenCursor';
+  readonly shape: string;
+}
+
 /** Wechselt in OBS auf die Szene `name`. */
 export interface ObsSceneAction {
   readonly type: 'obsScene';
@@ -552,6 +565,7 @@ export type RemoteAction =
   | DismissNotificationAction
   | BrightnessAction
   | ObsWatchAction
+  | ScreenCursorAction
   | ObsSceneAction
   | ObsStreamAction
   | ObsRecordAction

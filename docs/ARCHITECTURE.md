@@ -143,7 +143,8 @@ feature.
   (up to v2.66.4) all three levels gave the same blurry picture on a desktop at 1x. The video width
   is capped at 1920 on phones (some decode H.264 above level 4.2 badly) and at 3840 where
   `(pointer: fine)` matches; above 1920 the bitrate grows with the pixel count, up to the server's
-  40 Mbit/s. The server never upscales beyond the monitor.
+  64 Mbit/s for "Qualität" at 3840 (with 40 Mbit/s, up to v2.67.0, a 4K monitor looked blocky on
+  a desktop). The server never upscales beyond the monitor.
   The width is that of the inner `.screen-view` (`viewWidth`), which is what goes fullscreen; the
   host keeps the page width (at most 960 px on a desktop), and measuring it upscaled the picture. `WindowsScreenCapture` uses DXGI
   Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to
@@ -232,6 +233,18 @@ feature.
   `INRANGE`. A held tip gets the same 100 ms keep-alive as the fingers, and the
   `RemoteActionSession` takes the pen away when the connection ends. Unverified on a real PC and
   with a real pen (pressure in Windows Ink apps, hover cursor, eraser).
+  One pointer with a mouse, like Parsec: while a mouse is over the picture (not "Touch"), the Client
+  sends `{type:'screenCursor', enabled:true}` (`RemoteService.watchScreenCursor`, sent only on a
+  change, again after a reconnect, `false` on `pointerleave`, on switching to "Touch" and on leaving
+  the tab). The Windows server then polls the cursor every 50 ms (`PollingBroadcaster`) and pushes
+  `{type:'screenCursor', shape}` with a CSS value from the standard Windows cursors
+  (`WindowsScreenCapture.CursorShapes`, `LoadCursor` handles; anything else is `default`, a hidden
+  cursor too, since Windows hides it for good on a PC without a mouse). The stage takes it as its
+  `cursor`, so the local pointer moves without the picture's delay. Every poll keeps the cursor out of
+  JPEG and video (`ReadCursor` reports none for 250 ms), so it reappears shortly after the last
+  viewer leaves the picture, even when a connection just drops. That applies to every viewer at once,
+  and app-specific cursor images show as the arrow. The Client only accepts the known shapes. Not
+  yet checked between two real PCs.
 - `GET /screen/video?width=N&bitrate=K` (same gate) → the Client's first choice for that tab: one
   endless response of H.264 in fragmented MP4, played through MediaSource (`screen-video.ts`, works
   over plain HTTP; WebCodecs would need HTTPS), codec string in `X-Codec`. `/screen` stays the

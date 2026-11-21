@@ -926,6 +926,30 @@ describe('RemoteService', () => {
     expect(remote.obs()).toBeNull();
   });
 
+  it('takes the PC pointer shape while the mouse is over the picture, only known shapes', async () => {
+    const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
+
+    remote.watchScreenCursor(true);
+    remote.connect();
+    sockets[0].open();
+    await vi.waitFor(() =>
+      expect(sockets[0].sentMessages).toEqual(['{"type":"screenCursor","enabled":true}']),
+    );
+    remote.watchScreenCursor(true);
+    expect(sockets[0].sentMessages).toHaveLength(1);
+
+    sockets[0].receive(JSON.stringify({ type: 'screenCursor', shape: 'text' }));
+    expect(remote.screenCursor()).toBe('text');
+    sockets[0].receive(JSON.stringify({ type: 'screenCursor', shape: 'url(x.png), auto' }));
+    expect(remote.screenCursor()).toBe('text');
+
+    remote.watchScreenCursor(false);
+    expect(sockets[0].sentMessages.at(-1)).toBe('{"type":"screenCursor","enabled":false}');
+    expect(remote.screenCursor()).toBeNull();
+    sockets[0].receive(JSON.stringify({ type: 'screenCursor', shape: 'pointer' }));
+    expect(remote.screenCursor()).toBeNull();
+  });
+
   it('does not watch OBS on a PC without it', async () => {
     const { remote, sockets } = setupRemoteService({ health: { platform: 'windows' } });
 

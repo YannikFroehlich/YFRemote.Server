@@ -8,6 +8,7 @@ using FeatureLevel = Vortice.Direct3D.FeatureLevel;
 using InterpolationMode = System.Drawing.Drawing2D.InterpolationMode;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
+using YFRemote.Server.Models;
 
 namespace YFRemote.Server.Services;
 
@@ -280,12 +281,53 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
             Math.Max(1, (int)(cursor.Size.Height * scale))));
     }
 
+    // Wie bei Parsec: Ist ein Geraet mit der Maus ueber dem Bild, zeigt es seinen eigenen Zeiger in
+    // der Form des PC-Zeigers - der folgt der Hand ohne die Verzoegerung des Bildes. Das Bild laesst
+    // den Zeiger dann weg, sonst saehe man zwei. Jede Abfrage der Form (alle 50 ms, solange ein
+    // Geraet zusieht) verlaengert das; endet sie, auch mit einer abgerissenen Verbindung, ist der
+    // Zeiger kurz danach wieder im Bild.
+    // ponytail: gilt fuer alle Zuschauer zugleich; ein zweiter am Handy saehe dann auch keinen Zeiger.
+    private const long CursorHiddenMs = 250;
+    private static long cursorHiddenUntil;
+
+    // Die Standardzeiger von Windows; GetCursorInfo liefert fuer sie dieselben geteilten Handles.
+    // ponytail: eigene Zeigerbilder von Programmen werden zum Pfeil; als PNG schicken, wenn das stoert.
+    private static readonly Lazy<Dictionary<IntPtr, string>> CursorShapes = new(() => new()
+    {
+        [LoadCursor(IntPtr.Zero, 32512)] = "default",
+        [LoadCursor(IntPtr.Zero, 32513)] = "text",
+        [LoadCursor(IntPtr.Zero, 32514)] = "wait",
+        [LoadCursor(IntPtr.Zero, 32515)] = "crosshair",
+        [LoadCursor(IntPtr.Zero, 32642)] = "nwse-resize",
+        [LoadCursor(IntPtr.Zero, 32643)] = "nesw-resize",
+        [LoadCursor(IntPtr.Zero, 32644)] = "ew-resize",
+        [LoadCursor(IntPtr.Zero, 32645)] = "ns-resize",
+        [LoadCursor(IntPtr.Zero, 32646)] = "move",
+        [LoadCursor(IntPtr.Zero, 32648)] = "not-allowed",
+        [LoadCursor(IntPtr.Zero, 32649)] = "pointer",
+        [LoadCursor(IntPtr.Zero, 32650)] = "progress",
+        [LoadCursor(IntPtr.Zero, 32651)] = "help",
+    });
+
+    // Ein versteckter Zeiger wird bewusst nicht "none": hat der PC keine Maus, versteckt Windows ihn
+    // dauerhaft, und das Geraet saehe gar keinen mehr.
+    internal static ScreenCursorMessage ReadCursorShape()
+    {
+        Volatile.Write(ref cursorHiddenUntil, Environment.TickCount64 + CursorHiddenMs);
+        var cursor = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
+        var shape = GetCursorInfo(ref cursor) && CursorShapes.Value.TryGetValue(cursor.Cursor, out var known)
+            ? known
+            : "default";
+        return new ScreenCursorMessage(shape);
+    }
+
     // Position relativ zum Monitor; Zeiger auf einem anderen Monitor zaehlt als unsichtbar, damit
-    // seine Bewegung hier kein neues Bild ausloest.
-    private static (int X, int Y, IntPtr Handle) ReadCursor(ScreenMonitor screen)
+    // seine Bewegung hier kein neues Bild ausloest. Ebenso, solange ein Geraet ihn selbst zeigt.
+    internal static (int X, int Y, IntPtr Handle) ReadCursor(ScreenMonitor screen)
     {
         var cursor = new CursorInfo { Size = Marshal.SizeOf<CursorInfo>() };
-        return GetCursorInfo(ref cursor)
+        return Environment.TickCount64 >= Volatile.Read(ref cursorHiddenUntil)
+            && GetCursorInfo(ref cursor)
             && cursor.Flags == CursorShowing
             && cursor.Cursor != IntPtr.Zero
             && cursor.X >= screen.Left && cursor.X < screen.Left + screen.Width
@@ -534,6 +576,9 @@ public sealed partial class WindowsScreenCapture : IScreenCapture, IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool GetCursorInfo(ref CursorInfo info);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr LoadCursor(IntPtr instance, IntPtr cursorName);
 
     [DllImport("user32.dll")]
     private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);

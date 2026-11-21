@@ -13,7 +13,8 @@ public sealed class RemoteActionSession(
     Action<AppVolumesMessage>? onApps = null,
     Action<PcNotificationMessage>? onNotification = null,
     Action<ForegroundAppMessage>? onForegroundApp = null,
-    Action<ObsMessage>? onObs = null) : IDisposable
+    Action<ObsMessage>? onObs = null,
+    Action<ScreenCursorMessage>? onScreenCursor = null) : IDisposable
 {
     public string DeviceName { get; init; } = "Unbekanntes Gerät";
 
@@ -41,6 +42,10 @@ public sealed class RemoteActionSession(
     internal IDisposable? ObsSubscription { get; set; }
 
     internal void PushObs(ObsMessage message) => onObs?.Invoke(message);
+
+    internal IDisposable? ScreenCursorSubscription { get; set; }
+
+    internal void PushScreenCursor(ScreenCursorMessage message) => onScreenCursor?.Invoke(message);
 
     internal void PushForegroundApp(ForegroundAppMessage message) => onForegroundApp?.Invoke(message);
 
@@ -96,5 +101,7 @@ public sealed class RemoteActionSession(
         ForegroundAppSubscription = null;
         ObsSubscription?.Dispose();
         ObsSubscription = null;
+        ScreenCursorSubscription?.Dispose();
+        ScreenCursorSubscription = null;
     }
 }

@@ -60,6 +60,8 @@ describe('ScreenViewComponent', () => {
     const sendFile = vi.fn(async (file: File) => ({ success: true, fileName: file.name }));
     const clipboardSyncSetting = signal(false);
     const serverPlatform = signal<'windows' | 'linux'>('windows');
+    const screenCursor = signal<string | null>(null);
+    const watchScreenCursor = vi.fn((enabled: boolean) => screenCursor.set(enabled ? 'text' : null));
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:frame');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
@@ -89,6 +91,8 @@ describe('ScreenViewComponent', () => {
             clipboardSync: clipboardSyncSetting,
             saveClipboardSync: (enabled: boolean) => clipboardSyncSetting.set(enabled),
             serverPlatform,
+            screenCursor,
+            watchScreenCursor,
           },
         },
         { provide: ClipboardSyncService, useValue: clipboardSync },
@@ -122,6 +126,7 @@ describe('ScreenViewComponent', () => {
       serverPlatform,
       sendFiles,
       sendFile,
+      watchScreenCursor,
       element: fixture.nativeElement as HTMLElement,
     };
   }
@@ -185,7 +190,7 @@ describe('ScreenViewComponent', () => {
   });
 
   describe('video width per quality', () => {
-    async function widthsFor(desktop: boolean) {
+    async function widthsFor(desktop: boolean, viewWidth = 1000) {
       vi.stubGlobal('matchMedia', (query: string) => ({
         matches: desktop && query === '(pointer: fine)',
       }));
@@ -206,7 +211,7 @@ describe('ScreenViewComponent', () => {
         stream: { body: new ReadableStream(), codec: 'avc1.4d002a' },
       });
       const view = element.querySelector('.screen-view')!;
-      Object.defineProperty(view, 'clientWidth', { configurable: true, value: 1000 });
+      Object.defineProperty(view, 'clientWidth', { configurable: true, value: viewWidth });
       const select = element.querySelector<HTMLSelectElement>('.screen-view__quality')!;
       const requests: [number, number][] = [];
       for (const quality of ['performance', 'balanced', 'quality']) {
@@ -227,6 +232,10 @@ describe('ScreenViewComponent', () => {
         [1500, 8000],
         [3000, 39063],
       ]);
+    });
+
+    it('asks for the full 4K bitrate at the widest picture', async () => {
+      expect((await widthsFor(true, 1300)).at(-1)).toEqual([3840, 64000]);
     });
 
     it('stays at 1080p on a phone', async () => {
@@ -444,6 +453,21 @@ describe('ScreenViewComponent', () => {
     });
     target.dispatchEvent(event);
   }
+
+  it('shows only its own pointer, shaped like the PC one, while the mouse is over the picture', async () => {
+    const { fixture, stage, watchScreenCursor } = await setupGestures();
+
+    mouse(stage, 'pointermove', 100, 0);
+    fixture.detectChanges();
+    expect(watchScreenCursor).toHaveBeenLastCalledWith(true);
+    expect(stage.style.cursor).toBe('text');
+
+    mouse(stage, 'pointerleave', 500, 0);
+    fixture.detectChanges();
+    expect(watchScreenCursor).toHaveBeenLastCalledWith(false);
+    expect(stage.style.cursor).toBe('');
+    fixture.destroy();
+  });
 
   it('drives the PC pointer and buttons directly with a mouse', async () => {
     const { fixture, sendAction, stage } = await setupGestures();

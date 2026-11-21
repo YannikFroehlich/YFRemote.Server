@@ -56,8 +56,6 @@ const SCREEN_PROFILES: Readonly<
 // ponytail: Maus = Desktop; ein Handy mit Maus bekaeme auch die volle Breite.
 const MAX_PHONE_VIDEO_WIDTH = 1920;
 const MAX_DESKTOP_VIDEO_WIDTH = 3840;
-// Obergrenze des Servers (ScreenEndpoints.MaxBitrateKbps).
-const MAX_VIDEO_KBPS = 40000;
 
 // Ab dieser Strecke wird aus einem Tipp ein Ziehen.
 const DRAG_THRESHOLD_PX = 8;
@@ -121,6 +119,7 @@ function isPastedBitmap(files: readonly File[]): boolean {
 })
 export class ScreenViewComponent implements OnDestroy {
   private readonly remote = inject(RemoteService);
+  protected readonly screenCursor = this.remote.screenCursor;
   private readonly saveFile = inject(FILE_SAVER);
   protected readonly i18n = inject(TranslationService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -265,6 +264,7 @@ export class ScreenViewComponent implements OnDestroy {
     this.jpegAbort.abort();
     this.endDrag();
     this.releaseMouse();
+    this.remote.watchScreenCursor(false);
     this.liftAllTouches();
     if (this.scrollFrame !== null) {
       cancelAnimationFrame(this.scrollFrame);
@@ -327,11 +327,9 @@ export class ScreenViewComponent implements OnDestroy {
       this.videoAbort = abort;
       const profile = SCREEN_PROFILES[this.quality()];
       const width = Math.min(this.maxVideoWidth, this.viewWidth() * profile.pixelRatio);
-      // Die Bitraten gelten fuer bis zu 1080p; mehr Pixel brauchen beim Scrollen mehr Bitrate.
-      const kbps = Math.min(
-        MAX_VIDEO_KBPS,
-        Math.round(profile.videoKbps * Math.max(1, (width / MAX_PHONE_VIDEO_WIDTH) ** 2)),
-      );
+      // Die Bitraten gelten fuer bis zu 1080p; mehr Pixel brauchen beim Scrollen mehr Bitrate. Bei
+      // 4K sind das 64 Mbit/s, die Obergrenze des Servers (ScreenEndpoints.MaxBitrateKbps).
+      const kbps = Math.round(profile.videoKbps * Math.max(1, (width / MAX_PHONE_VIDEO_WIDTH) ** 2));
       const stream = await this.remote.openScreenVideo(
         width,
         kbps,
@@ -720,6 +718,9 @@ export class ScreenViewComponent implements OnDestroy {
   // Maus am Geraet: der Zeiger am PC folgt ihr auch ohne gedrueckte Taste, und jede Taste geht
   // einzeln an den PC - so klappen Doppelklick, Ziehen und die mittlere Taste wie direkt am PC.
   private mouseInput(event: PointerEvent): void {
+    // Wie Parsec: ueber dem Bild nur ein Zeiger - der eigene in der Form des PC-Zeigers, der PC
+    // laesst seinen weg. Bis onPointerLeave.
+    this.remote.watchScreenCursor(true);
     const pressed = event.buttons & 7;
     // Gedrueckt bleibt der Zeiger am Bildrand; ausserhalb des Bildes beginnt kein Klick.
     const position = this.toScreenPosition(event.clientX, event.clientY, this.mouseButtons !== 0);
@@ -1028,6 +1029,10 @@ export class ScreenViewComponent implements OnDestroy {
 
   // Schwebt der Stift aus dem Bild, ist er auch am PC ausser Reichweite.
   protected onPointerLeave(event: PointerEvent): void {
+    if (event.pointerType === 'mouse') {
+      this.remote.watchScreenCursor(false);
+    }
+
     if (event.pointerType === 'pen' && this.touchMode() && (event.buttons & PEN_CONTACT) === 0) {
       this.sendPen(null);
     }
@@ -1098,6 +1103,7 @@ export class ScreenViewComponent implements OnDestroy {
 
   protected toggleTouch(): void {
     this.liftAllTouches();
+    this.remote.watchScreenCursor(false);
     this.remote.saveScreenTouch(!this.remote.screenTouch());
   }
 

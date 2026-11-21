@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.66.4] - 2026-11-21
+
 ### Fixed
 
 - The lock-screen/UAC service now comes back after an app update. Velopack ended it right after

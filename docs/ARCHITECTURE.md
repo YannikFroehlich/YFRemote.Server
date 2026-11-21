@@ -143,7 +143,8 @@ feature.
   (up to v2.66.4) all three levels gave the same blurry picture on a desktop at 1x. The video width
   is capped at 1920 on phones (some decode H.264 above level 4.2 badly) and at 3840 where
   `(pointer: fine)` matches; above 1920 the bitrate grows with the pixel count, up to the server's
-  40 Mbit/s. The server never upscales beyond the monitor.
+  64 Mbit/s for "Qualität" at 3840 (with 40 Mbit/s, up to v2.67.0, a 4K monitor looked blocky on
+  a desktop). The server never upscales beyond the monitor.
   The width is that of the inner `.screen-view` (`viewWidth`), which is what goes fullscreen; the
   host keeps the page width (at most 960 px on a desktop), and measuring it upscaled the picture. `WindowsScreenCapture` uses DXGI
   Desktop Duplication (`Vortice.Direct3D11`) of that output: `AcquireNextFrame` waits up to

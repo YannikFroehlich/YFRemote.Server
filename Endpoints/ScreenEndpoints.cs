@@ -14,7 +14,9 @@ internal static class ScreenEndpoints
     private const int MaxQuality = 95;
     private const int DefaultQuality = 70;
     private const int MinBitrateKbps = 1000;
-    private const int MaxBitrateKbps = 40000;
+    // "Qualitaet" bei 4K: 16 Mbit/s fuer 1080p mal vierfache Pixelzahl. Mit 40 Mbit/s war das Bild
+    // eines 4K-Monitors am Desktop blockig. Reicht das WLAN nicht, senkt VideoBitrateControl ab.
+    private const int MaxBitrateKbps = 64000;
     private const int DefaultBitrateKbps = 8000;
 
     internal static void MapScreenEndpoints(this WebApplication app)

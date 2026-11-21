@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.67.0] - 2026-11-21
+
 ### Added
 
 - Desktop use of the "Bildschirm" tab: with the new "Zwischenablage" switch in its toolbar (the

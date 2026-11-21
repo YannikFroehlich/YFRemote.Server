@@ -23,6 +23,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- Clipboard sharing from a Windows PC: something copied on the PC now reaches your device within a
+  tenth of a second instead of up to a second, so pasting right after switching over finds it.
+  The PC checks a cheap change counter that often and reads the clipboard only when it moved.
+
+## [2.68.1] - 2026-11-21
+
+### Fixed
+
 - "Bildschirm" tab over plain HTTP (and in Safari): Ctrl+V in the picture pasted the PC's old
   clipboard instead of what was copied on your own device, because the "Zwischenablage" switch
   needed HTTPS. Ctrl+V takes what you copied from the browser's paste event, which needs no HTTPS,

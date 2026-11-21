@@ -538,12 +538,9 @@ internal static class Program
         {
             var clipboardService = services.GetRequiredService<IClipboardService>();
             return new PollingBroadcaster<ClipboardMessage?>(
-                async () => await clipboardService.GetTextAsync() is { Length: > 0 } text
-                    ? text.Length <= clipboardOptions.MaxTextLength ? new ClipboardMessage(text) : null
-                    : await clipboardService.GetImageIdAsync() is { } imageId
-                        ? new ClipboardMessage(null, imageId)
-                        : null,
-                BroadcastPollInterval,
+                ClipboardPoll.Create(clipboardService, clipboardOptions.MaxTextLength),
+                // Ohne ChangeCount (Linux) startet jede Abfrage wl-paste/xclip; dort bleibt es bei 1 s.
+                clipboardService.ChangeCount is null ? BroadcastPollInterval : ClipboardPoll.FastInterval,
                 announceCurrent: false,
                 services.GetRequiredService<ILogger<PollingBroadcaster<ClipboardMessage?>>>());
         });

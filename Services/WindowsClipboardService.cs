@@ -48,6 +48,8 @@ public sealed class WindowsClipboardService : IClipboardService, IDisposable
         return (byte[]?)stream.ToArray();
     });
 
+    public long? ChangeCount => GetClipboardSequenceNumber();
+
     public Task<string?> GetImageIdAsync() => RunOnStaThread(() => Clipboard.ContainsImage()
         ? GetClipboardSequenceNumber().ToString(CultureInfo.InvariantCulture)
         : null);

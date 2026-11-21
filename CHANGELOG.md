@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.68.1] - 2026-11-21
+
 ### Fixed
 
 - "Bildschirm" tab over plain HTTP (and in Safari): Ctrl+V in the picture pasted the PC's old

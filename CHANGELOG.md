@@ -23,6 +23,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ### Fixed
 
+- With the lock-screen/UAC service set up, the mouse can now be moved over administrator windows such
+  as the Task Manager. Before, the pointer stood still, and a click hit the old position, which often
+  minimized the Task Manager through its taskbar button.
+
+## [2.66.2] - 2026-11-20
+
+### Fixed
+
 - The "Bildschirm" tab wakes a display that the Windows power settings switched off, instead of only
   showing the hint, and keeps the display on and the PC awake while a device is watching.
 - The hints for the lock screen and the UAC prompt now point to the switch "Sperrbildschirm und UAC

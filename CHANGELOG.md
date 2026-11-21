@@ -21,6 +21,11 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- The lock-screen/UAC service now comes back after an app update. Velopack ended it right after
+  the update, and it stayed off until the next restart of Windows.
+
 ## [2.66.3] - 2026-11-21
 
 ### Fixed

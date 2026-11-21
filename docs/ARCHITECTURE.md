@@ -520,7 +520,10 @@ which creates the LocalSystem service `YFRemoteSecureDesktop` through `sc.exe`
 (`--secure-desktop-service <SID>`, auto start). `--secure-desktop-uninstall` removes it, and so do
 switching off and the Velopack uninstall hook. Service and helper run from `current\`, which
 Velopack replaces, so `OnBeforeUpdateFastCallback` stops the service and
-`OnAfterUpdateFastCallback` starts it again.
+`OnAfterUpdateFastCallback` starts it again. Right after that hook Velopack kills every process
+running from the install folder, the fresh service and helper included (seen in the update log for
+2.66.3, where the service then stayed stopped). So `Install` and the after-update hook set the
+service's recovery actions (`sc failure`, restart after 5 s), and Windows brings it back.
 - `WindowsSecureDesktopService` (session 0) keeps one helper alive in the active console session:
   its own SYSTEM token with `TokenSessionId` set, `CreateProcessAsUser` with
   `--secure-desktop-helper <SID> <service pid>`, restarted on session change, when it exits, and

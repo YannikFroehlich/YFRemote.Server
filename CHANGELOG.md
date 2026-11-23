@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.69.0] - 2026-11-23
+
 ### Added
 
 - YFRemote on Windows is now a proper app window with a sidebar: "Steuern", "Dieser PC" and

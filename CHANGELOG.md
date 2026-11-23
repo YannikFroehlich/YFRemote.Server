@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.70.1] - 2026-11-23
+
 ### Fixed
 
 - The app window on a 4K TV with high Windows scaling: the sidebar, its page buttons and the

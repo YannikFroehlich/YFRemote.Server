@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- "Steuern" opens devices with "HTTPS verwenden" switched on encrypted. YFRemote remembers the
+  device's certificate the first time it sees it and from then on only accepts that one; the card
+  and the device window show "verschlüsselt". A device that was used unencrypted before asks for
+  its PIN once more after the switch.
+
 ### Fixed
 
 - "Steuern": the "Öffnen" and "Hinzufügen" buttons on the device cards had a dark rectangle around

@@ -679,6 +679,20 @@ client pairs itself, its token lives in the WebView2 profile `%LOCALAPPDATA%\YFR
 origin. The environment marks the saved device origins as secure
 (`--unsafely-treat-insecure-origin-as-secure`), so the Clipboard API works over `http://<LAN-IP>`;
 the list is fixed per process, a device added later gets it after the next start. Navigation to any
-other origin opens in the default browser instead. Devices open over HTTP only for now; HTTPS would
-need CA pinning like `PinnedCa` on Android. Without the WebView2 runtime (Windows 10 without Edge
+other origin opens in the default browser instead. A device whose `/health` reports `httpsPort`
+opens over HTTPS: on first contact (the poll after adding it, or the first poll of an older entry)
+`ControlPage` loads its `/ca.crt` over HTTP and `RemoteDeviceStore.SetHttps` keeps it as `ca`
+(DER, Base64, only if it is a CA certificate) together with `httpsPort` - trust on first use, the
+same exposure as plain HTTP at that moment, but every later connection is encrypted and checked.
+`RemoteDeviceWindow.OnServerCertificateErrorDetected` then allows the device's self-issued
+certificate only for that host and port, and only if `PinnedCertificate.IsIssuedBy` builds a chain
+to exactly the pinned CA, it is valid and its SANs cover the host (like `PinnedCa.issued` on
+Android); `AlwaysAllow` covers the session including the WebSocket. A different CA is never taken
+over silently: the window cancels and explains that the device has to be removed and added again.
+`/health` polling stays on HTTP, which the server keeps serving with HTTPS on; without
+`httpsPort` the window opens HTTP again. Switching a device to HTTPS changes its origin, so it pairs
+once more. Unit tests cover the store and the chain check. Verified on the dev PC on 2026-11-23
+with the PC itself added by address (HTTPS on 5443): the CA was pinned within one poll and the
+device window loaded the client over `https://…:5443` without a certificate error; pairing over
+HTTPS and the mismatch path were not tried on a real device. Without the WebView2 runtime (Windows 10 without Edge
 updates) the window offers its download page.

@@ -32,11 +32,6 @@ internal sealed class PairingQrCodeDialog : Form
         MinimizeBox = false;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.CenterScreen;
-        // Ohne AutoScaleDimensions skaliert WinForms die Pixelmaße nicht mit, nur die Schrift
-        // (in Punkt) wächst mit der Windows-Skalierung - bei 4K mit 200-300 % war der QR-Code
-        // dann abgeschnitten.
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
         Theme.Apply(this);
 
         var layout = new TableLayoutPanel
@@ -131,6 +126,7 @@ internal sealed class PairingQrCodeDialog : Form
 
         Controls.Add(layout);
         CancelButton = closeButton;
+        Theme.ScaleToDpi(this);
 
         refreshTimer = new System.Windows.Forms.Timer
         {

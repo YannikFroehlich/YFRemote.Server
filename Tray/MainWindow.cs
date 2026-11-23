@@ -62,8 +62,6 @@ internal sealed class MainWindow : Form
         ClientSize = new Size(980, 720);
         MinimumSize = new Size(760, 520);
         StartPosition = FormStartPosition.CenterScreen;
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
         Theme.Apply(this);
 
         // Seitenleiste
@@ -282,6 +280,7 @@ internal sealed class MainWindow : Form
         // Fill zuerst: angedockt wird in umgekehrter Reihenfolge, die Leiste nimmt sich so ihren Rand.
         Controls.Add(content);
         Controls.Add(sidebar);
+        Theme.ScaleToDpi(this);
 
         // ponytail: Abfrage im Sekundentakt statt Events fuer jede Quelle; alles liest nur Speicher.
         refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
@@ -658,6 +657,7 @@ internal sealed class NavButton : Button
         Font = new Font("Segoe UI Semibold", 10F);
         Cursor = Cursors.Hand;
         Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        Height = 42;
         Margin = new Padding(0, 0, 0, 4);
         Click += (_, _) => action();
     }
@@ -675,8 +675,6 @@ internal sealed class NavButton : Button
         get => badge;
         set { if (badge != value) { badge = value; Invalidate(); } }
     }
-
-    public override Size GetPreferredSize(Size proposedSize) => new(proposedSize.Width, LogicalToDeviceUnits(42));
 
     protected override void OnMouseEnter(EventArgs e) { hovered = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { hovered = false; Invalidate(); base.OnMouseLeave(e); }

@@ -13,6 +13,8 @@ internal static class UserSettingsStore
 {
     private const string EnabledPropertyName = "Enabled";
     private const string NotificationsSectionName = "Notifications";
+    private const string WindowSectionName = "Window";
+    private const string PagePropertyName = "Page";
 
     public static string FilePath => GetFilePath(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
@@ -74,10 +76,39 @@ internal static class UserSettingsStore
         Write(filePath, root);
     }
 
+    // Zuletzt geoeffnete Seite des Hauptfensters ("control", "pc", "settings").
+    public static string? GetWindowPage() => GetWindowPage(FilePath);
+
+    public static void SetWindowPage(string page) => SetWindowPage(FilePath, page);
+
+    internal static string? GetWindowPage(string filePath) =>
+        Read(filePath)[WindowSectionName] is JsonObject section
+        && section[PagePropertyName] is JsonValue value
+        && value.TryGetValue(out string? page)
+            ? page
+            : null;
+
+    internal static void SetWindowPage(string filePath, string page)
+    {
+        var root = Read(filePath);
+
+        if (root[WindowSectionName] is not JsonObject section)
+        {
+            section = [];
+            root[WindowSectionName] = section;
+        }
+
+        section[PagePropertyName] = page;
+        Write(filePath, root);
+    }
+
+    private static void Write(string filePath, JsonObject root) =>
+        WriteAtomically(filePath, JsonSerializer.SerializeToUtf8Bytes(root, new JsonSerializerOptions { WriteIndented = true }));
+
     // Eine halb geschriebene Datei waere ungueltiges JSON und damit ein Startfehler, aus dem
     // heraus sich die Einstellung nicht mehr zuruecknehmen liesse - deshalb erst vollstaendig
     // daneben schreiben und dann ersetzen, wie bei devices.json.
-    private static void Write(string filePath, JsonObject root)
+    internal static void WriteAtomically(string filePath, byte[] content)
     {
         var directoryPath = Path.GetDirectoryName(filePath);
 
@@ -89,9 +120,7 @@ internal static class UserSettingsStore
         var temporaryFilePath = filePath + ".tmp";
         using (var stream = new FileStream(temporaryFilePath, FileMode.Create, FileAccess.Write))
         {
-            using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
-            root.WriteTo(writer);
-            writer.Flush();
+            stream.Write(content);
             stream.Flush(flushToDisk: true);
         }
 

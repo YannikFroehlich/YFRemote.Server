@@ -8,6 +8,9 @@ internal static class WindowsStartupService
     private const string ValueName = "YFRemote";
     private const string LauncherFileName = "YFRemote.exe";
 
+    // Beim Windows-Start bleibt YFRemote im Infobereich; jeder andere Start oeffnet das Fenster.
+    internal const string AutostartArgument = "--autostart";
+
     public static bool IsAvailable => GetLauncherPath() is not null;
 
     public static bool IsEnabled()
@@ -18,13 +21,26 @@ internal static class WindowsStartupService
             return false;
         }
 
-        using var runKey = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
-        var configuredCommand = runKey?.GetValue(ValueName) as string;
-
         return string.Equals(
-            NormalizeCommand(configuredCommand),
+            NormalizeCommand(ReadCommand()),
             launcherPath,
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Eintraege aelterer Versionen ohne --autostart wuerden nach dem Update bei jeder Anmeldung
+    // das Fenster oeffnen.
+    public static void UpgradeCommand()
+    {
+        if (IsEnabled() && ReadCommand()?.TrimEnd().EndsWith(AutostartArgument, StringComparison.Ordinal) != true)
+        {
+            SetEnabled(true);
+        }
+    }
+
+    private static string? ReadCommand()
+    {
+        using var runKey = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false);
+        return runKey?.GetValue(ValueName) as string;
     }
 
     public static void SetEnabled(bool enabled)
@@ -46,7 +62,7 @@ internal static class WindowsStartupService
 
         writableRunKey.SetValue(
             ValueName,
-            $"\"{launcherPath}\"",
+            $"\"{launcherPath}\" {AutostartArgument}",
             RegistryValueKind.String);
     }
 
@@ -69,7 +85,7 @@ internal static class WindowsStartupService
             : null;
     }
 
-    private static string? NormalizeCommand(string? command)
+    internal static string? NormalizeCommand(string? command)
     {
         if (string.IsNullOrWhiteSpace(command))
         {
@@ -77,6 +93,11 @@ internal static class WindowsStartupService
         }
 
         var path = command.Trim();
+        if (path.EndsWith(" " + AutostartArgument, StringComparison.Ordinal))
+        {
+            path = path[..^AutostartArgument.Length].TrimEnd();
+        }
+
         if (path.Length >= 2 && path[0] == '"' && path[^1] == '"')
         {
             path = path[1..^1];

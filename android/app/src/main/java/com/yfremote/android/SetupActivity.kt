@@ -64,6 +64,7 @@ import com.yfremote.android.accessibility.YFRemoteAccessibilityService
 import com.yfremote.android.bluetooth.BluetoothGamepad
 import com.yfremote.android.bluetooth.GamepadActivity
 import com.yfremote.android.ime.YFRemoteInputMethodService
+import com.yfremote.android.remote.Discovery
 import com.yfremote.android.remote.PinnedCa
 import com.yfremote.android.remote.QrCode
 import com.yfremote.android.remote.RemoteDevice
@@ -133,6 +134,14 @@ class SetupActivity : Activity() {
     private var renderedRemoteDevices: Any? = null
     private val remoteCheckRunning = AtomicBoolean(false)
     private val remoteCheckExecutor = Executors.newSingleThreadExecutor()
+    private lateinit var foundContainer: LinearLayout
+    private lateinit var foundStatus: TextView
+    // Ergebnis der letzten Netzwerksuche: Adresse und /health-Antwort (null, wenn sie fehlte).
+    @Volatile
+    private var foundDevices: List<Pair<String, JSONObject?>> = emptyList()
+    private var renderedFound: Any? = null
+    private var lastSearch = 0L
+    private val searchRunning = AtomicBoolean(false)
 
     private val refreshHandler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -472,6 +481,18 @@ class SetupActivity : Activity() {
                 addView(remoteContainer)
                 addView(primaryButton("QR-Code scannen") { scanQrCode() })
                 addView(secondaryButton("Adresse eingeben") { showAddDeviceDialog() })
+            },
+        )
+        addView(
+            card("Im Netzwerk gefunden").apply {
+                foundStatus = mutedText().apply {
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    setPadding(0, 0, 0, dp(6))
+                }
+                addView(foundStatus)
+                foundContainer = column()
+                addView(foundContainer)
+                addView(secondaryButton("Erneut suchen") { searchNetwork() })
             },
         )
         addView(
@@ -1082,10 +1103,97 @@ class SetupActivity : Activity() {
         }
     }
 
+    // Sucht per UDP-Broadcast (Discovery) nach weiteren YFRemote-Geraeten und fragt bei jedem
+    // /health nach Name und Plattform.
+    private fun searchNetwork() {
+        if (!searchRunning.compareAndSet(false, true)) return
+        foundStatus.text = "Suche im Netzwerk…"
+        thread {
+            val found = try {
+                Discovery.search().map { url -> url to fetchHealth(RemoteDevice(url, url)) }
+            } catch (e: Exception) {
+                emptyList()
+            }
+            runOnUiThread {
+                foundDevices = found
+                lastSearch = System.currentTimeMillis()
+                searchRunning.set(false)
+                renderedFound = null
+                refreshFound()
+            }
+        }
+    }
+
+    private fun refreshFound() {
+        val saved = remoteDevices.load().map { it.url }.toSet()
+        val shown = foundDevices.filter { it.first !in saved }
+        val rendered = shown.map { it.first } to searchRunning.get()
+        if (rendered == renderedFound) return
+        renderedFound = rendered
+
+        if (!searchRunning.get()) {
+            foundStatus.text = when {
+                lastSearch == 0L -> ""
+                shown.isNotEmpty() -> "Tippe auf „Hinzufügen“, um ein Gerät in die Liste zu übernehmen."
+                foundDevices.isEmpty() -> "Kein weiteres YFRemote-Gerät gefunden. Gastnetze und getrennte VLANs lassen die Suche nicht durch."
+                else -> "Alle gefundenen Geräte sind schon in der Liste."
+            }
+        }
+
+        foundContainer.removeAllViews()
+        for ((url, health) in shown) {
+            val address = url.substringAfter("://")
+            val name = health?.optString("name").orEmpty().trim().ifEmpty { address }
+            val platform = when (health?.optString("platform")) {
+                "windows" -> "Windows"
+                "linux" -> "Linux"
+                "android" -> "Android"
+                else -> null
+            }
+            foundContainer.addView(
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(6), 0, dp(6))
+                    addView(
+                        column().apply {
+                            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                            addView(
+                                TextView(this@SetupActivity).apply {
+                                    text = name
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                                    setTypeface(typeface, Typeface.BOLD)
+                                    setTextColor(color(R.color.brand_text))
+                                },
+                            )
+                            addView(
+                                mutedText().apply {
+                                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                                    text = listOfNotNull(address.takeIf { it != name }, platform).joinToString(" · ")
+                                },
+                            )
+                        },
+                    )
+                    addView(
+                        primaryButton("Hinzufügen") {
+                            remoteDevices.add(RemoteDevice(url, name))
+                            health?.let { remoteStatus[url] = it.optString("platform") }
+                            refreshUi()
+                        }.apply {
+                            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42))
+                        },
+                    )
+                },
+            )
+        }
+    }
+
     private fun refreshRemoteDevices() {
         val devices = remoteDevices.load()
         // Nur pruefen, solange die Liste sichtbar ist - sonst laeuft im Hintergrund unnoetig Netzverkehr.
         if (remoteContainer.isShown) checkRemoteDevices(devices)
+        if (remoteContainer.isShown && System.currentTimeMillis() - lastSearch > SEARCH_INTERVAL_MS) searchNetwork()
+        refreshFound()
         // Nur bei einer Aenderung neu aufbauen: refreshUi laeuft alle 2 s, und ein Tipp genau waehrend
         // des Neuaufbaus ging verloren ("Aufwecken", "Entfernen", Geraet oeffnen).
         val showSecure = prefs().getBoolean(KEY_DEVICE_TAB_SECURE, true)
@@ -1638,6 +1746,9 @@ class SetupActivity : Activity() {
         const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
         const val BLUETOOTH_REQUEST = 2
         const val QR_SIZE_DP = 220
+        // Solange "Steuern" offen ist, sucht die App so oft neu - ein gerade gestarteter PC taucht
+        // dann ohne Antippen auf.
+        const val SEARCH_INTERVAL_MS = 30_000L
     }
 }
 

@@ -102,9 +102,10 @@ internal static class Program
         }
 
         var offerPath = WindowsExplorerSendMenu.GetOfferPath(args);
+        var autostart = args.Contains(WindowsStartupService.AutostartArgument);
         if (!isFirstInstance)
         {
-            if (offerPath is not null && WindowsExplorerSendMenu.TrySendToRunningInstance(offerPath))
+            if (WindowsExplorerSendMenu.TrySendToRunningInstance(offerPath ?? WindowsExplorerSendMenu.ShowWindowMessage))
             {
                 return;
             }
@@ -123,7 +124,8 @@ internal static class Program
 
         try
         {
-            app = BuildApplication([.. WindowsExplorerSendMenu.WithoutOfferArgument(args).Where(argument => argument != RestartWaitArgument)]);
+            app = BuildApplication([.. WindowsExplorerSendMenu.WithoutOfferArgument(args)
+                .Where(argument => argument != RestartWaitArgument && argument != WindowsStartupService.AutostartArgument)]);
             app.StartAsync().GetAwaiter().GetResult();
             app.Logger.LogInformation(
                 "YFRemote.Server started successfully. Diagnostics directory: {LogDirectory}",
@@ -139,6 +141,15 @@ internal static class Program
                 app.Logger.LogWarning(exception, "Failed to register the Explorer send menu.");
             }
 
+            try
+            {
+                WindowsStartupService.UpgradeCommand();
+            }
+            catch (Exception exception)
+            {
+                app.Logger.LogWarning(exception, "Failed to update the Windows startup entry.");
+            }
+
             // Kein using: Application.Run gibt den Kontext beim Beenden selbst frei. Ein zweites
             // Dispose warf ObjectDisposedException aus offerPipeStop.Cancel() und landete als
             // "Startfehler" bei jedem Beenden, Neustart (HTTPS-Schalter) und Update.
@@ -146,6 +157,10 @@ internal static class Program
             if (offerPath is not null)
             {
                 trayContext.OfferPath(offerPath);
+            }
+            else if (!autostart)
+            {
+                trayContext.ShowMainWindow();
             }
 
             Application.Run(trayContext);
@@ -562,6 +577,7 @@ internal static class Program
             .Get<PairingStorageOptions>() ?? new PairingStorageOptions();
         builder.Services.AddSingleton(pairingStorageOptions);
         builder.Services.AddSingleton<PairingService>();
+        builder.Services.AddHostedService<NetworkDiscoveryResponder>();
 
         configureServices?.Invoke(builder.Services);
 

@@ -636,3 +636,45 @@ service's recovery actions (`sc failure`, restart after 5 s), and Windows brings
   Administrator windows, checked the same way with the Task Manager in front: without the service a
   click came back with `ElevatedWindowMessage` and the phone showed the hint while mouse moves still
   went through; with the service a right click opened its system menu and `ESC` closed it.
+
+**Network discovery.** Every server answers a UDP search on the fixed port 5050
+(`NetworkDiscovery.Port`, independent of `Server:Port`, since the searcher does not know that port
+yet). The request is the UTF-8 text `YFREMOTE_DISCOVER_1`; anything else gets no answer. The answer
+goes unicast to the sender and is only `{"service":"YFRemote","port":<HTTP port>}` - name, platform,
+`httpsPort` and MAC come from the open `GET /health` afterwards, so the answer reveals nothing new,
+and it is about as large as the request (no amplification). On the PC, `NetworkDiscoveryResponder`
+(a `BackgroundService`, Windows and Linux) binds to `Server:Host` and stays silent on a loopback or
+host-name binding; a busy port is a warning in the log, not a startup error. `DiscoverAsync` sends
+the request to `255.255.255.255` and to each interface's directed broadcast
+(`NetworkAddressService.GetBroadcastAddresses`, from `IPv4Mask`), because Windows sends the limited
+broadcast through one adapter only, collects answers for 1.5 s and drops this PC's own addresses.
+The Android app speaks the same protocol (`remote/Discovery.kt`): `Discovery.Responder` starts and
+stops with `KtorServer`, `Discovery.search` feeds the "Im Netzwerk gefunden" card in "Steuern"
+(searched on opening and every 30 s while it is shown). Broadcasts do not cross subnets, VLANs or
+most guest networks; adding by address stays the fallback. Covered by `NetworkDiscoveryTests`
+(loopback) and `DiscoveryTest` (reply format); not yet verified between two real devices, nor
+whether the Windows firewall rule created on first start ("Zugriff zulassen") also lets UDP in, nor
+whether an Android phone with the screen off still receives broadcasts.
+
+**Desktop app.** `MainWindow` is the app window: a sidebar (`NavButton`, glyphs from "Segoe MDL2
+Assets") with the pages "Steuern" (`ControlPage`), "Dieser PC" (address, PIN with an inline QR code
+from `TrayApplicationContext.CreatePairingQrPayload`, paired devices, files) and "Einstellungen";
+the last page is stored as `Window:Page` in `settings.json` (`UserSettingsStore`). A manual start
+opens the window, the Windows autostart (`"<launcher>" --autostart`, written by
+`WindowsStartupService.SetEnabled`; `UpgradeCommand` rewrites entries of older versions on start)
+stays in the tray. A second start hands `--show` (`WindowsExplorerSendMenu.ShowWindowMessage`) over
+the Explorer send menu's pipe to the running instance, which brings its window to the front instead
+of the "läuft bereits" box. "Steuern" keeps the controlled devices in
+`%LOCALAPPDATA%\YFRemote\remote-devices.json` (`RemoteDeviceStore`: `url`, `name`, `named`, like
+`RemoteDevices` on Android; a damaged file loads as an empty list), polls their `/health` every 3 s
+only while the page is visible, and shows found devices with "Hinzufügen"; "Gerät hinzufügen..."
+accepts an address only after `/health` answered. "Öffnen" starts a `RemoteDeviceWindow`: one window
+per device with the target's unchanged web client in WebView2 (`Microsoft.Web.WebView2`, Windows only;
+the WPF wrapper is removed in the project file because it caused a `WindowsBase` conflict). The
+client pairs itself, its token lives in the WebView2 profile `%LOCALAPPDATA%\YFRemote\WebView2` per
+origin. The environment marks the saved device origins as secure
+(`--unsafely-treat-insecure-origin-as-secure`), so the Clipboard API works over `http://<LAN-IP>`;
+the list is fixed per process, a device added later gets it after the next start. Navigation to any
+other origin opens in the default browser instead. Devices open over HTTP only for now; HTTPS would
+need CA pinning like `PinnedCa` on Android. Without the WebView2 runtime (Windows 10 without Edge
+updates) the window offers its download page.

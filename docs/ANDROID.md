@@ -37,7 +37,12 @@ Windows/Linux server is — no `MediaProjection`/video-encoding screen capture i
 
 **The app is also a controller.** `SetupActivity`'s "Steuern" section lists devices
 this phone controls (`remote/RemoteDevices`, in `SharedPreferences`) with an online dot from
-polling their unauthenticated `GET /health`. When the list holds both `http://` and `https://`
+polling their unauthenticated `GET /health`. Below, "Im Netzwerk gefunden" lists devices that
+answer the UDP search of `remote/Discovery` (same protocol as the PC, see ARCHITECTURE.md "Network
+discovery"; searched on opening and every 30 s while shown, plus "Erneut suchen"), minus the saved
+ones, each with "Hinzufügen". While the server runs, `KtorServer` starts `Discovery.Responder`, so
+the phone itself shows up on PCs. Not yet checked on a phone, in particular not whether broadcasts
+still arrive with the screen off (else a `WifiManager.MulticastLock` would be needed). When the list holds both `http://` and `https://`
 entries (often the same PC twice), a "Unverschlüsselt | Verschlüsselt" switch above it shows one
 kind at a time; the choice is the `deviceTabSecure` preference (default encrypted), and with only
 one kind there is no switch. Each entry shows its name, with address and

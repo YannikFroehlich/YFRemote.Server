@@ -1,24 +1,32 @@
+using System.ComponentModel;
 using System.Drawing.Drawing2D;
+using YFRemote.Server.Configuration;
 using YFRemote.Server.Models;
 using YFRemote.Server.Services;
 using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server.Tray;
 
-// Fasst Status, Koppeln, Geräte und Einstellungen in einem Fenster zusammen. Die Aktionen selbst
-// bleiben in TrayApplicationContext, damit Menü und Fenster dasselbe tun.
+// Das App-Fenster: links die Seitenleiste, rechts die gewählte Seite ("Steuern", "Dieser PC",
+// "Einstellungen"). Die Aktionen selbst bleiben in TrayApplicationContext, damit Menü und Fenster
+// dasselbe tun.
 internal sealed class MainWindow : Form
 {
+    internal const string ControlPageId = "control";
+    internal const string PcPageId = "pc";
+    internal const string SettingsPageId = "settings";
+
     private readonly TrayApplicationContext tray;
     private readonly PairingService pairingService;
     private readonly WebSocketConnectionRegistry connectionRegistry;
-    private readonly Panel scrollPanel;
-    private readonly TableLayoutPanel layout;
-    private readonly Label statusLabel;
+    private readonly List<(string Id, NavButton Button, Control Page)> pages = [];
+    private readonly Label sidebarStatusLabel;
+    private readonly Label sidebarConnectionsLabel;
     private readonly FlowLayoutPanel shutdownTimerRow;
     private readonly Label shutdownTimerLabel;
     private readonly Label pinLabel;
     private readonly Label pinExpiryLabel;
+    private readonly PictureBox pinQrCode;
     private readonly ListView deviceList;
     private readonly PillButton ringButton;
     private readonly PillButton mediaOnlyButton;
@@ -36,6 +44,7 @@ internal sealed class MainWindow : Form
     private readonly Font badgeFont = new("Segoe UI Semibold", 8.5F);
 
     private string shownDevicesKey = string.Empty;
+    private string shownQrPayload = string.Empty;
     private int hoveredRow = -1;
 
     public MainWindow(
@@ -50,61 +59,61 @@ internal sealed class MainWindow : Form
 
         Text = "YFRemote";
         Icon = icon;
-        ClientSize = new Size(600, 780);
-        MinimumSize = new Size(520, 480);
+        ClientSize = new Size(980, 720);
+        MinimumSize = new Size(760, 520);
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         Theme.Apply(this);
 
-        // Gescrollt wird ein Panel um das Layout: Ein TableLayoutPanel mit AutoScroll zählt seinen
-        // unteren Innenabstand nicht mit, der letzte Knopf war dann nicht ganz erreichbar.
-        scrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        layout = new TableLayoutPanel
+        // Seitenleiste
+        var logo = new PictureBox
         {
-            Dock = DockStyle.Top,
+            Image = new Icon(icon, 48, 48).ToBitmap(),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(36, 36),
+            Margin = new Padding(0, 0, 10, 0)
+        };
+        var brand = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, RowCount = 2, Margin = new Padding(6, 0, 0, 22) };
+        brand.Controls.Add(logo, 0, 0);
+        brand.SetRowSpan(logo, 2);
+        brand.Controls.Add(new Label { AutoSize = true, Text = "YFRemote", Font = new Font("Segoe UI Semibold", 12F), Margin = new Padding(0) }, 1, 0);
+        brand.Controls.Add(new Label { AutoSize = true, Text = $"v{tray.Version}", ForeColor = Theme.Muted, Margin = new Padding(1, 0, 0, 0) }, 1, 1);
+
+        sidebarStatusLabel = new Label { AutoSize = true, Font = new Font("Segoe UI Semibold", 9F), Margin = new Padding(6, 0, 0, 2) };
+        var sidebarAddressLabel = new Label
+        {
             AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Text = tray.DeviceAddress.Replace("http://", string.Empty).Replace("https://", string.Empty),
+            Font = new Font("Consolas", 9.5F),
+            Margin = new Padding(6, 0, 0, 2)
+        };
+        sidebarConnectionsLabel = new Label { AutoSize = true, ForeColor = Theme.Muted, Margin = new Padding(6, 0, 0, 14) };
+
+        var navigation = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
             ColumnCount = 1,
-            Padding = new Padding(20, 18, 20, 20)
+            Padding = new Padding(12, 20, 12, 16),
+            BackColor = Theme.Inset
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        navigation.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        var sidebar = new Panel { Dock = DockStyle.Left, Width = 228, BackColor = Theme.Inset };
+        sidebar.Controls.Add(navigation);
 
-        // Kopf
-        var titleLabel = new Label
-        {
-            AutoSize = true,
-            Font = new Font("Segoe UI Semibold", 20F),
-            Text = "YFRemote",
-            Margin = new Padding(0)
-        };
-        var versionLabel = new Label
-        {
-            AutoSize = true,
-            ForeColor = Theme.Muted,
-            Text = $"v{tray.Version}",
-            Margin = new Padding(6, 14, 0, 0)
-        };
-        statusLabel = new Label
-        {
-            AutoSize = true,
-            Font = new Font("Segoe UI Semibold", 9F),
-            Margin = new Padding(0, 4, 0, 14)
-        };
-
-        // Verbindung
+        // Dieser PC
         var addressTextBox = new TextBox
         {
             ReadOnly = true,
             // Sonst bekommt das Feld beim Öffnen den Fokus und die Adresse steht markiert da.
             TabStop = false,
             Text = tray.DeviceAddress,
-            Font = new Font("Segoe UI", 11F),
+            Font = new Font("Consolas", 12F),
             BorderStyle = BorderStyle.None,
             BackColor = Theme.Card,
             ForeColor = Theme.Text,
             Width = 420,
-            Margin = new Padding(0, 0, 0, 10)
+            Margin = new Padding(0, 0, 0, 12)
         };
         shutdownTimerLabel = new Label
         {
@@ -115,17 +124,29 @@ internal sealed class MainWindow : Form
         };
         shutdownTimerRow = Row(shutdownTimerLabel, new PillButton("Abbrechen", ButtonKind.Danger, tray.CancelShutdownTimer));
 
-        // Koppeln
         pinLabel = new Label
         {
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 30F),
             ForeColor = Theme.Accent,
-            Margin = new Padding(0, 0, 0, 0)
+            Margin = new Padding(0)
         };
         pinExpiryLabel = new Label { AutoSize = true, ForeColor = Theme.Muted, Margin = new Padding(2, 0, 0, 12) };
+        pinQrCode = new PictureBox
+        {
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(128, 128),
+            AccessibleName = "QR-Code zum Koppeln",
+            Margin = new Padding(24, 0, 0, 12)
+        };
+        // TableLayoutPanel statt FlowLayoutPanel: eine umbrechende FlowLayout-Zeile reservierte die
+        // Höhe für QR-Code unter der PIN, auch wenn beides nebeneinander stand.
+        var pinColumn = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, Margin = new Padding(0) };
+        Theme.AddRows(pinColumn, Theme.Hint("PIN auf dem neuen Gerät eingeben oder den QR-Code scannen - das Gerät ist danach gleich gekoppelt.", 320), pinLabel, pinExpiryLabel);
+        var pinRow = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, RowCount = 1, Margin = new Padding(0) };
+        pinRow.Controls.Add(pinColumn, 0, 0);
+        pinRow.Controls.Add(pinQrCode, 1, 0);
 
-        // Geräte
         deviceList = new ListView
         {
             View = View.Details,
@@ -134,7 +155,7 @@ internal sealed class MainWindow : Form
             MultiSelect = true,
             OwnerDraw = true,
             Dock = DockStyle.Fill,
-            Height = 170,
+            Height = 210,
             BackColor = Theme.Card,
             ForeColor = Theme.Text,
             BorderStyle = BorderStyle.None,
@@ -143,8 +164,8 @@ internal sealed class MainWindow : Form
             // macht die Zeilen so luftig wie die Listen der Weboberfläche.
             SmallImageList = new ImageList { ImageSize = new Size(1, LogicalToDeviceUnits(50)) }
         };
-        deviceList.Columns.Add("GERÄT", 215);
-        deviceList.Columns.Add("STATUS", 175);
+        deviceList.Columns.Add("GERÄT", 240);
+        deviceList.Columns.Add("STATUS", 190);
         deviceList.Columns.Add("ZUGRIFF", 100);
         // Selbst gezeichnet: Kopfzeile und Auswahl blieben sonst hell bzw. Windows-blau.
         deviceList.DrawColumnHeader += DrawDeviceHeader;
@@ -153,6 +174,7 @@ internal sealed class MainWindow : Form
         deviceList.MouseMove += (_, e) => SetHoveredRow(deviceList.HitTest(e.Location).Item?.Index ?? -1);
         deviceList.MouseLeave += (_, _) => SetHoveredRow(-1);
         deviceList.SelectedIndexChanged += (_, _) => UpdateDeviceButtons();
+        deviceList.HandleCreated += (_, _) => Theme.UseDarkScrollBars(deviceList);
         // -2 füllt die letzte Spalte bis zum Rand, sonst bleibt dort ein heller Kopfzeilenrest.
         deviceList.Resize += (_, _) => deviceList.Columns[^1].Width = -2;
 
@@ -166,7 +188,7 @@ internal sealed class MainWindow : Form
         httpsSwitch.Click += (_, _) => httpsSwitch.Checked = tray.ChangeHttps(httpsSwitch.Checked);
         startWithWindowsSwitch = new ToggleSwitch(
             "Mit Windows starten",
-            WindowsStartupService.IsAvailable ? "YFRemote startet bei der Anmeldung im Hintergrund." : "Nur in der installierten Version verfügbar.")
+            WindowsStartupService.IsAvailable ? "Startet bei der Anmeldung still im Infobereich, ohne Fenster." : "Nur in der installierten Version verfügbar.")
         {
             Enabled = WindowsStartupService.IsAvailable
         };
@@ -190,9 +212,14 @@ internal sealed class MainWindow : Form
 
         updateButton = new PillButton(string.Empty, ButtonKind.Primary, () => _ = tray.HandleUpdateClickAsync());
 
-        Theme.AddRows(layout,
-            Row(titleLabel, versionLabel),
-            statusLabel,
+        var content = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Background };
+        AddPage(content, ControlPageId, "Steuern", "", Page(
+            "Steuern",
+            "Andere YFRemote-Geräte in deinem Netzwerk von diesem PC aus bedienen.",
+            new ControlPage(icon)));
+        AddPage(content, PcPageId, "Dieser PC", "", Page(
+            "Dieser PC",
+            "So erreichen andere Geräte diesen PC - und wer ihn gerade steuern darf.",
             new Card("Verbindung",
                 Theme.Hint("Diese Adresse auf dem Handy, Tablet oder einem anderen PC im selben Netzwerk öffnen."),
                 addressTextBox,
@@ -201,22 +228,23 @@ internal sealed class MainWindow : Form
                     new PillButton("Adresse kopieren", ButtonKind.Secondary, tray.CopyDeviceAddress)),
                 shutdownTimerRow),
             new Card("Neues Gerät koppeln",
-                Theme.Hint("Diese PIN auf dem neuen Gerät eingeben oder den QR-Code scannen."),
-                pinLabel,
-                pinExpiryLabel,
+                pinRow,
                 Row(
-                    new PillButton("QR-Code anzeigen", ButtonKind.Primary, () => { tray.ShowPairingQrCode(); RefreshState(); }),
                     new PillButton("PIN kopieren", ButtonKind.Secondary, tray.CopyPin),
-                    new PillButton("Neue PIN", ButtonKind.Secondary, () => { tray.RegeneratePin(); RefreshState(); }))),
+                    new PillButton("Neue PIN", ButtonKind.Secondary, () => { tray.RegeneratePin(); RefreshState(); }),
+                    new PillButton("QR-Code vergrößern", ButtonKind.Secondary, () => { tray.ShowPairingQrCode(); RefreshState(); }))),
             new Card("Gekoppelte Geräte",
                 Theme.Hint("\"Nur Medien\" erlaubt nur Wiedergabe, Lautstärke und Mixer - kein Tippen, keine Maus, "
-                    + "kein Ausschalten, keine Dateien und keine Zwischenablage. Mehrere Geräte mit Strg auswählen."),
+                    + "kein Ausschalten, keine Dateien und keine Zwischenablage. Mehrere Geräte mit Strg auswählen.", 640),
                 deviceList,
                 Row(ringButton, mediaOnlyButton, fullAccessButton, unpairButton)),
             new Card("Dateien",
-                Theme.Hint("Die Datei steht danach 10 Minuten lang auf den gekoppelten Geräten zum Laden bereit."),
-                Row(new PillButton("Datei an Geräte senden...", ButtonKind.Secondary, tray.OfferFile))),
-            new Card("Einstellungen",
+                Theme.Hint("Die Datei steht danach 10 Minuten lang auf den gekoppelten Geräten zum Laden bereit.", 640),
+                Row(new PillButton("Datei an Geräte senden...", ButtonKind.Secondary, tray.OfferFile)))));
+        AddPage(content, SettingsPageId, "Einstellungen", "", Page(
+            "Einstellungen",
+            "Server, Start, Meldungen und Updates.",
+            new Card("Server und Start",
                 httpsSwitch,
                 startWithWindowsSwitch,
                 secureDesktopSwitch,
@@ -232,22 +260,33 @@ internal sealed class MainWindow : Form
             new Card("Updates",
                 Theme.Hint($"Installiert ist v{tray.Version}. YFRemote sucht alle 6 Stunden selbst nach Updates."),
                 Row(updateButton)),
-            Row(new PillButton("YFRemote beenden", ButtonKind.Secondary, tray.ExitApplication)));
+            Row(
+                new PillButton("YFRemote beenden", ButtonKind.Danger, tray.ExitApplication),
+                Theme.Hint("Beendet den Server. Andere Geräte können diesen PC dann nicht mehr steuern.", 420))));
 
-        scrollPanel.Controls.Add(layout);
-        Controls.Add(scrollPanel);
+        Theme.AddRows(navigation,
+        [
+            brand,
+            .. pages.Select(page => (Control)page.Button),
+            new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) },
+            sidebarStatusLabel,
+            sidebarAddressLabel,
+            sidebarConnectionsLabel,
+            Theme.Hint("Fenster schließen: YFRemote läuft im Infobereich weiter.", 190)
+        ]);
+        // Der Platzhalter vor dem Serverstatus schiebt diesen nach unten.
+        navigation.RowStyles[pages.Count + 1] = new RowStyle(SizeType.Percent, 100F);
+
+        // Fill zuerst: angedockt wird in umgekehrter Reihenfolge, die Leiste nimmt sich so ihren Rand.
+        Controls.Add(content);
+        Controls.Add(sidebar);
 
         // ponytail: Abfrage im Sekundentakt statt Events fuer jede Quelle; alles liest nur Speicher.
         refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         refreshTimer.Tick += (_, _) => RefreshState();
         refreshTimer.Start();
         RefreshState();
-    }
-
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-        Theme.UseDarkScrollBars(scrollPanel);
+        ShowPage(UserSettingsStore.GetWindowPage() ?? ControlPageId, remember: false);
     }
 
     protected override void Dispose(bool disposing)
@@ -256,12 +295,74 @@ internal sealed class MainWindow : Form
         {
             refreshTimer.Dispose();
             deviceList.SmallImageList?.Dispose();
+            pinQrCode.Image?.Dispose();
             headerFont.Dispose();
             nameFont.Dispose();
             badgeFont.Dispose();
         }
 
         base.Dispose(disposing);
+    }
+
+    internal void ShowPage(string id, bool remember = true)
+    {
+        if (!pages.Any(page => page.Id == id))
+        {
+            id = ControlPageId;
+        }
+
+        foreach (var (pageId, button, page) in pages)
+        {
+            button.Active = pageId == id;
+            page.Visible = pageId == id;
+        }
+
+        if (!remember)
+        {
+            return;
+        }
+
+        try
+        {
+            UserSettingsStore.SetWindowPage(id);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Dann oeffnet das Fenster beim naechsten Mal eben auf "Steuern".
+        }
+    }
+
+    private void AddPage(Panel content, string id, string title, string glyph, Control page)
+    {
+        content.Controls.Add(page);
+        pages.Add((id, new NavButton(title, glyph, () => ShowPage(id)), page));
+    }
+
+    private static Control Page(string title, string subtitle, params Control[] controls)
+    {
+        // Gescrollt wird ein Panel um das Layout: Ein TableLayoutPanel mit AutoScroll zählt seinen
+        // unteren Innenabstand nicht mit, der letzte Knopf war dann nicht ganz erreichbar.
+        var scrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Visible = false };
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            Padding = new Padding(28, 22, 28, 24)
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        var heading = new Label
+        {
+            AutoSize = true,
+            Font = new Font("Segoe UI Semibold", 20F),
+            Text = title,
+            Margin = new Padding(0)
+        };
+        Theme.AddRows(layout, [heading, Theme.Hint(subtitle, 640), .. controls]);
+        scrollPanel.Controls.Add(layout);
+        scrollPanel.HandleCreated += (_, _) => Theme.UseDarkScrollBars(scrollPanel);
+        return scrollPanel;
     }
 
     private void DrawDeviceHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
@@ -366,8 +467,16 @@ internal sealed class MainWindow : Form
     public void RefreshState()
     {
         var connected = connectionRegistry.ConnectedDeviceCount;
-        statusLabel.Text = $"●  {tray.StatusText}";
-        statusLabel.ForeColor = connected > 0 ? Theme.Success : Theme.Accent;
+        // Die Zahl der Verbindungen steht darunter - hier reicht, dass der Server läuft.
+        sidebarStatusLabel.Text = "●  Server läuft";
+        sidebarStatusLabel.ForeColor = connected > 0 ? Theme.Success : Theme.Accent;
+        sidebarConnectionsLabel.Text = connected switch
+        {
+            0 => "Kein Gerät verbunden",
+            1 => "1 Gerät verbunden",
+            _ => $"{connected} Geräte verbunden"
+        };
+        pages.First(page => page.Id == PcPageId).Button.Badge = connected > 0 ? connected.ToString() : null;
 
         var timerText = tray.GetShutdownTimerText();
         shutdownTimerRow.Visible = timerText is not null;
@@ -376,6 +485,14 @@ internal sealed class MainWindow : Form
         var (pin, expiresAtUtc) = pairingService.GetCurrentPin();
         pinLabel.Text = pin.Length == 6 ? $"{pin[..3]} {pin[3..]}" : pin;
         pinExpiryLabel.Text = $"Gültig bis {expiresAtUtc.ToLocalTime():HH:mm} Uhr";
+        var qrPayload = tray.CreatePairingQrPayload(pin);
+        if (qrPayload != shownQrPayload)
+        {
+            var previous = pinQrCode.Image;
+            pinQrCode.Image = PairingQrCodeDialog.CreateQrCodeImage(qrPayload);
+            previous?.Dispose();
+            shownQrPayload = qrPayload;
+        }
 
         httpsSwitch.Checked = tray.HttpsEnabled;
         startWithWindowsSwitch.Checked = WindowsStartupService.IsEnabled();
@@ -500,7 +617,7 @@ internal sealed class MainWindow : Form
         return (Control)toggle;
     });
 
-    private static FlowLayoutPanel Row(params Control[] controls)
+    internal static FlowLayoutPanel Row(params Control[] controls)
     {
         var row = new FlowLayoutPanel
         {
@@ -512,5 +629,96 @@ internal sealed class MainWindow : Form
         };
         row.Controls.AddRange(controls);
         return row;
+    }
+}
+
+// Eintrag der Seitenleiste: Symbol aus "Segoe MDL2 Assets" (Windows 10 und 11), Name und rechts
+// optional eine Zahl - wie die Navigation der Weboberfläche.
+internal sealed class NavButton : Button
+{
+    private readonly string glyph;
+    private readonly Font glyphFont = new("Segoe MDL2 Assets", 12F);
+    private bool active;
+    private bool hovered;
+    private string? badge;
+
+    public NavButton(string text, string glyph, Action action)
+    {
+        this.glyph = glyph;
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        Text = text;
+        Font = new Font("Segoe UI Semibold", 10F);
+        Cursor = Cursors.Hand;
+        Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        Margin = new Padding(0, 0, 0, 4);
+        Click += (_, _) => action();
+    }
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool Active
+    {
+        get => active;
+        set { active = value; AccessibleDescription = value ? "Aktuelle Seite" : null; Invalidate(); }
+    }
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string? Badge
+    {
+        get => badge;
+        set { if (badge != value) { badge = value; Invalidate(); } }
+    }
+
+    public override Size GetPreferredSize(Size proposedSize) => new(proposedSize.Width, LogicalToDeviceUnits(42));
+
+    protected override void OnMouseEnter(EventArgs e) { hovered = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { hovered = false; Invalidate(); base.OnMouseLeave(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.Clear(Parent?.BackColor ?? Theme.Inset);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        var bounds = new RectangleF(0.5F, 0.5F, Width - 1.5F, Height - 1.5F);
+        if (active || hovered)
+        {
+            using var path = Theme.RoundedRectangle(bounds, LogicalToDeviceUnits(10));
+            using var fill = new SolidBrush(active ? Color.FromArgb(40, Theme.Accent) : Theme.Hover);
+            g.FillPath(fill, path);
+        }
+
+        if (Focused && ShowFocusCues)
+        {
+            using var path = Theme.RoundedRectangle(bounds, LogicalToDeviceUnits(10));
+            using var focus = new Pen(Theme.Accent, 2);
+            g.DrawPath(focus, path);
+        }
+
+        const TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix;
+        var glyphWidth = LogicalToDeviceUnits(40);
+        TextRenderer.DrawText(g, glyph, glyphFont, new Rectangle(0, 0, glyphWidth, Height), active ? Theme.Accent : Theme.Muted,
+            flags | TextFormatFlags.HorizontalCenter);
+        TextRenderer.DrawText(g, Text, Font, new Rectangle(glyphWidth, 0, Width - glyphWidth, Height), active ? Theme.Text : Theme.Muted, flags);
+
+        if (badge is not null)
+        {
+            var size = TextRenderer.MeasureText(badge, Font);
+            var height = LogicalToDeviceUnits(20);
+            var width = Math.Max(height, size.Width + LogicalToDeviceUnits(8));
+            var pill = new RectangleF(Width - width - LogicalToDeviceUnits(10), (Height - height) / 2F, width, height);
+            using var path = Theme.RoundedRectangle(pill, height / 2F);
+            using var fill = new SolidBrush(Color.FromArgb(40, Theme.Success));
+            g.FillPath(fill, path);
+            TextRenderer.DrawText(g, badge, Font, Rectangle.Round(pill), Theme.Success, flags | TextFormatFlags.HorizontalCenter);
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            glyphFont.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 }

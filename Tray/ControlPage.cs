@@ -372,7 +372,8 @@ internal sealed class DeviceTile : Control
         Text = title;
         AccessibleName = $"{title}, {subtitle}";
         AutoSize = true;
-        Margin = new Padding(0, 0, 14, 14);
+        // Die Karten entstehen erst nach dem DPI-Skalieren des Fensters, daher selbst umrechnen.
+        Margin = new Padding(0, 0, LogicalToDeviceUnits(14), LogicalToDeviceUnits(14));
         BackColor = Theme.Card;
 
         actionButton = new PillButton(actionText, status == DeviceStatus.New ? ButtonKind.Secondary : ButtonKind.Primary, action)

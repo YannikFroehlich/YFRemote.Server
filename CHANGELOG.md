@@ -21,6 +21,19 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- "Steuern" → "Im Netzwerk gefunden" found no Windows PC: the search used UDP port 5050, which
+  Windows itself already occupies (service "Plattformdienst für verbundene Geräte"), so YFRemote
+  could not answer there. The search now runs on port 45050. Devices need this version or newer
+  to find each other.
+- The YFRemote window on a 4K TV or monitor with high Windows scaling (200-300 %): the window now
+  fits the screen instead of reaching past its bottom edge, and the columns of "Gekoppelte Geräte"
+  are no longer a third as wide as intended. The device window and the QR code dialog fit the screen
+  the same way.
+
+## [2.69.0] - 2026-11-23
+
 ### Added
 
 - YFRemote on Windows is now a proper app window with a sidebar: "Steuern", "Dieser PC" and

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.70.0] - 2026-11-23
+
 ### Added
 
 - "Steuern" opens devices with "HTTPS verwenden" switched on encrypted. YFRemote remembers the

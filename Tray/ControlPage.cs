@@ -374,9 +374,12 @@ internal sealed class DeviceTile : Control
         AutoSize = true;
         // Die Karten entstehen erst nach dem DPI-Skalieren des Fensters, daher selbst umrechnen.
         Margin = new Padding(0, 0, LogicalToDeviceUnits(14), LogicalToDeviceUnits(14));
-        BackColor = Theme.Card;
+        // Die Kachel selbst ist Raised; PillButton füllt seine Ecken mit Parent.BackColor - mit Card
+        // stand um jeden Knopf ein dunkleres Rechteck.
+        BackColor = Theme.Raised;
 
-        actionButton = new PillButton(actionText, status == DeviceStatus.New ? ButtonKind.Secondary : ButtonKind.Primary, action)
+        // Auch "Hinzufügen" als Akzentknopf: grau auf grauer Kachel ging er unter.
+        actionButton = new PillButton(actionText, ButtonKind.Primary, action)
         {
             Enabled = actionEnabled,
             Margin = new Padding(0)

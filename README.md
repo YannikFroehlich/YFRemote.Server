@@ -143,6 +143,9 @@ address for everything the search cannot reach, such as guest networks, other
 subnets or VPNs. If a PC is not found, check that Windows Firewall allows
 YFRemote on the private network. "Öffnen" shows the device's usual web
 interface in its own window; pair it there with the PIN the device shows.
+If the device has "HTTPS verwenden" switched on, the window connects
+encrypted: YFRemote remembers the device's certificate on first contact and
+afterwards refuses any other one.
 
 ### Access from outside your home network
 

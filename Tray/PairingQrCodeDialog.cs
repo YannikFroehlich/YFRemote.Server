@@ -143,18 +143,12 @@ internal sealed class PairingQrCodeDialog : Form
         RefreshQrCode();
     }
 
+    // Kleine Bildschirme (z.B. 1366x768 bei 125 %): Fenster auf den Arbeitsbereich kürzen, der
+    // QR-Code schrumpft dann mit, statt unten aus dem Bild zu laufen.
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        FitToWorkingArea(this);
-    }
-
-    // Kleine Bildschirme (z.B. 1366x768 bei 125 %): Fenster auf den Arbeitsbereich kürzen, der
-    // QR-Code schrumpft dann mit, statt unten aus dem Bild zu laufen.
-    private static void FitToWorkingArea(Form form)
-    {
-        var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
-        form.Height = Math.Min(form.Height, workingArea.Height);
+        Theme.FitToWorkingArea(this);
     }
 
     protected override void Dispose(bool disposing)

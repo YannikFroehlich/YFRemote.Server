@@ -97,6 +97,7 @@ internal sealed class RemoteDeviceWindow : Form
     protected override async void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
+        Theme.FitToWorkingArea(this);
         try
         {
             await webView.EnsureCoreWebView2Async(await environment!);

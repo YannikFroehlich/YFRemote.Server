@@ -28,6 +28,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
   and the device window show "verschlüsselt". A device that was used unencrypted before asks for
   its PIN once more after the switch.
 
+### Fixed
+
+- "Steuern": the "Öffnen" and "Hinzufügen" buttons on the device cards had a dark rectangle around
+  their rounded edges, and "Hinzufügen" was grey on grey. Both now sit cleanly on the card, and
+  "Hinzufügen" uses the blue accent like "Öffnen".
+
 ## [2.69.1] - 2026-11-23
 
 ### Fixed

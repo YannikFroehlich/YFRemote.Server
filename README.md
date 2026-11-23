@@ -138,7 +138,7 @@ the wiki for details.
 The "Steuern" page of the YFRemote window lists other YFRemote devices: PCs,
 Linux machines and phones or TV boxes running the Android app. Devices on the
 same network show up under "Im Netzwerk gefunden" by themselves (YFRemote
-answers a short UDP search on port 5050). "Gerät hinzufügen..." takes an
+answers a short UDP search on port 45050). "Gerät hinzufügen..." takes an
 address for everything the search cannot reach, such as guest networks, other
 subnets or VPNs. If a PC is not found, check that Windows Firewall allows
 YFRemote on the private network. "Öffnen" shows the device's usual web

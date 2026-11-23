@@ -637,9 +637,12 @@ service's recovery actions (`sc failure`, restart after 5 s), and Windows brings
   click came back with `ElevatedWindowMessage` and the phone showed the hint while mouse moves still
   went through; with the service a right click opened its system menu and `ESC` closed it.
 
-**Network discovery.** Every server answers a UDP search on the fixed port 5050
+**Network discovery.** Every server answers a UDP search on the fixed port 45050
 (`NetworkDiscovery.Port`, independent of `Server:Port`, since the searcher does not know that port
-yet). The request is the UTF-8 text `YFREMOTE_DISCOVER_1`; anything else gets no answer. The answer
+yet). v2.69.0 used 5050, which Windows' own Connected Devices Platform service (`CDPSvc`) already
+binds on `0.0.0.0`, so no Windows PC could answer; 45050 stays below the dynamic range (49152+)
+and the Hyper-V/WinNAT exclusions (`netsh int ipv4 show excludedportrange protocol=udp`, often
+50000-50059). The request is the UTF-8 text `YFREMOTE_DISCOVER_1`; anything else gets no answer. The answer
 goes unicast to the sender and is only `{"service":"YFRemote","port":<HTTP port>}` - name, platform,
 `httpsPort` and MAC come from the open `GET /health` afterwards, so the answer reveals nothing new,
 and it is about as large as the request (no amplification). On the PC, `NetworkDiscoveryResponder`
@@ -652,9 +655,10 @@ The Android app speaks the same protocol (`remote/Discovery.kt`): `Discovery.Res
 stops with `KtorServer`, `Discovery.search` feeds the "Im Netzwerk gefunden" card in "Steuern"
 (searched on opening and every 30 s while it is shown). Broadcasts do not cross subnets, VLANs or
 most guest networks; adding by address stays the fallback. Covered by `NetworkDiscoveryTests`
-(loopback) and `DiscoveryTest` (reply format); not yet verified between two real devices, nor
-whether the Windows firewall rule created on first start ("Zugriff zulassen") also lets UDP in, nor
-whether an Android phone with the screen off still receives broadcasts.
+(loopback) and `DiscoveryTest` (reply format). The firewall rules Windows creates on the first start
+("Zugriff zulassen") come in TCP/UDP pairs for the exe, so they cover the search too (checked on the
+dev PC on 2026-11-23). Not yet verified between two real devices, nor whether an Android phone with
+the screen off still receives broadcasts.
 
 **Desktop app.** `MainWindow` is the app window: a sidebar (`NavButton`, glyphs from "Segoe MDL2
 Assets") with the pages "Steuern" (`ControlPage`), "Dieser PC" (address, PIN with an inline QR code

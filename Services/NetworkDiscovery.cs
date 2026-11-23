@@ -11,7 +11,9 @@ namespace YFRemote.Server.Services;
 internal static class NetworkDiscovery
 {
     // Fester Port, unabhaengig von Server:Port: der Suchende kennt den HTTP-Port ja noch nicht.
-    public const int Port = 5050;
+    // Nicht 5050: UDP 5050 belegt unter Windows der Dienst CDPSvc ("Plattformdienst fuer verbundene
+    // Geraete"). 45050 liegt unter dem dynamischen Bereich (49152+) und den Hyper-V-Ausschluessen.
+    public const int Port = 45050;
 
     public static ReadOnlySpan<byte> Request => "YFREMOTE_DISCOVER_1"u8;
 

@@ -21,6 +21,19 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- YFRemote on Windows is now a proper app window with a sidebar: "Steuern", "Dieser PC" and
+  "Einstellungen". Starting YFRemote from the Start menu opens the window; when Windows starts it,
+  it stays quietly in the notification area. Starting it again while it runs brings the window to
+  the front instead of the "läuft bereits" message.
+- New page "Steuern": control other YFRemote devices (PCs, Linux, the Android app) from this PC.
+  Devices on the same network are found automatically; others can be added by address. A device
+  opens in its own window with its usual web interface and pairs with its PIN as in the browser.
+- "Dieser PC" shows the pairing QR code right next to the PIN.
+- The Android app finds YFRemote devices on the network too ("Steuern" → "Im Netzwerk gefunden"),
+  and is found by them while its server runs.
+
 ## [2.68.2] - 2026-11-21
 
 ### Fixed

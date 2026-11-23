@@ -45,10 +45,19 @@
     <PackageReference Include="QRCoder" Version="1.8.1" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
     <PackageReference Include="Velopack" Version="1.2.161" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" PrivateAssets="all" />
     <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="Vortice.MediaFoundation" Version="3.8.3" />
   </ItemGroup>
+
+  <!-- WebView2 referenziert immer auch seine WPF-Huelle. Ohne UseWPF meldet der Build dafuer einen
+       WindowsBase-Konflikt (MSB3277) - gebraucht wird nur die WinForms-Huelle. -->
+  <Target Name="RemoveWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />

@@ -163,10 +163,15 @@ itself; the opt-in service `YFRemoteSecureDesktop` (`WindowsSecureDesktop*.cs`) 
 docs/ARCHITECTURE.md "Lock screen and UAC prompt".
 
 **Tray app.** `TrayApplicationContext` (Windows Forms `ApplicationContext`) builds the
-`NotifyIcon` context menu and owns the actions behind it; `MainWindow` (double-click on the tray
-icon, "YFRemote öffnen...", "Gekoppelte Geräte") shows status, PIN, a device table and the
-settings in one window and calls those same `internal` actions, refreshing itself once a second
+`NotifyIcon` context menu and owns the actions behind it; `MainWindow` (opened on a manual start,
+by double-click on the tray icon, "YFRemote öffnen...", "Gekoppelte Geräte") is the app window with
+a sidebar and three pages - "Steuern" (`ControlPage`: other YFRemote devices, found by
+`NetworkDiscovery`, opened in a WebView2 `RemoteDeviceWindow`), "Dieser PC" (status, PIN + QR,
+device table) and "Einstellungen" - and calls those same `internal` actions, refreshing itself once a second
 while open (the device table is only rebuilt when its content changed, so the selection survives).
+The Windows autostart passes `--autostart` and stays in the tray; a second start sends `--show` over
+the Explorer send menu's pipe instead of the "läuft bereits" box. Details in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#features) ("Desktop app", "Network discovery").
 Colors and the shared controls (`Card`, `PillButton`, `ToggleSwitch`) live in `Tray/Theme.cs`; tray
 code uses `MessageDialog.Show` (same arguments as `MessageBox.Show`) instead of `MessageBox`, except
 `Program.cs`, whose two message boxes must work before/without WinForms setup.

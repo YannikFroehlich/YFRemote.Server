@@ -2,8 +2,6 @@ package com.yfremote.android.remote
 
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.NetworkInterface
 
 /** Weckt einen PC per Magic Packet. Die MAC liefert sein /health, solange er noch laeuft. */
 object WakeOnLan {
@@ -18,18 +16,10 @@ object WakeOnLan {
 
     private val MAC = Regex("[0-9A-Fa-f]{2}([:-][0-9A-Fa-f]{2}){5}")
 
-    // Blockiert kurz (Netzwerk) - nicht auf dem UI-Thread aufrufen. Neben 255.255.255.255 auch an
-    // die Broadcast-Adresse jedes Netzes: manche Router leiten den allgemeinen Broadcast nicht
-    // weiter, und Android schickt ihn nicht zwingend ueber das WLAN.
+    // Blockiert kurz (Netzwerk) - nicht auf dem UI-Thread aufrufen.
     fun send(mac: String): Boolean {
         val payload = packet(mac) ?: return false
-        val targets = NetworkInterface.getNetworkInterfaces().asSequence()
-            .filter { it.isUp && !it.isLoopback }
-            .flatMap { it.interfaceAddresses.asSequence() }
-            .mapNotNull { it.broadcast }
-            .plus(InetAddress.getByName("255.255.255.255"))
-            .distinct()
-            .toList()
+        val targets = Discovery.broadcastTargets()
 
         DatagramSocket().use { socket ->
             socket.broadcast = true

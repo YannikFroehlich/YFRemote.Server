@@ -133,6 +133,17 @@ Still, only use YFRemote on a trusted private network, and don't forward port
 [Security](https://github.com/YannikFroehlich/YFRemote.Server/wiki/Sicherheit) in
 the wiki for details.
 
+### Controlling other devices from this PC
+
+The "Steuern" page of the YFRemote window lists other YFRemote devices: PCs,
+Linux machines and phones or TV boxes running the Android app. Devices on the
+same network show up under "Im Netzwerk gefunden" by themselves (YFRemote
+answers a short UDP search on port 5050). "Gerät hinzufügen..." takes an
+address for everything the search cannot reach, such as guest networks, other
+subnets or VPNs. If a PC is not found, check that Windows Firewall allows
+YFRemote on the private network. "Öffnen" shows the device's usual web
+interface in its own window; pair it there with the PIN the device shows.
+
 ### Access from outside your home network
 
 To reach the PC from a mobile network or another Wi-Fi, use a private VPN such

@@ -160,7 +160,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         regeneratePinItem.Click += (_, _) => RegeneratePin();
 
         pairedDevicesItem = new ToolStripMenuItem("Gekoppelte Geräte");
-        pairedDevicesItem.Click += (_, _) => ShowMainWindow();
+        pairedDevicesItem.Click += (_, _) => ShowMainWindow(MainWindow.PcPageId);
 
         ringItem = new ToolStripMenuItem("Gerät klingeln lassen");
 
@@ -264,7 +264,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         Notify(TrayNotification.Started, "YFRemote läuft", $"Der Server ist unter {deviceAddress} erreichbar.");
         _ = WindowsExplorerSendMenu.ListenAsync(
-            path => uiDispatcher.BeginInvoke(() => OfferPath(path)),
+            path => uiDispatcher.BeginInvoke(() =>
+            {
+                if (path == WindowsExplorerSendMenu.ShowWindowMessage)
+                {
+                    ShowMainWindow();
+                }
+                else
+                {
+                    OfferPath(path);
+                }
+            }),
             offerPipeStop.Token);
     }
 
@@ -297,11 +307,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     // Ein einziges Fenster: ein zweiter Doppelklick holt es nur nach vorn.
-    internal void ShowMainWindow()
+    internal void ShowMainWindow(string? page = null)
     {
         if (mainWindow is null || mainWindow.IsDisposed)
         {
             mainWindow = new MainWindow(this, pairingService, connectionRegistry, trayIcon);
+        }
+
+        if (page is not null)
+        {
+            mainWindow.ShowPage(page);
         }
 
         mainWindow.Show();
@@ -602,6 +617,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 MessageBoxIcon.Error);
         }
     }
+
+    internal string CreatePairingQrPayload(string? pin) =>
+        PairingQrCodePayload.Create(deviceAddress, pin, authoritySha256, serverOptions.Port);
 
     internal void ShowPairingQrCode()
     {

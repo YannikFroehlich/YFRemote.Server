@@ -2,6 +2,7 @@ package com.yfremote.android.server
 
 import android.content.Context
 import com.yfremote.android.media.MediaStatusReader
+import com.yfremote.android.remote.Discovery
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -44,10 +45,12 @@ class KtorServer(
     }
 
     private var engine: NettyApplicationEngine? = null
+    private val discovery = Discovery.Responder(port)
 
     fun start() {
         if (engine != null) return
 
+        discovery.start()
         engine = embeddedServer(Netty, port = port, host = "0.0.0.0") {
             install(ContentNegotiation) { json(json) }
             install(WebSockets) { maxFrameSize = MAX_MESSAGE_BYTES.toLong() }
@@ -72,6 +75,7 @@ class KtorServer(
     }
 
     fun stop() {
+        discovery.stop()
         engine?.stop(gracePeriodMillis = 200, timeoutMillis = 1000)
         engine = null
     }

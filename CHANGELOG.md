@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- "Steuern" → "Im Netzwerk gefunden" found no Windows PC: the search used UDP port 5050, which
+  Windows itself already occupies (service "Plattformdienst für verbundene Geräte"), so YFRemote
+  could not answer there. The search now runs on port 45050. Devices need this version or newer
+  to find each other.
+
 ## [2.69.0] - 2026-11-23
 
 ### Added

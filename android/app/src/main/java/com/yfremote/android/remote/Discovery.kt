@@ -14,7 +14,8 @@ import kotlin.concurrent.thread
  *  PC-Server: Anfrage ist der feste Text, Antwort nur der HTTP-Port. Name und Plattform liefert
  *  danach das ohnehin offene /health. */
 object Discovery {
-    const val PORT = 5050
+    // Wie NetworkDiscovery.Port: UDP 5050 belegt unter Windows der Dienst CDPSvc.
+    const val PORT = 45050
     private const val SERVICE = "YFRemote"
     private val REQUEST = "YFREMOTE_DISCOVER_1".toByteArray(Charsets.UTF_8)
     private val SERVICE_FIELD = Regex(""""service"\s*:\s*"$SERVICE"""")

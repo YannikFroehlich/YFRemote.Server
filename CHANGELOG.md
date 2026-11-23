@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.69.1] - 2026-11-23
+
 ### Fixed
 
 - "Steuern" → "Im Netzwerk gefunden" found no Windows PC: the search used UDP port 5050, which

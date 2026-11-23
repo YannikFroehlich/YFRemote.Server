@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- The YFRemote window on a 4K TV or monitor with high Windows scaling (200-300 %): the window now
+  fits the screen instead of reaching past its bottom edge, and the columns of "Gekoppelte Geräte"
+  are no longer a third as wide as intended. The device window and the QR code dialog fit the screen
+  the same way.
+
 ## [2.69.0] - 2026-11-23
 
 ### Added

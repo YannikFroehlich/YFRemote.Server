@@ -164,9 +164,11 @@ internal sealed class MainWindow : Form
             // macht die Zeilen so luftig wie die Listen der Weboberfläche.
             SmallImageList = new ImageList { ImageSize = new Size(1, LogicalToDeviceUnits(50)) }
         };
-        deviceList.Columns.Add("GERÄT", 240);
-        deviceList.Columns.Add("STATUS", 190);
-        deviceList.Columns.Add("ZUGRIFF", 100);
+        // Spaltenbreiten skaliert WinForms nicht mit - ohne LogicalToDeviceUnits waren sie bei 300 %
+        // ein Drittel so breit wie gedacht.
+        deviceList.Columns.Add("GERÄT", deviceList.LogicalToDeviceUnits(240));
+        deviceList.Columns.Add("STATUS", deviceList.LogicalToDeviceUnits(190));
+        deviceList.Columns.Add("ZUGRIFF", deviceList.LogicalToDeviceUnits(100));
         // Selbst gezeichnet: Kopfzeile und Auswahl blieben sonst hell bzw. Windows-blau.
         deviceList.DrawColumnHeader += DrawDeviceHeader;
         deviceList.DrawItem += (_, _) => { };
@@ -287,6 +289,12 @@ internal sealed class MainWindow : Form
         refreshTimer.Start();
         RefreshState();
         ShowPage(UserSettingsStore.GetWindowPage() ?? ControlPageId, remember: false);
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        Theme.FitToWorkingArea(this);
     }
 
     protected override void Dispose(bool disposing)

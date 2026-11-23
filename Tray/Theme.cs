@@ -35,6 +35,17 @@ internal static class Theme
         form.HandleCreated += (_, _) => UseDarkTitleBar(form);
     }
 
+    // 4K-Fernseher mit 300 % hat nur 1280x720 logische Pixel: ein Fenster, das größer als der
+    // Arbeitsbereich ist, ragte unten aus dem Bild. Aufrufen in OnLoad, nach dem DPI-Skalieren.
+    public static void FitToWorkingArea(Form form)
+    {
+        var workingArea = Screen.FromControl(form).WorkingArea;
+        form.Size = new Size(Math.Min(form.Width, workingArea.Width), Math.Min(form.Height, workingArea.Height));
+        form.Location = new Point(
+            Math.Max(workingArea.Left, workingArea.Left + (workingArea.Width - form.Width) / 2),
+            Math.Max(workingArea.Top, workingArea.Top + (workingArea.Height - form.Height) / 2));
+    }
+
     // Ältere Windows-Versionen ignorieren beides einfach.
     public static void UseDarkTitleBar(Form form)
     {

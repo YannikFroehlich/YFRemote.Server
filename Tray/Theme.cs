@@ -35,6 +35,15 @@ internal static class Theme
         form.HandleCreated += (_, _) => UseDarkTitleBar(form);
     }
 
+    // Am Ende des Konstruktors aufrufen, wenn alle Steuerelemente im Fenster sind: WinForms rechnet
+    // Breiten, Abstände und MaximumSize genau einmal um, sobald AutoScaleMode gesetzt ist. Am Anfang
+    // gesetzt wuchs bei 250 % nur das Fenster, Seitenleiste und Texte darin blieben 100 %-Pixel.
+    public static void ScaleToDpi(Form form)
+    {
+        form.AutoScaleDimensions = new SizeF(96F, 96F);
+        form.AutoScaleMode = AutoScaleMode.Dpi;
+    }
+
     // 4K-Fernseher mit 300 % hat nur 1280x720 logische Pixel: ein Fenster, das größer als der
     // Arbeitsbereich ist, ragte unten aus dem Bild. Aufrufen in OnLoad, nach dem DPI-Skalieren.
     public static void FitToWorkingArea(Form form)

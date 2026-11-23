@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- The app window on a 4K TV with high Windows scaling: the sidebar, its page buttons and the
+  text widths now grow with the scaling instead of staying at 100 % sizes, so page names and
+  hints are no longer cut off or squeezed. The same applies to the dialogs and the device window.
+
 ## [2.70.0] - 2026-11-23
 
 ### Added

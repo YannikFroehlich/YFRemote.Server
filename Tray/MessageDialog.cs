@@ -51,8 +51,6 @@ internal static class MessageDialog
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            AutoScaleDimensions = new SizeF(96F, 96F);
-            AutoScaleMode = AutoScaleMode.Dpi;
             StartPosition = hasOwner ? FormStartPosition.CenterParent : FormStartPosition.CenterScreen;
             // Aus dem Tray-Menü heraus gibt es kein Elternfenster: wie die MessageBox nach vorn
             // und in der Taskleiste auffindbar, statt hinter anderen Fenstern zu verschwinden.
@@ -162,6 +160,7 @@ internal static class MessageDialog
             CancelButton = buttons == MessageBoxButtons.YesNoCancel
                 ? (IButtonControl)buttonPanel.Controls[0]
                 : secondaryButton ?? primaryButton;
+            Theme.ScaleToDpi(this);
         }
     }
 

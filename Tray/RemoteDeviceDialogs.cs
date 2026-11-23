@@ -23,8 +23,6 @@ internal sealed class AddDeviceDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
         Theme.Apply(this);
 
         addressBox = DarkTextBox();
@@ -45,6 +43,7 @@ internal sealed class AddDeviceDialog : Form
             MainWindow.Row(addButton, cancelButton)));
         AcceptButton = addButton;
         CancelButton = cancelButton;
+        Theme.ScaleToDpi(this);
     }
 
     public (RemoteDevice Device, HealthResponse Health)? Result { get; private set; }
@@ -128,8 +127,6 @@ internal sealed class RenameDeviceDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         AutoSize = true;
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
         Theme.Apply(this);
 
         nameBox = AddDeviceDialog.DarkTextBox();
@@ -146,6 +143,7 @@ internal sealed class RenameDeviceDialog : Form
             MainWindow.Row(saveButton, cancelButton)));
         AcceptButton = saveButton;
         CancelButton = cancelButton;
+        Theme.ScaleToDpi(this);
     }
 
     public string DeviceName => nameBox.Text;

@@ -28,8 +28,6 @@ internal sealed class RemoteDeviceWindow : Form
         ClientSize = new Size(1100, 780);
         MinimumSize = new Size(420, 480);
         StartPosition = FormStartPosition.CenterScreen;
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
         Theme.Apply(this);
 
         webView = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Theme.Background };
@@ -61,6 +59,7 @@ internal sealed class RemoteDeviceWindow : Form
         // Fill zuerst: angedockt wird in umgekehrter Reihenfolge.
         Controls.Add(webView);
         Controls.Add(toolbar);
+        Theme.ScaleToDpi(this);
     }
 
     public static void Open(RemoteDevice device, IEnumerable<RemoteDevice> knownDevices, Icon icon)

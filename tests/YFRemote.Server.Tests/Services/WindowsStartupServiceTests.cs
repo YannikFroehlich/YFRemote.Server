@@ -23,6 +23,13 @@ public sealed class WindowsStartupServiceTests
     }
 
     [TestMethod]
+    public void NormalizeCommand_AcceptsOldAndNewRunValue()
+    {
+        Assert.AreEqual(@"C:\Apps\YFRemote\YFRemote.exe", WindowsStartupService.NormalizeCommand(@"""C:\Apps\YFRemote\YFRemote.exe"""));
+        Assert.AreEqual(@"C:\Apps\YFRemote\YFRemote.exe", WindowsStartupService.NormalizeCommand(@"""C:\Apps\YFRemote\YFRemote.exe"" --autostart"));
+    }
+
+    [TestMethod]
     public void SetEnabled_True_WhenNotAvailable_ThrowsInvalidOperationException()
     {
         Assert.ThrowsExactly<InvalidOperationException>(() => WindowsStartupService.SetEnabled(true));

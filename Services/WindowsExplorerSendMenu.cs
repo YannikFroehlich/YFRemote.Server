@@ -49,6 +49,10 @@ internal static class WindowsExplorerSendMenu
         return index < 0 ? args : [.. args[..index], .. args[Math.Min(index + 2, args.Length)..]];
     }
 
+    // Statt eines Pfads: ein zweiter Start (Startmenue, Desktop) holt das Fenster der laufenden
+    // Instanz nach vorn. Kein gueltiger Dateipfad, kann also nie mit einem verwechselt werden.
+    public const string ShowWindowMessage = "--show";
+
     // pipeName nur fuer Tests: mit dem echten Namen landete der Pfad beim laufenden YFRemote.
     public static bool TrySendToRunningInstance(string path, string? pipeName = null)
     {

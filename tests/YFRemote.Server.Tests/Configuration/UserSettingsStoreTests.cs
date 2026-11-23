@@ -35,6 +35,18 @@ public sealed class UserSettingsStoreTests
     }
 
     [TestMethod]
+    public void WindowPage_RoundTripsAndKeepsOtherEntries()
+    {
+        UserSettingsStore.SetHttpsEnabled(filePath, enabled: true);
+        Assert.IsNull(UserSettingsStore.GetWindowPage(filePath));
+
+        UserSettingsStore.SetWindowPage(filePath, "pc");
+
+        Assert.AreEqual("pc", UserSettingsStore.GetWindowPage(filePath));
+        Assert.IsTrue(ReadHttpsEnabled());
+    }
+
+    [TestMethod]
     public void SetHttpsEnabled_WithoutExistingFile_WritesTheSection()
     {
         UserSettingsStore.SetHttpsEnabled(filePath, enabled: true);

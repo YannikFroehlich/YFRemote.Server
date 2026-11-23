@@ -96,6 +96,41 @@ internal static class NetworkAddressService
         }
     }
 
+    // 255.255.255.255 plus die Broadcast-Adresse jedes Netzes: Windows schickt den allgemeinen
+    // Broadcast nur ueber eine Karte, bei VPN oder zweitem Adapter oft ueber die falsche.
+    public static IReadOnlyCollection<IPAddress> GetBroadcastAddresses()
+    {
+        try
+        {
+            return NetworkInterface.GetAllNetworkInterfaces()
+                .Where(networkInterface =>
+                    networkInterface.OperationalStatus == OperationalStatus.Up &&
+                    networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .SelectMany(networkInterface => networkInterface.GetIPProperties().UnicastAddresses)
+                .Where(unicastAddress => IsUsableIpv4Address(unicastAddress.Address))
+                .Select(unicastAddress => GetBroadcastAddress(unicastAddress.Address, unicastAddress.IPv4Mask))
+                .Prepend(IPAddress.Broadcast)
+                .Distinct()
+                .ToArray();
+        }
+        catch (NetworkInformationException)
+        {
+            return [IPAddress.Broadcast];
+        }
+    }
+
+    internal static IPAddress GetBroadcastAddress(IPAddress address, IPAddress mask)
+    {
+        var bytes = address.GetAddressBytes();
+        var maskBytes = mask.GetAddressBytes();
+        for (var index = 0; index < bytes.Length; index++)
+        {
+            bytes[index] |= (byte)~maskBytes[index];
+        }
+
+        return new IPAddress(bytes);
+    }
+
     private static bool HasDefaultGateway(NetworkInterface networkInterface)
     {
         return networkInterface.GetIPProperties().GatewayAddresses.Any(gateway =>

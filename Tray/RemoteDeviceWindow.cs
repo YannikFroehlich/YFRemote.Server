@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using YFRemote.Server.Services;
@@ -16,6 +18,7 @@ internal sealed class RemoteDeviceWindow : Form
 
     private readonly RemoteDevice device;
     private readonly WebView2 webView;
+    private bool certificateWarningShown;
 
     private RemoteDeviceWindow(RemoteDevice device, Icon icon)
     {
@@ -41,7 +44,7 @@ internal sealed class RemoteDeviceWindow : Form
         var addressLabel = new Label
         {
             AutoSize = true,
-            Text = device.Address,
+            Text = device.Secure ? $"{new Uri(device.OpenUrl).Authority} · verschlüsselt" : device.Address,
             ForeColor = Theme.Muted,
             Font = new Font("Consolas", 9.5F),
             Margin = new Padding(0, 11, 16, 0)
@@ -50,7 +53,7 @@ internal sealed class RemoteDeviceWindow : Form
             nameLabel,
             addressLabel,
             new PillButton("Neu laden", ButtonKind.Secondary, () => webView.CoreWebView2?.Reload()) { Margin = new Padding(0, 4, 8, 4) },
-            new PillButton("Im Browser öffnen", ButtonKind.Secondary, () => OpenExternal(webView.Source ?? new Uri(device.Url))) { Margin = new Padding(0, 4, 0, 4) });
+            new PillButton("Im Browser öffnen", ButtonKind.Secondary, () => OpenExternal(webView.Source ?? new Uri(device.OpenUrl))) { Margin = new Padding(0, 4, 0, 4) });
         toolbar.Dock = DockStyle.Top;
         toolbar.Padding = new Padding(14, 4, 14, 4);
         toolbar.BackColor = Theme.Inset;
@@ -75,7 +78,7 @@ internal sealed class RemoteDeviceWindow : Form
 
         // ponytail: die Liste sicherer Origins gilt fuer den ganzen Prozess. Ein spaeter
         // hinzugefuegtes Geraet laeuft bis zum naechsten Start von YFRemote ohne Zwischenablage-API.
-        environment ??= CreateEnvironmentAsync(knownDevices.Select(known => known.Url).Append(device.Url));
+        environment ??= CreateEnvironmentAsync(knownDevices.Select(known => known.OpenUrl).Append(device.OpenUrl));
 
         var window = new RemoteDeviceWindow(device, icon);
         OpenWindows[device.Url] = window;
@@ -103,12 +106,13 @@ internal sealed class RemoteDeviceWindow : Form
             await webView.EnsureCoreWebView2Async(await environment!);
             webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
             webView.CoreWebView2.NavigationStarting += OnNavigationStarting;
+            webView.CoreWebView2.ServerCertificateErrorDetected += OnServerCertificateErrorDetected;
             webView.CoreWebView2.NewWindowRequested += (_, args) =>
             {
                 args.Handled = true;
                 OpenExternal(new Uri(args.Uri));
             };
-            webView.Source = new Uri(device.Url);
+            webView.Source = new Uri(device.OpenUrl);
         }
         catch (WebView2RuntimeNotFoundException)
         {
@@ -136,11 +140,55 @@ internal sealed class RemoteDeviceWindow : Form
         }
     }
 
+    // Das Zertifikat des Geraets stammt von seiner eigenen, lokalen CA, der Windows nicht vertraut.
+    // Durch kommt es nur fuer genau diesen Host und Port und nur, wenn es von der beim ersten
+    // Kontakt gemerkten CA (RemoteDevice.Ca) ausgestellt ist - eine andere CA wird nie still
+    // uebernommen. AlwaysAllow gilt fuer die Sitzung, also auch fuer den WebSocket.
+    private void OnServerCertificateErrorDetected(object? sender, CoreWebView2ServerCertificateErrorDetectedEventArgs args)
+    {
+        var expected = new Uri(device.OpenUrl);
+        var trusted = device.Ca is not null
+            && Uri.TryCreate(args.RequestUri, UriKind.Absolute, out var request)
+            && string.Equals(request.Host, expected.Host, StringComparison.OrdinalIgnoreCase)
+            && request.Port == expected.Port
+            && IsFromPinnedAuthority(args.ServerCertificate, expected.Host);
+        args.Action = trusted
+            ? CoreWebView2ServerCertificateErrorAction.AlwaysAllow
+            : CoreWebView2ServerCertificateErrorAction.Cancel;
+
+        if (!trusted && !certificateWarningShown)
+        {
+            certificateWarningShown = true;
+            BeginInvoke(() => MessageDialog.Show(
+                this,
+                $"Das Zertifikat von {device.Name} stammt nicht von der Stelle, die sich YFRemote beim Hinzufügen gemerkt hat. "
+                + "Die Verbindung wurde deshalb abgebrochen.\n\nWurde YFRemote dort neu installiert, entferne das Gerät unter "
+                + "\"Steuern\" und füge es neu hinzu. Sonst könnte sich ein anderes Gerät im Netzwerk als dieses ausgeben.",
+                "YFRemote",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning));
+        }
+    }
+
+    private bool IsFromPinnedAuthority(CoreWebView2Certificate certificate, string host)
+    {
+        try
+        {
+            using var server = certificate.ToX509Certificate2();
+            using var authority = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(device.Ca!));
+            return PinnedCertificate.IsIssuedBy(server, authority, host);
+        }
+        catch (Exception exception) when (exception is CryptographicException or FormatException)
+        {
+            return false;
+        }
+    }
+
     // Im Fenster bleibt nur das Geraet selbst; Links woanders hin gehen in den Standardbrowser.
     private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs args)
     {
         if (!Uri.TryCreate(args.Uri, UriKind.Absolute, out var target)
-            || string.Equals(target.GetLeftPart(UriPartial.Authority), new Uri(device.Url).GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
+            || string.Equals(target.GetLeftPart(UriPartial.Authority), new Uri(device.OpenUrl).GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
         {
             return;
         }

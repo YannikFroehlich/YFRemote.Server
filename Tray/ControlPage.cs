@@ -23,6 +23,7 @@ internal sealed class ControlPage : TableLayoutPanel
     private readonly PillButton searchButton;
     private readonly System.Windows.Forms.Timer pollTimer;
     private readonly Dictionary<string, HealthResponse?> health = [];
+    private readonly HashSet<string> caUnavailable = [];
     private List<(string Url, HealthResponse? Health)> found = [];
     private string shownSavedKey = string.Empty;
     private bool polling;
@@ -100,14 +101,16 @@ internal sealed class ControlPage : TableLayoutPanel
         try
         {
             var devices = store.Load();
-            var results = await Task.WhenAll(devices.Select(async device => (device.Url, Health: await GetHealthAsync(device.Url))));
-            foreach (var (url, result) in results)
+            var results = await Task.WhenAll(devices.Select(async device => (Device: device, Health: await GetHealthAsync(device.Url))));
+            foreach (var (device, result) in results)
             {
-                health[url] = result;
+                health[device.Url] = result;
                 if (result?.Name is { Length: > 0 } name)
                 {
-                    store.SetReportedName(url, name);
+                    store.SetReportedName(device.Url, name);
                 }
+
+                await SyncHttpsAsync(device, result);
             }
         }
         finally
@@ -118,6 +121,42 @@ internal sealed class ControlPage : TableLayoutPanel
         if (!IsDisposed)
         {
             RefreshSaved();
+        }
+    }
+
+    // Meldet ein Geraet HTTPS, wird seine CA beim ersten Kontakt ueber HTTP geladen und gemerkt
+    // (Vertrauen beim ersten Kontakt); danach prueft das Geraetefenster nur noch gegen diese CA.
+    // Der HTTPS-Port wird bei jeder Abfrage nachgefuehrt, ohne ihn oeffnet das Fenster wieder http.
+    private async Task SyncHttpsAsync(RemoteDevice device, HealthResponse? result)
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        string? ca = null;
+        if (device.Ca is null && result.HttpsPort is not null && !caUnavailable.Contains(device.Url))
+        {
+            ca = await GetAuthorityAsync(device.Url);
+            if (ca is null)
+            {
+                // Erst beim naechsten Start wieder versuchen statt alle 3 Sekunden.
+                caUnavailable.Add(device.Url);
+            }
+        }
+
+        store.SetHttps(device.Url, ca, result.HttpsPort);
+    }
+
+    private static async Task<string?> GetAuthorityAsync(string url)
+    {
+        try
+        {
+            return PinnedCertificate.ToPinnedAuthority(await Http.GetByteArrayAsync($"{url}/ca.crt"));
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
+        {
+            return null;
         }
     }
 
@@ -164,7 +203,7 @@ internal sealed class ControlPage : TableLayoutPanel
     {
         var devices = store.Load();
         var key = string.Join("\n", devices.Select(device =>
-            $"{device.Url}|{device.Name}|{StatusOf(device.Url)}|{health.GetValueOrDefault(device.Url)?.Platform}"));
+            $"{device.Url}|{device.Name}|{StatusOf(device.Url)}|{health.GetValueOrDefault(device.Url)?.Platform}|{device.Secure}"));
         if (key == shownSavedKey)
         {
             return;
@@ -186,13 +225,14 @@ internal sealed class ControlPage : TableLayoutPanel
             menu.Items.Add("Entfernen...", null, (_, _) => Remove(device));
             return new DeviceTile(
                 device.Name,
-                $"{device.Address}{PlatformSuffix(deviceHealth)}",
+                $"{new Uri(device.OpenUrl).Authority}{PlatformSuffix(deviceHealth)}",
                 GlyphFor(deviceHealth),
                 status,
                 status == DeviceStatus.Online ? "Öffnen" : "Nicht erreichbar",
                 status == DeviceStatus.Online,
                 () => RemoteDeviceWindow.Open(device, store.Load(), icon),
-                menu);
+                menu,
+                device.Secure);
         }));
 
         // Ein inzwischen gemerktes Geraet verschwindet aus "gefunden".
@@ -227,6 +267,8 @@ internal sealed class ControlPage : TableLayoutPanel
                     store.Add(new RemoteDevice(entry.Url, entry.Health?.Name ?? address));
                     health[entry.Url] = entry.Health;
                     RefreshSaved();
+                    // Gleich die CA holen, damit schon das erste "Öffnen" verschlüsselt ist.
+                    _ = PollAsync();
                 },
                 null);
         }));
@@ -248,6 +290,7 @@ internal sealed class ControlPage : TableLayoutPanel
         store.Add(result.Device);
         health[result.Device.Url] = result.Health;
         RefreshSaved();
+        _ = PollAsync();
     }
 
     private void Rename(RemoteDevice device)
@@ -350,6 +393,7 @@ internal sealed class DeviceTile : Control
     private readonly string subtitle;
     private readonly string glyph;
     private readonly DeviceStatus status;
+    private readonly bool secure;
     private readonly PillButton actionButton;
     private readonly Button? menuButton;
     private readonly Font titleFont = new("Segoe UI Semibold", 10.5F);
@@ -363,20 +407,25 @@ internal sealed class DeviceTile : Control
         string actionText,
         bool actionEnabled,
         Action action,
-        ContextMenuStrip? menu)
+        ContextMenuStrip? menu,
+        bool secure = false)
     {
         this.subtitle = subtitle;
         this.glyph = glyph;
         this.status = status;
+        this.secure = secure;
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         Text = title;
         AccessibleName = $"{title}, {subtitle}";
         AutoSize = true;
         // Die Karten entstehen erst nach dem DPI-Skalieren des Fensters, daher selbst umrechnen.
         Margin = new Padding(0, 0, LogicalToDeviceUnits(14), LogicalToDeviceUnits(14));
-        BackColor = Theme.Card;
+        // Die Kachel selbst ist Raised; PillButton füllt seine Ecken mit Parent.BackColor - mit Card
+        // stand um jeden Knopf ein dunkleres Rechteck.
+        BackColor = Theme.Raised;
 
-        actionButton = new PillButton(actionText, status == DeviceStatus.New ? ButtonKind.Secondary : ButtonKind.Primary, action)
+        // Auch "Hinzufügen" als Akzentknopf: grau auf grauer Kachel ging er unter.
+        actionButton = new PillButton(actionText, ButtonKind.Primary, action)
         {
             Enabled = actionEnabled,
             Margin = new Padding(0)
@@ -451,7 +500,8 @@ internal sealed class DeviceTile : Control
 
         var (statusText, statusColor) = status switch
         {
-            DeviceStatus.Online => ("Online", Theme.Success),
+            // In der Statuszeile ist Platz; in der Unterzeile wurde "verschlüsselt" abgeschnitten.
+            DeviceStatus.Online => (secure ? "Online · verschlüsselt" : "Online", Theme.Success),
             DeviceStatus.Offline => ("Offline", Theme.Muted),
             DeviceStatus.New => ("Neu im Netzwerk", Theme.Accent),
             _ => ("Prüfe...", Theme.Muted)

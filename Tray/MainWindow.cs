@@ -209,6 +209,14 @@ internal sealed class MainWindow : Form
             Visible = tray.CertificateAvailable
         };
         gamepadDriverButton = new PillButton("Controller-Treiber installieren...", ButtonKind.Secondary, tray.OpenGamepadDriverDownload);
+        var deviceFullscreenSwitch = new ToggleSwitch(
+            "Im Vollbild starten",
+            "Beim Verbinden füllt der Bildschirm des Geräts den ganzen Monitor. Zurück ins Fenster über das Logo im Bild.")
+        {
+            Checked = UserSettingsStore.GetDeviceFullscreen()
+        };
+        deviceFullscreenSwitch.Click += (_, _) =>
+            deviceFullscreenSwitch.Checked = tray.ChangeDeviceFullscreen(deviceFullscreenSwitch.Checked);
 
         updateButton = new PillButton(string.Empty, ButtonKind.Primary, () => _ = tray.HandleUpdateClickAsync());
 
@@ -243,7 +251,7 @@ internal sealed class MainWindow : Form
                 Row(new PillButton("Datei an Geräte senden...", ButtonKind.Secondary, tray.OfferFile)))));
         AddPage(content, SettingsPageId, "Einstellungen", "", Page(
             "Einstellungen",
-            "Server, Start, Meldungen und Updates.",
+            "Server, Start, Steuern, Meldungen und Updates.",
             new Card("Server und Start",
                 httpsSwitch,
                 startWithWindowsSwitch,
@@ -252,6 +260,7 @@ internal sealed class MainWindow : Form
                     certificateButton,
                     gamepadDriverButton,
                     new PillButton("Diagnoseordner öffnen", ButtonKind.Secondary, tray.OpenDiagnosticsFolder))),
+            new Card("Andere Geräte steuern", deviceFullscreenSwitch),
             new Card("Benachrichtigungen",
                 [
                     Theme.Hint("Welche Meldungen YFRemote unten rechts am Bildschirm anzeigt."),

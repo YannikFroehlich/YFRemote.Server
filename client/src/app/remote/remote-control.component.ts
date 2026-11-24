@@ -7,6 +7,7 @@ import {
   untracked,
   ChangeDetectionStrategy,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { ButtonCanvasComponent } from './button-canvas.component';
 import { ButtonEditorDialogComponent } from './button-editor-dialog.component';
 import { ButtonLayoutService } from './button-layout.service';
@@ -179,6 +180,21 @@ export class RemoteControlComponent {
       untracked(() => this.showView('remote'));
     }
   });
+  private readonly document = inject(DOCUMENT);
+  // Das Geraetefenster der Desktop-App oeffnet mit ?view=screen&fullscreen=1. Gilt einmal; danach
+  // aus der Adresse genommen, damit "Neu laden" normal oeffnet.
+  private readonly startRequest = this.takeStartRequest();
+  private startView: RemoteView | null = this.startRequest.view;
+  /** Bis die Bildschirmansicht einmal verlassen wird - zurueck im Tab startet sie im Fenster. */
+  protected readonly screenStartFullscreen = signal(this.startRequest.fullscreen);
+  // Den Bildschirm-Tab gibt es erst, wenn /health ihn gemeldet hat; ohne ihn bleibt es bei "remote".
+  private readonly startViewEffect = effect(() => {
+    const view = this.startView;
+    if (view !== null && this.tabs().some((tab) => tab.view === view)) {
+      this.startView = null;
+      untracked(() => this.showView(view));
+    }
+  });
   protected readonly editMode = signal(false);
   // Nur bei neuem Programm vorne, nicht bei jedem Profilwechsel (untracked): ein Wechsel von Hand
   // bleibt so stehen, bis ein anderes Programm nach vorne kommt. Beim Bearbeiten springt nichts.
@@ -290,6 +306,9 @@ export class RemoteControlComponent {
 
   // Der neue Inhalt kommt von der Seite herein, auf der sein Tab liegt - wie beim Wischen.
   private showView(view: RemoteView): void {
+    if (this.activeView() === 'screen' && view !== 'screen') {
+      this.screenStartFullscreen.set(false);
+    }
     const order = this.remote.viewTabs().order;
     const from = order.indexOf(this.activeView());
     const to = order.indexOf(view);
@@ -314,6 +333,26 @@ export class RemoteControlComponent {
       this.showView(this.viewBeforeAuto);
       this.viewBeforeAuto = null;
     }
+  }
+
+  private takeStartRequest(): { view: RemoteView | null; fullscreen: boolean } {
+    const location = this.document.location;
+    const params = new URLSearchParams(location.search);
+    const request = {
+      view: params.get('view') === 'screen' ? ('screen' as const) : null,
+      fullscreen: params.get('fullscreen') === '1',
+    };
+    if (params.has('view') || params.has('fullscreen')) {
+      params.delete('view');
+      params.delete('fullscreen');
+      const rest = params.toString();
+      this.document.defaultView?.history.replaceState(
+        this.document.defaultView.history.state,
+        '',
+        `${location.pathname}${rest === '' ? '' : `?${rest}`}${location.hash}`,
+      );
+    }
+    return request;
   }
 
   protected toggleEditMode(): void {

@@ -863,22 +863,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
     // Gibt wie ChangeStartWithWindows den Zustand zurueck, der jetzt gilt.
     internal bool ChangeNotification(TrayNotification kind, bool enabled)
     {
-        try
+        StoreSetting(kind.ToString(), () =>
         {
             UserSettingsStore.SetNotificationEnabled(kind.ToString(), enabled);
             disabledNotifications = UserSettingsStore.GetDisabledNotifications();
+        });
+        return IsNotificationEnabled(kind);
+    }
+
+    internal bool ChangeDeviceFullscreen(bool enabled)
+    {
+        StoreSetting("DeviceFullscreen", () => UserSettingsStore.SetDeviceFullscreen(enabled));
+        return UserSettingsStore.GetDeviceFullscreen();
+    }
+
+    private void StoreSetting(string name, Action store)
+    {
+        try
+        {
+            store();
         }
         catch (Exception exception)
         {
-            logger.LogWarning(exception, "Failed to store the notification setting {Kind}.", kind);
+            logger.LogWarning(exception, "Failed to store the setting {Name}.", name);
             MessageDialog.Show(
                 $"Die Einstellung konnte nicht gespeichert werden.\n\n{exception.Message}",
                 "YFRemote",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
-
-        return IsNotificationEnabled(kind);
     }
 
     private static string FormatPinText((string Pin, DateTimeOffset ExpiresAtUtc) pin) =>

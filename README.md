@@ -141,8 +141,11 @@ same network show up under "Im Netzwerk gefunden" by themselves (YFRemote
 answers a short UDP search on port 45050). "Gerät hinzufügen..." takes an
 address for everything the search cannot reach, such as guest networks, other
 subnets or VPNs. If a PC is not found, check that Windows Firewall allows
-YFRemote on the private network. "Öffnen" shows the device's usual web
-interface in its own window; pair it there with the PIN the device shows.
+YFRemote on the private network. "Verbinden" shows the device's screen,
+like Remote Desktop, by default across the whole monitor (the logo in the
+picture leads back to the window; "Einstellungen" → "Im Vollbild starten"
+switches that off). Pair it there with the PIN the device shows. A device
+without screen view, such as a phone, opens its usual web interface.
 If the device has "HTTPS verwenden" switched on, the window connects
 encrypted: YFRemote remembers the device's certificate on first contact and
 afterwards refuses any other one.

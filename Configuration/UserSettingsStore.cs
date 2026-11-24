@@ -15,6 +15,7 @@ internal static class UserSettingsStore
     private const string NotificationsSectionName = "Notifications";
     private const string WindowSectionName = "Window";
     private const string PagePropertyName = "Page";
+    private const string DeviceFullscreenPropertyName = "DeviceFullscreen";
 
     public static string FilePath => GetFilePath(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
@@ -88,7 +89,23 @@ internal static class UserSettingsStore
             ? page
             : null;
 
-    internal static void SetWindowPage(string filePath, string page)
+    internal static void SetWindowPage(string filePath, string page) => SetWindowValue(filePath, PagePropertyName, page);
+
+    // Geraetefenster beim Verbinden im Vollbild; fehlt der Eintrag, gilt ja.
+    public static bool GetDeviceFullscreen() => GetDeviceFullscreen(FilePath);
+
+    public static void SetDeviceFullscreen(bool enabled) => SetDeviceFullscreen(FilePath, enabled);
+
+    internal static bool GetDeviceFullscreen(string filePath) =>
+        Read(filePath)[WindowSectionName] is not JsonObject section
+        || section[DeviceFullscreenPropertyName] is not JsonValue value
+        || !value.TryGetValue(out bool enabled)
+        || enabled;
+
+    internal static void SetDeviceFullscreen(string filePath, bool enabled) =>
+        SetWindowValue(filePath, DeviceFullscreenPropertyName, enabled);
+
+    private static void SetWindowValue(string filePath, string name, JsonNode value)
     {
         var root = Read(filePath);
 
@@ -98,7 +115,7 @@ internal static class UserSettingsStore
             root[WindowSectionName] = section;
         }
 
-        section[PagePropertyName] = page;
+        section[name] = value;
         Write(filePath, root);
     }
 

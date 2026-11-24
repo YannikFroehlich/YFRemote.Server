@@ -447,7 +447,7 @@
         <app-touchpad />
       } @else if (activeView() === 'screen' && screenSupported()) {
         @defer (on immediate) {
-          <app-screen-view />
+          <app-screen-view [startFullscreen]="screenStartFullscreen()" />
         }
       } @else if (activeView() === 'keyboard') {
         <app-keyboard-pad />

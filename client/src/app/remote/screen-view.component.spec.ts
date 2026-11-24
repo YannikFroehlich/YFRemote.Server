@@ -1237,6 +1237,26 @@ describe('ScreenViewComponent', () => {
     fixture.destroy();
   });
 
+  it('lets the desktop app window go fullscreen with the view', async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal('chrome', { webview: { postMessage } });
+    try {
+      const { fixture, element } = await setup(new Blob(['jpeg']));
+      const view = element.querySelector('.screen-view')!;
+      const button = element.querySelector<HTMLElement>('[aria-label="Vollbild"]')!;
+
+      button.click();
+      fixture.detectChanges();
+      expect(view.classList).toContain('screen-view--fullscreen');
+      expect(postMessage).toHaveBeenLastCalledWith('fullscreen');
+
+      fixture.destroy();
+      expect(postMessage).toHaveBeenLastCalledWith('windowed');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   describe('in fullscreen', () => {
     const enterFullscreen = async (element: HTMLElement) => {
       const view = element.querySelector('.screen-view')!;

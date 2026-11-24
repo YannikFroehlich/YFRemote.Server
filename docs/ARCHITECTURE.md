@@ -672,7 +672,7 @@ of the "läuft bereits" box. "Steuern" keeps the controlled devices in
 `%LOCALAPPDATA%\YFRemote\remote-devices.json` (`RemoteDeviceStore`: `url`, `name`, `named`, like
 `RemoteDevices` on Android; a damaged file loads as an empty list), polls their `/health` every 3 s
 only while the page is visible, and shows found devices with "Hinzufügen"; "Gerät hinzufügen..."
-accepts an address only after `/health` answered. "Öffnen" starts a `RemoteDeviceWindow`: one window
+accepts an address only after `/health` answered. "Verbinden" starts a `RemoteDeviceWindow`: one window
 per device with the target's unchanged web client in WebView2 (`Microsoft.Web.WebView2`, Windows only;
 the WPF wrapper is removed in the project file because it caused a `WindowsBase` conflict). The
 client pairs itself, its token lives in the WebView2 profile `%LOCALAPPDATA%\YFRemote\WebView2` per
@@ -696,3 +696,15 @@ with the PC itself added by address (HTTPS on 5443): the CA was pinned within on
 device window loaded the client over `https://…:5443` without a certificate error; pairing over
 HTTPS and the mismatch path were not tried on a real device. Without the WebView2 runtime (Windows 10 without Edge
 updates) the window offers its download page.
+Like Remote Desktop, the window loads `/?view=screen`, plus `&fullscreen=1` while "Im Vollbild
+starten" is on (`Window:DeviceFullscreen` in `settings.json`, missing = on). `RemoteControlComponent`
+reads both once and removes them from the address with `history.replaceState`, so "Neu laden"
+opens normally; it switches to the screen tab as soon as `/health` makes it available (a device
+without one, or an older client, ignores both) and hands `startFullscreen` to `ScreenViewComponent`
+until that tab is left. Inside WebView2 (`window.chrome.webview`) the screen view never uses element
+fullscreen, which would only fill the area below the window's toolbar: it uses the CSS fullscreen of
+the iPhone and posts `fullscreen`/`windowed` to the host, and `RemoteDeviceWindow.SetFullscreen` hides
+the toolbar and makes the window borderless over its monitor (back to the old bounds on `windowed`,
+on destroy of the view and on every navigation inside the device origin). Keys in the picture go to
+the device, Esc included; Alt+Tab and Win stay local, since `keyboard.lock()` needs element
+fullscreen.

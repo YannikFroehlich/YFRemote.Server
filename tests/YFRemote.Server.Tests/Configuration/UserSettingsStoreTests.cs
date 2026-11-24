@@ -47,6 +47,18 @@ public sealed class UserSettingsStoreTests
     }
 
     [TestMethod]
+    public void DeviceFullscreen_DefaultsToOnAndKeepsThePage()
+    {
+        Assert.IsTrue(UserSettingsStore.GetDeviceFullscreen(filePath));
+        UserSettingsStore.SetWindowPage(filePath, "control");
+
+        UserSettingsStore.SetDeviceFullscreen(filePath, enabled: false);
+
+        Assert.IsFalse(UserSettingsStore.GetDeviceFullscreen(filePath));
+        Assert.AreEqual("control", UserSettingsStore.GetWindowPage(filePath));
+    }
+
+    [TestMethod]
     public void SetHttpsEnabled_WithoutExistingFile_WritesTheSection()
     {
         UserSettingsStore.SetHttpsEnabled(filePath, enabled: true);

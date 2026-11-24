@@ -1,9 +1,11 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   ElementRef,
   inject,
+  input,
   OnDestroy,
   signal,
   viewChild,
@@ -159,9 +161,20 @@ export class ScreenViewComponent implements OnDestroy {
   protected readonly soundSupported = this.remote.audioAvailable;
   protected readonly qualities = SCREEN_QUALITIES;
   protected readonly quality = this.remote.screenQuality;
+  /** Aus dem Geraetefenster der Desktop-App: gleich im Vollbild beginnen. */
+  readonly startFullscreen = input(false);
+  // Im Geraetefenster der Desktop-App (WebView2) fuellte Element-Vollbild nur die Flaeche unter
+  // dessen Leiste. Dort fuellt die Ansicht das Fenster per CSS, und das Fenster selbst den Monitor.
+  private readonly desktopWindow =
+    (
+      this.document.defaultView as {
+        chrome?: { webview?: { postMessage(message: string): void } };
+      } | null
+    )?.chrome?.webview ?? null;
   // Auf dem iPhone gibt es kein Element-Vollbild; dort fuellt die Ansicht per CSS den sichtbaren
   // Bereich (.screen-view--fullscreen), und fullscreen() steht fuer beides.
-  protected readonly fullscreenSupported = this.document.fullscreenEnabled === true;
+  protected readonly fullscreenSupported =
+    this.document.fullscreenEnabled === true && this.desktopWindow === null;
   private readonly maxVideoWidth =
     this.document.defaultView?.matchMedia?.('(pointer: fine)').matches === true
       ? MAX_DESKTOP_VIDEO_WIDTH
@@ -249,6 +262,11 @@ export class ScreenViewComponent implements OnDestroy {
     keepScreenAwake();
     void this.start();
     void this.loadMonitors();
+    afterNextRender(() => {
+      if (this.startFullscreen()) {
+        void this.toggleFullscreen();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -273,6 +291,7 @@ export class ScreenViewComponent implements OnDestroy {
     this.stopSound();
     if (this.fullscreen()) {
       void this.document.exitFullscreen?.().catch(() => undefined);
+      this.desktopWindow?.postMessage('windowed');
     }
   }
 
@@ -1411,8 +1430,19 @@ export class ScreenViewComponent implements OnDestroy {
     if (!this.fullscreenSupported) {
       this.fullscreen.update((on) => !on);
       this.menuOpen.set(false);
-      // Wie beim echten Vollbild: das Video in der neuen Breite holen.
-      this.videoAbort?.abort();
+      if (this.fullscreen()) {
+        this.stage().nativeElement.focus({ preventScroll: true });
+      }
+      if (this.desktopWindow === null) {
+        // Wie beim echten Vollbild: das Video in der neuen Breite holen.
+        this.videoAbort?.abort();
+        return;
+      }
+      this.desktopWindow.postMessage(this.fullscreen() ? 'fullscreen' : 'windowed');
+      // Die neue Breite hat die Ansicht erst, wenn das Fenster nachgezogen hat.
+      this.document.defaultView?.addEventListener('resize', () => this.videoAbort?.abort(), {
+        once: true,
+      });
       return;
     }
 

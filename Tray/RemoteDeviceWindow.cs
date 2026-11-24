@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
+using YFRemote.Server.Configuration;
 using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tray;
@@ -18,7 +19,11 @@ internal sealed class RemoteDeviceWindow : Form
 
     private readonly RemoteDevice device;
     private readonly WebView2 webView;
+    private readonly FlowLayoutPanel toolbar;
     private bool certificateWarningShown;
+    private bool fullscreen;
+    private Rectangle windowedBounds;
+    private FormWindowState windowedState;
 
     private RemoteDeviceWindow(RemoteDevice device, Icon icon)
     {
@@ -47,7 +52,7 @@ internal sealed class RemoteDeviceWindow : Form
             Font = new Font("Consolas", 9.5F),
             Margin = new Padding(0, 11, 16, 0)
         };
-        var toolbar = MainWindow.Row(
+        toolbar = MainWindow.Row(
             nameLabel,
             addressLabel,
             new PillButton("Neu laden", ButtonKind.Secondary, () => webView.CoreWebView2?.Reload()) { Margin = new Padding(0, 4, 8, 4) },
@@ -111,7 +116,10 @@ internal sealed class RemoteDeviceWindow : Form
                 args.Handled = true;
                 OpenExternal(new Uri(args.Uri));
             };
-            webView.Source = new Uri(device.OpenUrl);
+            webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+            // Wie Remotedesktop: gleich der Bildschirm des Geraets. Ein Geraet ohne Bildschirmansicht
+            // oder mit aelterem YFRemote uebergeht beides und zeigt die Fernbedienung.
+            webView.Source = new Uri($"{device.OpenUrl}/?view=screen{(UserSettingsStore.GetDeviceFullscreen() ? "&fullscreen=1" : string.Empty)}");
         }
         catch (WebView2RuntimeNotFoundException)
         {
@@ -186,15 +194,65 @@ internal sealed class RemoteDeviceWindow : Form
     // Im Fenster bleibt nur das Geraet selbst; Links woanders hin gehen in den Standardbrowser.
     private void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs args)
     {
-        if (!Uri.TryCreate(args.Uri, UriKind.Absolute, out var target)
-            || string.Equals(target.GetLeftPart(UriPartial.Authority), new Uri(device.OpenUrl).GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
+        if (!Uri.TryCreate(args.Uri, UriKind.Absolute, out var target) || IsDevice(target))
         {
+            // Neu geladen kennt die Seite das Vollbild nicht mehr.
+            SetFullscreen(false);
             return;
         }
 
         args.Cancel = true;
         OpenExternal(target);
     }
+
+    // Die Bildschirmansicht meldet ihr Vollbild; das Fenster folgt randlos ueber den ganzen Monitor.
+    // Element-Vollbild fuellte in WebView2 nur die Flaeche unter der Leiste.
+    private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
+    {
+        if (!Uri.TryCreate(args.Source, UriKind.Absolute, out var source) || !IsDevice(source))
+        {
+            return;
+        }
+
+        try
+        {
+            SetFullscreen(args.TryGetWebMessageAsString() == "fullscreen");
+        }
+        catch (ArgumentException)
+        {
+            // Keine Zeichenkette - nichts, was die Seite von sich aus schickt.
+        }
+    }
+
+    private void SetFullscreen(bool on)
+    {
+        if (on == fullscreen)
+        {
+            return;
+        }
+
+        fullscreen = on;
+        toolbar.Visible = !on;
+        if (on)
+        {
+            windowedState = WindowState == FormWindowState.Minimized ? FormWindowState.Normal : WindowState;
+            windowedBounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+            // Erst Normal: maximiert ohne Rand bliebe die Taskleiste sichtbar.
+            WindowState = FormWindowState.Normal;
+            FormBorderStyle = FormBorderStyle.None;
+            Bounds = Screen.FromControl(this).Bounds;
+            Activate();
+        }
+        else
+        {
+            FormBorderStyle = FormBorderStyle.Sizable;
+            Bounds = windowedBounds;
+            WindowState = windowedState;
+        }
+    }
+
+    private bool IsDevice(Uri uri) =>
+        string.Equals(uri.GetLeftPart(UriPartial.Authority), new Uri(device.OpenUrl).GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);
 
     private static void OpenExternal(Uri uri)
     {

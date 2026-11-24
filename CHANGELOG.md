@@ -21,6 +21,14 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- "Steuern" works like Remote Desktop: "Verbinden" (formerly "Öffnen") goes straight to the
+  device's screen, and by default the window fills the whole monitor without a frame. The logo in
+  the picture leads back to the window. "Einstellungen" → "Andere Geräte steuern" → "Im Vollbild
+  starten" switches the fullscreen start off. Needs this version on the controlled device too; an
+  older one or a device without screen view opens the remote control as before.
+
 ## [2.70.1] - 2026-11-23
 
 ### Fixed

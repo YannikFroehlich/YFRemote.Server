@@ -228,7 +228,7 @@ internal sealed class ControlPage : TableLayoutPanel
                 $"{new Uri(device.OpenUrl).Authority}{PlatformSuffix(deviceHealth)}",
                 GlyphFor(deviceHealth),
                 status,
-                status == DeviceStatus.Online ? "Öffnen" : "Nicht erreichbar",
+                status == DeviceStatus.Online ? "Verbinden" : "Nicht erreichbar",
                 status == DeviceStatus.Online,
                 () => RemoteDeviceWindow.Open(device, store.Load(), icon),
                 menu,

@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.71.0] - 2026-11-24
+
 ### Added
 
 - "Steuern" works like Remote Desktop: "Verbinden" (formerly "Öffnen") goes straight to the

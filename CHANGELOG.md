@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.72.0] - 2026-11-26
+
 ### Changed
 
 - The app window is built around remote screen access: "Steuern" is now "Fernzugriff" and the window

@@ -27,6 +27,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
   connection can be closed in fullscreen too, where the window's toolbar is hidden. It only shows
   inside the desktop app.
 
+### Fixed
+
+- App window: moving the mouse quickly over the paired devices on "Dieser PC" no longer makes the
+  list flicker, with rows or badges briefly blank. The list is double-buffered and repaints only the
+  row the mouse leaves and the one it enters.
+
 ## [2.72.0] - 2026-11-26
 
 ### Changed

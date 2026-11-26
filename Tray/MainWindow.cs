@@ -7,7 +7,7 @@ using YFRemote.Server.WebSockets;
 
 namespace YFRemote.Server.Tray;
 
-// Das App-Fenster: links die Seitenleiste, rechts die gewählte Seite ("Steuern", "Dieser PC",
+// Das App-Fenster: links die Seitenleiste, rechts die gewählte Seite ("Fernzugriff", "Dieser PC",
 // "Einstellungen"). Die Aktionen selbst bleiben in TrayApplicationContext, damit Menü und Fenster
 // dasselbe tun.
 internal sealed class MainWindow : Form
@@ -153,7 +153,6 @@ internal sealed class MainWindow : Form
             MultiSelect = true,
             OwnerDraw = true,
             Dock = DockStyle.Fill,
-            Height = 210,
             BackColor = Theme.Card,
             ForeColor = Theme.Text,
             BorderStyle = BorderStyle.None,
@@ -174,7 +173,12 @@ internal sealed class MainWindow : Form
         deviceList.MouseMove += (_, e) => SetHoveredRow(deviceList.HitTest(e.Location).Item?.Index ?? -1);
         deviceList.MouseLeave += (_, _) => SetHoveredRow(-1);
         deviceList.SelectedIndexChanged += (_, _) => UpdateDeviceButtons();
-        deviceList.HandleCreated += (_, _) => Theme.UseDarkScrollBars(deviceList);
+        deviceList.HandleCreated += (_, _) =>
+        {
+            Theme.UseDarkScrollBars(deviceList);
+            // Die Zeilen legt die ListView erst nach diesem Ereignis im Fenster an.
+            BeginInvoke(FitDeviceListHeight);
+        };
         // -2 füllt die letzte Spalte bis zum Rand, sonst bleibt dort ein heller Kopfzeilenrest.
         deviceList.Resize += (_, _) => deviceList.Columns[^1].Width = -2;
 
@@ -221,9 +225,9 @@ internal sealed class MainWindow : Form
         updateButton = new PillButton(string.Empty, ButtonKind.Primary, () => _ = tray.HandleUpdateClickAsync());
 
         var content = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Background };
-        AddPage(content, ControlPageId, "Steuern", "", Page(
-            "Steuern",
-            "Andere YFRemote-Geräte in deinem Netzwerk von diesem PC aus bedienen.",
+        AddPage(content, ControlPageId, "Fernzugriff", "", Page(
+            "Fernzugriff",
+            "Den Bildschirm deiner anderen Geräte öffnen und mit Maus und Tastatur bedienen.",
             new ControlPage(icon)));
         AddPage(content, PcPageId, "Dieser PC", "", Page(
             "Dieser PC",
@@ -251,7 +255,7 @@ internal sealed class MainWindow : Form
                 Row(new PillButton("Datei an Geräte senden...", ButtonKind.Secondary, tray.OfferFile)))));
         AddPage(content, SettingsPageId, "Einstellungen", "", Page(
             "Einstellungen",
-            "Server, Start, Steuern, Meldungen und Updates.",
+            "Server, Start, Fernzugriff, Meldungen und Updates.",
             new Card("Server und Start",
                 httpsSwitch,
                 startWithWindowsSwitch,
@@ -260,7 +264,7 @@ internal sealed class MainWindow : Form
                     certificateButton,
                     gamepadDriverButton,
                     new PillButton("Diagnoseordner öffnen", ButtonKind.Secondary, tray.OpenDiagnosticsFolder))),
-            new Card("Andere Geräte steuern", deviceFullscreenSwitch),
+            new Card("Fernzugriff", deviceFullscreenSwitch),
             new Card("Benachrichtigungen",
                 [
                     Theme.Hint("Welche Meldungen YFRemote unten rechts am Bildschirm anzeigt."),
@@ -296,7 +300,10 @@ internal sealed class MainWindow : Form
         refreshTimer.Tick += (_, _) => RefreshState();
         refreshTimer.Start();
         RefreshState();
-        ShowPage(UserSettingsStore.GetWindowPage() ?? ControlPageId, remember: false);
+        // Das Fenster ist vor allem zum Fernzugriff da - es öffnet immer dort.
+        ShowPage(ControlPageId);
+        // Fokus nicht im Adressfeld, sonst verschwindet dessen Platzhalter mit dem Beispiel.
+        ActiveControl = pages[0].Button;
     }
 
     protected override void OnLoad(EventArgs e)
@@ -320,7 +327,7 @@ internal sealed class MainWindow : Form
         base.Dispose(disposing);
     }
 
-    internal void ShowPage(string id, bool remember = true)
+    internal void ShowPage(string id)
     {
         if (!pages.Any(page => page.Id == id))
         {
@@ -331,20 +338,6 @@ internal sealed class MainWindow : Form
         {
             button.Active = pageId == id;
             page.Visible = pageId == id;
-        }
-
-        if (!remember)
-        {
-            return;
-        }
-
-        try
-        {
-            UserSettingsStore.SetWindowPage(id);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // Dann oeffnet das Fenster beim naechsten Mal eben auf "Steuern".
         }
     }
 
@@ -373,9 +366,14 @@ internal sealed class MainWindow : Form
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 20F),
             Text = title,
+            // Zeichnet ohne den Innenabstand, den WinForms großer Schrift links mitgibt - sonst stand
+            // der Titel sichtbar rechts von Untertitel und Karten.
+            FlatStyle = FlatStyle.System,
             Margin = new Padding(0)
         };
-        Theme.AddRows(layout, [heading, Theme.Hint(subtitle, 640), .. controls]);
+        var subtitleLabel = Theme.Hint(subtitle, 640);
+        subtitleLabel.Margin = new Padding(0, 0, 0, 16);
+        Theme.AddRows(layout, [heading, subtitleLabel, .. controls]);
         scrollPanel.Controls.Add(layout);
         scrollPanel.HandleCreated += (_, _) => Theme.UseDarkScrollBars(scrollPanel);
         return scrollPanel;
@@ -563,9 +561,22 @@ internal sealed class MainWindow : Form
         }
 
         deviceList.EndUpdate();
+        FitDeviceListHeight();
         deviceList.Columns[^1].Width = -2;
         shownDevicesKey = key;
         UpdateDeviceButtons();
+    }
+
+    // So hoch wie alle Zeilen: gescrollt wird die Seite, nicht zusätzlich die Liste darin.
+    private void FitDeviceListHeight()
+    {
+        if (!deviceList.IsHandleCreated || deviceList.Items.Count == 0)
+        {
+            return;
+        }
+
+        var firstRow = deviceList.GetItemRect(0);
+        deviceList.Height = firstRow.Top + deviceList.Items.Count * firstRow.Height + 1;
     }
 
     private List<PairedDeviceInfo> SelectedDevices() =>

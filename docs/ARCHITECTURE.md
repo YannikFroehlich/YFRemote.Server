@@ -661,18 +661,22 @@ dev PC on 2026-11-23). Not yet verified between two real devices, nor whether an
 the screen off still receives broadcasts.
 
 **Desktop app.** `MainWindow` is the app window: a sidebar (`NavButton`, glyphs from "Segoe MDL2
-Assets") with the pages "Steuern" (`ControlPage`), "Dieser PC" (address, PIN with an inline QR code
-from `TrayApplicationContext.CreatePairingQrPayload`, paired devices, files) and "Einstellungen";
-the last page is stored as `Window:Page` in `settings.json` (`UserSettingsStore`). A manual start
+Assets") with the pages "Fernzugriff" (`ControlPage`), "Dieser PC" (address, PIN with an inline QR
+code from `TrayApplicationContext.CreatePairingQrPayload`, paired devices, files) and "Einstellungen".
+The window always opens on "Fernzugriff" - it is mainly a remote-screen client; the tray entries
+"Gekoppelte Geräte" etc. still open "Dieser PC" directly. A manual start
 opens the window, the Windows autostart (`"<launcher>" --autostart`, written by
 `WindowsStartupService.SetEnabled`; `UpgradeCommand` rewrites entries of older versions on start)
 stays in the tray. A second start hands `--show` (`WindowsExplorerSendMenu.ShowWindowMessage`) over
 the Explorer send menu's pipe to the running instance, which brings its window to the front instead
-of the "läuft bereits" box. "Steuern" keeps the controlled devices in
+of the "läuft bereits" box. "Fernzugriff" keeps the controlled devices in
 `%LOCALAPPDATA%\YFRemote\remote-devices.json` (`RemoteDeviceStore`: `url`, `name`, `named`, like
 `RemoteDevices` on Android; a damaged file loads as an empty list), polls their `/health` every 3 s
-only while the page is visible, and shows found devices with "Hinzufügen"; "Gerät hinzufügen..."
-accepts an address only after `/health` answered. "Verbinden" starts a `RemoteDeviceWindow`: one window
+only while the page is visible, and shows found devices with "Verbinden". The address field at the
+top (`ControlPage.ConnectAsync`) takes the name of a saved or found device or an address; a new
+address is saved only after `/health` answered. Connecting a new device fetches its CA before the
+window opens, so the first connection is already encrypted. The whole device card is clickable.
+"Verbinden" starts a `RemoteDeviceWindow`: one window
 per device with the target's unchanged web client in WebView2 (`Microsoft.Web.WebView2`, Windows only;
 the WPF wrapper is removed in the project file because it caused a `WindowsBase` conflict). The
 client pairs itself, its token lives in the WebView2 profile `%LOCALAPPDATA%\YFRemote\WebView2` per
@@ -707,4 +711,6 @@ the iPhone and posts `fullscreen`/`windowed` to the host, and `RemoteDeviceWindo
 the toolbar and makes the window borderless over its monitor (back to the old bounds on `windowed`,
 on destroy of the view and on every navigation inside the device origin). Keys in the picture go to
 the device, Esc included; Alt+Tab and Win stay local, since `keyboard.lock()` needs element
-fullscreen.
+fullscreen. The window's slim toolbar holds the device name and address plus "Vollbild" (reloads
+with `fullscreen=1`, the only way in from outside the page), "Neu laden" and "Trennen" (closes the
+window); "Im Browser öffnen" is in the device card's menu.

@@ -21,6 +21,24 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- The app window is built around remote screen access: "Steuern" is now "Fernzugriff" and the window
+  always opens there. An address field at the top connects straight to an address or device name
+  (replacing the "Gerät hinzufügen..." dialog), a click anywhere on a device card opens its screen,
+  and devices found in the network connect with one click instead of "Hinzufügen" first. The device
+  window has a slim toolbar with "Vollbild", "Neu laden" and "Trennen"; "Im Browser öffnen" moved to
+  the device card's menu. The window no longer remembers the last page.
+
+### Fixed
+
+- App window: the descriptions under the switches in "Einstellungen" wrap instead of running out of
+  the card, "Meine Geräte" on "Steuern" no longer leaves an empty row below the device cards, and
+  the list of paired devices on "Dieser PC" is as tall as its entries instead of scrolling inside
+  the scrolling page. Page titles line up with the cards below them.
+
+## [2.71.0] - 2026-11-24
+
 ### Added
 
 - "Steuern" works like Remote Desktop: "Verbinden" (formerly "Öffnen") goes straight to the

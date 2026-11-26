@@ -135,13 +135,14 @@ the wiki for details.
 
 ### Controlling other devices from this PC
 
-The "Steuern" page of the YFRemote window lists other YFRemote devices: PCs,
-Linux machines and phones or TV boxes running the Android app. Devices on the
-same network show up under "Im Netzwerk gefunden" by themselves (YFRemote
-answers a short UDP search on port 45050). "Gerät hinzufügen..." takes an
-address for everything the search cannot reach, such as guest networks, other
-subnets or VPNs. If a PC is not found, check that Windows Firewall allows
-YFRemote on the private network. "Verbinden" shows the device's screen,
+The YFRemote window opens on "Fernzugriff", which lists other YFRemote devices:
+PCs, Linux machines and phones or TV boxes running the Android app. Devices on
+the same network show up under "Im Netzwerk gefunden" by themselves (YFRemote
+answers a short UDP search on port 45050). The address field at the top takes
+an address or device name for everything the search cannot reach, such as
+guest networks, other subnets or VPNs. If a PC is not found, check that Windows
+Firewall allows YFRemote on the private network. A click on a device (or
+"Verbinden") shows its screen,
 like Remote Desktop, by default across the whole monitor (the logo in the
 picture leads back to the window; "Einstellungen" → "Im Vollbild starten"
 switches that off). Pair it there with the PIN the device shows. A device

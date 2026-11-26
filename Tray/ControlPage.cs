@@ -6,9 +6,9 @@ using YFRemote.Server.Services;
 
 namespace YFRemote.Server.Tray;
 
-// Seite "Steuern": gemerkte Geraete mit Online-Status aus GET /health, darunter, was die
-// Netzwerksuche (NetworkDiscovery) zusaetzlich findet. Geoeffnet wird ein Geraet in einem
-// RemoteDeviceWindow.
+// Seite "Fernzugriff": oben ein Adressfeld zum direkten Verbinden, darunter die gemerkten Geraete
+// mit Online-Status aus GET /health und was die Netzwerksuche (NetworkDiscovery) zusaetzlich
+// findet. Verbinden oeffnet den Bildschirm des Geraets in einem RemoteDeviceWindow.
 internal sealed class ControlPage : TableLayoutPanel
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(1.5) };
@@ -21,6 +21,9 @@ internal sealed class ControlPage : TableLayoutPanel
     private readonly FlowLayoutPanel foundTiles;
     private readonly Label foundStatusLabel;
     private readonly PillButton searchButton;
+    private readonly TextBox addressBox;
+    private readonly PillButton connectButton;
+    private readonly Label connectErrorLabel;
     private readonly System.Windows.Forms.Timer pollTimer;
     private readonly Dictionary<string, HealthResponse?> health = [];
     private readonly HashSet<string> caUnavailable = [];
@@ -43,16 +46,80 @@ internal sealed class ControlPage : TableLayoutPanel
         searchButton = new PillButton("Erneut suchen", ButtonKind.Secondary, () => _ = SearchAsync());
         savedTiles = TileRow();
         foundTiles = TileRow();
-        savedEmptyLabel = Theme.Hint("Noch keine Geräte. Füge ein gefundenes Gerät unten hinzu oder gib eine Adresse ein. "
-            + "Beim ersten Öffnen koppelst du es mit der PIN, die das Gerät anzeigt.", 640);
+        savedEmptyLabel = Theme.Hint("Noch keine Geräte. Gib oben eine Adresse ein oder verbinde ein gefundenes Gerät. "
+            + "Beim ersten Verbinden koppelst du es mit der PIN, die das Gerät anzeigt.", 640);
         foundStatusLabel = Theme.Hint(string.Empty, 640);
 
+        addressBox = new TextBox
+        {
+            Font = new Font("Segoe UI", 12F),
+            BackColor = Theme.Card,
+            ForeColor = Theme.Text,
+            BorderStyle = BorderStyle.None,
+            PlaceholderText = "Adresse oder Gerätename, z. B. 192.168.0.24",
+            Dock = DockStyle.Fill
+        };
+        // Abgerundetes Feld wie die Karten; der Windows-Rahmen des Textfelds stand hell im Dunkel.
+        var addressField = new Panel
+        {
+            BackColor = Theme.Card,
+            Padding = new Padding(14, 7, 14, 5),
+            Height = 40,
+            Anchor = AnchorStyles.Left | AnchorStyles.Right,
+            Margin = new Padding(0, 0, 10, 0),
+            Cursor = Cursors.IBeam
+        };
+        addressField.Controls.Add(addressBox);
+        addressField.Click += (_, _) => addressBox.Focus();
+        addressField.Resize += (_, _) => addressField.Invalidate();
+        addressField.Paint += (_, e) =>
+        {
+            e.Graphics.Clear(Theme.Background);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var bounds = new RectangleF(0.5F, 0.5F, addressField.Width - 1.5F, addressField.Height - 1.5F);
+            using var path = Theme.RoundedRectangle(bounds, bounds.Height / 2);
+            using var fill = new SolidBrush(Theme.Card);
+            using var border = new Pen(addressBox.Focused ? Theme.Accent : Theme.Line);
+            e.Graphics.FillPath(fill, path);
+            e.Graphics.DrawPath(border, path);
+        };
+        addressBox.GotFocus += (_, _) => addressField.Invalidate();
+        addressBox.LostFocus += (_, _) => addressField.Invalidate();
+        addressBox.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                _ = ConnectAsync();
+            }
+        };
+        connectButton = new PillButton("Verbinden", ButtonKind.Primary, () => _ = ConnectAsync()) { Margin = new Padding(0) };
+        var addressRow = new TableLayoutPanel
+        {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0, 0, 0, 6)
+        };
+        addressRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        addressRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        addressRow.Controls.Add(addressField, 0, 0);
+        addressRow.Controls.Add(connectButton, 1, 0);
+        connectErrorLabel = Theme.Hint(string.Empty, 640);
+        connectErrorLabel.ForeColor = Theme.Danger;
+        connectErrorLabel.Visible = false;
+
+        var searchRow = MainWindow.Row(searchButton);
+        searchRow.Margin = new Padding(0, 4, 0, 0);
         Theme.AddRows(this,
-            MainWindow.Row(searchButton, new PillButton("Gerät hinzufügen...", ButtonKind.Primary, AddManually)),
+            addressRow,
+            connectErrorLabel,
             new Card("Meine Geräte", savedEmptyLabel, savedTiles),
-            new Card("Im Netzwerk gefunden", foundStatusLabel, foundTiles),
-            Theme.Hint("Gefunden werden Geräte im selben Netzwerk, auf denen YFRemote läuft. Fehlt eins, über \"Gerät hinzufügen\" "
-                + "die Adresse eingeben - sie steht auf dem PC unter \"Dieser PC\", in der Android-App unter \"Freigeben\". "
+            new Card("Im Netzwerk gefunden", foundStatusLabel, foundTiles, searchRow),
+            Theme.Hint("Gefunden werden Geräte im selben Netzwerk, auf denen YFRemote läuft. Fehlt eins, oben seine Adresse "
+                + "eingeben - sie steht auf dem PC unter \"Dieser PC\", in der Android-App unter \"Freigeben\". "
                 + "Gastnetze und getrennte VLANs lassen die Suche nicht durch.", 640));
 
         // Abgefragt wird nur, solange die Seite sichtbar ist - offline gegangene Geraete kosten so
@@ -260,16 +327,9 @@ internal sealed class ControlPage : TableLayoutPanel
                 $"{address}{PlatformSuffix(entry.Health)}",
                 GlyphFor(entry.Health),
                 DeviceStatus.New,
-                "Hinzufügen",
+                "Verbinden",
                 true,
-                () =>
-                {
-                    store.Add(new RemoteDevice(entry.Url, entry.Health?.Name ?? address));
-                    health[entry.Url] = entry.Health;
-                    RefreshSaved();
-                    // Gleich die CA holen, damit schon das erste "Öffnen" verschlüsselt ist.
-                    _ = PollAsync();
-                },
+                () => _ = AddAndOpenAsync(entry.Url, entry.Health),
                 null);
         }));
     }
@@ -279,18 +339,84 @@ internal sealed class ControlPage : TableLayoutPanel
         : result is null ? DeviceStatus.Offline
         : DeviceStatus.Online;
 
-    private void AddManually()
+    // Nimmt einen Gerätenamen (gemerkt oder gefunden) oder eine Adresse. Eine neue Adresse wird erst
+    // gemerkt, wenn dort ein YFRemote auf /health antwortet.
+    private async Task ConnectAsync()
     {
-        using var dialog = new AddDeviceDialog(GetHealthAsync);
-        if (dialog.ShowDialog(FindForm()) != DialogResult.OK || dialog.Result is not { } result)
+        var input = addressBox.Text.Trim();
+        if (input.Length == 0 || !connectButton.Enabled)
         {
             return;
         }
 
-        store.Add(result.Device);
-        health[result.Device.Url] = result.Health;
+        var saved = store.Load();
+        var url = saved.FirstOrDefault(device => string.Equals(device.Name, input, StringComparison.OrdinalIgnoreCase))?.Url
+            ?? found.FirstOrDefault(entry => string.Equals(entry.Health?.Name, input, StringComparison.OrdinalIgnoreCase)).Url
+            ?? RemoteDeviceStore.NormalizeAddress(input);
+        if (url is null)
+        {
+            ShowConnectError("Kein Gerät mit diesem Namen, und keine gültige Adresse. Beispiele: 192.168.0.24 oder pc-name:5060");
+            return;
+        }
+
+        if (saved.FirstOrDefault(device => device.Url == url) is { } known)
+        {
+            ShowConnectError(null);
+            addressBox.Clear();
+            RemoteDeviceWindow.Open(known, saved, icon);
+            return;
+        }
+
+        connectButton.Enabled = false;
+        connectButton.Text = "Verbinde...";
+        try
+        {
+            var result = await GetHealthAsync(url);
+            if (result is null)
+            {
+                ShowConnectError($"Unter {new Uri(url).Authority} antwortet kein YFRemote. Läuft YFRemote dort, und ist das Gerät im selben Netzwerk?");
+                return;
+            }
+
+            ShowConnectError(null);
+            addressBox.Clear();
+            await AddAndOpenAsync(url, result);
+        }
+        finally
+        {
+            if (!IsDisposed)
+            {
+                connectButton.Enabled = true;
+                connectButton.Text = "Verbinden";
+            }
+        }
+    }
+
+    private void ShowConnectError(string? message)
+    {
+        connectErrorLabel.Text = message ?? string.Empty;
+        connectErrorLabel.Visible = message is not null;
+        if (message is not null)
+        {
+            addressBox.Focus();
+        }
+    }
+
+    // Vor dem Öffnen die CA holen, damit schon die erste Verbindung verschlüsselt ist.
+    private async Task AddAndOpenAsync(string url, HealthResponse? result)
+    {
+        var device = new RemoteDevice(url, result?.Name ?? new Uri(url).Authority);
+        store.Add(device);
+        health[url] = result;
+        await SyncHttpsAsync(device, result);
+        if (IsDisposed)
+        {
+            return;
+        }
+
         RefreshSaved();
-        _ = PollAsync();
+        var devices = store.Load();
+        RemoteDeviceWindow.Open(devices.FirstOrDefault(saved => saved.Url == url) ?? device, devices, icon);
     }
 
     private void Rename(RemoteDevice device)
@@ -359,7 +485,25 @@ internal sealed class ControlPage : TableLayoutPanel
         _ => ""
     };
 
-    private static FlowLayoutPanel TileRow() => new()
+    // TableLayoutPanel misst mit Mindestbreite (1 Pixel bzw. eine Kachel): Die Höhe reichte dann für
+    // untereinander stehende Kacheln, und unter einer Zeile Kacheln blieb eine leere Fläche.
+    private sealed class TileFlow : FlowLayoutPanel
+    {
+        public override Size GetPreferredSize(Size proposedSize) =>
+            base.GetPreferredSize(new Size(Math.Max(proposedSize.Width, Width), proposedSize.Height));
+
+        // Mit der neuen Breite passen mehr oder weniger Kacheln in eine Zeile - dann neu messen lassen.
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (GetPreferredSize(Size.Empty).Height != Height)
+            {
+                Parent?.PerformLayout();
+            }
+        }
+    }
+
+    private static FlowLayoutPanel TileRow() => new TileFlow()
     {
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
@@ -398,6 +542,7 @@ internal sealed class DeviceTile : Control
     private readonly Button? menuButton;
     private readonly Font titleFont = new("Segoe UI Semibold", 10.5F);
     private readonly Font glyphFont = new("Segoe MDL2 Assets", 14F);
+    private bool hovered;
 
     public DeviceTile(
         string title,
@@ -432,6 +577,13 @@ internal sealed class DeviceTile : Control
         };
         Controls.Add(actionButton);
 
+        // Die ganze Karte ist der Knopf - wie die Verbindungsliste eines Remotedesktop-Programms.
+        if (actionEnabled)
+        {
+            Cursor = Cursors.Hand;
+            Click += (_, _) => action();
+        }
+
         if (menu is not null)
         {
             menuButton = new Button
@@ -454,6 +606,20 @@ internal sealed class DeviceTile : Control
 
     public override Size GetPreferredSize(Size proposedSize) => new(LogicalToDeviceUnits(300), LogicalToDeviceUnits(132));
 
+    protected override void OnMouseEnter(EventArgs e) { SetHovered(true); base.OnMouseEnter(e); }
+
+    // Auch beim Wechsel auf Knopf oder Menü der Karte kommt MouseLeave - dann bleibt sie markiert.
+    protected override void OnMouseLeave(EventArgs e) { SetHovered(ClientRectangle.Contains(PointToClient(MousePosition))); base.OnMouseLeave(e); }
+
+    private void SetHovered(bool value)
+    {
+        if (hovered != value && Cursor == Cursors.Hand)
+        {
+            hovered = value;
+            Invalidate();
+        }
+    }
+
     protected override void OnLayout(LayoutEventArgs levent)
     {
         base.OnLayout(levent);
@@ -474,7 +640,7 @@ internal sealed class DeviceTile : Control
         g.SmoothingMode = SmoothingMode.AntiAlias;
         using (var path = Theme.RoundedRectangle(new RectangleF(0.5F, 0.5F, Width - 1.5F, Height - 1.5F), LogicalToDeviceUnits(14)))
         using (var fill = new SolidBrush(Theme.Raised))
-        using (var border = new Pen(Theme.Line))
+        using (var border = new Pen(hovered ? Color.FromArgb(140, Theme.Accent) : Theme.Line))
         {
             g.FillPath(fill, path);
             g.DrawPath(border, path);

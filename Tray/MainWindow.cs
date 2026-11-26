@@ -153,7 +153,6 @@ internal sealed class MainWindow : Form
             MultiSelect = true,
             OwnerDraw = true,
             Dock = DockStyle.Fill,
-            Height = 210,
             BackColor = Theme.Card,
             ForeColor = Theme.Text,
             BorderStyle = BorderStyle.None,
@@ -174,7 +173,12 @@ internal sealed class MainWindow : Form
         deviceList.MouseMove += (_, e) => SetHoveredRow(deviceList.HitTest(e.Location).Item?.Index ?? -1);
         deviceList.MouseLeave += (_, _) => SetHoveredRow(-1);
         deviceList.SelectedIndexChanged += (_, _) => UpdateDeviceButtons();
-        deviceList.HandleCreated += (_, _) => Theme.UseDarkScrollBars(deviceList);
+        deviceList.HandleCreated += (_, _) =>
+        {
+            Theme.UseDarkScrollBars(deviceList);
+            // Die Zeilen legt die ListView erst nach diesem Ereignis im Fenster an.
+            BeginInvoke(FitDeviceListHeight);
+        };
         // -2 füllt die letzte Spalte bis zum Rand, sonst bleibt dort ein heller Kopfzeilenrest.
         deviceList.Resize += (_, _) => deviceList.Columns[^1].Width = -2;
 
@@ -373,9 +377,14 @@ internal sealed class MainWindow : Form
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 20F),
             Text = title,
+            // Zeichnet ohne den Innenabstand, den WinForms großer Schrift links mitgibt - sonst stand
+            // der Titel sichtbar rechts von Untertitel und Karten.
+            FlatStyle = FlatStyle.System,
             Margin = new Padding(0)
         };
-        Theme.AddRows(layout, [heading, Theme.Hint(subtitle, 640), .. controls]);
+        var subtitleLabel = Theme.Hint(subtitle, 640);
+        subtitleLabel.Margin = new Padding(0, 0, 0, 16);
+        Theme.AddRows(layout, [heading, subtitleLabel, .. controls]);
         scrollPanel.Controls.Add(layout);
         scrollPanel.HandleCreated += (_, _) => Theme.UseDarkScrollBars(scrollPanel);
         return scrollPanel;
@@ -563,9 +572,22 @@ internal sealed class MainWindow : Form
         }
 
         deviceList.EndUpdate();
+        FitDeviceListHeight();
         deviceList.Columns[^1].Width = -2;
         shownDevicesKey = key;
         UpdateDeviceButtons();
+    }
+
+    // So hoch wie alle Zeilen: gescrollt wird die Seite, nicht zusätzlich die Liste darin.
+    private void FitDeviceListHeight()
+    {
+        if (!deviceList.IsHandleCreated || deviceList.Items.Count == 0)
+        {
+            return;
+        }
+
+        var firstRow = deviceList.GetItemRect(0);
+        deviceList.Height = firstRow.Top + deviceList.Items.Count * firstRow.Height + 1;
     }
 
     private List<PairedDeviceInfo> SelectedDevices() =>

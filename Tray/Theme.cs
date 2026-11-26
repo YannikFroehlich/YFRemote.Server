@@ -292,14 +292,22 @@ internal sealed class ToggleSwitch : CheckBox
         Margin = new Padding(0, 0, 0, 10);
     }
 
+    // Die Erklärung bricht an der Breite der Karte um; einzeilig gemessen lief sie rechts aus der Karte.
     public override Size GetPreferredSize(Size proposedSize)
     {
+        var textX = LogicalToDeviceUnits(52);
+        var width = proposedSize.Width is > 1 and < int.MaxValue / 2 ? proposedSize.Width
+            : Parent is null ? int.MaxValue / 2
+            : Parent.DisplayRectangle.Width - Margin.Horizontal;
         var title = TextRenderer.MeasureText(Text, titleFont);
-        var hint = TextRenderer.MeasureText(description, Font);
+        var hint = MeasureDescription(Math.Max(LogicalToDeviceUnits(120), width - textX));
         return new Size(
-            LogicalToDeviceUnits(52) + Math.Max(title.Width, hint.Width),
+            textX + Math.Max(title.Width, hint.Width),
             title.Height + hint.Height + LogicalToDeviceUnits(4));
     }
+
+    private Size MeasureDescription(int width) =>
+        TextRenderer.MeasureText(description, Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
 
     protected override void OnCheckedChanged(EventArgs e) { Invalidate(); base.OnCheckedChanged(e); }
     protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
@@ -328,7 +336,9 @@ internal sealed class ToggleSwitch : CheckBox
         var textX = LogicalToDeviceUnits(52);
         var titleHeight = TextRenderer.MeasureText(Text, titleFont).Height;
         TextRenderer.DrawText(g, Text, titleFont, new Point(textX, 0), Enabled ? Theme.Text : Theme.Disabled, TextFormatFlags.NoPrefix);
-        TextRenderer.DrawText(g, description, Font, new Point(textX, titleHeight + LogicalToDeviceUnits(2)), Theme.Muted, TextFormatFlags.NoPrefix);
+        var descriptionTop = titleHeight + LogicalToDeviceUnits(2);
+        TextRenderer.DrawText(g, description, Font, new Rectangle(textX, descriptionTop, Width - textX, Height - descriptionTop), Theme.Muted,
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
     }
 
     protected override void Dispose(bool disposing)

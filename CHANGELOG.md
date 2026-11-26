@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.73.0] - 2026-11-26
+
 ### Added
 
 - Device window of the desktop app: the screen view's own toolbar has a "Trennen" button, so the

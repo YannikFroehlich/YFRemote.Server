@@ -14,7 +14,6 @@ internal static class UserSettingsStore
     private const string EnabledPropertyName = "Enabled";
     private const string NotificationsSectionName = "Notifications";
     private const string WindowSectionName = "Window";
-    private const string PagePropertyName = "Page";
     private const string DeviceFullscreenPropertyName = "DeviceFullscreen";
 
     public static string FilePath => GetFilePath(
@@ -76,20 +75,6 @@ internal static class UserSettingsStore
         httpsSection[EnabledPropertyName] = enabled;
         Write(filePath, root);
     }
-
-    // Zuletzt geoeffnete Seite des Hauptfensters ("control", "pc", "settings").
-    public static string? GetWindowPage() => GetWindowPage(FilePath);
-
-    public static void SetWindowPage(string page) => SetWindowPage(FilePath, page);
-
-    internal static string? GetWindowPage(string filePath) =>
-        Read(filePath)[WindowSectionName] is JsonObject section
-        && section[PagePropertyName] is JsonValue value
-        && value.TryGetValue(out string? page)
-            ? page
-            : null;
-
-    internal static void SetWindowPage(string filePath, string page) => SetWindowValue(filePath, PagePropertyName, page);
 
     // Geraetefenster beim Verbinden im Vollbild; fehlt der Eintrag, gilt ja.
     public static bool GetDeviceFullscreen() => GetDeviceFullscreen(FilePath);

@@ -54,7 +54,7 @@ internal static class PinnedCertificate
     }
 }
 
-// Die Liste der Geraete unter "Steuern". Das Pairing-Token verwaltet der Web-Client selbst im
+// Die Liste der Geraete unter "Fernzugriff". Das Pairing-Token verwaltet der Web-Client selbst im
 // localStorage des WebView2, pro Origin wie im Browser - hier steht nur die Adresse.
 internal sealed class RemoteDeviceStore(string filePath)
 {

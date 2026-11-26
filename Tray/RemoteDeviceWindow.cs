@@ -19,7 +19,7 @@ internal sealed class RemoteDeviceWindow : Form
 
     private readonly RemoteDevice device;
     private readonly WebView2 webView;
-    private readonly FlowLayoutPanel toolbar;
+    private readonly TableLayoutPanel toolbar;
     private bool certificateWarningShown;
     private bool fullscreen;
     private Rectangle windowedBounds;
@@ -37,29 +37,36 @@ internal sealed class RemoteDeviceWindow : Form
 
         webView = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Theme.Background };
 
-        var nameLabel = new Label
+        // Schlanke Leiste wie bei Remotedesktop: links das Gerät, rechts Vollbild, Neu laden, Trennen.
+        var title = new Label
         {
             AutoSize = true,
-            Text = device.Name,
-            Font = new Font("Segoe UI Semibold", 10F),
-            Margin = new Padding(0, 10, 8, 0)
-        };
-        var addressLabel = new Label
-        {
-            AutoSize = true,
-            Text = device.Secure ? $"{new Uri(device.OpenUrl).Authority} · verschlüsselt" : device.Address,
+            Text = $"{device.Name}   {(device.Secure ? $"{new Uri(device.OpenUrl).Authority} · verschlüsselt" : device.Address)}",
             ForeColor = Theme.Muted,
-            Font = new Font("Consolas", 9.5F),
-            Margin = new Padding(0, 11, 16, 0)
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0)
         };
-        toolbar = MainWindow.Row(
-            nameLabel,
-            addressLabel,
-            new PillButton("Neu laden", ButtonKind.Secondary, () => webView.CoreWebView2?.Reload()) { Margin = new Padding(0, 4, 8, 4) },
-            new PillButton("Im Browser öffnen", ButtonKind.Secondary, () => OpenExternal(webView.Source ?? new Uri(device.OpenUrl))) { Margin = new Padding(0, 4, 0, 4) });
-        toolbar.Dock = DockStyle.Top;
-        toolbar.Padding = new Padding(14, 4, 14, 4);
-        toolbar.BackColor = Theme.Inset;
+        var buttons = MainWindow.Row(
+            ToolbarButton("Vollbild", ButtonKind.Secondary, () => webView.Source = ScreenUri(fullscreen: true)),
+            ToolbarButton("Neu laden", ButtonKind.Secondary, () => webView.CoreWebView2?.Reload()),
+            ToolbarButton("Trennen", ButtonKind.Danger, Close));
+        buttons.Dock = DockStyle.None;
+        buttons.WrapContents = false;
+        buttons.Anchor = AnchorStyles.Right;
+        toolbar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(12, 3, 8, 3),
+            BackColor = Theme.Inset
+        };
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        toolbar.Controls.Add(title, 0, 0);
+        toolbar.Controls.Add(buttons, 1, 0);
 
         // Fill zuerst: angedockt wird in umgekehrter Reihenfolge.
         Controls.Add(webView);
@@ -119,7 +126,7 @@ internal sealed class RemoteDeviceWindow : Form
             webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
             // Wie Remotedesktop: gleich der Bildschirm des Geraets. Ein Geraet ohne Bildschirmansicht
             // oder mit aelterem YFRemote uebergeht beides und zeigt die Fernbedienung.
-            webView.Source = new Uri($"{device.OpenUrl}/?view=screen{(UserSettingsStore.GetDeviceFullscreen() ? "&fullscreen=1" : string.Empty)}");
+            webView.Source = ScreenUri(UserSettingsStore.GetDeviceFullscreen());
         }
         catch (WebView2RuntimeNotFoundException)
         {
@@ -170,7 +177,7 @@ internal sealed class RemoteDeviceWindow : Form
                 this,
                 $"Das Zertifikat von {device.Name} stammt nicht von der Stelle, die sich YFRemote beim Hinzufügen gemerkt hat. "
                 + "Die Verbindung wurde deshalb abgebrochen.\n\nWurde YFRemote dort neu installiert, entferne das Gerät unter "
-                + "\"Steuern\" und füge es neu hinzu. Sonst könnte sich ein anderes Gerät im Netzwerk als dieses ausgeben.",
+                + "\"Fernzugriff\" und verbinde es neu. Sonst könnte sich ein anderes Gerät im Netzwerk als dieses ausgeben.",
                 "YFRemote",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning));
@@ -250,6 +257,14 @@ internal sealed class RemoteDeviceWindow : Form
             WindowState = windowedState;
         }
     }
+
+    // Das Vollbild schaltet die Bildschirmansicht selbst ein (und meldet es per WebMessage); von
+    // außen geht das nur über ein neues Laden mit fullscreen=1.
+    private Uri ScreenUri(bool fullscreen) =>
+        new($"{device.OpenUrl}/?view=screen{(fullscreen ? "&fullscreen=1" : string.Empty)}");
+
+    private static PillButton ToolbarButton(string text, ButtonKind kind, Action action) =>
+        new(text, kind, action) { Font = new Font("Segoe UI Semibold", 9F), Margin = new Padding(0, 0, 6, 0) };
 
     private bool IsDevice(Uri uri) =>
         string.Equals(uri.GetLeftPart(UriPartial.Authority), new Uri(device.OpenUrl).GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);

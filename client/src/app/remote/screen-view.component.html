@@ -151,6 +151,21 @@
       </svg>
       <span>{{ i18n.t('screen.fullscreen') }}</span>
     </button>
+    <!-- Nur im Geraetefenster der Desktop-App: im Vollbild ist dessen Leiste mit "Trennen" weg. -->
+    @if (inDesktopWindow) {
+      <button
+        class="snap-switch screen-view__disconnect"
+        type="button"
+        [attr.title]="i18n.t('screen.disconnectTitle')"
+        [attr.aria-label]="i18n.t('screen.disconnect')"
+        (click)="closeDesktopWindow()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path [attr.d]="iconPaths.disconnect"></path>
+        </svg>
+        <span>{{ i18n.t('screen.disconnect') }}</span>
+      </button>
+    }
   </div>
   @if (keyboardOpen()) {
     <!-- mousedown abgefangen: sonst verliert das Tastaturfeld den Fokus und die Tastatur geht zu. -->

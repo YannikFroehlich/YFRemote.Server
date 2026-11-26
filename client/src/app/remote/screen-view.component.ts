@@ -171,6 +171,7 @@ export class ScreenViewComponent implements OnDestroy {
         chrome?: { webview?: { postMessage(message: string): void } };
       } | null
     )?.chrome?.webview ?? null;
+  protected readonly inDesktopWindow = this.desktopWindow !== null;
   // Auf dem iPhone gibt es kein Element-Vollbild; dort fuellt die Ansicht per CSS den sichtbaren
   // Bereich (.screen-view--fullscreen), und fullscreen() steht fuer beides.
   protected readonly fullscreenSupported =
@@ -1424,6 +1425,11 @@ export class ScreenViewComponent implements OnDestroy {
     this.pressKey('ENTER');
     input.value = '';
     this.typedText = '';
+  }
+
+  // Das Geraetefenster schliesst sich darauf selbst; die Verbindung endet mit ihm.
+  protected closeDesktopWindow(): void {
+    this.desktopWindow?.postMessage('close');
   }
 
   protected async toggleFullscreen(): Promise<void> {

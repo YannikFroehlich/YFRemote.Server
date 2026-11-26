@@ -1245,6 +1245,10 @@ h2 {
   backdrop-filter: blur(6px);
 }
 
+.screen-view__toolbar .screen-view__disconnect {
+  color: var(--danger);
+}
+
 .screen-view:is(:fullscreen, .screen-view--fullscreen) .screen-view__quality {
   min-height: 42px;
   background: rgba(var(--overlay-rgb), 0.72);

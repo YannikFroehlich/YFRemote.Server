@@ -223,7 +223,15 @@ internal sealed class RemoteDeviceWindow : Form
 
         try
         {
-            SetFullscreen(args.TryGetWebMessageAsString() == "fullscreen");
+            var message = args.TryGetWebMessageAsString();
+            if (message == "close")
+            {
+                // "Trennen" in der Leiste der Bildschirmansicht - im Vollbild fehlt die des Fensters.
+                BeginInvoke(Close);
+                return;
+            }
+
+            SetFullscreen(message == "fullscreen");
         }
         catch (ArgumentException)
         {

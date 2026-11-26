@@ -713,4 +713,6 @@ on destroy of the view and on every navigation inside the device origin). Keys i
 the device, Esc included; Alt+Tab and Win stay local, since `keyboard.lock()` needs element
 fullscreen. The window's slim toolbar holds the device name and address plus "Vollbild" (reloads
 with `fullscreen=1`, the only way in from outside the page), "Neu laden" and "Trennen" (closes the
-window); "Im Browser öffnen" is in the device card's menu.
+window); "Im Browser öffnen" is in the device card's menu. Inside the window the screen view's own
+toolbar also shows "Trennen" (only when `window.chrome.webview` exists): it posts `close`, and
+`OnWebMessageReceived` closes the window - in fullscreen the window's toolbar is hidden.

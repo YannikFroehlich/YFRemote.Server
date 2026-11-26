@@ -1257,6 +1257,27 @@ describe('ScreenViewComponent', () => {
     }
   });
 
+  it('offers no "Trennen" in a browser', async () => {
+    const { fixture, element } = await setup(new Blob(['jpeg']));
+    expect(element.querySelector('[aria-label="Trennen"]')).toBeNull();
+    fixture.destroy();
+  });
+
+  it('lets "Trennen" close the desktop app window', async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal('chrome', { webview: { postMessage } });
+    try {
+      const { fixture, element } = await setup(new Blob(['jpeg']));
+
+      element.querySelector<HTMLElement>('[aria-label="Trennen"]')!.click();
+      expect(postMessage).toHaveBeenLastCalledWith('close');
+
+      fixture.destroy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   describe('in fullscreen', () => {
     const enterFullscreen = async (element: HTMLElement) => {
       const view = element.querySelector('.screen-view')!;

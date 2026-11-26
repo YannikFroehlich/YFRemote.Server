@@ -21,6 +21,12 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Added
+
+- Device window of the desktop app: the screen view's own toolbar has a "Trennen" button, so the
+  connection can be closed in fullscreen too, where the window's toolbar is hidden. It only shows
+  inside the desktop app.
+
 ## [2.72.0] - 2026-11-26
 
 ### Changed

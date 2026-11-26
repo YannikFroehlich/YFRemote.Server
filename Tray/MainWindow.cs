@@ -145,7 +145,7 @@ internal sealed class MainWindow : Form
         pinRow.Controls.Add(pinColumn, 0, 0);
         pinRow.Controls.Add(pinQrCode, 1, 0);
 
-        deviceList = new ListView
+        deviceList = new DeviceListView
         {
             View = View.Details,
             FullRowSelect = true,
@@ -474,8 +474,18 @@ internal sealed class MainWindow : Form
             return;
         }
 
+        // Nur die zwei betroffenen Zeilen neu zeichnen, nicht bei jeder Mausbewegung die ganze Liste.
+        InvalidateRow(hoveredRow);
         hoveredRow = index;
-        deviceList.Invalidate();
+        InvalidateRow(index);
+    }
+
+    private void InvalidateRow(int index)
+    {
+        if (index >= 0 && index < deviceList.Items.Count)
+        {
+            deviceList.Invalidate(deviceList.GetItemRect(index));
+        }
     }
 
     public void RefreshState()
@@ -657,6 +667,13 @@ internal sealed class MainWindow : Form
         row.Controls.AddRange(controls);
         return row;
     }
+}
+
+// Doppelt gepuffert: Selbst gezeichnet flackerte die Liste beim schnellen Darüberfahren, und
+// Zeilen standen kurz halb leer da, bis alle Spalten neu gezeichnet waren.
+internal sealed class DeviceListView : ListView
+{
+    public DeviceListView() => DoubleBuffered = true;
 }
 
 // Eintrag der Seitenleiste: Symbol aus "Segoe MDL2 Assets" (Windows 10 und 11), Name und rechts

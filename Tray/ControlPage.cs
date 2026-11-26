@@ -47,8 +47,10 @@ internal sealed class ControlPage : TableLayoutPanel
             + "Beim ersten Öffnen koppelst du es mit der PIN, die das Gerät anzeigt.", 640);
         foundStatusLabel = Theme.Hint(string.Empty, 640);
 
+        var actions = MainWindow.Row(searchButton, new PillButton("Gerät hinzufügen...", ButtonKind.Primary, AddManually));
+        actions.Margin = new Padding(0, 0, 0, 8);
         Theme.AddRows(this,
-            MainWindow.Row(searchButton, new PillButton("Gerät hinzufügen...", ButtonKind.Primary, AddManually)),
+            actions,
             new Card("Meine Geräte", savedEmptyLabel, savedTiles),
             new Card("Im Netzwerk gefunden", foundStatusLabel, foundTiles),
             Theme.Hint("Gefunden werden Geräte im selben Netzwerk, auf denen YFRemote läuft. Fehlt eins, über \"Gerät hinzufügen\" "
@@ -359,7 +361,25 @@ internal sealed class ControlPage : TableLayoutPanel
         _ => ""
     };
 
-    private static FlowLayoutPanel TileRow() => new()
+    // TableLayoutPanel misst mit Mindestbreite (1 Pixel bzw. eine Kachel): Die Höhe reichte dann für
+    // untereinander stehende Kacheln, und unter einer Zeile Kacheln blieb eine leere Fläche.
+    private sealed class TileFlow : FlowLayoutPanel
+    {
+        public override Size GetPreferredSize(Size proposedSize) =>
+            base.GetPreferredSize(new Size(Math.Max(proposedSize.Width, Width), proposedSize.Height));
+
+        // Mit der neuen Breite passen mehr oder weniger Kacheln in eine Zeile - dann neu messen lassen.
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            if (GetPreferredSize(Size.Empty).Height != Height)
+            {
+                Parent?.PerformLayout();
+            }
+        }
+    }
+
+    private static FlowLayoutPanel TileRow() => new TileFlow()
     {
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,

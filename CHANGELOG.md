@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- App window: the descriptions under the switches in "Einstellungen" wrap instead of running out of
+  the card, "Meine Geräte" on "Steuern" no longer leaves an empty row below the device cards, and
+  the list of paired devices on "Dieser PC" is as tall as its entries instead of scrolling inside
+  the scrolling page. Page titles line up with the cards below them.
+
 ## [2.71.0] - 2026-11-24
 
 ### Added

@@ -21,6 +21,15 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Changed
+
+- The app window is built around remote screen access: "Steuern" is now "Fernzugriff" and the window
+  always opens there. An address field at the top connects straight to an address or device name
+  (replacing the "Gerät hinzufügen..." dialog), a click anywhere on a device card opens its screen,
+  and devices found in the network connect with one click instead of "Hinzufügen" first. The device
+  window has a slim toolbar with "Vollbild", "Neu laden" and "Trennen"; "Im Browser öffnen" moved to
+  the device card's menu. The window no longer remembers the last page.
+
 ### Fixed
 
 - App window: the descriptions under the switches in "Einstellungen" wrap instead of running out of

@@ -35,27 +35,15 @@ public sealed class UserSettingsStoreTests
     }
 
     [TestMethod]
-    public void WindowPage_RoundTripsAndKeepsOtherEntries()
-    {
-        UserSettingsStore.SetHttpsEnabled(filePath, enabled: true);
-        Assert.IsNull(UserSettingsStore.GetWindowPage(filePath));
-
-        UserSettingsStore.SetWindowPage(filePath, "pc");
-
-        Assert.AreEqual("pc", UserSettingsStore.GetWindowPage(filePath));
-        Assert.IsTrue(ReadHttpsEnabled());
-    }
-
-    [TestMethod]
-    public void DeviceFullscreen_DefaultsToOnAndKeepsThePage()
+    public void DeviceFullscreen_DefaultsToOnAndKeepsOtherEntries()
     {
         Assert.IsTrue(UserSettingsStore.GetDeviceFullscreen(filePath));
-        UserSettingsStore.SetWindowPage(filePath, "control");
+        UserSettingsStore.SetHttpsEnabled(filePath, enabled: true);
 
         UserSettingsStore.SetDeviceFullscreen(filePath, enabled: false);
 
         Assert.IsFalse(UserSettingsStore.GetDeviceFullscreen(filePath));
-        Assert.AreEqual("control", UserSettingsStore.GetWindowPage(filePath));
+        Assert.IsTrue(ReadHttpsEnabled());
     }
 
     [TestMethod]

@@ -678,7 +678,10 @@ address is saved only after `/health` answered. Connecting a new device fetches 
 window opens, so the first connection is already encrypted. The whole device card is clickable.
 "Verbinden" starts a `RemoteDeviceWindow`: one window
 per device with the target's unchanged web client in WebView2 (`Microsoft.Web.WebView2`, Windows only;
-the WPF wrapper is removed in the project file because it caused a `WindowsBase` conflict). The
+the WPF wrapper is removed in the project file because it caused a `WindowsBase` conflict, and
+`PrivateAssets="buildtransitive"` keeps it out of the test project - `all` would drop
+`WebView2Loader.dll` from the `-r win-x64` publish, so the installed app crashed on "Verbinden"
+up to v2.73.0 while `dotnet run` worked). The
 client pairs itself, its token lives in the WebView2 profile `%LOCALAPPDATA%\YFRemote\WebView2` per
 origin. The environment marks the saved device origins as secure
 (`--unsafely-treat-insecure-origin-as-secure`), so the Clipboard API works over `http://<LAN-IP>`;

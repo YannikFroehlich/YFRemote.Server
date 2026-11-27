@@ -45,7 +45,10 @@
     <PackageReference Include="QRCoder" Version="1.8.1" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
     <PackageReference Include="Velopack" Version="1.2.161" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" PrivateAssets="all" />
+    <!-- Nur buildtransitive privat: haelt die WPF-Huelle aus dem Testprojekt (MSB3277). "all"
+         nimmt das Paket aus dem Publish, dann fehlt WebView2Loader.dll neben der EXE und das
+         Geraetefenster stuerzt im installierten Paket beim Oeffnen ab. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" PrivateAssets="buildtransitive" />
     <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="Vortice.MediaFoundation" Version="3.8.3" />

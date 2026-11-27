@@ -21,6 +21,8 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+## [2.73.1] - 2026-11-27
+
 ### Fixed
 
 - "Fernzugriff" in the installed app: "Verbinden" crashed the device window with "Unable to load DLL

@@ -145,7 +145,11 @@ internal sealed class RemoteDeviceWindow : Form
 
             Close();
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.Runtime.InteropServices.COMException)
+        // DllNotFoundException: WebView2Loader.dll fehlt im Paket (bis v2.73.0 passiert) - sonst
+        // kaeme der rohe WinForms-Absturzdialog, und die gemerkte, fehlgeschlagene Umgebung liesse
+        // jeden weiteren Versuch im selben Prozess genauso scheitern.
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException
+            or System.Runtime.InteropServices.COMException or DllNotFoundException)
         {
             environment = null;
             MessageDialog.Show(this, $"Das Gerätefenster konnte nicht geöffnet werden.\n\n{exception.Message}", "YFRemote",

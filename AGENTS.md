@@ -271,7 +271,9 @@ The workflow:
    come from that one commit, so they can no longer drift apart;
 2. runs `npm ci`, Client tests, the Client production build, and the Server tests;
 3. copies `client/dist/YFRemote.Client/browser/*` to `wwwroot`;
-4. publishes a self-contained `win-x64` Server build with the tag version;
+4. publishes a self-contained `win-x64` Server build with the tag version and fails if a file that
+   is only loaded at runtime (`WebView2Loader.dll`) is missing next to the exe - up to v2.73.0 it
+   was, which only showed in the installed app;
 5. creates `release-manifest.json` with the version and the repository SHA and includes
    it in the packaged application;
 6. downloads the previous release when available so Velopack can create a delta;

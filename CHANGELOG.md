@@ -21,6 +21,13 @@ date and starts a fresh empty `[Unreleased]` above it; it merges itself once its
 
 ## [Unreleased]
 
+### Fixed
+
+- "Fernzugriff": if the device window cannot load its WebView2 component, it now shows a message
+  "Das Gerätefenster konnte nicht geöffnet werden" and closes, instead of the Windows crash dialog,
+  and the next "Verbinden" tries again instead of failing the same way until YFRemote restarts. The
+  release build now also stops before publishing if that component is missing from the package.
+
 ## [2.73.1] - 2026-11-27
 
 ### Fixed

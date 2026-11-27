@@ -113,6 +113,19 @@ jobs:
           --output publish
           -p:Version=${{ steps.version.outputs.version }}
 
+      # Bis v2.73.0 fehlte WebView2Loader.dll neben der EXE (PrivateAssets="all"), und das fiel
+      # nur im installierten Paket auf - dotnet run hat sie. Dateien, die erst zur Laufzeit per
+      # P/Invoke geladen werden, deshalb hier pruefen, bevor etwas veroeffentlicht wird.
+      - name: Laufzeit-Dateien im Publish pruefen
+        shell: pwsh
+        run: |
+          $missing = @('YFRemote.Server.exe', 'WebView2Loader.dll') |
+            Where-Object { -not (Test-Path (Join-Path publish $_)) }
+          if ($missing) {
+            Write-Error "Im Publish-Ordner fehlt: $($missing -join ', ')"
+            exit 1
+          }
+
       - name: Release-Manifest erstellen
         shell: pwsh
         run: |
